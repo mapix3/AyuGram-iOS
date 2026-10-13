@@ -140,6 +140,17 @@ public extension TelegramEngine {
     }
 
     final class Peers {
+        public func ayuAccountServerPresence() -> Signal<EnginePeer.Presence?, NoError> {
+            return self.account.network.request(Api.functions.users.getUsers(id: [.inputUserSelf]))
+            |> map { users -> EnginePeer.Presence? in
+                guard let user = users.first, case let .user(data) = user, let status = data.status else { return nil }
+                if case .userStatusEmpty = status { return nil }
+                let presence = TelegramUserPresence(apiStatus: status)
+                return EnginePeer.Presence(presence)
+            }
+            |> `catch` { _ in .single(nil) }
+        }
+
         private let account: Account
 
         init(account: Account) {

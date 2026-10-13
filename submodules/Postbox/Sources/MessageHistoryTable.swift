@@ -347,7 +347,7 @@ final class MessageHistoryTable: Table {
                             self.timeBasedAttributesTable.set(tag: tag, id: message.id, timestamp: timestamp, operations: &timestampBasedMessageAttributesOperations)
                         }
                     }
-                    if self.seedConfiguration.chatMessagesNamespaces.contains(message.id.namespace) && !message.flags.intersection(.IsIncomingMask).isEmpty {
+                    if self.seedConfiguration.chatMessagesNamespaces.contains(message.id.namespace) && message.flags.ayuCountsAsIncoming {
                         accumulatedAddedIncomingMessageIndices.insert(message.index)
                     }
                 case let .InsertExistingMessage(storeMessage):
@@ -377,7 +377,7 @@ final class MessageHistoryTable: Table {
                             outputOperations.append(.UpdateGroupInfos(updatedGroupInfos))
                         }
                         
-                        if self.seedConfiguration.chatMessagesNamespaces.contains(message.id.namespace) && !message.flags.intersection(.IsIncomingMask).isEmpty {
+                        if self.seedConfiguration.chatMessagesNamespaces.contains(message.id.namespace) && message.flags.ayuCountsAsIncoming {
                             if index != message.index {
                                 accumulatedRemoveIndices.append(index)
                                 accumulatedAddedIncomingMessageIndices.insert(message.index)
@@ -655,7 +655,7 @@ final class MessageHistoryTable: Table {
         var topMessageId: (MessageId.Id, Bool)?
         if let index = self.topIndexEntry(peerId: messageId.peerId, namespace: messageId.namespace) {
             if let message = self.getMessage(index) {
-                topMessageId = (index.id.id, message.flags.intersection(.IsIncomingMask).isEmpty)
+                topMessageId = (index.id.id, !message.flags.ayuCountsAsIncoming)
             } else {
                 topMessageId = (index.id.id, false)
             }
@@ -715,11 +715,11 @@ final class MessageHistoryTable: Table {
         return messageIds
     }
     
-    func applyInteractiveMaxReadIndex(postbox: PostboxImpl, messageIndex: MessageIndex, operationsByPeerId: inout [PeerId: [MessageHistoryOperation]], updatedPeerReadStateOperations: inout [PeerId: PeerReadStateSynchronizationOperation?]) -> [MessageId] {
+    func applyInteractiveMaxReadIndex(postbox: PostboxImpl, messageIndex: MessageIndex, operationsByPeerId: inout [PeerId: [MessageHistoryOperation]], updatedPeerReadStateOperations: inout [PeerId: PeerReadStateSynchronizationOperation?], synchronize: Bool = true) -> [MessageId] {
         var topMessageId: (MessageId.Id, Bool)?
         if let index = self.topIndexEntry(peerId: messageIndex.id.peerId, namespace: messageIndex.id.namespace) {
             if let message = self.getMessage(index) {
-                topMessageId = (index.id.id, message.flags.intersection(.IsIncomingMask).isEmpty)
+                topMessageId = (index.id.id, !message.flags.ayuCountsAsIncoming)
             } else {
                 topMessageId = (index.id.id, false)
             }
@@ -745,11 +745,13 @@ final class MessageHistoryTable: Table {
             }
         }
         
-        switch result {
-            case let .Push(thenSync):
-                self.synchronizeReadStateTable.set(messageIndex.id.peerId, operation: .Push(state: self.readStateTable.getCombinedState(messageIndex.id.peerId), thenSync: thenSync), operations: &updatedPeerReadStateOperations)
-            case .None:
-                break
+        if synchronize {
+            switch result {
+                case let .Push(thenSync):
+                    self.synchronizeReadStateTable.set(messageIndex.id.peerId, operation: .Push(state: self.readStateTable.getCombinedState(messageIndex.id.peerId), thenSync: thenSync), operations: &updatedPeerReadStateOperations)
+                case .None:
+                    break
+            }
         }
         
         return messageIds
@@ -1549,6 +1551,9 @@ final class MessageHistoryTable: Table {
     
     private func justUpdate(_ index: MessageIndex, message: InternalStoreMessage, keepLocalTags: Bool, sharedKey: ValueBoxKey, sharedBuffer: WriteBuffer, sharedEncoder: PostboxEncoder, unsentMessageOperations: inout [IntermediateMessageHistoryUnsentOperation], updatedMessageTagSummaries: inout [MessageHistoryTagsSummaryKey: MessageHistoryTagNamespaceSummary], invalidateMessageTagSummaries: inout [InvalidatedMessageHistoryTagsSummaryEntryOperation], updatedGroupInfos: inout [MessageId: MessageGroupInfo], localTagsOperations: inout [IntermediateMessageHistoryLocalTagsOperation], timestampBasedMessageAttributesOperations: inout [TimestampBasedMessageAttributesOperation], updatedMedia: inout [MediaId: Media?]) -> (IntermediateMessage, MessageTags, Int64?)? {
         if let previousMessage = self.getMessage(index) {
+            if previousMessage.flags.contains(.AyuLocallyDeleted) && !message.flags.contains(.AyuLocallyDeleted) {
+                return (previousMessage, previousMessage.tags, previousMessage.threadId)
+            }
             var mediaToUpdate: [Media] = []
             
             var previousEmbeddedMediaWithIds: [(MediaId, Media)] = []
@@ -1608,7 +1613,13 @@ final class MessageHistoryTable: Table {
             }
             
             var updatedAttributes = message.attributes
+            for attribute in MessageHistoryTable.renderMessageAttributes(previousMessage) where attribute.retainedOnServerRefresh {
+                if !updatedAttributes.contains(where: { ObjectIdentifier(Swift.type(of: $0)) == ObjectIdentifier(Swift.type(of: attribute)) }) {
+                    updatedAttributes.append(attribute)
+                }
+            }
             self.seedConfiguration.mergeMessageAttributes(previousAttributes, &updatedAttributes)
+            self.seedConfiguration.mergeLocalMessageAttributes(message.text, previousAttributes, &updatedAttributes)
             
             self.valueBox.remove(self.table, key: self.key(index), secure: true)
             
@@ -3015,7 +3026,7 @@ final class MessageHistoryTable: Table {
             let key = self.key(index)
             if let value = self.valueBox.get(self.table, key: key) {
                 let entry = self.readIntermediateEntry(key, value: value)
-                if entry.message.id.namespace == namespace && !entry.message.flags.intersection(.IsIncomingMask).isEmpty {
+                if entry.message.id.namespace == namespace && entry.message.flags.ayuCountsAsIncoming {
                     count += 1
                 }
             } else {
@@ -3037,7 +3048,7 @@ final class MessageHistoryTable: Table {
         if fromIndex <= toIndex {
             self.valueBox.range(self.table, start: self.key(fromIndex).predecessor, end: self.key(toIndex).successor, values: { key, value in
                 let entry = self.readIntermediateEntry(key, value: value)
-                if entry.message.id.namespace == namespace && !entry.message.flags.intersection(.IsIncomingMask).isEmpty {
+                if entry.message.id.namespace == namespace && entry.message.flags.ayuCountsAsIncoming {
                     count += 1
                     messageIds.append(entry.message.id)
                 }
@@ -3056,7 +3067,7 @@ final class MessageHistoryTable: Table {
         var messageIds: [MessageId] = []
         self.valueBox.range(self.table, start: self.key(fromIndex).predecessor, end: self.key(toIndex).successor, values: { key, value in
             let entry = self.readIntermediateEntry(key, value: value)
-            if entry.message.flags.intersection(.IsIncomingMask).isEmpty {
+            if !entry.message.flags.ayuCountsAsIncoming {
                 messageIds.append(entry.message.id)
             }
             return true

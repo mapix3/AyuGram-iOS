@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import Postbox
 import SwiftSignalKit
@@ -14,6 +15,9 @@ public enum TogglePeerChatPinnedResult {
 
 func _internal_toggleItemPinned(postbox: Postbox, accountPeerId: PeerId, location: TogglePeerChatPinnedLocation, itemId: PinnedItemId) -> Signal<TogglePeerChatPinnedResult, NoError> {
     return postbox.transaction { transaction -> TogglePeerChatPinnedResult in
+        if case .group(.root) = location, AyuGramSettings.shared.client.pinnedChatLimit > 5 {
+            transaction.ayuEnableLocalRootPins()
+        }
         let isPremium = transaction.getPeer(accountPeerId)?.isPremium ?? false
         
         let appConfiguration = transaction.getPreferencesEntry(key: PreferencesKeys.appConfiguration)?.get(AppConfiguration.self) ?? .defaultValue
@@ -51,14 +55,14 @@ func _internal_toggleItemPinned(postbox: Postbox, accountPeerId: PeerId, locatio
             
             let limitCount: Int
             if case .root = groupId {
-                limitCount = Int(userLimitsConfiguration.maxPinnedChatCount)
+                limitCount = transaction.ayuHasLocalRootPins ? Int(AyuGramSettings.shared.client.pinnedChatLimit) : Int(userLimitsConfiguration.maxPinnedChatCount)
             } else {
                 limitCount = Int(userLimitsConfiguration.maxArchivedPinnedChatCount)
             }
             
-            let count = sameKind.count + additionalCount
+            let count = (groupId == .root && transaction.ayuHasLocalRootPins ? itemIds.count : sameKind.count) + additionalCount
             if count > limitCount, itemIds.firstIndex(of: itemId) == nil {
-                return .limitExceeded(count: sameKind.count, limit: limitCount)
+                return .limitExceeded(count: itemIds.count, limit: limitCount)
             } else {
                 if let index = itemIds.firstIndex(of: itemId) {
                     itemIds.remove(at: index)

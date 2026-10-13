@@ -270,6 +270,8 @@ public final class AccountContextImpl: AccountContext {
     
     public private(set) var isPremium: Bool
     
+    private var ayuProfileObserver: NSObjectProtocol?
+    private var ayuProfileForegroundDisposable: Disposable?
     private var isFrozenDisposable: Disposable?
     public private(set) var isFrozen: Bool
     
@@ -505,6 +507,19 @@ public final class AccountContextImpl: AccountContext {
             }
             (self.animationRenderer as? DCTMultiAnimationRendererImpl)?.useYuvA = settings.compressedEmojiCache
         })
+        self.ayuProfileForegroundDisposable = (sharedContext.applicationBindings.applicationInForeground
+        |> deliverOnMainQueue).start(next: { active in AyuGramClientBadges.shared.setForeground(active) })
+        self.ayuProfileObserver = NotificationCenter.default.addObserver(forName: AyuGramClientBadges.didChange, object: nil, queue: .main) { [weak self] notification in
+            guard let self, let ids = notification.userInfo?["peerIds"] as? [Int64], !ids.isEmpty else { return }
+            let _ = self.account.postbox.transaction { transaction -> Void in
+                for id in ids where id > 0 {
+                    let peerId = PeerId(namespace: Namespaces.Peer.CloudUser, id: PeerId.Id._internalFromInt64Value(id))
+                    if let peer = transaction.getPeer(peerId) as? TelegramUser {
+                        transaction.updatePeersInternal([peer.withUpdatedFlags(peer.flags)], update: { _, updated in updated })
+                    }
+                }
+            }.start()
+        }
     }
     
     deinit {
@@ -518,6 +533,8 @@ public final class AccountContextImpl: AccountContext {
         self.userLimitsConfigurationDisposable?.dispose()
         self.peerNameColorsConfigurationDisposable?.dispose()
         self.isFrozenDisposable?.dispose()
+        self.ayuProfileForegroundDisposable?.dispose()
+        if let observer = self.ayuProfileObserver { NotificationCenter.default.removeObserver(observer) }
     }
     
     public func storeSecureIdPassword(password: String) {

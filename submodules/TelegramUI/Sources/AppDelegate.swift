@@ -9,8 +9,10 @@ import SGActionRequestHandlerSanitizer
 import SGGHSettings
 import SGAPIWebSettings
 import SGLogging
+import SGAppGroupIdentifier
 import SGStrings
 import SGSimpleSettings
+import SGSettingsUI
 import UIKit
 import SwiftSignalKit
 import Display
@@ -303,7 +305,10 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         let appGroupName = "group.\(baseAppBundleId)"
 
         let configuration = URLSessionConfiguration.background(withIdentifier: identifier)
-        configuration.sharedContainerIdentifier = appGroupName
+        // Without the app group entitlement (sideloaded installs) the shared container does not exist.
+        if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName) != nil {
+            configuration.sharedContainerIdentifier = appGroupName
+        }
         configuration.isDiscretionary = false
         let session = URLSession(configuration: configuration, delegate: self, delegateQueue: .main)
         self.urlSessions.append(session)
@@ -547,7 +552,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         
         let baseAppBundleId = Bundle.main.bundleIdentifier!
         let appGroupName = "group.\(baseAppBundleId)"
-        let maybeAppGroupUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName)
+        let maybeAppGroupUrl = sgAppGroupContainerURL(appGroupName)
         
         let buildConfig = BuildConfig(baseAppBundleId: baseAppBundleId)
         self.buildConfig = buildConfig
@@ -987,7 +992,10 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                 
                 // MARK: Swiftgram
                 icons = [
-                    PresentationAppIcon(name: "SGDefault", imageName: "SGDefault", isDefault: true),
+                    PresentationAppIcon(name: "AyuClassic", imageName: "AyuClassic", isDefault: true),
+                    PresentationAppIcon(name: "AyuPurple", imageName: "AyuPurple"),
+                    PresentationAppIcon(name: "AyuRed", imageName: "AyuRed"),
+                    PresentationAppIcon(name: "SGDefault", imageName: "SGDefault"),
                     PresentationAppIcon(name: "SGBlack", imageName: "SGBlack"),
                     PresentationAppIcon(name: "SGLegacy", imageName: "SGLegacy"),
                     PresentationAppIcon(name: "SGInverted", imageName: "SGInverted"),
@@ -1015,16 +1023,21 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             }
         }, getAlternateIconName: {
             if #available(iOS 10.3, *) {
-                return application.alternateIconName
+                return AyuGramIconSettings.selectedName ?? application.alternateIconName
             } else {
                 return nil
             }
         }, requestSetAlternateIconName: { name, completion in
+            AyuGramIconSettings.select(name)
+            NotificationCenter.default.post(name: Notification.Name("AyuGram.AppIcon.didChange"), object: nil)
+            guard application.supportsAlternateIcons else { completion(false); return }
             application.setAlternateIconName(name, completionHandler: { error in
                 if let error = error {
                    Logger.shared.log("App \(self.episodeId)", "failed to set alternate icon with error \(error.localizedDescription)")
                 }
-                completion(error == nil)
+                DispatchQueue.main.async {
+                    completion(error == nil)
+                }
             })
         }, forceOrientation: { orientation in
             let value = orientation.rawValue
@@ -1386,6 +1399,8 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                         print("Application: context took \(readyTime) to become ready")
                     }
                     print("Launch to ready took \((CFAbsoluteTimeGetCurrent() - launchStartTime) * 1000.0) ms")
+                    // AyuGram: offer a newer build once the interface is up.
+                    ayuGramPresentUpdateIfNeeded(context: context.context)
 
                     self.mainWindow.debugAction = nil
                     self.mainWindow.viewController = context.rootController

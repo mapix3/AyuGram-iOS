@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import TelegramApi
 import Postbox
@@ -117,6 +118,7 @@ private enum GetUnseenIdsError {
 }
 
 private func synchronizeMarkAllUnseen(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, peerId: PeerId, operation: SynchronizeMarkAllUnseenPersonalMessagesOperation) -> Signal<Void, NoError> {
+    guard !AyuGramSettings.shared.snapshot.suppressRead else { return .complete() }
     guard let inputPeer = transaction.getPeer(peerId).flatMap(apiInputPeer) else {
         return .complete()
     }
@@ -210,6 +212,10 @@ private func synchronizeMarkAllUnseen(transaction: Transaction, postbox: Postbox
 }
 
 func markUnseenPersonalMessage(transaction: Transaction, id: MessageId, addSynchronizeAction: Bool) {
+    if AyuGramSettings.shared.snapshot.suppressRead {
+        ayuConsumeMentionLocally(transaction: transaction, id: id)
+        return
+    }
     if let message = transaction.getMessage(id) {
         var consume = false
         inner: for attribute in message.attributes {
@@ -284,6 +290,7 @@ func managedSynchronizeMarkAllUnseenReactionsOperations(postbox: Postbox, networ
 }
 
 private func synchronizeMarkAllUnseenReactions(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, peerId: PeerId, operation: SynchronizeMarkAllUnseenReactionsOperation) -> Signal<Void, NoError> {
+    guard !AyuGramSettings.shared.snapshot.suppressRead else { return .complete() }
     guard let peer = transaction.getPeer(peerId) else {
         return .complete()
     }
@@ -380,6 +387,7 @@ func managedSynchronizeMarkAllUnseenPollVotesOperations(postbox: Postbox, networ
 }
 
 private func synchronizeMarkAllUnseenPollVotes(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, peerId: PeerId, operation: SynchronizeMarkAllUnseenReactionsOperation) -> Signal<Void, NoError> {
+    guard !AyuGramSettings.shared.snapshot.suppressRead else { return .complete() }
     guard let peer = transaction.getPeer(peerId) else {
         return .complete()
     }

@@ -862,11 +862,13 @@ private func validateBatch(postbox: Postbox, network: Network, transaction: Tran
                 |> mapToSignal { removedMessageIds -> Signal<Void, NoError> in
                     return postbox.transaction { transaction -> Void in
                         var validMessageIds = Set<MessageId>()
-                        for message in storeMessages {
+                        for var message in storeMessages {
                             if case let .Id(id) = message.id {
                                 validMessageIds.insert(id)
                                 let previousMessage = previous[id] ?? transaction.getMessage(id)
                                 
+                                let ayuEdit = ayuGramRecordEdit(transaction: transaction, mediaBox: postbox.mediaBox, id: id, updated: message)
+                                if let ayuEdit { message = message.withUpdatedAttributes(message.attributes + [ayuEdit]) }
                                 if let previousMessage = previousMessage {
                                     var updatedTimestamp = message.timestamp
                                     inner: for attribute in message.attributes {
@@ -885,7 +887,7 @@ private func validateBatch(postbox: Postbox, network: Network, transaction: Tran
                                     }
                                     
                                     transaction.updateMessage(id, update: { currentMessage in
-                                        if updatedTimestamp != timestamp {
+                                        if updatedTimestamp != timestamp || previousMessage.text != message.text || !areMediaArraysEqual(previousMessage.media, message.media) {
                                             var updatedLocalTags = message.localTags
                                             if currentMessage.localTags.contains(.OutgoingLiveLocation) {
                                                 updatedLocalTags.insert(.OutgoingLiveLocation)
@@ -984,7 +986,7 @@ private func validateBatch(postbox: Postbox, network: Network, transaction: Tran
                                         return .update(StoreMessage(id: currentMessage.id, customStableId: nil, globallyUniqueId: currentMessage.globallyUniqueId, groupingKey: currentMessage.groupingKey, threadId: currentMessage.threadId, timestamp: currentMessage.timestamp, flags: StoreMessageFlags(currentMessage.flags), tags: updatedTags, globalTags: currentMessage.globalTags, localTags: currentMessage.localTags, forwardInfo: storeForwardInfo, authorId: currentMessage.author?.id, text: currentMessage.text, attributes: attributes, media: currentMessage.media))
                                     })
                                 } else {
-                                    _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [id])
+                                    ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [id])
                                     Logger.shared.log("HistoryValidation", "deleting message \(id) in \(id.peerId)")
                                 }
                             }
@@ -1167,7 +1169,7 @@ private func validateReplyThreadBatch(postbox: Postbox, network: Network, transa
                 
                     for id in removedMessageIds {
                         if !validMessageIds.contains(id) {
-                            _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [id])
+                            ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [id])
                             Logger.shared.log("HistoryValidation", "deleting thread message \(id) in \(id.peerId)")
                         }
                     }

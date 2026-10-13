@@ -2166,7 +2166,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                         }
                     } else if case let .cachedPeerData(_, cachedData) = entry, let cachedUserData = cachedData as? CachedUserData {
                         if !isCopyProtectionEnabled {
-                            isCopyProtectionEnabled = cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled)
+                            isCopyProtectionEnabled = !ayuGramIgnoresCopyProtection() && (cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled))
                         }
                     }
                 }
@@ -2975,7 +2975,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                         var hasUnconsumedContent = false
                         if message.tags.contains(.unseenPersonalMessage) {
                             for attribute in message.attributes {
-                                if let attribute = attribute as? ConsumablePersonalMentionMessageAttribute, !attribute.pending {
+                                if let attribute = attribute as? ConsumablePersonalMentionMessageAttribute, !attribute.pending || AyuGramSettings.shared.snapshot.suppressRead {
                                     hasUnconsumedMention = true
                                 }
                             }
@@ -3101,7 +3101,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                             var factCheckRequired = false
                             if message.tags.contains(.unseenPersonalMessage) {
                                 for attribute in message.attributes {
-                                    if let attribute = attribute as? ConsumablePersonalMentionMessageAttribute, !attribute.pending {
+                                    if let attribute = attribute as? ConsumablePersonalMentionMessageAttribute, !attribute.pending || AyuGramSettings.shared.snapshot.suppressRead {
                                         hasUnconsumedMention = true
                                     }
                                 }

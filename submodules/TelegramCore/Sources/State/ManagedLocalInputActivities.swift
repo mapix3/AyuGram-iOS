@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import Postbox
 import SwiftSignalKit
@@ -143,6 +144,19 @@ private func actionFromActivity(_ activity: PeerInputActivity?) -> Api.SendMessa
 
 private func requestActivity(postbox: Postbox, network: Network, accountPeerId: PeerId, peerId: PeerId, threadId: Int64?, activity: PeerInputActivity?) -> Signal<Void, NoError> {
     return postbox.transaction { transaction -> Signal<Void, NoError> in
+        let privacy = AyuGramSettings.shared.snapshot
+        if let activity = activity {
+            switch activity {
+            case .typingText, .choosingSticker, .playingGame, .interactingWithEmoji, .seeingEmojiInteraction:
+                if privacy.suppressTyping { return .complete() }
+            case .recordingVoice, .recordingInstantVideo:
+                if privacy.suppressRecording { return .complete() }
+            case .uploadingFile, .uploadingPhoto, .uploadingVideo, .uploadingInstantVideo:
+                if privacy.suppressUploading { return .complete() }
+            case .speakingInGroupCall:
+                break
+            }
+        }
         if let peer = transaction.getPeer(peerId) {
             if peerId == accountPeerId {
                 return .complete()

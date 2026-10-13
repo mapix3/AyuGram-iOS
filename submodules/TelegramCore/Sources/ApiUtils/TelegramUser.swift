@@ -352,7 +352,7 @@ extension TelegramUser {
 
             let botInfo: BotUserInfo? = rhs.botInfo
             
-            let emojiStatus = rhs.emojiStatus
+            let emojiStatus = rhs.ayuServerEmojiStatus
             
             let restrictionInfo: PeerAccessRestrictionInfo? = rhs.restrictionInfo
             
