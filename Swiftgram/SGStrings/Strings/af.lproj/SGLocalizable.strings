@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Maak geskiedenis skoon";
 "Ayu.EmptyHistory" = "Nog geen geskiedenis nie";
 "Ayu.SaveMedia" = "Stoor gekaste media";
+"Ayu.BackgroundDimming" = "Agtergrondverdonkering";
 "Ayu.BeforeEdit" = "Voor wysiging";
 "Ayu.Deleted" = "Geskrap";
 "Ayu.ServerPresence" = "Op die bediener: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Slegs gekose geselsies. Gekaste foto's en teks: 30 dae, tot 200 inskrywings. Geen geheime of verdwynende boodskappe nie.";
 "Ayu.ReadWarning" = "Stuur 'n leesbewys vir die geselsie tot by hierdie boodskap?";
 "Ayu.ViewWarning" = "Bevestig die kyk en begin die tydhouer vir verdwynende media?";
+
+"Ayu.RowOpacity" = "Ondeursigtigheid van geselsrye";
+"Ayu.MediaImportError" = "Kan nie lêer invoer nie. Maksimum: 100 MB.";

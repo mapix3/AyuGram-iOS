@@ -526,7 +526,7 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
         
         super.init()
         
-        self.backgroundColor = presentationData.theme.chatList.backgroundColor
+        self.backgroundColor = AyuGramAppearance.shared.showsChatList ? .clear : presentationData.theme.chatList.backgroundColor
         
         let itemNode = ChatListContainerItemNode(context: self.context, controller: self.controller, location: self.location, filter: nil, chatListMode: chatListMode, previewing: self.previewing, isInlineMode: self.isInlineMode, controlsHistoryPreload: self.controlsHistoryPreload, presentationData: presentationData, animationCache: self.animationCache, animationRenderer: self.animationRenderer, becameEmpty: { [weak self] filter in
             self?.filterBecameEmpty(filter)
@@ -791,7 +791,7 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
             if let _ = validLayout.inlineNavigationLocation {
                 self.backgroundColor = self.presentationData.theme.chatList.backgroundColor.mixedWith(self.presentationData.theme.chatList.pinnedItemBackgroundColor, alpha: validLayout.inlineNavigationTransitionFraction)
             } else {
-                self.backgroundColor = self.presentationData.theme.chatList.backgroundColor
+                self.backgroundColor = AyuGramAppearance.shared.showsChatList ? .clear : self.presentationData.theme.chatList.backgroundColor
             }
         }
         
@@ -799,6 +799,10 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
         
         for (_, itemNode) in self.itemNodes {
             itemNode.updatePresentationData(presentationData)
+            itemNode.listNode.updateAyuGramAppearance()
+            itemNode.listNode.forEachItemNode { node in
+                (node as? ChatListItemNode)?.updateAyuGramAppearance()
+            }
         }
     }
     
@@ -1034,7 +1038,7 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
         if let _ = inlineNavigationLocation {
             transition.updateBackgroundColor(node: self, color: self.presentationData.theme.chatList.backgroundColor.mixedWith(self.presentationData.theme.chatList.pinnedItemBackgroundColor, alpha: inlineNavigationTransitionFraction))
         } else {
-            transition.updateBackgroundColor(node: self, color: self.presentationData.theme.chatList.backgroundColor)
+            transition.updateBackgroundColor(node: self, color: AyuGramAppearance.shared.showsChatList ? .clear : self.presentationData.theme.chatList.backgroundColor)
         }
         
         self.panRecognizer?.isEnabled = !isEditing
@@ -1125,6 +1129,8 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
 }
 
 final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
+    private var ayuBackdrop: AyuGramBackdropView?
+
     private let context: AccountContext
     private let location: ChatListControllerLocation
     private var presentationData: PresentationData
@@ -1222,7 +1228,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
             return UITracingLayerView()
         })
         
-        self.backgroundColor = presentationData.theme.chatList.backgroundColor
+        self.backgroundColor = AyuGramAppearance.shared.showsChatList ? .clear : presentationData.theme.chatList.backgroundColor
         
         self.addSubnode(self.mainContainerNode)
         
@@ -1330,6 +1336,22 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     
     override func didLoad() {
         super.didLoad()
+        let backdrop = AyuGramBackdropView(scope: .chatList)
+        backdrop.frame = self.bounds
+        backdrop.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        backdrop.overlayColor = self.presentationData.theme.chatList.backgroundColor
+        backdrop.rowTint = self.presentationData.theme.chatList.itemBackgroundColor
+        self.ayuBackdrop = backdrop
+        backdrop.visibilityChanged = { [weak self] enabled in
+            guard let self else { return }
+            self.mainContainerNode.backgroundColor = enabled ? .clear : self.presentationData.theme.chatList.backgroundColor
+            self.mainContainerNode.updatePresentationData(self.presentationData)
+            if let layout = self.containerLayout?.layout {
+                let _ = self.updateNavigationBar(layout: layout, deferScrollApplication: false, transition: .immediate)
+            }
+        }
+        self.view.insertSubview(backdrop, at: 0)
+        backdrop.reload()
         
         let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.tapGesture(_:)))
         self.tapRecognizer = tapRecognizer
@@ -1408,8 +1430,10 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     
     func updatePresentationData(_ presentationData: PresentationData) {
         self.presentationData = presentationData
+        self.ayuBackdrop?.overlayColor = presentationData.theme.chatList.backgroundColor
+        self.ayuBackdrop?.rowTint = presentationData.theme.chatList.itemBackgroundColor
         
-        self.backgroundColor = self.presentationData.theme.chatList.backgroundColor
+        self.backgroundColor = AyuGramAppearance.shared.showsChatList ? .clear : self.presentationData.theme.chatList.backgroundColor
         
         self.mainContainerNode.updatePresentationData(presentationData)
         self.inlineStackContainerNode?.updatePresentationData(presentationData)
@@ -1699,6 +1723,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
                 tabsNodeIsSearch: false,
                 accessoryPanelContainer: self.controller?.accessoryPanelContainer,
                 accessoryPanelContainerHeight: self.controller?.accessoryPanelContainerHeight ?? 0.0,
+                hasEdgeEffect: !AyuGramAppearance.shared.showsChatList || self.isSearchDisplayControllerActive != nil,
                 activateSearch: { [weak self] searchContentNode in
                     guard let self, let controller = self.controller else {
                         return
@@ -1839,6 +1864,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     }
     
     func containerLayoutUpdated(_ layout: ContainerViewLayout, navigationBarHeight: CGFloat, visualNavigationHeight: CGFloat, cleanNavigationBarHeight: CGFloat, storiesInset: CGFloat, transition: ContainedViewLayoutTransition) {
+        self.ayuBackdrop?.frame = CGRect(origin: .zero, size: layout.size)
         var navigationBarHeight = navigationBarHeight
         var visualNavigationHeight = visualNavigationHeight
         var cleanNavigationBarHeight = cleanNavigationBarHeight

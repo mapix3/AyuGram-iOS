@@ -39,6 +39,7 @@ public final class ThemeGridController: ViewController {
     private let context: AccountContext
     private let mode: Mode
     private let forceEdit: Bool
+    private let openCustomAppearance: (() -> ViewController)?
     
     private var presentationData: PresentationData
     private let presentationDataPromise = Promise<PresentationData>()
@@ -57,10 +58,11 @@ public final class ThemeGridController: ViewController {
     
     public var completion: (WallpaperSelectionResult) -> Void = { _ in }
     
-    public init(context: AccountContext, mode: Mode = .generic, forceEdit: Bool = false) {
+    public init(context: AccountContext, mode: Mode = .generic, forceEdit: Bool = false, openCustomAppearance: (() -> ViewController)? = nil) {
         self.context = context
         self.mode = mode
         self.forceEdit = forceEdit
+        self.openCustomAppearance = openCustomAppearance
         
         self.presentationData = context.sharedContext.currentPresentationData.with { $0 }
         self.presentationDataPromise.set(.single(self.presentationData))
@@ -383,6 +385,9 @@ public final class ThemeGridController: ViewController {
             if let strongSelf = self {
                 let _ = (strongSelf.navigationController as? NavigationController)?.popViewController(animated: true)
             }
+        }, openCustomAppearance: self.openCustomAppearance == nil ? nil : { [weak self] in
+            guard let self, let controller = self.openCustomAppearance?() else { return }
+            (self.navigationController as? NavigationController)?.pushViewController(controller)
         })
         self.controllerNode.navigationBar = self.navigationBar
         self.controllerNode.requestWallpaperRemoval = { [weak self] in

@@ -312,6 +312,7 @@
 "Ayu.ClearHistory" = "履歴を消去";
 "Ayu.EmptyHistory" = "履歴はまだありません";
 "Ayu.SaveMedia" = "キャッシュ済みメディアを保存";
+"Ayu.BackgroundDimming" = "背景の暗さ";
 "Ayu.BeforeEdit" = "編集前";
 "Ayu.Deleted" = "削除済み";
 "Ayu.ServerPresence" = "サーバー上：%@";
@@ -330,3 +331,6 @@
 "Ayu.HistoryInfo" = "選択したチャットのみ。キャッシュされた写真とテキストを30日間、最大200件保存。秘密・消えるメッセージは対象外。";
 "Ayu.ReadWarning" = "このメッセージまでの既読通知を送信しますか？";
 "Ayu.ViewWarning" = "閲覧通知を送信し、消えるメディアのタイマーを開始しますか？";
+
+"Ayu.RowOpacity" = "チャット行の不透明度";
+"Ayu.MediaImportError" = "ファイルを読み込めません。最大100 MBです。";

@@ -315,6 +315,7 @@
 "Ayu.ClearHistory" = "清空历史";
 "Ayu.EmptyHistory" = "暂无历史记录";
 "Ayu.SaveMedia" = "保存已缓存的媒体";
+"Ayu.BackgroundDimming" = "背景变暗";
 "Ayu.BeforeEdit" = "编辑前";
 "Ayu.Deleted" = "已删除";
 "Ayu.ServerPresence" = "服务器上：%@";
@@ -333,3 +334,6 @@
 "Ayu.HistoryInfo" = "仅限所选聊天。缓存照片和文字保留30天，最多200条。不包括秘密聊天和阅后即焚消息。";
 "Ayu.ReadWarning" = "发送此聊天截至这条消息的已读回执？";
 "Ayu.ViewWarning" = "发送浏览回执并启动阅后即焚媒体计时器？";
+
+"Ayu.RowOpacity" = "聊天行不透明度";
+"Ayu.MediaImportError" = "无法导入文件。最大100 MB。";

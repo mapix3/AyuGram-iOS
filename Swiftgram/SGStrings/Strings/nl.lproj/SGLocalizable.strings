@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Geschiedenis wissen";
 "Ayu.EmptyHistory" = "Nog geen geschiedenis";
 "Ayu.SaveMedia" = "Media uit de cache opslaan";
+"Ayu.BackgroundDimming" = "Achtergrond dimmen";
 "Ayu.BeforeEdit" = "Voor bewerking";
 "Ayu.Deleted" = "Verwijderd";
 "Ayu.ServerPresence" = "Op de server: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Alleen geselecteerde chats. Foto's in cache en tekst: 30 dagen, maximaal 200 items. Geen geheime of verdwijnende berichten.";
 "Ayu.ReadWarning" = "Leesbevestiging voor deze chat tot dit bericht versturen?";
 "Ayu.ViewWarning" = "Weergave bevestigen en de timer voor verdwijnende media starten?";
+
+"Ayu.RowOpacity" = "Dekking van chatrijen";
+"Ayu.MediaImportError" = "Kan bestand niet importeren. Maximaal 100 MB.";

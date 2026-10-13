@@ -1377,6 +1377,22 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
         }
     }
     
+    public func updateAyuGramAppearance() {
+        guard let item else { return }
+        let theme = item.presentationData.theme.chatList
+        if case let .peer(peerData) = item.content, peerData.customMessageListData != nil {
+            backgroundNode.backgroundColor = item.selected ? theme.itemSelectedBackgroundColor : .clear
+        } else if AyuGramAppearance.shared.showsChatList {
+            // The backdrop applies the row shade to the whole screen; rows stay transparent.
+            backgroundNode.backgroundColor = item.selected ? theme.itemSelectedBackgroundColor.withAlphaComponent(CGFloat(AyuGramAppearance.shared.settings.rowOpacity)) : .clear
+        } else if item.selected {
+            backgroundNode.backgroundColor = theme.itemSelectedBackgroundColor
+        } else if item.isPinned {
+            if case let .groupReference(data) = item.content, data.hiddenByDefault {
+                backgroundNode.backgroundColor = data.appearsPinned ? theme.pinnedItemBackgroundColor : theme.itemBackgroundColor
+            } else { backgroundNode.backgroundColor = theme.pinnedItemBackgroundColor }
+        } else { backgroundNode.backgroundColor = .clear }
+    }
     public private(set) var item: ChatListItem?
     
     private let backgroundNode: ASDisplayNode
@@ -5470,7 +5486,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                     }
                     
                     transition.updateFrame(node: strongSelf.backgroundNode, frame: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: CGSize(width: layout.contentSize.width, height: itemHeight)))
-                    let backgroundColor: UIColor
+                    var backgroundColor: UIColor
                     let highlightedBackgroundColor: UIColor
                     if item.selected {
                         backgroundColor = theme.itemSelectedBackgroundColor
@@ -5493,6 +5509,14 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                         highlightedBackgroundColor = theme.itemHighlightedBackgroundColor
                     }
                     
+                    var usesCustomBackdrop = AyuGramAppearance.shared.showsChatList
+                    if case let .peer(peerData) = item.content, peerData.customMessageListData != nil {
+                        usesCustomBackdrop = false
+                        if !item.selected { backgroundColor = .clear }
+                    }
+                    if usesCustomBackdrop {
+                        backgroundColor = item.selected ? theme.itemSelectedBackgroundColor.withAlphaComponent(CGFloat(AyuGramAppearance.shared.settings.rowOpacity)) : .clear
+                    }
                     if animated {
                         transition.updateBackgroundColor(node: strongSelf.backgroundNode, color: backgroundColor)
                     } else {

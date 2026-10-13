@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Xóa lịch sử";
 "Ayu.EmptyHistory" = "Chưa có lịch sử";
 "Ayu.SaveMedia" = "Lưu nội dung trong bộ nhớ đệm";
+"Ayu.BackgroundDimming" = "Làm tối nền";
 "Ayu.BeforeEdit" = "Trước khi sửa";
 "Ayu.Deleted" = "Đã xóa";
 "Ayu.ServerPresence" = "Trên máy chủ: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Chỉ các cuộc trò chuyện đã chọn. Ảnh được lưu đệm và văn bản: 30 ngày, tối đa 200 mục. Không gồm tin nhắn bí mật và tự hủy.";
 "Ayu.ReadWarning" = "Gửi xác nhận đã đọc cuộc trò chuyện đến tin nhắn này?";
 "Ayu.ViewWarning" = "Gửi xác nhận đã xem và bắt đầu bộ đếm cho nội dung tự hủy?";
+
+"Ayu.RowOpacity" = "Độ mờ của hàng trò chuyện";
+"Ayu.MediaImportError" = "Không thể nhập tệp. Tối đa: 100 MB.";

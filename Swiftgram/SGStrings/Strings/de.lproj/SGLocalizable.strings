@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Verlauf löschen";
 "Ayu.EmptyHistory" = "Noch kein Verlauf";
 "Ayu.SaveMedia" = "Medien aus dem Cache speichern";
+"Ayu.BackgroundDimming" = "Hintergrund abdunkeln";
 "Ayu.BeforeEdit" = "Vor Bearbeitung";
 "Ayu.Deleted" = "Gelöscht";
 "Ayu.ServerPresence" = "Auf dem Server: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Nur ausgewählte Chats. Zwischengespeicherte Fotos und Text: 30 Tage, bis zu 200 Einträge. Keine geheimen oder selbstlöschenden Nachrichten.";
 "Ayu.ReadWarning" = "Lesebestätigung für diesen Chat bis zu dieser Nachricht senden?";
 "Ayu.ViewWarning" = "Ansicht bestätigen und den Timer für selbstlöschende Medien starten?";
+
+"Ayu.RowOpacity" = "Deckkraft der Chatzeilen";
+"Ayu.MediaImportError" = "Medium konnte nicht importiert werden. Maximal 100 MB.";

@@ -315,6 +315,7 @@
 "Ayu.ClearHistory" = "清除歷史";
 "Ayu.EmptyHistory" = "尚無歷史紀錄";
 "Ayu.SaveMedia" = "儲存已快取的媒體";
+"Ayu.BackgroundDimming" = "背景變暗";
 "Ayu.BeforeEdit" = "編輯前";
 "Ayu.Deleted" = "已刪除";
 "Ayu.ServerPresence" = "伺服器上：%@";
@@ -333,3 +334,6 @@
 "Ayu.HistoryInfo" = "僅限所選聊天。快取照片和文字保留30天，最多200筆。不包括秘密聊天和閱後即焚訊息。";
 "Ayu.ReadWarning" = "傳送此聊天截至這則訊息的已讀回條？";
 "Ayu.ViewWarning" = "傳送瀏覽回條並啟動閱後即焚媒體計時器？";
+
+"Ayu.RowOpacity" = "聊天列不透明度";
+"Ayu.MediaImportError" = "無法匯入檔案。最大100 MB。";

@@ -1,3 +1,4 @@
+import UIKit
 import Foundation
 import Display
 import SwiftSignalKit
@@ -13,11 +14,12 @@ import SGStrings
 private enum AyuSection: Int32, SGItemListSection { case privacy, history, client }
 private enum AyuToggle: Hashable { case ghost, read, online, typing, recording, uploading, stories, history, premium }
 private enum AyuSlider: Hashable { case pins }
-private enum AyuUnused: Hashable { case unused }
+private enum AyuUnused: Hashable { case unused, customization }
 private typealias AyuEntry = SGItemListUIEntry<AyuSection, AyuToggle, AyuSlider, AyuUnused, AyuUnused, AyuUnused>
 
 public func ayuGramSettingsController(context: AccountContext) -> ViewController {
     var openHistory: (() -> Void)?
+    var openAppearance: (() -> Void)?
     let changed = ValuePromise<Int>(0, ignoreRepeated: false)
     let arguments = SGItemListArguments<AyuToggle, AyuSlider, AyuUnused, AyuUnused, AyuUnused>(context: context, setBoolValue: { key, enabled in
         if key == .premium {
@@ -41,7 +43,9 @@ public func ayuGramSettingsController(context: AccountContext) -> ViewController
     }, updateSliderValue: { _, value in
         AyuGramSettings.shared.updateClient { $0.maxPinnedChats = value }
         changed.set(0)
-    }, openDisclosureLink: { _ in openHistory?() })
+    }, openDisclosureLink: { link in
+        if link == .customization { openAppearance?() } else { openHistory?() }
+    })
     let signal = combineLatest(context.sharedContext.presentationData, changed.get())
     |> deliverOnMainQueue
     |> map { data, _ -> (ItemListControllerState, (ItemListNodeState, SGItemListArguments<AyuToggle, AyuSlider, AyuUnused, AyuUnused, AyuUnused>)) in
@@ -64,7 +68,8 @@ public func ayuGramSettingsController(context: AccountContext) -> ViewController
             .toggle(id: 16, section: .client, settingName: .premium, value: client.localPremium, text: i18n("Ayu.LocalPremium", locale), enabled: true),
             .header(id: 18, section: .client, text: i18n("Ayu.Pins", locale), badge: nil),
             .countSlider(id: 19, section: .client, settingName: .pins, value: client.pinnedChatLimit),
-            .notice(id: 20, section: .client, text: i18n("Ayu.LocalOnly", locale))
+            .notice(id: 20, section: .client, text: i18n("Ayu.LocalOnly", locale)),
+            .disclosure(id: 21, section: .client, link: .customization, text: data.strings.Appearance_Title)
         ]
         let state = ItemListControllerState(presentationData: ItemListPresentationData(data), title: .text("AyuGram"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: data.strings.Common_Back))
         return (state, (ItemListNodeState(presentationData: ItemListPresentationData(data), entries: entries, style: .blocks), arguments))
@@ -72,6 +77,9 @@ public func ayuGramSettingsController(context: AccountContext) -> ViewController
     let controller = ItemListController(context: context, state: signal)
     openHistory = { [weak controller] in
         (controller?.navigationController as? NavigationController)?.pushViewController(ayuGramHistoryController(context: context))
+    }
+    openAppearance = { [weak controller] in
+        (controller?.navigationController as? NavigationController)?.pushViewController(ayuGramAppearanceController(context: context))
     }
     return controller
 }

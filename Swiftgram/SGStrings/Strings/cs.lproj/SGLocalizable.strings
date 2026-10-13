@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Vymazat historii";
 "Ayu.EmptyHistory" = "Historie je zatím prázdná";
 "Ayu.SaveMedia" = "Ukládat média z mezipaměti";
+"Ayu.BackgroundDimming" = "Ztmavení pozadí";
 "Ayu.BeforeEdit" = "Před úpravou";
 "Ayu.Deleted" = "Smazáno";
 "Ayu.ServerPresence" = "Na serveru: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Pouze vybrané chaty. Fotografie z mezipaměti a text: 30 dní, nejvýše 200 záznamů. Bez tajných a mizejících zpráv.";
 "Ayu.ReadWarning" = "Odeslat potvrzení o přečtení chatu až po tuto zprávu?";
 "Ayu.ViewWarning" = "Potvrdit zobrazení a spustit časovač mizejících médií?";
+
+"Ayu.RowOpacity" = "Neprůhlednost řádků chatů";
+"Ayu.MediaImportError" = "Soubor nelze importovat. Nejvýše 100 MB.";

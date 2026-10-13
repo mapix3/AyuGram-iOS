@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Cancella cronologia";
 "Ayu.EmptyHistory" = "Nessuna cronologia";
 "Ayu.SaveMedia" = "Salva i media nella cache";
+"Ayu.BackgroundDimming" = "Oscuramento dello sfondo";
 "Ayu.BeforeEdit" = "Prima della modifica";
 "Ayu.Deleted" = "Eliminato";
 "Ayu.ServerPresence" = "Sul server: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Solo chat selezionate. Foto in cache e testo: 30 giorni, fino a 200 voci. Esclusi messaggi segreti e temporanei.";
 "Ayu.ReadWarning" = "Confermare la lettura della chat fino a questo messaggio?";
 "Ayu.ViewWarning" = "Confermare la visualizzazione e avviare il timer del contenuto temporaneo?";
+
+"Ayu.RowOpacity" = "Opacità delle righe delle chat";
+"Ayu.MediaImportError" = "Impossibile importare il file. Massimo: 100 MB.";

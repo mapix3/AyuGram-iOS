@@ -76,6 +76,7 @@
 "Ayu.ClearHistory" = "Paqijkirina dîrokê";
 "Ayu.EmptyHistory" = "Hê dîrok tune ye";
 "Ayu.SaveMedia" = "Medyaya di keşê de tomar bike";
+"Ayu.BackgroundDimming" = "Tarîkirina paşxaneyê";
 "Ayu.BeforeEdit" = "Berî guherandinê";
 "Ayu.Deleted" = "Jêbirî";
 "Ayu.ServerPresence" = "Li ser serverê: %@";
@@ -94,3 +95,6 @@
 "Ayu.HistoryInfo" = "Tenê sohbetên hilbijartî. Wêneyên di bîrê de û nivîs: 30 roj, heta 200 tomar. Peyamên veşartî û winda dibin nayên tomarkirin.";
 "Ayu.ReadWarning" = "Pejirandina xwendinê ji bo vê sohbetê heta vê peyamê bişîne?";
 "Ayu.ViewWarning" = "Dîtinê bipejirîne û demjimêra medyaya winda dibe dest pê bike?";
+
+"Ayu.RowOpacity" = "Nezelaliya rêzên sohbetê";
+"Ayu.MediaImportError" = "Pel nayê derxistin. Herî zêde: 100 MB.";

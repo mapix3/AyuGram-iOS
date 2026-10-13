@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Esborra l'historial";
 "Ayu.EmptyHistory" = "Encara no hi ha historial";
 "Ayu.SaveMedia" = "Desa els fitxers en memòria cau";
+"Ayu.BackgroundDimming" = "Enfosquiment del fons";
 "Ayu.BeforeEdit" = "Abans de l'edició";
 "Ayu.Deleted" = "Eliminat";
 "Ayu.ServerPresence" = "Al servidor: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Només els xats seleccionats. Fotos en memòria cau i text: 30 dies, fins a 200 registres. Sense missatges secrets ni temporals.";
 "Ayu.ReadWarning" = "Confirma la lectura del xat fins a aquest missatge?";
 "Ayu.ViewWarning" = "Confirma la visualització i inicia el temporitzador del contingut temporal?";
+
+"Ayu.RowOpacity" = "Opacitat de les files de xats";
+"Ayu.MediaImportError" = "No es pot importar el fitxer. Màxim: 100 MB.";

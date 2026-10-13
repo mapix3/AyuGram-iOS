@@ -14,14 +14,18 @@ public class SliderPercentageItem: ListViewItem, ItemListItem {
     let theme: PresentationTheme
     let strings: PresentationStrings
     let value: Int32
+    let minimum: Int32
+    let maximum: Int32
     let systemStyle: ItemListSystemStyle
     public let sectionId: ItemListSectionId
     let updated: (Int32) -> Void
     
-    public init(theme: PresentationTheme, strings: PresentationStrings, value: Int32, sectionId: ItemListSectionId, systemStyle: ItemListSystemStyle = .glass, updated: @escaping (Int32) -> Void) {
+    public init(theme: PresentationTheme, strings: PresentationStrings, value: Int32, sectionId: ItemListSectionId, systemStyle: ItemListSystemStyle = .glass, minimum: Int32 = 0, maximum: Int32 = 100, updated: @escaping (Int32) -> Void) {
         self.theme = theme
         self.strings = strings
-        self.value = value
+        self.minimum = min(100, max(0, minimum))
+        self.maximum = min(100, max(self.minimum, maximum))
+        self.value = min(self.maximum, max(self.minimum, value))
         self.sectionId = sectionId
         self.systemStyle = systemStyle
         self.updated = updated
@@ -61,12 +65,13 @@ public class SliderPercentageItem: ListViewItem, ItemListItem {
     }
 }
 
-private func rescalePercentageValueToSlider(_ value: CGFloat) -> CGFloat {
-    return max(0.0, min(1.0, value))
+private func rescalePercentageValueToSlider(_ value: CGFloat, minimum: CGFloat, maximum: CGFloat) -> CGFloat {
+    guard maximum > minimum else { return 0.0 }
+    return max(0.0, min(1.0, (value - minimum) / (maximum - minimum)))
 }
 
-private func rescaleSliderValueToPercentageValue(_ value: CGFloat) -> CGFloat {
-    return max(0.0, min(1.0, value))
+private func rescaleSliderValueToPercentageValue(_ value: CGFloat, minimum: CGFloat, maximum: CGFloat) -> CGFloat {
+    return minimum + max(0.0, min(1.0, value)) * (maximum - minimum)
 }
 
 class SliderPercentageItemNode: ListViewItemNode {
@@ -144,15 +149,17 @@ class SliderPercentageItemNode: ListViewItemNode {
         let sliderView = TGPhotoEditorSliderView()
         sliderView.enableEdgeTap = true
         sliderView.enablePanHandling = true
-        sliderView.trackCornerRadius = 1.0
+        sliderView.trackCornerRadius = 2.0
         sliderView.lineSize = 4.0
         sliderView.minimumValue = 0.0
         sliderView.startValue = 0.0
         sliderView.maximumValue = 1.0
         sliderView.disablesInteractiveTransitionGestureRecognizer = true
-        sliderView.displayEdges = true
+        sliderView.displayEdges = false
         if let item = self.item, let params = self.layoutParams {
-            sliderView.value = rescalePercentageValueToSlider(CGFloat(item.value) / 100.0)
+            sliderView.minimumValue = 0.0
+            sliderView.maximumValue = 1.0
+            sliderView.value = rescalePercentageValueToSlider(CGFloat(item.value) / 100.0, minimum: CGFloat(item.minimum) / 100.0, maximum: CGFloat(item.maximum) / 100.0)
             sliderView.backgroundColor = item.theme.list.itemBlocksBackgroundColor
             sliderView.backColor = item.theme.list.itemSwitchColors.frameColor
             sliderView.trackColor = item.theme.list.itemAccentColor
@@ -237,8 +244,8 @@ class SliderPercentageItemNode: ListViewItemNode {
                     strongSelf.topStripeNode.frame = CGRect(origin: CGPoint(x: 0.0, y: -min(insets.top, separatorHeight)), size: CGSize(width: layoutSize.width, height: separatorHeight))
                     strongSelf.bottomStripeNode.frame = CGRect(origin: CGPoint(x: bottomStripeInset, y: contentSize.height + bottomStripeOffset), size: CGSize(width: layoutSize.width - bottomStripeInset, height: separatorHeight))
                     
-                    strongSelf.leftTextNode.attributedText = NSAttributedString(string: "0%", font: Font.regular(13.0), textColor: item.theme.list.itemSecondaryTextColor)
-                    strongSelf.rightTextNode.attributedText = NSAttributedString(string: "100%", font: Font.regular(13.0), textColor: item.theme.list.itemSecondaryTextColor)
+                    strongSelf.leftTextNode.attributedText = NSAttributedString(string: "\(item.minimum)%", font: Font.regular(13.0), textColor: item.theme.list.itemSecondaryTextColor)
+                    strongSelf.rightTextNode.attributedText = NSAttributedString(string: "\(item.maximum)%", font: Font.regular(13.0), textColor: item.theme.list.itemSecondaryTextColor)
                     
                     let centralText: String = "\(item.value)%"
                     let centralMeasureText: String = centralText
@@ -248,9 +255,9 @@ class SliderPercentageItemNode: ListViewItemNode {
                     strongSelf.centerMeasureTextNode.attributedText = NSAttributedString(string: centralMeasureText, font: Font.regular(16.0), textColor: item.theme.list.itemPrimaryTextColor)
                     
                     strongSelf.leftTextNode.isAccessibilityElement = true
-                    strongSelf.leftTextNode.accessibilityLabel = "Minimum: \(Int32(rescaleSliderValueToPercentageValue(strongSelf.sliderView?.minimumValue ?? 0.0) * 100.0))%"
+                    strongSelf.leftTextNode.accessibilityLabel = "\(item.minimum)%"
                     strongSelf.rightTextNode.isAccessibilityElement = true
-                    strongSelf.rightTextNode.accessibilityLabel = "Maximum: \(Int32(rescaleSliderValueToPercentageValue(strongSelf.sliderView?.maximumValue ?? 1.0) * 100.0))%"
+                    strongSelf.rightTextNode.accessibilityLabel = "\(item.maximum)%"
                     
                     let leftTextSize = strongSelf.leftTextNode.updateLayout(CGSize(width: 100.0, height: 100.0))
                     let rightTextSize = strongSelf.rightTextNode.updateLayout(CGSize(width: 100.0, height: 100.0))
@@ -318,10 +325,13 @@ class SliderPercentageItemNode: ListViewItemNode {
                     }
                     
                     if let sliderView = strongSelf.sliderView {
+                        sliderView.minimumValue = 0.0
+                        sliderView.maximumValue = 1.0
+                        if !sliderView.isTracking { sliderView.value = rescalePercentageValueToSlider(CGFloat(item.value) / 100.0, minimum: CGFloat(item.minimum) / 100.0, maximum: CGFloat(item.maximum) / 100.0) }
                         if themeUpdated {
                             sliderView.backgroundColor = item.theme.list.itemBlocksBackgroundColor
-                            sliderView.backColor = item.theme.list.itemSecondaryTextColor
-                            sliderView.trackColor = item.theme.list.itemAccentColor.withAlphaComponent(0.45)
+                            sliderView.backColor = item.theme.list.itemSwitchColors.frameColor
+                            sliderView.trackColor = item.theme.list.itemAccentColor
                             sliderView.knobImage = PresentationResourcesItemList.knobImage(item.theme)
                         }
                         
@@ -346,10 +356,10 @@ class SliderPercentageItemNode: ListViewItemNode {
     }
     
     @objc func sliderValueChanged() {
-        guard let sliderView = self.sliderView else {
+        guard let sliderView = self.sliderView, let item = self.item else {
             return
         }
-        self.item?.updated(Int32(rescaleSliderValueToPercentageValue(sliderView.value) * 100.0))
+        item.updated(Int32((rescaleSliderValueToPercentageValue(sliderView.value, minimum: CGFloat(item.minimum) / 100.0, maximum: CGFloat(item.maximum) / 100.0) * 100.0).rounded()))
     }
 }
 

@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import SGAPIToken
 import SGAPIWebSettings
 import Foundation
@@ -1267,6 +1268,7 @@ public final class ChatListNode: ListViewImpl {
     public var openAccountFreezeInfo: (() -> Void)?
     
     private var theme: PresentationTheme
+    private var ayuPinnedOverscroll = false
     
     private let viewProcessingQueue = Queue()
     private var chatListView: ChatListNodeView?
@@ -3339,12 +3341,14 @@ public final class ChatListNode: ListViewImpl {
         }
     }
     
+    public func updateAyuGramAppearance() {
+        self.keepTopItemOverscrollBackground = self.ayuPinnedOverscroll ? ListViewKeepTopItemOverscrollBackground(color: AyuGramAppearance.shared.showsChatList ? .clear : self.theme.chatList.pinnedItemBackgroundColor, direction: true) : nil
+    }
+
     public func updateThemeAndStrings(theme: PresentationTheme, fontSize: PresentationFontSize, strings: PresentationStrings, dateTimeFormat: PresentationDateTimeFormat, nameSortOrder: PresentationPersonNameOrder, nameDisplayOrder: PresentationPersonNameOrder, disableAnimations: Bool) {
         if theme !== self.currentState.presentationData.theme || strings !== self.currentState.presentationData.strings || dateTimeFormat != self.currentState.presentationData.dateTimeFormat {
             self.theme = theme
-            if self.keepTopItemOverscrollBackground != nil {
-                self.keepTopItemOverscrollBackground = ListViewKeepTopItemOverscrollBackground(color:  theme.chatList.pinnedItemBackgroundColor, direction: true)
-            }
+            self.updateAyuGramAppearance()
             self.verticalScrollIndicatorColor = theme.list.scrollIndicatorColor
             
             self.updateState { state in
@@ -3457,12 +3461,9 @@ public final class ChatListNode: ListViewImpl {
                         }
                     }
                     
-                    if pinnedOverscroll != (strongSelf.keepTopItemOverscrollBackground != nil) {
-                        if pinnedOverscroll {
-                            strongSelf.keepTopItemOverscrollBackground = ListViewKeepTopItemOverscrollBackground(color: strongSelf.theme.chatList.pinnedItemBackgroundColor, direction: true)
-                        } else {
-                            strongSelf.keepTopItemOverscrollBackground = nil
-                        }
+                    if pinnedOverscroll != strongSelf.ayuPinnedOverscroll {
+                        strongSelf.ayuPinnedOverscroll = pinnedOverscroll
+                        strongSelf.updateAyuGramAppearance()
                     }
                     
                     if let scrollToItem = transition.scrollToItem, case .center = scrollToItem.position {

@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Ryd historik";
 "Ayu.EmptyHistory" = "Ingen historik endnu";
 "Ayu.SaveMedia" = "Gem cachelagrede medier";
+"Ayu.BackgroundDimming" = "Dæmpning af baggrund";
 "Ayu.BeforeEdit" = "Før redigering";
 "Ayu.Deleted" = "Slettet";
 "Ayu.ServerPresence" = "På serveren: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Kun valgte chats. Cachelagrede billeder og tekst: 30 dage, op til 200 poster. Ingen hemmelige eller forsvindende beskeder.";
 "Ayu.ReadWarning" = "Send læsekvittering for chatten frem til denne besked?";
 "Ayu.ViewWarning" = "Bekræft visning og start timeren for forsvindende medier?";
+
+"Ayu.RowOpacity" = "Chatlinjernes opacitet";
+"Ayu.MediaImportError" = "Kan ikke importere filen. Højst 100 MB.";

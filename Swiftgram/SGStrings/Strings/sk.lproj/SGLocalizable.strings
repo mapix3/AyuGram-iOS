@@ -70,6 +70,7 @@
 "Ayu.ClearHistory" = "Vymazať históriu";
 "Ayu.EmptyHistory" = "Zatiaľ žiadna história";
 "Ayu.SaveMedia" = "Ukladať médiá z vyrovnávacej pamäte";
+"Ayu.BackgroundDimming" = "Stmavenie pozadia";
 "Ayu.BeforeEdit" = "Pred úpravou";
 "Ayu.Deleted" = "Odstránené";
 "Ayu.ServerPresence" = "Na serveri: %@";
@@ -88,3 +89,6 @@
 "Ayu.HistoryInfo" = "Iba vybrané čety. Fotografie z vyrovnávacej pamäte a text: 30 dní, najviac 200 záznamov. Bez tajných a miznúcich správ.";
 "Ayu.ReadWarning" = "Odoslať potvrdenie o prečítaní četu až po túto správu?";
 "Ayu.ViewWarning" = "Potvrdiť zobrazenie a spustiť časovač miznúcich médií?";
+
+"Ayu.RowOpacity" = "Nepriehľadnosť riadkov četov";
+"Ayu.MediaImportError" = "Súbor sa nedá importovať. Najviac 100 MB.";

@@ -84,6 +84,7 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
     case toggle(id: Int, section: Section, settingName: BoolSetting, value: Bool, text: String, enabled: Bool)
     case notice(id: Int, section: Section, text: String)
     case countSlider(id: Int, section: Section, settingName: SliderSetting, value: Int32)
+    case rangedPercentageSlider(id: Int, section: Section, settingName: SliderSetting, value: Int32, minimum: Int32, maximum: Int32)
     case percentageSlider(id: Int, section: Section, settingName: SliderSetting, value: Int32)
     case oneFromManySelector(id: Int, section: Section, settingName: OneFromManySetting, text: String, value: String, enabled: Bool)
     case disclosure(id: Int, section: Section, link: DisclosureLink, text: String)
@@ -103,7 +104,7 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
         case let .disclosure(_, sectionId, _, _):
             return sectionId.rawValue
 
-        case let .percentageSlider(_, sectionId, _, _), let .countSlider(_, sectionId, _, _):
+        case let .rangedPercentageSlider(_, sectionId, _, _, _, _), let .percentageSlider(_, sectionId, _, _), let .countSlider(_, sectionId, _, _):
             return sectionId.rawValue
             
         case let .peerColorDisclosurePreview(_, sectionId, _, _):
@@ -129,7 +130,7 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
             return stableIdValue
         case let .disclosure(stableIdValue, _, _, _):
             return stableIdValue
-        case let .percentageSlider(stableIdValue, _, _, _), let .countSlider(stableIdValue, _, _, _):
+        case let .rangedPercentageSlider(stableIdValue, _, _, _, _, _), let .percentageSlider(stableIdValue, _, _, _), let .countSlider(stableIdValue, _, _, _):
             return stableIdValue
         case let .peerColorDisclosurePreview(stableIdValue, _, _, _):
             return stableIdValue
@@ -157,6 +158,8 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
         case let (.notice(id1, section1, text1), .notice(id2, section2, text2)):
             return id1 == id2 && section1 == section2 && text1 == text2
         
+        case let (.rangedPercentageSlider(id1, section1, setting1, value1, minimum1, maximum1), .rangedPercentageSlider(id2, section2, setting2, value2, minimum2, maximum2)):
+            return id1 == id2 && section1 == section2 && setting1 == setting2 && value1 == value2 && minimum1 == minimum2 && maximum1 == maximum2
         case let (.percentageSlider(id1, section1, settingName1, value1), .percentageSlider(id2, section2, settingName2, value2)),
              let (.countSlider(id1, section1, settingName1, value1), .countSlider(id2, section2, settingName2, value2)):
             return id1 == id2 && section1 == section2 && value1 == value2 && settingName1 == settingName2
@@ -190,7 +193,7 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
         case let .toggle(_, _, setting, value, text, enabled):
             return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: text, value: value, enabled: enabled, maximumNumberOfLines: 0, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.setBoolValue(setting, value)
-            })
+            }, switchTintColor: presentationData.theme.list.itemAccentColor)
         case let .notice(_, _, string):
             return ItemListTextItem(presentationData: presentationData, text: .markdown(string), sectionId: self.section)
         case let .disclosure(_, _, link, text):
@@ -199,6 +202,10 @@ public enum SGItemListUIEntry<Section: SGItemListSection, BoolSetting: Hashable,
             }
         case let .countSlider(_, _, setting, value):
             return AyuPinnedCountSliderItem(theme: presentationData.theme, strings: presentationData.strings, value: value, sectionId: self.section, updated: { value in
+                arguments.updateSliderValue(setting, value)
+            })
+        case let .rangedPercentageSlider(_, _, setting, value, minimum, maximum):
+            return SliderPercentageItem(theme: presentationData.theme, strings: presentationData.strings, value: value, sectionId: self.section, minimum: minimum, maximum: maximum, updated: { value in
                 arguments.updateSliderValue(setting, value)
             })
         case let .percentageSlider(_, _, setting, value):
@@ -255,7 +262,7 @@ public func filterSGItemListUIEntrires<Section: SGItemListSection & Hashable, Bo
             return text.lowercased().contains(query)
         case .notice(_, _, let text):
             return text.lowercased().contains(query)
-        case .percentageSlider, .countSlider:
+        case .rangedPercentageSlider, .percentageSlider, .countSlider:
             return false // Assuming percentage sliders don't have searchable text
         case .oneFromManySelector(_, _, _, let text, let value, _):
             return text.lowercased().contains(query) || value.lowercased().contains(query)

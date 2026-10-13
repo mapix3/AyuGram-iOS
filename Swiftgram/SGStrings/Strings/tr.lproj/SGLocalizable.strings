@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Geçmişi temizle";
 "Ayu.EmptyHistory" = "Henüz geçmiş yok";
 "Ayu.SaveMedia" = "Önbellekteki medyayı kaydet";
+"Ayu.BackgroundDimming" = "Arka plan karartma";
 "Ayu.BeforeEdit" = "Düzenlemeden önce";
 "Ayu.Deleted" = "Silindi";
 "Ayu.ServerPresence" = "Sunucuda: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Yalnızca seçilen sohbetler. Önbellekteki fotoğraf ve metin: 30 gün, en fazla 200 kayıt. Gizli ve kaybolan mesajlar hariç.";
 "Ayu.ReadWarning" = "Bu mesaja kadar sohbet için okundu bilgisi gönderilsin mi?";
 "Ayu.ViewWarning" = "Görüntüleme bilgisi gönderilip kaybolan medya zamanlayıcısı başlatılsın mı?";
+
+"Ayu.RowOpacity" = "Sohbet satırı opaklığı";
+"Ayu.MediaImportError" = "Dosya içe aktarılamadı. En fazla 100 MB.";

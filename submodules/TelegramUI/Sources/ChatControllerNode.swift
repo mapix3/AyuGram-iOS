@@ -178,6 +178,10 @@ private final class PendingSwitchToChatLocation {
 }
 
 class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
+    private var ayuBackdrop: AyuGramBackdropView?
+    private var ayuNativeWallpaperAlpha: CGFloat {
+        return AyuGramAppearance.shared.showsConversations ? 0.0 : 1.0
+    }
     let context: AccountContext
     private(set) var chatLocation: ChatLocation
     private var chatLocationContextHolder: Atomic<ChatLocationContextHolder?>
@@ -1052,6 +1056,14 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
     
     override func didLoad() {
         super.didLoad()
+        let backdrop = AyuGramBackdropView(scope: .conversation)
+        backdrop.frame = self.backgroundNode.frame
+        backdrop.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        backdrop.overlayColor = self.chatPresentationInterfaceState.theme.chatList.backgroundColor
+        self.ayuBackdrop = backdrop
+        backdrop.visibilityChanged = { [weak self] enabled in self?.backgroundNode.alpha = enabled ? 0.0 : 1.0 }
+        self.contentContainerNode.contentNode.view.insertSubview(backdrop, at: 0)
+        backdrop.reload()
         
         let recognizer = WindowPanRecognizer(target: nil, action: nil)
         recognizer.cancelsTouchesInView = false
@@ -1329,6 +1341,9 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 containerNode.clipsToBounds = true
                 containerNode.cornerRadius = 15.0
                 containerNode.addSubnode(self.backgroundNode)
+                if let backdrop = self.ayuBackdrop {
+                    containerNode.view.insertSubview(backdrop, at: 0)
+                }
                 containerNode.addSubnode(self.historyNodeContainer)
                 self.contentContainerNode.isHidden = true
                 if let restrictedNode = self.restrictedNode {
@@ -1366,6 +1381,9 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 self.containerNode = nil
                 containerNode.removeFromSupernode()
                 self.contentContainerNode.contentNode.insertSubnode(self.backgroundNode, at: 0)
+                if let backdrop = self.ayuBackdrop {
+                    self.contentContainerNode.contentNode.view.insertSubview(backdrop, at: 0)
+                }
                 self.contentContainerNode.contentNode.insertSubnode(self.historyNodeContainer, aboveSubnode: self.backgroundNode)
                 if let restrictedNode = self.restrictedNode {
                     self.contentContainerNode.contentNode.insertSubnode(restrictedNode, aboveSubnode: self.historyNodeContainer)
@@ -2065,6 +2083,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         
         var wallpaperBounds = CGRect(x: 0.0, y: 0.0, width: layout.size.width - wrappingInsets.left - wrappingInsets.right, height: layout.size.height)
         
+        self.ayuBackdrop?.frame = wallpaperBounds
         transition.updateFrame(node: self.backgroundNode, frame: wallpaperBounds)
         
         var displayMode: WallpaperDisplayMode = .aspectFill
@@ -3534,7 +3553,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 transition.updateAlpha(node: self.backgroundNode, alpha: 0.0)
             } else {
                 transition.updateAlpha(node: self.historyNode, alpha: 1.0)
-                transition.updateAlpha(node: self.backgroundNode, alpha: 1.0)
+                transition.updateAlpha(node: self.backgroundNode, alpha: self.ayuNativeWallpaperAlpha)
             }
         } else {
             if let inlineSearchResults = self.inlineSearchResults {
@@ -3559,7 +3578,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             self.inlineSearchResultsReady = false
             
             transition.updateAlpha(node: self.historyNode, alpha: 1.0)
-            transition.updateAlpha(node: self.backgroundNode, alpha: 1.0)
+            transition.updateAlpha(node: self.backgroundNode, alpha: self.ayuNativeWallpaperAlpha)
         }
         
         transition.updateAlpha(node: self.navigateButtons, alpha: showNavigateButtons ? 1.0 : 0.0)
@@ -3709,6 +3728,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             self.navigateButtons.update(theme: chatPresentationInterfaceState.theme, preferClearGlass: chatPresentationInterfaceState.preferredGlassType == .clear, dateTimeFormat: chatPresentationInterfaceState.dateTimeFormat, backgroundNode: self.backgroundNode)
             
             if themeUpdated {
+                self.ayuBackdrop?.overlayColor = chatPresentationInterfaceState.theme.chatList.backgroundColor
                 if case let .color(color) = self.chatPresentationInterfaceState.chatWallpaper, UIColor(rgb: color).isEqual(self.chatPresentationInterfaceState.theme.chat.inputPanel.panelBackgroundColorNoWallpaper) {
                     self.usePlainInputSeparator = true
                 } else {

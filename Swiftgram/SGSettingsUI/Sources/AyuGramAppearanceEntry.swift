@@ -2,9 +2,9 @@ import Foundation
 import Display
 import AccountContext
 
-/// Standard build: background customization is not included.
-let ayuGramHasAppearanceEntry = false
+/// Custom build: the AyuGram screen links to background customization.
+let ayuGramHasAppearanceEntry = true
 
 func ayuGramAppearanceEntryController(context: AccountContext) -> ViewController? {
-    return nil
+    return ayuGramAppearanceController(context: context)
 }

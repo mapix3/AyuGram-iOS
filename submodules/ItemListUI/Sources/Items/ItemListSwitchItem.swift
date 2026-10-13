@@ -27,6 +27,7 @@ public class ItemListSwitchItem: ListViewItem, ItemListItem {
     let textColor: TextColor
     let titleBadgeComponent: AnyComponent<Empty>?
     let value: Bool
+    let switchTintColor: UIColor?
     let type: ItemListSwitchItemNodeType
     let enableInteractiveChanges: Bool
     let enabled: Bool
@@ -41,7 +42,7 @@ public class ItemListSwitchItem: ListViewItem, ItemListItem {
     let action: (() -> Void)?
     public let tag: ItemListItemTag?
     
-    public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, icon: UIImage? = nil, title: String, text: String? = nil, textColor: TextColor = .primary, titleBadgeComponent: AnyComponent<Empty>? = nil, value: Bool, type: ItemListSwitchItemNodeType = .regular, enableInteractiveChanges: Bool = true, enabled: Bool = true, displayLocked: Bool = false, disableLeadingInset: Bool = false, maximumNumberOfLines: Int = 1, noCorners: Bool = false, sectionId: ItemListSectionId, style: ItemListStyle, updated: @escaping (Bool) -> Void, activatedWhileDisabled: @escaping () -> Void = {}, action: (() -> Void)? = nil, tag: ItemListItemTag? = nil) {
+    public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, icon: UIImage? = nil, title: String, text: String? = nil, textColor: TextColor = .primary, titleBadgeComponent: AnyComponent<Empty>? = nil, value: Bool, type: ItemListSwitchItemNodeType = .regular, enableInteractiveChanges: Bool = true, enabled: Bool = true, displayLocked: Bool = false, disableLeadingInset: Bool = false, maximumNumberOfLines: Int = 1, noCorners: Bool = false, sectionId: ItemListSectionId, style: ItemListStyle, updated: @escaping (Bool) -> Void, activatedWhileDisabled: @escaping () -> Void = {}, action: (() -> Void)? = nil, tag: ItemListItemTag? = nil, switchTintColor: UIColor? = nil) {
         self.presentationData = presentationData
         self.systemStyle = systemStyle
         self.icon = icon
@@ -50,6 +51,7 @@ public class ItemListSwitchItem: ListViewItem, ItemListItem {
         self.textColor = textColor
         self.titleBadgeComponent = titleBadgeComponent
         self.value = value
+        self.switchTintColor = switchTintColor
         self.type = type
         self.enableInteractiveChanges = enableInteractiveChanges
         self.enabled = enabled
@@ -440,9 +442,9 @@ public class ItemListSwitchItemNode: ListViewItemNode, ItemListItemNode {
                         strongSelf.bottomStripeNode.backgroundColor = itemSeparatorColor
                         strongSelf.backgroundNode.backgroundColor = itemBackgroundColor
                         strongSelf.switchNode.frameColor = item.presentationData.theme.list.itemSwitchColors.frameColor
-                        strongSelf.switchNode.contentColor = item.presentationData.theme.list.itemSwitchColors.contentColor
+                        strongSelf.switchNode.contentColor = item.switchTintColor ?? item.presentationData.theme.list.itemSwitchColors.contentColor
                         strongSelf.switchNode.handleColor = item.presentationData.theme.list.itemSwitchColors.handleColor
-                        strongSelf.switchNode.positiveContentColor = item.presentationData.theme.list.itemSwitchColors.positiveColor
+                        strongSelf.switchNode.positiveContentColor = item.switchTintColor ?? item.presentationData.theme.list.itemSwitchColors.positiveColor
                         strongSelf.switchNode.negativeContentColor = item.presentationData.theme.list.itemSwitchColors.negativeColor
                         strongSelf.highlightedBackgroundNode.backgroundColor = item.presentationData.theme.list.itemHighlightedBackgroundColor
                         strongSelf.highlightNode.backgroundColor = item.presentationData.theme.list.itemSearchHighlightColor
@@ -542,6 +544,7 @@ public class ItemListSwitchItemNode: ListViewItemNode, ItemListItemNode {
                     }
                     
                     if let switchView = strongSelf.switchNode.view as? UISwitch {
+                        switchView.onTintColor = item.switchTintColor ?? item.presentationData.theme.list.itemSwitchColors.contentColor
                         if strongSelf.switchNode.bounds.size.width.isZero {
                             switchView.sizeToFit()
                         }

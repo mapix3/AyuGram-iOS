@@ -175,6 +175,9 @@ final class ThemeGridControllerNode: ASDisplayNode {
     
     private let colorItemNode: ItemListActionItemNode
     private var colorItem: ItemListActionItem
+    private var customAppearanceItem: ItemListActionItem?
+    private var customAppearanceItemNode: ItemListActionItemNode?
+    private let openCustomAppearance: (() -> Void)?
     private let galleryItemNode: ListViewItemNode
     private var galleryItem: ItemListItem
     private let removeItemNode: ItemListPeerActionItemNode
@@ -208,8 +211,9 @@ final class ThemeGridControllerNode: ASDisplayNode {
     
     private var disposable: Disposable?
     
-    init(context: AccountContext, mode: ThemeGridController.Mode, presentationData: PresentationData, presentPreviewController: @escaping (WallpaperListSource) -> Void, presentGallery: @escaping () -> Void, presentColors: @escaping () -> Void, emptyStateUpdated: @escaping (Bool) -> Void, deleteWallpapers: @escaping ([TelegramWallpaper], @escaping () -> Void) -> Void, shareWallpapers: @escaping ([TelegramWallpaper]) -> Void, resetWallpapers: @escaping () -> Void, popViewController: @escaping () -> Void) {
+    init(context: AccountContext, mode: ThemeGridController.Mode, presentationData: PresentationData, presentPreviewController: @escaping (WallpaperListSource) -> Void, presentGallery: @escaping () -> Void, presentColors: @escaping () -> Void, emptyStateUpdated: @escaping (Bool) -> Void, deleteWallpapers: @escaping ([TelegramWallpaper], @escaping () -> Void) -> Void, shareWallpapers: @escaping ([TelegramWallpaper]) -> Void, resetWallpapers: @escaping () -> Void, popViewController: @escaping () -> Void, openCustomAppearance: (() -> Void)? = nil) {
         self.context = context
+        self.openCustomAppearance = openCustomAppearance
         self.mode = mode
         self.presentationData = presentationData
         self.presentPreviewController = presentPreviewController
@@ -308,6 +312,12 @@ final class ThemeGridControllerNode: ASDisplayNode {
             self.gridNode.addSubnode(self.colorItemNode)
         }
         self.gridNode.addSubnode(self.galleryItemNode)
+        if case .generic = mode, let openCustomAppearance {
+            let node = ItemListActionItemNode()
+            self.customAppearanceItemNode = node
+            self.customAppearanceItem = ItemListActionItem(presentationData: ItemListPresentationData(presentationData), systemStyle: .glass, title: "AyuGram · " + presentationData.strings.Appearance_Title, kind: .generic, alignment: .natural, sectionId: 0, style: .blocks, action: openCustomAppearance)
+            self.gridNode.addSubnode(node)
+        }
         if case let .peer(_, _, wallpaper, _, _) = mode, let wallpaper, !wallpaper.isEmoticon {
             self.gridNode.addSubnode(self.removeItemNode)
         }
@@ -551,6 +561,8 @@ final class ThemeGridControllerNode: ASDisplayNode {
                         highlightedNode = strongSelf.colorItemNode
                     } else if strongSelf.galleryItemNode.frame.contains(point) {
                         highlightedNode = strongSelf.galleryItemNode
+                    } else if let node = strongSelf.customAppearanceItemNode, node.frame.contains(point) {
+                        highlightedNode = node
                     } else if strongSelf.resetItemNode.frame.contains(point) {
                         highlightedNode = strongSelf.resetItemNode
                     } else if strongSelf.removeItemNode.frame.contains(point) {
@@ -563,6 +575,7 @@ final class ThemeGridControllerNode: ASDisplayNode {
                 } else {
                     strongSelf.colorItemNode.setHighlighted(false, at: CGPoint(), animated: true)
                     strongSelf.galleryItemNode.setHighlighted(false, at: CGPoint(), animated: true)
+                    strongSelf.customAppearanceItemNode?.setHighlighted(false, at: CGPoint(), animated: true)
                     strongSelf.resetItemNode.setHighlighted(false, at: CGPoint(), animated: true)
                     strongSelf.removeItemNode.setHighlighted(false, at: CGPoint(), animated: true)
                 }
@@ -615,6 +628,8 @@ final class ThemeGridControllerNode: ASDisplayNode {
                                 } else if let galleryItem = self.galleryItem as? ItemListPeerActionItem {
                                     galleryItem.action?()
                                 }
+                            } else if let node = self.customAppearanceItemNode, node.frame.contains(location) {
+                                self.customAppearanceItem?.action()
                             } else if self.resetItemNode.frame.contains(location) {
                                 self.resetItem.action()
                             } else if self.removeItemNode.frame.contains(location) {
@@ -665,6 +680,9 @@ final class ThemeGridControllerNode: ASDisplayNode {
     }
     
     func updatePresentationData(_ presentationData: PresentationData) {
+        if let openCustomAppearance, self.customAppearanceItemNode != nil {
+            self.customAppearanceItem = ItemListActionItem(presentationData: ItemListPresentationData(presentationData), systemStyle: .glass, title: "AyuGram · " + presentationData.strings.Appearance_Title, kind: .generic, alignment: .natural, sectionId: 0, style: .blocks, action: openCustomAppearance)
+        }
         self.presentationData = presentationData
         
         self.backgroundColor = presentationData.theme.list.itemBlocksBackgroundColor
@@ -824,7 +842,7 @@ final class ThemeGridControllerNode: ASDisplayNode {
         if let makeGalleryIconLayout, let galleryItem = self.galleryItem as? ItemListPeerActionItem {
             (galleryLayout, galleryApply) = makeGalleryIconLayout(galleryItem, params, ItemListNeighbors(top: isChannel ? .none : .sameSection(alwaysPlain: false), bottom: .sameSection(alwaysPlain: !hasCustomWallpaper)))
         } else if let makeGalleryLayout, let galleryItem = self.galleryItem as? ItemListActionItem {
-            (galleryLayout, galleryApply) = makeGalleryLayout(galleryItem, params, ItemListNeighbors(top: isChannel ? .none : .sameSection(alwaysPlain: false), bottom: .sameSection(alwaysPlain: true)))
+            (galleryLayout, galleryApply) = makeGalleryLayout(galleryItem, params, ItemListNeighbors(top: isChannel ? .none : .sameSection(alwaysPlain: false), bottom: .sameSection(alwaysPlain: self.customAppearanceItemNode == nil)))
         } else {
             fatalError()
         }
@@ -845,7 +863,13 @@ final class ThemeGridControllerNode: ASDisplayNode {
             buttonBottomInset = 17.0
         }
         
-        var buttonInset: CGFloat = buttonTopInset + buttonHeight + buttonBottomInset
+        var customAppearanceLayout: ListViewItemNodeLayout?
+        if let node = self.customAppearanceItemNode, let item = self.customAppearanceItem {
+            let (layout, apply) = node.asyncLayout()(item, params, ItemListNeighbors(top: .sameSection(alwaysPlain: false), bottom: .none))
+            customAppearanceLayout = layout
+            apply(false)
+        }
+        var buttonInset: CGFloat = buttonTopInset + buttonHeight + buttonBottomInset + (customAppearanceLayout?.contentSize.height ?? 0)
         if !isChannel || hasCustomWallpaper {
             buttonInset += buttonHeight
         }
@@ -861,6 +885,10 @@ final class ThemeGridControllerNode: ASDisplayNode {
         }
         transition.updateFrame(node: self.galleryItemNode, frame: CGRect(origin: CGPoint(x: 0.0, y: originY), size: galleryLayout.contentSize))
         originY += galleryLayout.contentSize.height
+        if let node = self.customAppearanceItemNode, let customAppearanceLayout {
+            transition.updateFrame(node: node, frame: CGRect(origin: CGPoint(x: 0, y: originY), size: customAppearanceLayout.contentSize))
+            originY += customAppearanceLayout.contentSize.height
+        }
         
         if hasCustomWallpaper {
             self.descriptionItemNode.isHidden = true
@@ -974,6 +1002,9 @@ final class ThemeGridControllerNode: ASDisplayNode {
                 self.separatorNode.layer.animatePosition(from: self.separatorNode.layer.position.offsetBy(dx: 0.0, dy: -offset), to: self.separatorNode.layer.position, duration: duration)
                 self.colorItemNode.layer.animatePosition(from: self.colorItemNode.layer.position.offsetBy(dx: 0.0, dy: -offset), to: self.colorItemNode.layer.position, duration: duration)
                 self.galleryItemNode.layer.animatePosition(from: self.galleryItemNode.layer.position.offsetBy(dx: 0.0, dy: -offset), to: self.galleryItemNode.layer.position, duration: duration)
+                if let node = self.customAppearanceItemNode {
+                    node.layer.animatePosition(from: node.layer.position.offsetBy(dx: 0, dy: -offset), to: node.layer.position, duration: duration)
+                }
                 self.descriptionItemNode.layer.animatePosition(from: self.descriptionItemNode.layer.position.offsetBy(dx: 0.0, dy: -offset), to: self.descriptionItemNode.layer.position, duration: duration)
             }
         }

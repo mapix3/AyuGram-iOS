@@ -311,6 +311,7 @@
 "Ayu.ClearHistory" = "Wyczyść historię";
 "Ayu.EmptyHistory" = "Brak historii";
 "Ayu.SaveMedia" = "Zapisuj multimedia z pamięci podręcznej";
+"Ayu.BackgroundDimming" = "Przyciemnienie tła";
 "Ayu.BeforeEdit" = "Przed edycją";
 "Ayu.Deleted" = "Usunięto";
 "Ayu.ServerPresence" = "Na serwerze: %@";
@@ -329,3 +330,6 @@
 "Ayu.HistoryInfo" = "Tylko wybrane czaty. Zdjęcia w pamięci i tekst: 30 dni, do 200 wpisów. Bez wiadomości tajnych i znikających.";
 "Ayu.ReadWarning" = "Wysłać potwierdzenie odczytu czatu do tej wiadomości?";
 "Ayu.ViewWarning" = "Potwierdzić wyświetlenie i uruchomić licznik znikających multimediów?";
+
+"Ayu.RowOpacity" = "Nieprzezroczystość wierszy czatów";
+"Ayu.MediaImportError" = "Nie można zaimportować pliku. Maksimum: 100 MB.";

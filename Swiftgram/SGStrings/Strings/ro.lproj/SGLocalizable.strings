@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Șterge istoricul";
 "Ayu.EmptyHistory" = "Încă nu există istoric";
 "Ayu.SaveMedia" = "Salvează fișierele media din cache";
+"Ayu.BackgroundDimming" = "Întunecarea fundalului";
 "Ayu.BeforeEdit" = "Înainte de editare";
 "Ayu.Deleted" = "Șters";
 "Ayu.ServerPresence" = "Pe server: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Doar conversațiile selectate. Fotografii în cache și text: 30 de zile, până la 200 de înregistrări. Fără mesaje secrete sau temporare.";
 "Ayu.ReadWarning" = "Trimiți confirmarea de citire a conversației până la acest mesaj?";
 "Ayu.ViewWarning" = "Confirmi vizualizarea și pornești temporizatorul conținutului temporar?";
+
+"Ayu.RowOpacity" = "Opacitatea rândurilor de conversații";
+"Ayu.MediaImportError" = "Fișierul nu poate fi importat. Maximum: 100 MB.";

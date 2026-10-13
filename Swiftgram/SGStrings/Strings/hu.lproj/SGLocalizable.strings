@@ -218,6 +218,7 @@
 "Ayu.ClearHistory" = "Előzmények törlése";
 "Ayu.EmptyHistory" = "Még nincsenek előzmények";
 "Ayu.SaveMedia" = "Gyorsítótárazott média mentése";
+"Ayu.BackgroundDimming" = "Háttér sötétítése";
 "Ayu.BeforeEdit" = "Szerkesztés előtt";
 "Ayu.Deleted" = "Törölve";
 "Ayu.ServerPresence" = "A szerveren: %@";
@@ -236,3 +237,6 @@
 "Ayu.HistoryInfo" = "Csak a kijelölt csevegések. Gyorsítótárazott fotók és szöveg: 30 nap, legfeljebb 200 bejegyzés. Titkos és eltűnő üzenetek nélkül.";
 "Ayu.ReadWarning" = "Olvasási visszajelzés küldése erről a beszélgetésről eddig az üzenetig?";
 "Ayu.ViewWarning" = "Megtekintés visszajelzése és az eltűnő média időzítőjének indítása?";
+
+"Ayu.RowOpacity" = "Csevegéssorok átlátszatlansága";
+"Ayu.MediaImportError" = "A fájl nem importálható. Legfeljebb 100 MB.";

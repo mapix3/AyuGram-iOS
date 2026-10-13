@@ -1,3 +1,4 @@
+import SGSettingsUI
 import Foundation
 import UIKit
 import AsyncDisplayKit
@@ -575,7 +576,7 @@ public func themeSettingsController(context: AccountContext, focusOnItemTag: The
     }, openThemeSettings: {
         pushControllerImpl?(themePickerController(context: context))
     }, openWallpaperSettings: {
-        pushControllerImpl?(ThemeGridController(context: context))
+        pushControllerImpl?(ThemeGridController(context: context, openCustomAppearance: { ayuGramAppearanceController(context: context, scope: .conversation) }))
     }, openNameColorSettings: {
         pushControllerImpl?(UserAppearanceScreen(context: context))
     }, selectAccentColor: { accentColor in
