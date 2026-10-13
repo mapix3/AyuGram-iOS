@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import Postbox
 import TelegramApi
@@ -11,7 +12,8 @@ func _internal_applyMaxReadIndexInteractively(postbox: Postbox, stateManager: Ac
 }
     
 func _internal_applyMaxReadIndexInteractively(transaction: Transaction, stateManager: AccountStateManager, index: MessageIndex) {
-    let messageIds = transaction.applyInteractiveReadMaxIndex(index)
+    let suppressRead = AyuGramSettings.shared.snapshot.suppressRead
+    let messageIds = transaction.applyInteractiveReadMaxIndex(index, synchronize: !suppressRead)
     
     if let peer = transaction.getPeer(index.id.peerId), peer.isForumOrMonoForum {
         if let combinedPeerReadState = transaction.getCombinedPeerReadState(peer.id), combinedPeerReadState.count == 0 {
@@ -36,6 +38,9 @@ func _internal_applyMaxReadIndexInteractively(transaction: Transaction, stateMan
         }
     }
     
+    // Preserve local unread counters, but neither start secret-chat timers nor
+    // notify server-facing state-manager observers while private reading is on.
+    if suppressRead { return }
     if index.id.peerId.namespace == Namespaces.Peer.SecretChat {
         let timestamp = Int32(CFAbsoluteTimeGetCurrent() + NSTimeIntervalSince1970)
         for id in messageIds {
@@ -140,6 +145,7 @@ func _internal_togglePeerUnreadMarkInteractively(postbox: Postbox, network: Netw
 }
 
 func _internal_toggleForumThreadUnreadMarkInteractively(transaction: Transaction, network: Network, viewTracker: AccountViewTracker, peerId: PeerId, threadId: Int64, setToValue: Bool?) {
+    let suppressRead = AyuGramSettings.shared.snapshot.suppressRead
     guard let peer = transaction.getPeer(peerId) else {
         return
     }
@@ -163,7 +169,7 @@ func _internal_toggleForumThreadUnreadMarkInteractively(transaction: Transaction
         
         if peer.isForum {
         } else if peer.isMonoForum {
-            if let inputPeer = apiInputPeer(peer), let subPeer = transaction.getPeer(PeerId(threadId)).flatMap(apiInputPeer) {
+            if !suppressRead, let inputPeer = apiInputPeer(peer), let subPeer = transaction.getPeer(PeerId(threadId)).flatMap(apiInputPeer) {
                 let _ = network.request(Api.functions.messages.markDialogUnread(flags: 1 << 0, parentPeer: inputPeer, peer: .inputDialogPeer(.init(peer: subPeer)))).start()
             }
         }
@@ -179,11 +185,11 @@ func _internal_toggleForumThreadUnreadMarkInteractively(transaction: Transaction
             }
             
             if peer.isForum {
-                if let inputPeer = apiInputPeer(peer) {
+                if !suppressRead, let inputPeer = apiInputPeer(peer) {
                     let _ = network.request(Api.functions.messages.readDiscussion(peer: inputPeer, msgId: Int32(clamping: threadId), readMaxId: messageIndex.id.id)).start()
                 }
             } else if peer.isMonoForum {
-                if let inputPeer = apiInputPeer(peer), let subPeer = transaction.getPeer(PeerId(threadId)).flatMap(apiInputPeer) {
+                if !suppressRead, let inputPeer = apiInputPeer(peer), let subPeer = transaction.getPeer(PeerId(threadId)).flatMap(apiInputPeer) {
                     let _ = network.request(Api.functions.messages.readSavedHistory(parentPeer: inputPeer, peer: subPeer, maxId: messageIndex.id.id)).start()
                 }
             }
@@ -192,6 +198,7 @@ func _internal_toggleForumThreadUnreadMarkInteractively(transaction: Transaction
 }
 
 func _internal_markForumThreadAsReadInteractively(transaction: Transaction, network: Network, viewTracker: AccountViewTracker, peerId: PeerId, threadId: Int64) {
+    let suppressRead = AyuGramSettings.shared.snapshot.suppressRead
     guard let peer = transaction.getPeer(peerId) else {
         return
     }
@@ -215,11 +222,11 @@ func _internal_markForumThreadAsReadInteractively(transaction: Transaction, netw
         }
         
         if peer.isForum {
-            if let inputPeer = apiInputPeer(peer) {
+            if !suppressRead, let inputPeer = apiInputPeer(peer) {
                 let _ = network.request(Api.functions.messages.readDiscussion(peer: inputPeer, msgId: Int32(clamping: threadId), readMaxId: messageIndex.id.id)).start()
             }
         } else if peer.isMonoForum {
-            if let inputPeer = apiInputPeer(peer), let subPeer = transaction.getPeer(PeerId(threadId)).flatMap(apiInputPeer) {
+            if !suppressRead, let inputPeer = apiInputPeer(peer), let subPeer = transaction.getPeer(PeerId(threadId)).flatMap(apiInputPeer) {
                 let _ = network.request(Api.functions.messages.readSavedHistory(parentPeer: inputPeer, peer: subPeer, maxId: messageIndex.id.id)).start()
             }
         }
@@ -227,6 +234,7 @@ func _internal_markForumThreadAsReadInteractively(transaction: Transaction, netw
 }
 
 func _internal_togglePeerUnreadMarkInteractively(transaction: Transaction, network: Network, viewTracker: AccountViewTracker, peerId: PeerId, setToValue: Bool? = nil) {
+    let suppressRead = AyuGramSettings.shared.snapshot.suppressRead
     guard let peer = transaction.getPeer(peerId) else {
         return
     }
@@ -257,11 +265,11 @@ func _internal_togglePeerUnreadMarkInteractively(transaction: Transaction, netwo
                 }
                 
                 if peer.isForum {
-                    if let inputPeer = apiInputPeer(peer) {
+                    if !suppressRead, let inputPeer = apiInputPeer(peer) {
                         let _ = network.request(Api.functions.messages.readDiscussion(peer: inputPeer, msgId: Int32(clamping: item.threadId), readMaxId: messageIndex.id.id)).start()
                     }
                 } else if peer.isMonoForum {
-                    if let inputPeer = apiInputPeer(peer), let subPeer = transaction.getPeer(PeerId(item.threadId)).flatMap(apiInputPeer) {
+                    if !suppressRead, let inputPeer = apiInputPeer(peer), let subPeer = transaction.getPeer(PeerId(item.threadId)).flatMap(apiInputPeer) {
                         let _ = network.request(Api.functions.messages.readSavedHistory(parentPeer: inputPeer, peer: subPeer, maxId: messageIndex.id.id)).start()
                     }
                 }
@@ -295,15 +303,15 @@ func _internal_togglePeerUnreadMarkInteractively(transaction: Transaction, netwo
         if hasUnread {
             if setToValue == nil || !(setToValue!) {
                 if let index = transaction.getTopPeerMessageIndex(peerId: peerId) {
-                    let _ = transaction.applyInteractiveReadMaxIndex(index)
+                    let _ = transaction.applyInteractiveReadMaxIndex(index, synchronize: !suppressRead)
                 } else {
-                    transaction.applyMarkUnread(peerId: peerId, namespace: principalNamespace, value: false, interactive: true)
+                    transaction.applyMarkUnread(peerId: peerId, namespace: principalNamespace, value: false, interactive: !suppressRead)
                 }
-                viewTracker.updateMarkAllMentionsSeen(peerId: peerId, threadId: nil)
+                if !suppressRead { viewTracker.updateMarkAllMentionsSeen(peerId: peerId, threadId: nil) }
             }
         } else {
             if setToValue == nil || setToValue! {
-                transaction.applyMarkUnread(peerId: peerId, namespace: principalNamespace, value: true, interactive: true)
+                transaction.applyMarkUnread(peerId: peerId, namespace: principalNamespace, value: true, interactive: !suppressRead)
             }
         }
     }

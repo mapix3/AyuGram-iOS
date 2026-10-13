@@ -1,6 +1,7 @@
 import Foundation
 import SwiftSignalKit
 import ManagedFile
+import SGAppGroupIdentifier
 
 private let queue = DispatchQueue(label: "app.swiftgram.ios.trace", qos: .utility)
 
@@ -43,7 +44,7 @@ public class SGLogger {
                 return SGLogger(rootPath: "", basePath: "")
             }
             let appGroupName = "group.\(baseAppBundleId)"
-            let maybeAppGroupUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName)
+            let maybeAppGroupUrl = sgAppGroupContainerURL(appGroupName)
             guard let appGroupUrl = maybeAppGroupUrl else {
                 print("Can't setup logger (2)!")
                 return SGLogger(rootPath: "", basePath: "")

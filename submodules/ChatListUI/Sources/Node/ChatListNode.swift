@@ -1623,7 +1623,12 @@ public final class ChatListNode: ListViewImpl {
                             switch result {
                             case .done:
                                 break
-                            case let .limitExceeded(count, _):
+                            case let .limitExceeded(count, limit):
+                                if case .group(.root) = location, limit > 10 {
+                                    let strings = context.sharedContext.currentPresentationData.with { $0 }.strings
+                                    strongSelf.presentAlert?(strings.DialogList_PinLimitError(String(limit)).string)
+                                    return
+                                }
                                 if isPremium {
                                     if case .filter = location {
                                         let controller = PremiumLimitScreen(context: context, subject: .chatsPerFolder, count: Int32(count), action: {

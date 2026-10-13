@@ -4440,16 +4440,10 @@ func replayFinalState(
                     }
                 }
             case let .DeleteMessagesWithGlobalIds(ids):
-                var resourceIds: [MediaResourceId] = []
-                transaction.deleteMessagesWithGlobalIds(ids, forEachMedia: { media in
-                    addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
-                })
-                if !resourceIds.isEmpty {
-                    let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
-                }
+                ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: transaction.messageIdsForGlobalIds(ids))
                 deletedMessageIds.append(contentsOf: ids.map { .global($0) })
             case let .DeleteMessages(ids):
-                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
+                ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
                 })
                 deletedMessageIds.append(contentsOf: ids.map { .messageId($0) })
@@ -4486,11 +4480,13 @@ func replayFinalState(
                     invalidateGroupStats.insert(Namespaces.PeerGroup.archive)
                 }
             case let .EditMessage(id, message):
+                let ayuEdit = ayuGramRecordEdit(transaction: transaction, mediaBox: mediaBox, id: id, updated: message)
                 var generatedEvent: (reactionAuthor: Peer, reaction: MessageReaction.Reaction, message: Message, timestamp: Int32)?
                 transaction.updateMessage(id, update: { previousMessage in
                     var updatedFlags = message.flags
                     var updatedLocalTags = message.localTags
                     var updatedAttributes = message.attributes
+                    if let ayuEdit { updatedAttributes.append(ayuEdit) }
                     if previousMessage.localTags.contains(.OutgoingLiveLocation) {
                         updatedLocalTags.insert(.OutgoingLiveLocation)
                     }
@@ -4997,7 +4993,7 @@ func replayFinalState(
                                     var currentItemIds = transaction.getPinnedItemIds(groupId: groupId)
                                     if !currentItemIds.contains(.peer(peerId)) {
                                         currentItemIds.insert(.peer(peerId), at: 0)
-                                        transaction.setPinnedItemIds(groupId: groupId, itemIds: currentItemIds)
+                                        transaction.setPinnedItemIds(groupId: groupId, itemIds: currentItemIds, fromServer: true)
                                     }
                                 }
                         }
@@ -5007,7 +5003,7 @@ func replayFinalState(
                                 var currentItemIds = transaction.getPinnedItemIds(groupId: groupId)
                                 if let index = currentItemIds.firstIndex(of: .peer(peerId)) {
                                     currentItemIds.remove(at: index)
-                                    transaction.setPinnedItemIds(groupId: groupId, itemIds: currentItemIds)
+                                    transaction.setPinnedItemIds(groupId: groupId, itemIds: currentItemIds, fromServer: true)
                                 } else {
                                     addSynchronizePinnedChatsOperation(transaction: transaction, groupId: groupId)
                                 }
@@ -5015,7 +5011,7 @@ func replayFinalState(
                     case let .reorder(itemIds):
                         let currentItemIds = transaction.getPinnedItemIds(groupId: groupId)
                         if Set(itemIds) == Set(currentItemIds) {
-                            transaction.setPinnedItemIds(groupId: groupId, itemIds: itemIds)
+                            transaction.setPinnedItemIds(groupId: groupId, itemIds: itemIds, fromServer: true)
                         } else {
                             addSynchronizePinnedChatsOperation(transaction: transaction, groupId: groupId)
                         }

@@ -794,7 +794,7 @@ final class OverlayAudioPlayerControllerNode: ViewControllerTracingNode, ASGestu
     }
     
     private var isSaved: Bool? {
-        if self .copyProtectionEnabled {
+        if self.copyProtectionEnabled && !ayuGramIgnoresCopyProtection() {
             return nil
         }
         if case let .peer(peerId) = self.chatLocation, peerId.namespace == Namespaces.Peer.SecretChat {

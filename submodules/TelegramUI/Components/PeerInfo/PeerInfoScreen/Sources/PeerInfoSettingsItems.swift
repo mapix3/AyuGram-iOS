@@ -1,4 +1,5 @@
 import Foundation
+import SGStrings
 import UIKit
 import Display
 import AccountContext
@@ -209,25 +210,13 @@ func settingsItems(showProfileId: Bool, data: PeerInfoScreenData?, context: Acco
         swiftgramLabel = .none
     }
 
-    let hasNewSGProFeatures = {
-        return false
-    }
-    let swiftgramProLabel: PeerInfoScreenDisclosureItem.Label
-    if hasNewSGProFeatures() {
-        swiftgramProLabel = .titleBadge(presentationData.strings.Settings_New, presentationData.theme.list.itemAccentColor)
-    } else {
-        swiftgramProLabel = .none
-    }
-    
-    
     let sgWebSettings = context.currentAppConfiguration.with({ $0 }).sgWebSettings
-    if sgWebSettings.global.paymentsEnabled || context.sharedContext.immediateSGStatus.status > 1 {
-        items[.swiftgram]!.append(PeerInfoScreenDisclosureItem(id: 0, label: swiftgramProLabel, text: "Swiftgram Pro", icon: PresentationResourcesSettings.swiftgramPro, action: {
-            interaction.openSettings(.swiftgramPro)
-        }))
-    }
     items[.swiftgram]!.append(PeerInfoScreenDisclosureItem(id: 1, label: swiftgramLabel, text: "Swiftgram", icon: PresentationResourcesSettings.swiftgram, action: {
         interaction.openSettings(.swiftgram)
+    }))
+
+    items[.swiftgram]!.append(PeerInfoScreenDisclosureItem(id: 2, text: "AyuGram", icon: ayuGramSettingsIcon(), action: {
+        interaction.openSettings(.ayuGramPrivacy)
     }))
 
     var appIndex = 1000
@@ -572,22 +561,8 @@ func settingsEditingItems(data: PeerInfoScreenData?, state: PeerInfoState, conte
         interaction.openSettings(.addAccount)
     }))
     
-    var hasPremiumAccounts = false
-    if data.peer?.isPremium == true && !context.account.testingEnvironment {
-        hasPremiumAccounts = true
-    }
-    if let settings = data.globalSettings {
-        for (accountContext, peer, _) in settings.accountsAndPeers {
-            if !accountContext.account.testingEnvironment {
-                if peer.isPremium {
-                    hasPremiumAccounts = true
-                    break
-                }
-            }
-        }
-    }
-    
-    items[.account]!.append(PeerInfoScreenCommentItem(id: ItemAddAccountHelp, text: hasPremiumAccounts ? presentationData.strings.Settings_AddAnotherAccount_PremiumHelp : presentationData.strings.Settings_AddAnotherAccount_Help))
+    // AyuGram: Swiftgram allows up to maximumSwiftgramNumberOfAccounts (500) accounts.
+    items[.account]!.append(PeerInfoScreenCommentItem(id: ItemAddAccountHelp, text: i18n("Ayu.AddAccountHelp", presentationData.strings.baseLanguageCode)))
     
     items[.logout]!.append(PeerInfoScreenActionItem(id: ItemLogout, text: presentationData.strings.Settings_Logout, color: .destructive, alignment: .center, action: {
         interaction.openSettings(.logout)

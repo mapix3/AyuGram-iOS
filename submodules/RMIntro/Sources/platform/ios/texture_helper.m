@@ -12,7 +12,22 @@
 
 GLuint setup_texture(NSString *fileName, UIColor *color)
 {
-    CGImageRef spriteImage = [[UIImage imageNamed:fileName] CGImage];
+    (void)color;
+    // The opening page shares the generated main-bundle AyuGram icon.
+    // Its logo is complete, so the old animated lightning layer is transparent.
+    BOOL ayuLogo = [fileName isEqualToString:@"telegram_sphere.png"];
+    BOOL ayuOldPlane = [fileName isEqualToString:@"telegram_plane1.png"];
+    UIImage *image;
+    if (ayuOldPlane) {
+        UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+        format.opaque = NO;
+        format.scale = 1.0;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(1, 1) format:format];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) { (void)context; }];
+    } else {
+        image = [UIImage imageNamed:ayuLogo ? @"AyuClassic@3x.png" : fileName];
+    }
+    CGImageRef spriteImage = image.CGImage;
     if (!spriteImage) {
         NSLog(@"Failed to load image %@", fileName);
         return -1;
@@ -28,9 +43,12 @@ GLuint setup_texture(NSString *fileName, UIColor *color)
     CGContextRef spriteContext = CGBitmapContextCreate(spriteData, width, height, 8, width*4, CGImageGetColorSpace(spriteImage), (CGBitmapInfo)kCGImageAlphaPremultipliedLast);
     
     // 3
-    if ([fileName isEqualToString:@"telegram_sphere.png"]) {
-        CGContextSetFillColorWithColor(spriteContext, color.CGColor);
-        CGContextFillRect(spriteContext, CGRectMake(0, 0, width, height));
+    if (ayuLogo) {
+        CGFloat radius = MIN(width, height) * 0.22;
+        CGPathRef path = CGPathCreateWithRoundedRect(CGRectMake(0, 0, width, height), radius, radius, NULL);
+        CGContextAddPath(spriteContext, path);
+        CGContextClip(spriteContext);
+        CGPathRelease(path);
     }
     CGContextDrawImage(spriteContext, CGRectMake(0, 0, width, height), spriteImage);
     

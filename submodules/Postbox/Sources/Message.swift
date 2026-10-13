@@ -477,6 +477,10 @@ public struct MessageFlags: OptionSet {
             rawValue |= MessageFlags.IsForumTopic.rawValue
         }
         
+        if flags.contains(StoreMessageFlags.AyuLocallyDeleted) {
+            rawValue |= MessageFlags.AyuLocallyDeleted.rawValue
+        }
+
         if flags.contains(StoreMessageFlags.ReactionsArePossible) {
             rawValue |= MessageFlags.ReactionsArePossible.rawValue
         }
@@ -497,6 +501,8 @@ public struct MessageFlags: OptionSet {
     public static let ReactionsArePossible = MessageFlags(rawValue: 2048)
     
     public static let IsIncomingMask = MessageFlags([.Incoming, .CountedAsIncoming])
+    public static let AyuLocallyDeleted = MessageFlags(rawValue: 1 << 16)
+    var ayuCountsAsIncoming: Bool { !self.contains(.AyuLocallyDeleted) && !self.intersection(.IsIncomingMask).isEmpty }
 }
 
 public struct StoreMessageForwardInfo {
@@ -613,6 +619,7 @@ public struct StoryId: Codable, Hashable {
 }
 
 public protocol MessageAttribute: AnyObject, PostboxCoding {
+    var retainedOnServerRefresh: Bool { get }
     var associatedPeerIds: [PeerId] { get }
     var associatedMessageIds: [MessageId] { get }
     var associatedMediaIds: [MediaId] { get }
@@ -621,6 +628,7 @@ public protocol MessageAttribute: AnyObject, PostboxCoding {
 }
 
 public extension MessageAttribute {
+    var retainedOnServerRefresh: Bool { false }
     var associatedPeerIds: [PeerId] {
         return []
     }
@@ -850,6 +858,10 @@ public struct StoreMessageFlags: OptionSet {
             rawValue |= StoreMessageFlags.IsForumTopic.rawValue
         }
         
+        if flags.contains(MessageFlags.AyuLocallyDeleted) {
+            rawValue |= StoreMessageFlags.AyuLocallyDeleted.rawValue
+        }
+
         if flags.contains(.ReactionsArePossible) {
             rawValue |= StoreMessageFlags.ReactionsArePossible.rawValue
         }
@@ -870,6 +882,8 @@ public struct StoreMessageFlags: OptionSet {
     public static let ReactionsArePossible = StoreMessageFlags(rawValue: 2048)
     
     public static let IsIncomingMask = StoreMessageFlags([.Incoming, .CountedAsIncoming])
+    public static let AyuLocallyDeleted = StoreMessageFlags(rawValue: 1 << 16)
+    var ayuCountsAsIncoming: Bool { !self.contains(.AyuLocallyDeleted) && !self.intersection(.IsIncomingMask).isEmpty }
 }
 
 public enum StoreMessageId {

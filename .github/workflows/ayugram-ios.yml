@@ -1,0 +1,102 @@
+name: AyuGram iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Versions to build (Standard from main, Custom from custom)'
+        type: choice
+        options: [both, standard, custom]
+        default: both
+      configuration:
+        description: 'Device build configuration'
+        type: choice
+        options: [release_arm64, debug_arm64]
+        default: release_arm64
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ayugram-ios-${{ inputs.variant }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: AyuGram ${{ matrix.variant }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: ${{ fromJSON(inputs.variant == 'custom' && '["custom"]' || inputs.variant == 'standard' && '["standard"]' || '["standard","custom"]') }}
+    # Set repository variable AYUGRAM_RUNNER to a larger macOS runner label if needed.
+    runs-on: ${{ vars.AYUGRAM_RUNNER || 'macos-26' }}
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout source with submodules
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ matrix.variant == 'custom' && 'custom' || 'main' }}
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.10'
+
+      - name: Check CI helpers
+        run: python -m unittest discover -s ci/tests -p 'test_*.py' -v
+
+      - name: Select the Xcode pinned in versions.json
+        run: |
+          set -euo pipefail
+          XCODE_VERSION="$(python -c 'import json; print(json.load(open("versions.json"))["xcode"])')"
+          DEVELOPER_DIR="/Applications/Xcode_${XCODE_VERSION}.app/Contents/Developer"
+          if [[ ! -d "$DEVELOPER_DIR" ]]; then
+            echo "::error::Required Xcode ${XCODE_VERSION} is not installed on this runner. Select a runner with this version."
+            find /Applications -maxdepth 1 -name 'Xcode*.app' -print
+            exit 1
+          fi
+          sudo xcode-select --switch "$DEVELOPER_DIR"
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          df -h .
+
+      - name: Check build utilities
+        run: |
+          set -euo pipefail
+          if ! command -v ccache >/dev/null; then
+            brew install ccache
+          fi
+          ccache --version
+
+      - name: Check and build
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_BUNDLE_ID: ${{ secrets.APP_BUNDLE_ID }}
+          AYUGRAM_VARIANT: ${{ matrix.variant }}
+          AYUGRAM_CONFIGURATION: ${{ inputs.configuration }}
+        run: python -u ci/ayugram_ci.py --source . --ci ci --output artifacts
+
+      - name: Upload IPA and build manifest
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ayugram-${{ matrix.variant }}-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            artifacts/*.ipa
+            artifacts/build-manifest.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Remove generated credential files
+        if: ${{ always() }}
+        run: python ci/ayugram_ci.py --source . --cleanup-only

@@ -1,3 +1,4 @@
+import SGSettingsUI
 import SGStrings
 import SGSimpleSettings
 import PeerInfoUI
@@ -1004,6 +1005,65 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 })
             })))
         }
+        if messages.count == 1, message.flags.contains(.Incoming), message.id.namespace == Namespaces.Message.Cloud {
+            actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.SendReadReceipt", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
+                generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Read"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.default)
+                let data = context.sharedContext.currentPresentationData.with { $0 }
+                controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n("Ayu.SendReadReceipt", data.strings.baseLanguageCode), text: i18n("Ayu.ReadWarning", data.strings.baseLanguageCode), actions: [
+                    TextAlertAction(type: .genericAction, title: data.strings.Common_Cancel, action: {}),
+                    TextAlertAction(type: .defaultAction, title: i18n("Ayu.SendReceipt", data.strings.baseLanguageCode), action: {
+                        let receiptThreadId: Int64?
+                        if case let .replyThread(thread) = chatPresentationInterfaceState.chatLocation {
+                            receiptThreadId = thread.threadId
+                        } else {
+                            receiptThreadId = nil
+                        }
+                        let _ = (context.engine.messages.ayuReportRead(messageId: message.id, threadId: receiptThreadId)
+                        |> deliverOnMainQueue).startStandalone(next: { success in
+                            controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n(success ? "Ayu.ReceiptSent" : "Ayu.ReceiptError", data.strings.baseLanguageCode), text: "", actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), nil)
+                        })
+                    })
+                ]), nil)
+            })))
+            if ayuPrivateMediaDisplayMessage(message) != nil {
+                actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.ViewWithoutReceipt", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
+                    generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Message"), color: theme.actionSheet.primaryTextColor)
+                }, action: { _, f in
+                    f(.default)
+                    Queue.mainQueue().after(0.2) {
+                        let _ = controllerInteraction.openMessage(message, OpenMessageParams(mode: .default))
+                    }
+                })))
+                actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.ReportPhotoView", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
+                    generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Read"), color: theme.actionSheet.primaryTextColor)
+                }, action: { _, f in
+                    f(.default)
+                    let data = context.sharedContext.currentPresentationData.with { $0 }
+                    controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n("Ayu.ReportPhotoView", data.strings.baseLanguageCode), text: i18n("Ayu.ViewWarning", data.strings.baseLanguageCode), actions: [
+                        TextAlertAction(type: .genericAction, title: data.strings.Common_Cancel, action: {}),
+                        TextAlertAction(type: .defaultAction, title: i18n("Ayu.View", data.strings.baseLanguageCode), action: {
+                            let _ = (context.engine.messages.ayuReportContentViewed(messageId: message.id)
+                            |> deliverOnMainQueue).startStandalone(next: { success in
+                                controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n(success ? "Ayu.ReceiptSent" : "Ayu.ReceiptError", data.strings.baseLanguageCode), text: "", actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), nil)
+                            })
+                        })
+                    ]), nil)
+                })))
+            }
+        }
+        if messages.count == 1, message.ayuHistory != nil {
+            actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.History", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
+                generateTintedImage(image: UIImage(systemName: "clock.arrow.circlepath"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, complete in
+                complete(.default)
+                Queue.mainQueue().after(0.2) {
+                    let history = ayuGramHistoryController(context: context, messageId: message.id)
+                    controllerInteraction.navigationController()?.pushViewController(history)
+                }
+            })))
+        }
         var sgActions: [ContextMenuItem] = []
 
         var isPinnedMessages = false
@@ -1496,12 +1556,12 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
-        if resourceAvailable, !message.containsSecretMedia && !isCopyProtected {
+        if (resourceAvailable && !message.containsSecretMedia || ayuPrivateMediaDisplayMessage(message) != nil) && !isCopyProtected {
             var mediaReference: AnyMediaReference?
             var isVideo = false
             for media in message.effectiveMedia {
                 if let image = media as? TelegramMediaImage, let _ = largestImageRepresentation(image.representations) {
-                    mediaReference = ImageMediaReference.standalone(media: image).abstract
+                    mediaReference = ayuPrivateMediaDisplayMessage(message) != nil ? ImageMediaReference.message(message: MessageReference(message), media: image).abstract : ImageMediaReference.standalone(media: image).abstract
                     break
                 } else if let file = media as? TelegramMediaFile, file.isVideo {
                     mediaReference = FileMediaReference.standalone(media: file).abstract
@@ -2762,7 +2822,9 @@ func chatAvailableMessageActionsImpl(engine: TelegramEngine, accountPeerId: Engi
         func isPeerCopyProtected(_ peerId: EnginePeer.Id) -> Bool? {
             let copyProtection = copyProtectionMap[peerId]
             let myCopyProtection = myCopyProtectionMap[peerId]
-            if copyProtection == true || myCopyProtection == true {
+            if ayuGramIgnoresCopyProtection() {
+                return nil
+            } else if copyProtection == true || myCopyProtection == true {
                 return true
             } else {
                 return nil

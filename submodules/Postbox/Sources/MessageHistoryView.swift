@@ -1485,7 +1485,7 @@ public final class MessageHistoryView: PostboxView {
                                     }
                                     if let _ = maxNamespaceIndex , index + 1 < entries.count {
                                         for i in index + 1 ..< entries.count {
-                                            if entries[i].message.flags.intersection(.IsIncomingMask).isEmpty {
+                                            if !entries[i].message.flags.ayuCountsAsIncoming {
                                                 maxNamespaceIndex = entries[i].message.index
                                             } else {
                                                 break
@@ -1541,7 +1541,7 @@ public final class MessageHistoryView: PostboxView {
                         }
                         if let _ = maxNamespaceIndex , index + 1 < entries.count {
                             for i in index + 1 ..< entries.count {
-                                if entries[i].message.flags.intersection(.IsIncomingMask).isEmpty {
+                                if !entries[i].message.flags.ayuCountsAsIncoming {
                                     maxNamespaceIndex = entries[i].message.index
                                 } else {
                                     break
@@ -1635,7 +1635,7 @@ public final class MessageHistoryView: PostboxView {
                                 }
                                 if let _ = maxNamespaceIndex , index + 1 < entries.count {
                                     for i in index + 1 ..< entries.count {
-                                        if entries[i].message.flags.intersection(.IsIncomingMask).isEmpty {
+                                        if !entries[i].message.flags.ayuCountsAsIncoming {
                                             maxNamespaceIndex = entries[i].message.index
                                         } else {
                                             break

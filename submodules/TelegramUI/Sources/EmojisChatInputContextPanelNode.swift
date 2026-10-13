@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import UIKit
 import AsyncDisplayKit
@@ -266,7 +267,7 @@ final class EmojisChatInputContextPanelNode: ChatInputContextPanelNode {
         
         return context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: accountPeerId))
         |> map { peer -> Bool in
-            var hasPremium = false
+            var hasPremium = AyuGramSettings.shared.client.localPremium
             if case let .user(user) = peer, user.isPremium {
                 hasPremium = true
             }

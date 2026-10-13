@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import SwiftSignalKit
 import Postbox
@@ -148,6 +149,18 @@ public extension TelegramEngine {
         }
         
         public func setEmojiStatus(file: TelegramMediaFile?, expirationDate: Int32?) -> Signal<Never, NoError> {
+            return self.account.postbox.transaction { transaction -> Bool in
+                transaction.getPeer(self.account.peerId)?.isPremium ?? false
+            }
+            |> mapToSignal { isPremium -> Signal<Never, NoError> in
+                let localOnly = !isPremium && AyuGramSettings.shared.client.localPremium
+                AyuGramSettings.shared.setLocalStatus(peerId: self.account.peerId.toInt64(), status: localOnly ? AyuGramLocalStatus(fileId: file?.fileId.id, expirationDate: expirationDate) : nil)
+
+                return self.ayuApplyEmojiStatus(file: file, expirationDate: expirationDate, localOnly: localOnly)
+            }
+        }
+
+        private func ayuApplyEmojiStatus(file: TelegramMediaFile?, expirationDate: Int32?, localOnly: Bool) -> Signal<Never, NoError> {
             let peerId = self.account.peerId
             
             let remoteApply = self.account.network.request(Api.functions.account.updateEmojiStatus(emojiStatus: file.flatMap({ file in
@@ -173,13 +186,13 @@ public extension TelegramEngine {
                 }
                 
                 if let peer = transaction.getPeer(peerId) as? TelegramUser {
-                    updatePeersCustom(transaction: transaction, peers: [peer.withUpdatedEmojiStatus(file.flatMap({ PeerEmojiStatus(content: .emoji(fileId: $0.fileId.id), expirationDate: expirationDate) }))], update: { _, updated in
+                    updatePeersCustom(transaction: transaction, peers: [localOnly ? peer.withUpdatedFlags(peer.flags) : peer.withUpdatedEmojiStatus(file.flatMap({ PeerEmojiStatus(content: .emoji(fileId: $0.fileId.id), expirationDate: expirationDate) }))], update: { _, updated in
                         updated
                     })
                 }
             }
             |> ignoreValues
-            |> then(remoteApply)
+            |> then(localOnly ? .complete() : remoteApply)
         }
         
         public func updateAccountBusinessHours(businessHours: TelegramBusinessHours?) -> Signal<Never, NoError> {
