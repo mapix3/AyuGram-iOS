@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import Postbox
 import TelegramApi
@@ -186,7 +187,13 @@ private func validatePeerReadState(network: Network, postbox: Postbox, stateMana
                             if case let .idBased(updatedMaxIncomingReadId, _, _, updatedCount, updatedMarkedUnread) = readState {
                                 if updatedCount != 0 || updatedMarkedUnread {
                                     if localMaxIncomingReadId > updatedMaxIncomingReadId {
-                                        return .retry
+                                        // AyuGram: reads made while receipts are hidden stay local, so
+                                        // the server stays behind on purpose. Retrying here restarted
+                                        // validation immediately and forever, flooding the network and
+                                        // the state manager until nothing else loaded. Keep the local
+                                        // read state and stop validating instead.
+                                        transaction.confirmSynchronizedIncomingReadState(peerId)
+                                        return nil
                                     }
                                 }
                             }
@@ -227,6 +234,9 @@ private func validatePeerReadState(network: Network, postbox: Postbox, stateMana
 }
 
 private func pushPeerReadState(network: Network, postbox: Postbox, stateManager: AccountStateManager, peerId: PeerId, readState: PeerReadState) -> Signal<PeerReadState, PeerReadStateValidationError> {
+    // Consume unsent local sync work while privacy is active. Do not fabricate pts
+    // or a server response, and do not retain a queue that flushes on disable.
+    if AyuGramSettings.shared.snapshot.suppressRead { return .single(readState) }
     if peerId.namespace == Namespaces.Peer.SecretChat {
         return inputSecretChat(postbox: postbox, peerId: peerId)
         |> mapToSignal { inputPeer -> Signal<PeerReadState, PeerReadStateValidationError> in

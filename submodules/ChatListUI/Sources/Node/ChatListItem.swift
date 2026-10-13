@@ -1429,6 +1429,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
     var secretIconNode: ASImageNode?
     var verifiedIconView: ComponentHostView<Empty>?
     var verifiedIconComponent: EmojiStatusComponent?
+    private let ayuOwnerBadge = UIImageView(image: ayuGramOwnerBadgeImage())
     var credibilityIconView: ComponentHostView<Empty>?
     var credibilityIconComponent: EmojiStatusComponent?
     var statusIconView: ComponentHostView<Empty>?
@@ -3517,7 +3518,14 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                 statusWidth += dateIconImage.size.width + 4.0
             }
             
-            var titleIconsWidth: CGFloat = 0.0
+            var ayuBadge: String?
+            if case let .chat(itemPeer) = contentPeer, let peer = itemPeer.chatOrMonoforumMainPeer, peer.id.namespace == Namespaces.Peer.CloudUser {
+                ayuBadge = AyuGramClientBadges.shared.badge(peerId: peer.id.toInt64())
+                AyuGramClientBadges.shared.observe(peerId: peer.id.toInt64(), accountId: item.context.account.peerId.toInt64())
+            }
+            let ayuOwner = ayuBadge != nil
+            let ayuMember = ayuBadge == "member"
+            var titleIconsWidth: CGFloat = ayuOwner ? 22 : 0
             if let currentHiddenIconImage = currentHiddenIconImage {
                 if titleIconsWidth.isZero {
                     titleIconsWidth += 4.0
@@ -3575,7 +3583,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                                 if let color = emojiStatus.color {
                                     currentStatusIconParticleColor = UIColor(rgb: UInt32(bitPattern: color))
                                 }
-                            } else if peer.isPremium && !premiumConfiguration.isPremiumDisabled {
+                            } else if (peer.isPremium) && !premiumConfiguration.isPremiumDisabled {
                                 currentCredibilityIconContent = .premium(color: item.presentationData.theme.list.itemAccentColor)
                             }
                             
@@ -3606,7 +3614,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                         if let color = emojiStatus.color {
                             currentStatusIconParticleColor = UIColor(rgb: UInt32(bitPattern: color))
                         }
-                    } else if peer.isPremium && !premiumConfiguration.isPremiumDisabled {
+                    } else if (peer.isPremium) && !premiumConfiguration.isPremiumDisabled {
                         currentCredibilityIconContent = .premium(color: item.presentationData.theme.list.itemAccentColor)
                     }
                     
@@ -5367,6 +5375,13 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                         verifiedIconView.removeFromSuperview()
                     }
                     
+                    strongSelf.ayuOwnerBadge.image = ayuMember ? ayuGramMemberBadgeImage() : ayuGramOwnerBadgeImage()
+                    strongSelf.ayuOwnerBadge.isHidden = !ayuOwner
+                    if ayuOwner {
+                        strongSelf.mainContentContainerNode.view.addSubview(strongSelf.ayuOwnerBadge)
+                        transition.updateFrame(view: strongSelf.ayuOwnerBadge, frame: CGRect(x: nextTitleIconOrigin, y: titleFrame.maxY - lastLineRect.height * 0.5 - 9, width: 18, height: 18))
+                        nextTitleIconOrigin += 22
+                    }
                     if let currentHiddenIconImage = currentHiddenIconImage {
                         strongSelf.hiddenPeerIconNode.image = currentHiddenIconImage
                         strongSelf.hiddenPeerIconNode.isHidden = false

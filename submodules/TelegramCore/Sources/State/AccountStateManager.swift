@@ -1209,6 +1209,7 @@ public final class AccountStateManager {
                 if events.delayNotificatonsUntil != nil {
                     let _ = self.delayNotificatonsUntil.swap(events.delayNotificatonsUntil)
                 }
+                ayuGramPrefetchHistoryMedia(postbox: self.postbox, ids: events.addedIncomingMessageIds)
                 
                 let signal = self.postbox.transaction { transaction -> [([Message], PeerGroupId, Bool, MessageHistoryThreadData?)] in
                     var messageList: [([Message], PeerGroupId, Bool, MessageHistoryThreadData?)] = []

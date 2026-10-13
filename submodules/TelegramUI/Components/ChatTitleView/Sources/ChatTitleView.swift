@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import UIKit
 import AsyncDisplayKit
@@ -204,6 +205,7 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
     public let titleRightIconNode: ASImageNode
     public let titleCredibilityIconView: ComponentHostView<Empty>
     public let titleVerifiedIconView: ComponentHostView<Empty>
+    private let ayuOwnerBadge = UIImageView(image: ayuGramOwnerBadgeImage())
     public let titleStatusIconView: ComponentHostView<Empty>
     public let activityNode: ChatTitleActivityNode
     
@@ -310,7 +312,7 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
                                         titleCredibilityIcon = .scam
                                     } else if !hidePeerStatus, let emojiStatus = peer.emojiStatus {
                                         titleStatusIcon = .emojiStatus(emojiStatus)
-                                    } else if peer.isPremium && !premiumConfiguration.isPremiumDisabled {
+                                    } else if (peer.isPremium) && !premiumConfiguration.isPremiumDisabled {
                                         titleCredibilityIcon = .premium
                                     }
                                     
@@ -1006,6 +1008,16 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
             }
         }
         
+        var ayuBadge: String?
+        if case let .peer(peerData, _, _, _, _, _, _, _, _) = self.titleContent, let peer = peerData.peer, peer.id.namespace == Namespaces.Peer.CloudUser {
+            ayuBadge = AyuGramClientBadges.shared.badge(peerId: peer.id.toInt64())
+            AyuGramClientBadges.shared.observe(peerId: peer.id.toInt64(), accountId: self.context.account.peerId.toInt64())
+        }
+        let ayuOwner = ayuBadge != nil
+        self.ayuOwnerBadge.image = ayuBadge == "member" ? ayuGramMemberBadgeImage() : ayuGramOwnerBadgeImage()
+        self.ayuOwnerBadge.isHidden = !ayuOwner
+        if ayuOwner { self.titleTextNode.view.addSubview(self.ayuOwnerBadge) }
+        let ayuOwnerWidth: CGFloat = ayuOwner ? 21 : 0
         if let image = self.titleRightIconNode.image {
             if self.titleRightIconNode.supernode == nil {
                 self.titleTextNode.addSubnode(self.titleRightIconNode)
@@ -1029,7 +1041,8 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
             titleInsets.left = verifiedIconWidth
         }
         
-        var titleSize = self.titleTextNode.updateLayout(size: CGSize(width: size.width - leftIconWidth - credibilityIconWidth - verifiedIconWidth - statusIconWidth - rightIconWidth - titleSideInset * 2.0, height: size.height), insets: titleInsets, animated: titleTransition.isAnimated)
+        var titleSize = self.titleTextNode.updateLayout(size: CGSize(width: size.width - leftIconWidth - credibilityIconWidth - verifiedIconWidth - statusIconWidth - rightIconWidth - ayuOwnerWidth - titleSideInset * 2.0, height: size.height), insets: titleInsets, animated: titleTransition.isAnimated)
+        titleSize.width += ayuOwnerWidth
         titleSize.width += credibilityIconWidth
         titleSize.width += verifiedIconWidth
         if statusIconWidth > 0.0 {
@@ -1073,6 +1086,10 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
         }
         
         var nextIconX: CGFloat = titleFrame.width
+        if ayuOwner {
+            self.ayuOwnerBadge.frame = CGRect(x: nextIconX - 18, y: floor((titleFrame.height - 18) / 2), width: 18, height: 18)
+            nextIconX -= ayuOwnerWidth
+        }
         
         titleTransition.updateFrame(view: self.titleVerifiedIconView, frame: CGRect(origin: CGPoint(x: 0.0, y: floor((titleFrame.height - titleVerifiedSize.height) / 2.0)), size: titleVerifiedSize))
         

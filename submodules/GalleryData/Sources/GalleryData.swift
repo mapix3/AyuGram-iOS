@@ -314,6 +314,11 @@ public func chatMessageGalleryControllerData(
                 }, baseNavigationController: navigationController, actionInteraction: actionInteraction)
                 gallery.temporaryDoNotWaitForReady = autoplayingVideo
                 return .gallery(.single(gallery))
+            } else if let displayMessage = ayuPrivateMediaDisplayMessage(message) {
+                let gallery = GalleryController(context: context, source: .standaloneMessage(displayMessage, mediaSubject), invertItemOrder: reverseMessageGalleryOrder, streamSingleVideo: false, fromPlayingVideo: false, landscape: false, timecode: nil, synchronousLoad: synchronousLoad, replaceRootController: { [weak navigationController] controller, ready in
+                    navigationController?.replaceTopController(controller, animated: false, ready: ready)
+                }, baseNavigationController: navigationController, actionInteraction: nil)
+                return .gallery(.single(gallery))
             } else if message.containsSecretMedia {
                 let gallery = SecretMediaPreviewController(context: context, messageId: message.id)
                 return .secretGallery(gallery)

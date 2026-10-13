@@ -1,12 +1,17 @@
 import Foundation
+import SGSimpleSettings
 import Postbox
 import TelegramApi
 import SwiftSignalKit
 
-func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messageId: MessageId) -> Signal<Void, NoError> {
+func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messageId: MessageId, reportToServer: Bool = true, allowPrivateConsumption: Bool = false) -> Signal<Void, NoError> {
     return postbox.transaction { transaction -> Void in
         if let message = transaction.getMessage(messageId), message.flags.contains(.Incoming) {
+            let privateRead = AyuGramSettings.shared.snapshot.suppressRead
+            if privateRead && message.containsSecretMedia && !allowPrivateConsumption { return }
+            let synchronize = reportToServer && (!privateRead || allowPrivateConsumption)
             var updateMessage = false
+            var updatedTags = message.tags
             var updatedAttributes = message.attributes
             
             for i in 0 ..< updatedAttributes.count {
@@ -15,7 +20,9 @@ func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messa
                         updatedAttributes[i] = ConsumableContentMessageAttribute(consumed: true)
                         updateMessage = true
                         
-                        if message.id.peerId.namespace == Namespaces.Peer.SecretChat {
+                        if !synchronize {
+                            // Local playback state only; no queued server report.
+                        } else if message.id.peerId.namespace == Namespaces.Peer.SecretChat {
                             if let state = transaction.getPeerChatState(message.id.peerId) as? SecretChatState {
                                 var layer: SecretChatLayer?
                                 switch state.embeddedState {
@@ -42,8 +49,14 @@ func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messa
                         }
                     }
                 } else if let attribute = updatedAttributes[i] as? ConsumablePersonalMentionMessageAttribute, !attribute.consumed {
-                    transaction.setPendingMessageAction(type: .consumeUnseenPersonalMessage, id: messageId, action: ConsumePersonalMessageAction())
-                    updatedAttributes[i] = ConsumablePersonalMentionMessageAttribute(consumed: attribute.consumed, pending: true)
+                    if synchronize {
+                        transaction.setPendingMessageAction(type: .consumeUnseenPersonalMessage, id: messageId, action: ConsumePersonalMessageAction())
+                        updatedAttributes[i] = ConsumablePersonalMentionMessageAttribute(consumed: attribute.consumed, pending: true)
+                    } else {
+                        updatedAttributes[i] = ConsumablePersonalMentionMessageAttribute(consumed: true, pending: false)
+                        updatedTags.remove(.unseenPersonalMessage)
+                        updateMessage = true
+                    }
                 }
             }
             
@@ -58,7 +71,7 @@ func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messa
                         updatedAttributes[i] = AutoremoveTimeoutMessageAttribute(timeout: timeout, countdownBeginTime: timestamp)
                         updateMessage = true
                         
-                        if messageId.peerId.namespace == Namespaces.Peer.SecretChat {
+                        if synchronize && messageId.peerId.namespace == Namespaces.Peer.SecretChat {
                             var layer: SecretChatLayer?
                             let state = transaction.getPeerChatState(message.id.peerId) as? SecretChatState
                             if let state = state {
@@ -89,7 +102,7 @@ func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messa
                         updatedAttributes[i] = AutoclearTimeoutMessageAttribute(timeout: timeout, countdownBeginTime: timestamp)
                         updateMessage = true
                         
-                        if messageId.peerId.namespace == Namespaces.Peer.SecretChat {
+                        if synchronize && messageId.peerId.namespace == Namespaces.Peer.SecretChat {
                             var layer: SecretChatLayer?
                             let state = transaction.getPeerChatState(message.id.peerId) as? SecretChatState
                             if let state = state {
@@ -120,7 +133,7 @@ func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messa
                     if let forwardInfo = currentMessage.forwardInfo {
                         storeForwardInfo = StoreMessageForwardInfo(authorId: forwardInfo.author?.id, sourceId: forwardInfo.source?.id, sourceMessageId: forwardInfo.sourceMessageId, date: forwardInfo.date, authorSignature: forwardInfo.authorSignature, psaType: forwardInfo.psaType, flags: forwardInfo.flags)
                     }
-                    return .update(StoreMessage(id: currentMessage.id, customStableId: nil, globallyUniqueId: currentMessage.globallyUniqueId, groupingKey: currentMessage.groupingKey, threadId: currentMessage.threadId, timestamp: currentMessage.timestamp, flags: StoreMessageFlags(currentMessage.flags), tags: currentMessage.tags, globalTags: currentMessage.globalTags, localTags: currentMessage.localTags, forwardInfo: storeForwardInfo, authorId: currentMessage.author?.id, text: currentMessage.text, attributes: updatedAttributes, media: currentMessage.media))
+                    return .update(StoreMessage(id: currentMessage.id, customStableId: nil, globallyUniqueId: currentMessage.globallyUniqueId, groupingKey: currentMessage.groupingKey, threadId: currentMessage.threadId, timestamp: currentMessage.timestamp, flags: StoreMessageFlags(currentMessage.flags), tags: updatedTags, globalTags: currentMessage.globalTags, localTags: currentMessage.localTags, forwardInfo: storeForwardInfo, authorId: currentMessage.author?.id, text: currentMessage.text, attributes: updatedAttributes, media: currentMessage.media))
                 })
             }
         }

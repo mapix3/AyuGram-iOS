@@ -12,6 +12,7 @@ import AlertUI
 import PresentationDataUtils
 import MediaResources
 import WallpaperResources
+import SGStrings
 
 import AccountContext
 import ContextUI
@@ -642,7 +643,11 @@ public func themeSettingsController(context: AccountContext, focusOnItemTag: The
                 }
             } else {
                 currentAppIconName.set(icon.name)
-                context.sharedContext.applicationBindings.requestSetAlternateIconName(icon.isDefault ? nil : icon.name, { _ in
+                context.sharedContext.applicationBindings.requestSetAlternateIconName(icon.isDefault ? nil : icon.name, { applied in
+                    if !applied {
+                        let data = context.sharedContext.currentPresentationData.with { $0 }
+                        presentControllerImpl?(textAlertController(context: context, title: nil, text: i18n("Ayu.IconChangeUnavailable", data.strings.baseLanguageCode), actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), nil)
+                    }
                 })
             }
         })

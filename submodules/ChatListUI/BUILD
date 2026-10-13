@@ -2,6 +2,7 @@ load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
 sgdeps = [
     "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+    "//Swiftgram/SGStrings:SGStrings",
     "//Swiftgram/SGAPIWebSettings:SGAPIWebSettings",
     "//Swiftgram/SGAPIToken:SGAPIToken"
 ]

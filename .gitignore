@@ -90,3 +90,7 @@ xcode-files
 **/node_modules/
 tools/sim-watcher/dist/
 .mcp.json
+
+# AyuGram CI output
+artifacts/
+__pycache__/

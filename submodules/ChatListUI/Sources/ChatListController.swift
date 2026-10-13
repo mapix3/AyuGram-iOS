@@ -1,5 +1,6 @@
 // MARK: Swiftgram
 import SGSimpleSettings
+import SGStrings
 
 import Foundation
 import UIKit
@@ -6360,6 +6361,23 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             let (_, filterItems) = filterItemsAndTotalCount
             
             var items: [ContextMenuItem] = []
+            if AyuGramSettings.shared.extra.ghostQuickToggle {
+                // AyuGram: one-tap Ghost Mode from the Chats tab.
+                let ghostEnabled = AyuGramSettings.shared.snapshot.ghostMode
+                let locale = strongSelf.presentationData.strings.baseLanguageCode
+                items.append(.action(ContextMenuActionItem(text: i18n(ghostEnabled ? "Ayu.GhostDisable" : "Ayu.GhostEnable", locale), icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: ghostEnabled ? "Chat/Context Menu/Eye" : "Chat/Context Menu/EyeLocked"), color: theme.contextMenu.primaryColor)
+                }, action: { _, f in
+                    f(.dismissWithoutContent)
+                    AyuGramSettings.shared.setGhostMode(!ghostEnabled)
+                    guard let strongSelf = self else {
+                        return
+                    }
+                    let text = i18n(ghostEnabled ? "Ayu.GhostDisabledToast" : "Ayu.GhostEnabledToast", locale)
+                    strongSelf.present(UndoOverlayController(presentationData: strongSelf.presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), elevatedLayout: true, animateInAsReplacement: false, action: { _ in return false }), in: .window(.root))
+                })))
+                items.append(.separator)
+            }
             items.append(.action(ContextMenuActionItem(text: presetList.isEmpty ? strongSelf.presentationData.strings.ChatList_AddFolder : strongSelf.presentationData.strings.ChatList_EditFolders, icon: { theme in
                 return generateTintedImage(image: UIImage(bundleImageName: presetList.isEmpty ? "Chat/Context Menu/Add" : "Chat/Context Menu/ItemList"), color: theme.contextMenu.primaryColor)
             }, action: { c, f in

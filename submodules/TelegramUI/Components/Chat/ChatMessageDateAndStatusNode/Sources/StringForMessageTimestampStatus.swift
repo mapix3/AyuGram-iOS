@@ -248,5 +248,6 @@ public func stringForMessageTimestampStatus(
         }
     }
     
+    if message._asMessage().ayuHistory?.deletedAt != nil { dateText = "🗑︎ " + dateText }
     return dateText
 }

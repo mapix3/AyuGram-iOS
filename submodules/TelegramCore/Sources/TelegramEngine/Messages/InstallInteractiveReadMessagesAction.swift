@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import Postbox
 import TelegramApi
@@ -27,7 +28,7 @@ func _internal_installInteractiveReadMessagesAction(postbox: Postbox, stateManag
                 
                 if message.tags.contains(.unseenPersonalMessage) || message.tags.contains(.unseenReaction) || message.tags.contains(.unseenPollVote) {
                     for attribute in message.attributes {
-                        if let attribute = attribute as? ConsumablePersonalMentionMessageAttribute, !attribute.consumed, !attribute.pending {
+                        if let attribute = attribute as? ConsumablePersonalMentionMessageAttribute, !attribute.consumed, !attribute.pending || AyuGramSettings.shared.snapshot.suppressRead {
                             hasUnconsumedMention = true
                         } else if let attribute = attribute as? ConsumableContentMessageAttribute, !attribute.consumed {
                             hasUnconsumedContent = true
@@ -61,6 +62,12 @@ func _internal_installInteractiveReadMessagesAction(postbox: Postbox, stateManag
             }
         }
         
+        if AyuGramSettings.shared.snapshot.suppressRead {
+            for id in consumeMessageIds {
+                ayuConsumeMentionLocally(transaction: transaction, id: id)
+            }
+            consumeMessageIds.removeAll()
+        }
         for id in Set(consumeMessageIds + readReactionOrPollVotesIds) {
             transaction.updateMessage(id, update: { currentMessage in
                 var attributes = currentMessage.attributes

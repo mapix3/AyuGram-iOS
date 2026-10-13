@@ -822,6 +822,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                 if hadUpdates {
                     self.activeAccountsValue!.accounts.sort(by: { $0.2 < $1.2 })
                     self.activeAccountsPromise.set(.single(self.activeAccountsValue!))
+                    AyuGramClientBadges.shared.setActiveAccount(self.activeAccountsValue!.primary?.account.peerId.toInt64())
                     
                     self.performAccountSettingsImportIfNecessary()
                 }

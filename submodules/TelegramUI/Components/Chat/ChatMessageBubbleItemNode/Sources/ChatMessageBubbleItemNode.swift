@@ -151,7 +151,7 @@ private func contentNodeMessagesAndClassesForItem(_ item: ChatMessageItem) -> ([
             }
         }
         
-        var messageMedia = message.media
+        var messageMedia = message.ayuDisplayMedia
         if let updatingMedia = itemAttributes.updatingMedia, messageMedia.isEmpty, case let .update(media) = updatingMedia.media {
             messageMedia.append(media.media)
         }
@@ -751,6 +751,7 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
     private var ephemeralBadgeTextNode: TextNode?
     private var ephemeralBadgeIconNode: UIImageView?
 
+    private let ayuOwnerBadge = UIImageView(image: ayuGramOwnerBadgeImage())
     private var credibilityIconView: ComponentHostView<Empty>?
     private var credibilityIconComponent: EmojiStatusComponent?
     private var credibilityIconContent: EmojiStatusComponent.Content?
@@ -2121,6 +2122,12 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
             }
         }
         
+        let ayuBadge = effectiveAuthor.flatMap { $0.id.namespace == Namespaces.Peer.CloudUser ? AyuGramClientBadges.shared.badge(peerId: $0.id.toInt64()) : nil }
+        let ayuOwner = ayuBadge != nil
+        let ayuMember = ayuBadge == "member"
+        if let author = effectiveAuthor, author.id.namespace == Namespaces.Peer.CloudUser {
+            AyuGramClientBadges.shared.observe(peerId: author.id.toInt64(), accountId: item.context.account.peerId.toInt64())
+        }
         var authorNameString: String?
         var authorRank: CachedChannelAdminRank?
         var authorIsChannel: Bool = false
@@ -2877,7 +2884,7 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
                     attributedString = NSAttributedString(string: "", font: nameFont, textColor: inlineBotNameColor)
                 }
                 
-                var credibilityIconWidth: CGFloat = 0.0
+                var credibilityIconWidth: CGFloat = ayuOwner ? 22 : 0
                 if let (currentCredibilityIcon, _) = currentCredibilityIcon {
                     credibilityIconWidth += 4.0
                     switch currentCredibilityIcon {
@@ -3866,6 +3873,8 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
                 hasTitleTopicNavigation: hasTitleTopicNavigation,
                 authorNameColor: authorNameColor,
                 layoutConstants: layoutConstants,
+                ayuOwner: ayuOwner,
+                ayuMember: ayuMember,
                 currentCredibilityIcon: currentCredibilityIcon,
                 rankBadgeNodeSizeApply: rankBadgeNodeSizeApply,
                 ephemeralBadgeNodeSizeApply: ephemeralBadgeNodeSizeApply,
@@ -3940,6 +3949,8 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         hasTitleTopicNavigation: Bool,
         authorNameColor: UIColor?,
         layoutConstants: ChatMessageItemLayoutConstants,
+        ayuOwner: Bool,
+        ayuMember: Bool,
         currentCredibilityIcon: (EmojiStatusComponent.Content, UIColor?)?,
         rankBadgeNodeSizeApply: (CGSize, () -> TextNode?, UIColor?),
         ephemeralBadgeNodeSizeApply: (CGSize, CGSize, () -> TextNode?),
@@ -3982,6 +3993,8 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
             return
         }
         
+        strongSelf.ayuOwnerBadge.image = ayuMember ? ayuGramMemberBadgeImage() : ayuGramOwnerBadgeImage()
+        strongSelf.ayuOwnerBadge.isHidden = true
         strongSelf.currentInputParams = inputParams
         strongSelf.currentApplyParams = applyInfo
         strongSelf.contentLayoutInsets = layoutInsets
@@ -4414,6 +4427,12 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
                 strongSelf.boostBadgeNode = nil
             }
             
+            strongSelf.ayuOwnerBadge.isHidden = !ayuOwner || nameNode.bounds.width == 0
+            if !strongSelf.ayuOwnerBadge.isHidden {
+                strongSelf.clippingNode.view.addSubview(strongSelf.ayuOwnerBadge)
+                let afterPremium = strongSelf.credibilityIconView?.frame.maxX ?? nameNode.frame.maxX
+                animation.animator.updateFrame(layer: strongSelf.ayuOwnerBadge.layer, frame: CGRect(x: afterPremium + 3, y: nameNode.frame.midY - 9, width: 18, height: 18), completion: nil)
+            }
             if boostCount > 0 {
                 var boostTotalWidth: CGFloat = 22.0
                 if boostNodeSizeApply.0.width > 0.0 {

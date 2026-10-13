@@ -263,6 +263,7 @@ public final class WindowKeyboardGestureRecognizerDelegate: NSObject, UIGestureR
 
 public class Window1 {
     public let hostView: WindowHostView
+    private var ayuIconObserver: NSObjectProtocol?
     public let badgeView: UIImageView
     
     private(set) var deviceMetrics: DeviceMetrics
@@ -349,11 +350,7 @@ public class Window1 {
     public init(hostView: WindowHostView, statusBarHost: StatusBarHost?) {
         self.hostView = hostView
         self.badgeView = UIImageView()
-        if SGSimpleSettings.shared.status > 1, let image = UIImage(bundleImageName: SGSimpleSettings.shared.customAppBadge) {
-            self.badgeView.image = image
-        } else {
-        self.badgeView.image = UIImage(bundleImageName: "Components/AppBadge")
-        }
+        self.badgeView.image = ayuGramAppBadgeImage()
         self.badgeView.isHidden = true
         
         self.systemUserInterfaceStyle = hostView.systemUserInterfaceStyle
@@ -721,6 +718,9 @@ public class Window1 {
         self.windowPanRecognizer = recognizer
         self.hostView.containerView.addGestureRecognizer(recognizer)
         self.hostView.containerView.addSubview(self.badgeView)
+        self.ayuIconObserver = NotificationCenter.default.addObserver(forName: Notification.Name("AyuGram.AppIcon.didChange"), object: nil, queue: .main) { [weak self] _ in
+            self?.badgeView.image = ayuGramAppBadgeImage()
+        }
     }
             
     public required init(coder aDecoder: NSCoder) {
@@ -728,6 +728,7 @@ public class Window1 {
     }
     
     deinit {
+        if let ayuIconObserver = self.ayuIconObserver { NotificationCenter.default.removeObserver(ayuIconObserver) }
         if let statusBarChangeObserver = self.statusBarChangeObserver {
             NotificationCenter.default.removeObserver(statusBarChangeObserver)
         }

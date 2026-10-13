@@ -101,8 +101,14 @@ private final class SynchronizePeerReadStatesContextImpl {
                         if let activeOperation = activeOperation {
                             if let current = strongSelf.activeOperations[peerId], current === activeOperation {
                                 Logger.shared.log("SynchronizePeerReadStates", "\(peerId): operation retry \(operation)")
-                                strongSelf.activeOperations.removeValue(forKey: peerId)
-                                strongSelf.update()
+                                // AyuGram: back off instead of restarting in a tight loop.
+                                strongSelf.queue.after(1.0, { [weak strongSelf] in
+                                    guard let strongSelf, let current = strongSelf.activeOperations[peerId], current === activeOperation else {
+                                        return
+                                    }
+                                    strongSelf.activeOperations.removeValue(forKey: peerId)
+                                    strongSelf.update()
+                                })
                             }
                         }
                     }, completed: { [weak self, weak activeOperation] in

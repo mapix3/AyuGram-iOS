@@ -123,7 +123,7 @@ func _internal_resetAccountState(postbox: Postbox, network: Network, accountPeer
                 }
                 
                 if let replacePinnedItemIds = fetchedChats.pinnedItemIds {
-                    transaction.setPinnedItemIds(groupId: .root, itemIds: replacePinnedItemIds.map(PinnedItemId.peer))
+                    transaction.setPinnedItemIds(groupId: .root, itemIds: replacePinnedItemIds.map(PinnedItemId.peer), fromServer: true)
                 }
                 
                 for (peerId, summary) in fetchedChats.mentionTagSummaries {

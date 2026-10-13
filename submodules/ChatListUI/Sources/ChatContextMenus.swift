@@ -412,8 +412,12 @@ func chatContextMenuItems(context: AccountContext, peerId: EnginePeer.Id, promoI
                                         switch result {
                                         case .done:
                                             f(.default)
-                                        case let .limitExceeded(count, _):
+                                        case let .limitExceeded(count, limit):
                                             f(.default)
+                                            if case .group(.root) = location, limit > 10 {
+                                                chatListController?.present(textAlertController(context: context, title: nil, text: strings.DialogList_PinLimitError(String(limit)).string, actions: [TextAlertAction(type: .defaultAction, title: strings.Common_OK, action: {})]), in: .window(.root))
+                                                return
+                                            }
                                             
                                             let isPremium = limitsData.0?.isPremium ?? false
                                             if isPremium {

@@ -577,6 +577,8 @@ public func enqueueMessages(account: Account, peerId: PeerId, messages: [Enqueue
         signal = .single(messages.map { (false, $0) })
     }
     return signal
+    |> mapToSignal { messages in ayuPrepareProtectedForwards(account: account, peerId: peerId, messages: messages) }
+    |> mapToSignal { messages in ayuPrepareEmojiLinks(account: account, peerId: peerId, messages: messages) }
     |> mapToSignal { messages -> Signal<[MessageId?], NoError> in
         return account.postbox.transaction { transaction -> ([MessageId?], [MessageId]) in
             var resultIds = Array<MessageId?>(repeating: nil, count: messages.count)

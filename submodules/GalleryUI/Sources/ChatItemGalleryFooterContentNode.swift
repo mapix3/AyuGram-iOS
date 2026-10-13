@@ -1,3 +1,5 @@
+import SGStrings
+import SGSimpleSettings
 import Foundation
 import UIKit
 import AsyncDisplayKit
@@ -173,6 +175,10 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
     private var currentWebPageAndMedia: (TelegramMediaWebpage, EngineRawMedia)?
     private var mediaSubject: GalleryMediaSubject?
     private let messageContextDisposable = MetaDisposable()
+    private let ayuViewLookupDisposable = MetaDisposable()
+    private var ayuViewButton: SolidRoundedButtonNode?
+    private var ayuViewInProgress = false
+    private let ayuPresent: (ViewController, Any?) -> Void
     
     private var videoFramePreviewNode: (ASImageNode, ImmediateTextNode)?
     
@@ -375,6 +381,7 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
     
     init(context: AccountContext, presentationData: PresentationData, present: @escaping (ViewController, Any?) -> Void = { _, _ in }) {
         self.context = context
+        self.ayuPresent = present
         self.presentationData = presentationData
         self.theme = presentationData.theme
         self.strings = presentationData.strings
@@ -677,6 +684,7 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
     
     deinit {
         self.messageContextDisposable.dispose()
+        self.ayuViewLookupDisposable.dispose()
         self.codeHighlightState?.disposable.dispose()
     }
     
@@ -856,7 +864,19 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
     }
     
     func setMessage(_ message: EngineRawMessage, mediaSubject: GalleryMediaSubject? = nil, displayInfo: Bool = true, translateToLanguage: String? = nil, peerIsCopyProtected: Bool = false, displayPictureInPictureButton: Bool = false, settingsButtonState: SettingsButtonState? = nil, displayTextRecognitionButton: Bool = false, displayStickersButton: Bool = false, animated: Bool = false) {
+        let ayuMessageChanged = self.currentMessage?.id != message.id
         self.currentMessage = message
+        if ayuMessageChanged {
+            self.ayuViewInProgress = false
+            self.ayuUpdateViewButton(available: false)
+            self.ayuViewLookupDisposable.set((self.context.account.postbox.transaction { transaction -> Bool in
+                guard let original = transaction.getMessage(message.id), ayuPrivateMediaDisplayMessage(original) != nil else { return false }
+                return !original.attributes.contains(where: { ($0 as? ConsumableContentMessageAttribute)?.consumed == true })
+            } |> deliverOnMainQueue).start(next: { [weak self] available in
+                guard let self, self.currentMessage?.id == message.id else { return }
+                self.ayuUpdateViewButton(available: available)
+            }))
+        }
         self.mediaSubject = mediaSubject
         
         var displayInfo = displayInfo
@@ -1174,6 +1194,46 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
         self.hasExpandedCaptionPromise.set(scrollView.contentOffset.y > 1.0)
     }
     
+    private func ayuUpdateViewButton(available: Bool) {
+        if available {
+            if self.ayuViewButton == nil {
+                let data = self.context.sharedContext.currentPresentationData.with { $0 }
+                let button = SolidRoundedButtonNode(title: i18n("Ayu.View", data.strings.baseLanguageCode), theme: SolidRoundedButtonTheme(backgroundColor: data.theme.list.itemAccentColor, foregroundColor: data.theme.list.itemCheckColors.foregroundColor), height: 44.0, cornerRadius: 22.0)
+                button.pressed = { [weak self] in self?.ayuConfirmView() }
+                self.contentNode.addSubnode(button)
+                self.ayuViewButton = button
+            }
+        } else {
+            self.ayuViewButton?.removeFromSupernode()
+            self.ayuViewButton = nil
+        }
+        self.requestLayout?(.immediate)
+    }
+
+    private func ayuConfirmView() {
+        guard let messageId = self.currentMessage?.id, !self.ayuViewInProgress else { return }
+        let data = self.context.sharedContext.currentPresentationData.with { $0 }
+        self.ayuPresent(standardTextAlertController(theme: AlertControllerTheme(presentationData: data), title: i18n("Ayu.ReportPhotoView", data.strings.baseLanguageCode), text: i18n("Ayu.ViewWarning", data.strings.baseLanguageCode), actions: [
+            TextAlertAction(type: .genericAction, title: data.strings.Common_Cancel, action: {}),
+            TextAlertAction(type: .defaultAction, title: i18n("Ayu.View", data.strings.baseLanguageCode), action: { [weak self] in
+                guard let self, self.currentMessage?.id == messageId, !self.ayuViewInProgress else { return }
+                self.ayuViewInProgress = true
+                self.ayuViewButton?.isEnabled = false
+                let _ = (self.context.engine.messages.ayuReportContentViewed(messageId: messageId)
+                |> deliverOnMainQueue).startStandalone(next: { [weak self] success in
+                    guard let self, self.currentMessage?.id == messageId else { return }
+                    self.ayuViewInProgress = false
+                    if success {
+                        self.ayuUpdateViewButton(available: false)
+                    } else {
+                        self.ayuViewButton?.isEnabled = true
+                        self.ayuPresent(standardTextAlertController(theme: AlertControllerTheme(presentationData: data), title: i18n("Ayu.ReceiptError", data.strings.baseLanguageCode), text: "", actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), nil)
+                    }
+                })
+            })
+        ]), nil)
+    }
+
     override func updateLayout(size: CGSize, metrics: LayoutMetrics, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat, contentInset: CGFloat, transition: ContainedViewLayoutTransition) -> LayoutInfo {
         self.validLayout = (size, metrics, leftInset, rightInset, bottomInset, contentInset)
         
@@ -1446,6 +1506,14 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
             centerControlItems = []
         }
         
+        if let button = self.ayuViewButton {
+            panelHeight += 52.0
+            let buttonWidth = min(380.0, width - leftInset - rightInset - 32.0)
+            let buttonHeight = button.updateLayout(width: buttonWidth, transition: transition)
+            transition.updateFrame(node: button, frame: CGRect(x: leftInset + (width - leftInset - rightInset - buttonWidth) / 2.0, y: panelHeight - buttonPanelInsets.bottom - 44.0 - 8.0 - buttonHeight, width: buttonWidth, height: buttonHeight))
+            needsShadow = true
+        }
+
         let buttonPanelSize = self.buttonPanel.update(
             transition: ComponentTransition(transition),
             component: AnyComponent(GlassControlPanelComponent(
@@ -1550,6 +1618,7 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
         self.statusNode.alpha = 1.0
         self.playbackControlButton.alpha = 1.0
         self.buttonNode?.alpha = 1.0
+        self.ayuViewButton?.alpha = 1.0
     }
     
     override func animateOut(transition: ContainedViewLayoutTransition) {
@@ -1579,6 +1648,7 @@ final class ChatItemGalleryFooterContentNode: GalleryFooterContentNode, ASScroll
         self.statusNode.alpha = 0.0
         self.playbackControlButton.alpha = 0.0
         self.buttonNode?.alpha = 0.0
+        self.ayuViewButton?.alpha = 0.0
     }
 
     @objc func fullscreenButtonPressed() {

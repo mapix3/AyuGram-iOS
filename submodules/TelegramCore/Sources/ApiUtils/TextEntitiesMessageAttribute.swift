@@ -92,5 +92,5 @@ func apiEntitiesFromMessageTextEntities(_ entities: [MessageTextEntity], associa
 }
 
 func apiTextAttributeEntities(_ attribute: TextEntitiesMessageAttribute, associatedPeers: SimpleDictionary<PeerId, Peer>) -> [Api.MessageEntity] {
-    return apiEntitiesFromMessageTextEntities(attribute.entities, associatedPeers: associatedPeers)
+    return apiEntitiesFromMessageTextEntities(attribute.ayuWireEntities, associatedPeers: associatedPeers)
 }

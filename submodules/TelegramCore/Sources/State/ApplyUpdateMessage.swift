@@ -312,6 +312,8 @@ func applyUpdateMessage(postbox: Postbox, stateManager: AccountStateManager, mes
                 threadId = currentMessage.threadId
             }
             
+            ayuMergeLocalEmojiAttributes(text: text, previous: currentMessage.attributes, updated: &attributes)
+
             let updatedId: MessageId
             if let messageId = messageId {
                 var namespace: MessageId.Namespace = Namespaces.Message.Cloud
@@ -601,12 +603,13 @@ func applyUpdateGroupMessages(postbox: Postbox, stateManager: AccountStateManage
                 }
                 
                 let media: [Media]
-                let attributes: [MessageAttribute]
+                var attributes: [MessageAttribute]
                 let text: String
  
                 media = updatedMessage.media
                 attributes = updatedMessage.attributes
                 text = updatedMessage.text
+                ayuMergeLocalEmojiAttributes(text: text, previous: currentMessage.attributes, updated: &attributes)
                 
                 var storeForwardInfo: StoreMessageForwardInfo?
                 if let forwardInfo = currentMessage.forwardInfo {

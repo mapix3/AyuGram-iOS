@@ -1,3 +1,5 @@
+import SGSimpleSettings
+import SGStrings
 import Foundation
 import UIKit
 import AsyncDisplayKit
@@ -97,6 +99,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     
     private let isOpenedFromChat: Bool
     private let isSettings: Bool
+    private let ayuPresenceLabel = UILabel()
+    private let ayuPresenceDisposable = MetaDisposable()
+    private var ayuPresenceTimer: SwiftSignalKit.Timer?
+    private var ayuServerPresence: EnginePeer.Presence?
+    private var ayuPresenceReceivedAt: Date?
     private let isMyProfile: Bool
     private let videoCallsEnabled: Bool
     private let forumTopicThreadId: Int64?
@@ -119,6 +126,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     let regularContentNode: PeerInfoHeaderRegularContentNode
     let editingContentNode: PeerInfoHeaderEditingContentNode
     let avatarOverlayNode: PeerInfoEditingAvatarOverlayNode
+    private let ayuOwnerBadge = UIImageView(image: ayuGramOwnerBadgeImage())
+    private let ayuExpandedOwnerBadge = UIImageView(image: ayuGramOwnerBadgeImage())
     let titleNodeContainer: ASDisplayNode
     let titleNodeRawContainer: ASDisplayNode
     let titleNode: MultiScaleTextNode
@@ -312,6 +321,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         }
         
         self.view.addSubview(self.backgroundBannerView)
+        self.titleNode.stateNode(forKey: TitleNodeStateRegular)?.view.addSubview(self.ayuOwnerBadge)
+        self.titleNode.stateNode(forKey: TitleNodeStateExpanded)?.view.addSubview(self.ayuExpandedOwnerBadge)
         self.titleNodeContainer.addSubnode(self.titleNode)
         self.subtitleNodeContainer.addSubnode(self.subtitleNode)
         self.subtitleNodeContainer.addSubnode(self.panelSubtitleNode)
@@ -322,6 +333,10 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         
         self.regularContentNode.addSubnode(self.avatarListNode.listContainerNode.controlsClippingOffsetNode)
         self.regularContentNode.addSubnode(self.titleNodeContainer)
+        self.ayuPresenceLabel.font = UIFont.systemFont(ofSize: 14.0)
+        self.ayuPresenceLabel.textAlignment = .center
+        self.ayuPresenceLabel.isAccessibilityElement = true
+        self.regularContentNode.view.addSubview(self.ayuPresenceLabel)
         self.regularContentNode.addSubnode(self.subtitleNodeContainer)
         self.regularContentNode.addSubnode(self.subtitleNodeRawContainer)
         self.regularContentNode.addSubnode(self.usernameNodeContainer)
@@ -385,10 +400,31 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     
     deinit {
         self.emojiStatusPackDisposable.dispose()
+        self.ayuPresenceDisposable.dispose()
+        self.ayuPresenceTimer?.invalidate()
     }
     
+    private func refreshAyuPresence() {
+        self.ayuPresenceDisposable.set((self.context.engine.peers.ayuAccountServerPresence()
+        |> deliverOnMainQueue).start(next: { [weak self] presence in
+            guard let self else { return }
+            self.ayuServerPresence = presence
+            self.ayuPresenceReceivedAt = presence == nil ? nil : Date()
+            self.requestUpdateLayout?(false)
+        }))
+    }
+
     override func didLoad() {
         super.didLoad()
+        if self.isSettings || self.isMyProfile {
+            self.refreshAyuPresence()
+            let timer = SwiftSignalKit.Timer(timeout: 30.0, repeat: true, completion: { [weak self] in
+                guard let self, self.view.window != nil else { return }
+                self.refreshAyuPresence()
+            }, queue: .mainQueue())
+            self.ayuPresenceTimer = timer
+            timer.start()
+        }
         
         let usernameGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(self.handleUsernameLongPress(_:)))
         self.usernameNodeRawContainer.view.addGestureRecognizer(usernameGestureRecognizer)
@@ -607,7 +643,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 credibilityIcon = .scam
             } else if let emojiStatus = peer.emojiStatus {
                 statusIcon = .emojiStatus(emojiStatus)
-            } else if peer.isPremium && !premiumConfiguration.isPremiumDisabled && (peer.id != self.context.account.peerId || self.isSettings || self.isMyProfile) {
+            } else if (peer.isPremium || (peer.id == self.context.account.peerId && AyuGramSettings.shared.client.localPremium)) && !premiumConfiguration.isPremiumDisabled && (peer.id != self.context.account.peerId || self.isSettings || self.isMyProfile) {
                 credibilityIcon = .premium
             } else {
                 credibilityIcon = .none
@@ -1195,7 +1231,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         var panelSubtitleString: (text: String, attributes: MultiScaleTextState.Attributes)?
         let usernameString: (text: String, attributes: MultiScaleTextState.Attributes)
         if let peer = peer {
-            isPremium = peer.isPremium
+            isPremium = peer.isPremium || (peer.id == self.context.account.peerId && AyuGramSettings.shared.client.localPremium)
             isVerified = peer.isVerified
             isFake = peer.isFake || peer.isScam
         }
@@ -1623,6 +1659,23 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         }
         
+        let ayuBadge = peer.flatMap { $0.id.namespace == Namespaces.Peer.CloudUser ? AyuGramClientBadges.shared.badge(peerId: $0.id.toInt64()) : nil }
+        let ayuOwner = ayuBadge != nil
+        if let peer, peer.id.namespace == Namespaces.Peer.CloudUser {
+            AyuGramClientBadges.shared.observe(peerId: peer.id.toInt64(), accountId: self.context.account.peerId.toInt64())
+        }
+        let ayuBadgeImage = ayuBadge == "member" ? ayuGramMemberBadgeImage() : ayuGramOwnerBadgeImage()
+        self.ayuOwnerBadge.image = ayuBadgeImage
+        self.ayuExpandedOwnerBadge.image = ayuBadgeImage
+        self.ayuOwnerBadge.isHidden = !ayuOwner
+        self.ayuExpandedOwnerBadge.isHidden = !ayuOwner
+        if ayuOwner {
+            let badgeSize = CGSize(width: 22, height: 22)
+            transition.updateFrame(view: self.ayuOwnerBadge, frame: CGRect(x: nextIconX + 4, y: floor((titleSize.height - 22) / 2), width: badgeSize.width, height: badgeSize.height))
+            transition.updateFrame(view: self.ayuExpandedOwnerBadge, frame: CGRect(x: nextExpandedIconX + 4, y: floor((titleExpandedSize.height - 22) / 2), width: badgeSize.width, height: badgeSize.height))
+            titleHorizontalOffset -= 13
+            titleExpandedHorizontalOffset -= 13
+        }
         var titleFrame: CGRect
         var subtitleFrame: CGRect
         let usernameFrame: CGRect
@@ -1691,6 +1744,24 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         }
         
+        if self.isSettings || self.isMyProfile {
+            let text: String
+            if let presence = self.ayuServerPresence, let receivedAt = self.ayuPresenceReceivedAt, Date().timeIntervalSince(receivedAt) < 90.0 {
+                let (status, _) = stringAndActivityForUserPresence(strings: presentationData.strings, dateTimeFormat: presentationData.dateTimeFormat, presence: presence, relativeTo: Int32(Date().timeIntervalSince1970), expanded: true)
+                text = i18n("Ayu.ServerPresence", presentationData.strings.baseLanguageCode, status)
+            } else {
+                text = i18n("Ayu.ServerUnavailable", presentationData.strings.baseLanguageCode)
+            }
+            self.ayuPresenceLabel.text = text
+            self.ayuPresenceLabel.accessibilityLabel = text
+            self.ayuPresenceLabel.textColor = navigationContentsSecondaryColor
+            self.ayuPresenceLabel.lineBreakMode = .byTruncatingTail
+            let frame = CGRect(x: 24.0, y: subtitleFrame.maxY + titleOffset + 9.0, width: max(0.0, width - 48.0), height: 20.0)
+            transition.updateFrame(view: self.ayuPresenceLabel, frame: frame)
+            transition.updateAlpha(layer: self.ayuPresenceLabel.layer, alpha: state.isEditing || self.isAvatarExpanded || isSearching ? 0.0 : 1.0 - titleCollapseFraction)
+        } else {
+            self.ayuPresenceLabel.isHidden = true
+        }
         let titleMinScale: CGFloat = 0.6
         let subtitleMinScale: CGFloat = 0.8
         let avatarMinScale: CGFloat = 0.55
@@ -2019,7 +2090,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             rawHeight = navigationHeight + panelWithAvatarHeight
             var expandablePart: CGFloat = panelWithAvatarHeight - contentOffset
             if self.isSettings || self.isMyProfile {
-                expandablePart += 20.0
+                expandablePart += 48.0
             } else {
                 if case let .replyThread(replyThreadMessage) = self.chatLocation, replyThreadMessage.peerId == self.context.account.peerId {
                     expandablePart = 0.0
@@ -2468,7 +2539,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         if self.isAvatarExpanded {
             resolvedRegularHeight = expandedAvatarListSize.height
         } else {
-            resolvedRegularHeight = panelWithAvatarHeight + navigationHeight + bottomInset
+            resolvedRegularHeight = panelWithAvatarHeight + navigationHeight + bottomInset + ((self.isSettings || self.isMyProfile) ? 28.0 : 0.0)
         }
         
         let backgroundFrame: CGRect

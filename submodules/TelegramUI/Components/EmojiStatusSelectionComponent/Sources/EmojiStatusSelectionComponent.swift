@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import UIKit
 import Display
@@ -515,7 +516,7 @@ public final class EmojiStatusSelectionController: ViewController {
                                     guard case let .user(user) = peer else {
                                         return false
                                     }
-                                    return user.isPremium
+                                    return user.isPremium || AyuGramSettings.shared.client.localPremium
                                 }
                                 |> distinctUntilChanged
 

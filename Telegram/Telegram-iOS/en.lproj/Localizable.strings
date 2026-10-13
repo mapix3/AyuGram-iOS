@@ -401,7 +401,7 @@
 "Date.ChatDateHeaderYear" = "%1$@ %2$@, %3$@";
 
 // Tour
-"Tour.Title1" = "Swiftgram";
+"Tour.Title1" = "AyuGram";
 "Tour.Text1" = "The world's **fastest** messaging app.\nIt is **free** and **secure**.";
 
 "Tour.Title2" = "Fast";
@@ -2290,7 +2290,7 @@ Unused sets are archived when you add more.";
 
 "Call.EncryptionKey.Title" = "Encryption Key";
 
-"Application.Name" = "Swiftgram";
+"Application.Name" = "AyuGram";
 "DialogList.Pin" = "Pin";
 "DialogList.Unpin" = "Unpin";
 "DialogList.PinLimitError" = "Sorry, you can pin no more than %@ chats to the top.";
@@ -3996,7 +3996,7 @@ Unused sets are archived when you add more.";
 "AttachmentMenu.WebSearch" = "Web Search";
 
 "Conversation.UnsupportedMediaPlaceholder" = "This message is not supported on your version of Swiftgram. Please update to the latest version.";
-"Conversation.UpdateTelegram" = "UPDATE SWIFTGRAM";
+"Conversation.UpdateTelegram" = "UPDATE AYUGRAM";
 
 "Cache.LowDiskSpaceText" = "Your phone has run out of available storage. Please free some space to download or upload media.";
 

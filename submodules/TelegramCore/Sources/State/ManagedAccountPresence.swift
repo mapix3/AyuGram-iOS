@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import TelegramApi
 import Postbox
@@ -17,10 +18,18 @@ private final class AccountPresenceManagerImpl {
     private var onlineTimer: SignalKitTimer?
     
     private var wasOnline: Bool = false
+    private var requestedOnline: Bool = false
+    private var ayuSettingsObserver: NSObjectProtocol?
     
     init(queue: Queue, shouldKeepOnlinePresence: Signal<Bool, NoError>, network: Network) {
         self.queue = queue
         self.network = network
+        self.ayuSettingsObserver = NotificationCenter.default.addObserver(forName: AyuGramSettings.didChange, object: nil, queue: nil) { [weak self] _ in
+            self?.queue.async { [weak self] in
+                guard let self = self else { return }
+                self.applyRequestedPresence()
+            }
+        }
         
         self.shouldKeepOnlinePresenceDisposable = (shouldKeepOnlinePresence
         |> distinctUntilChanged
@@ -28,21 +37,32 @@ private final class AccountPresenceManagerImpl {
             guard let `self` = self else {
                 return
             }
-            if self.wasOnline != value {
-                self.wasOnline = value
-                self.updatePresence(value)
-            }
+            self.requestedOnline = value
+            self.applyRequestedPresence()
         })
     }
     
     deinit {
         assert(self.queue.isCurrent())
+        if let observer = self.ayuSettingsObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         self.shouldKeepOnlinePresenceDisposable?.dispose()
         self.currentRequestDisposable.dispose()
         self.onlineTimer?.invalidate()
     }
     
-    private func updatePresence(_ isOnline: Bool) {
+    private func applyRequestedPresence() {
+        let value = self.requestedOnline && !AyuGramSettings.shared.snapshot.suppressOnline
+        if self.wasOnline != value {
+            self.wasOnline = value
+            self.updatePresence(value)
+        }
+    }
+
+    private func updatePresence(_ requestedOnline: Bool) {
+        let isOnline = requestedOnline && !AyuGramSettings.shared.snapshot.suppressOnline
+        self.onlineTimer?.invalidate()
         let request: Signal<Api.Bool, MTRpcError>
         if isOnline {
             let timer = SignalKitTimer(timeout: 30.0, repeat: false, completion: { [weak self] in

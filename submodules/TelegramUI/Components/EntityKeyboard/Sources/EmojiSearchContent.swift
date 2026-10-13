@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import UIKit
 import Display
@@ -81,7 +82,7 @@ public final class EmojiSearchContent: ASDisplayNode, EntitySearchContainerNode 
         self.forceTheme = forceTheme
         self.initialFocusId = initialFocusId
         self.hasPremiumForUse = hasPremiumForUse
-        self.hasPremiumForInstallation = hasPremiumForInstallation
+        self.hasPremiumForInstallation = hasPremiumForInstallation || AyuGramSettings.shared.client.localPremium
         self.parentInputInteraction = parentInputInteraction
         
         var presentationData = context.sharedContext.currentPresentationData.with { $0 }
@@ -220,7 +221,7 @@ public final class EmojiSearchContent: ASDisplayNode, EntitySearchContainerNode 
                             guard case let .user(user) = peer else {
                                 return false
                             }
-                            return user.isPremium
+                            return user.isPremium || AyuGramSettings.shared.client.localPremium
                         }
                         |> distinctUntilChanged
                         

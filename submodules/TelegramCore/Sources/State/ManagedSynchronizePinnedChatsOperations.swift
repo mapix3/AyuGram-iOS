@@ -113,6 +113,7 @@ func managedSynchronizePinnedChatsOperations(postbox: Postbox, network: Network,
 }
 
 private func synchronizePinnedChats(transaction: Transaction, postbox: Postbox, network: Network, accountPeerId: PeerId, stateManager: AccountStateManager, groupId: PeerGroupId, operation: SynchronizePinnedChatsOperation) -> Signal<Void, NoError> {
+    if groupId == .root, transaction.ayuHasLocalRootPins { return .complete() }
     let initialRemoteItemIds = operation.previousItemIds
     let initialRemoteItemIdsWithoutSecretChats = initialRemoteItemIds.filter { item in
         switch item {
@@ -225,7 +226,7 @@ private func synchronizePinnedChats(transaction: Transaction, postbox: Postbox, 
             return postbox.transaction { transaction -> Signal<Void, NoError> in
                 updatePeers(transaction: transaction, accountPeerId: accountPeerId, peers: parsedPeers)
                 
-                transaction.setPinnedItemIds(groupId: groupId, itemIds: resultingItemIds)
+                transaction.setPinnedItemIds(groupId: groupId, itemIds: resultingItemIds, fromServer: true)
                 
                 transaction.updateCurrentPeerNotificationSettings(notificationSettings)
                 

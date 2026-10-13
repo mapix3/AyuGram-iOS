@@ -231,10 +231,10 @@ public final class Transaction {
         self.postbox?.applyOutgoingReadMaxId(messageId)
     }
     
-    public func applyInteractiveReadMaxIndex(_ messageIndex: MessageIndex) -> [MessageId] {
+    public func applyInteractiveReadMaxIndex(_ messageIndex: MessageIndex, synchronize: Bool = true) -> [MessageId] {
         assert(!self.disposed)
         if let postbox = self.postbox {
-            return postbox.applyInteractiveReadMaxIndex(messageIndex: messageIndex)
+            return postbox.applyInteractiveReadMaxIndex(messageIndex: messageIndex, synchronize: synchronize)
         } else {
             return []
         }
@@ -875,7 +875,22 @@ public final class Transaction {
         self.postbox?.globalNotificationSettingsUpdated()
     }
     
+    public static let ayuLocalRootPinsKey = ValueBoxKey("ayu.local-root-pins.v1")
+    public var ayuHasLocalRootPins: Bool {
+        getPreferencesEntry(key: Self.ayuLocalRootPinsKey)?.get(AyuLocalPinnedChats.self)?.ids != nil
+    }
+    public func ayuEnableLocalRootPins() {
+        if !ayuHasLocalRootPins {
+            let ids = getPinnedItemIds(groupId: .root).map { item -> Int64 in
+                switch item { case let .peer(peerId): return peerId.toInt64() }
+            }
+            setPreferencesEntry(key: Self.ayuLocalRootPinsKey, value: PreferencesEntry(AyuLocalPinnedChats(ids: ids)))
+        }
+    }
     public func getPinnedItemIds(groupId: PeerGroupId) -> [PinnedItemId] {
+        if groupId == .root, let ids = getPreferencesEntry(key: Self.ayuLocalRootPinsKey)?.get(AyuLocalPinnedChats.self)?.ids {
+            return ids.map { .peer(PeerId($0)) }
+        }
         assert(!self.disposed)
         if let postbox = self.postbox {
             return postbox.getPinnedItemIds(groupId: groupId)
@@ -884,7 +899,14 @@ public final class Transaction {
         }
     }
     
-    public func setPinnedItemIds(groupId: PeerGroupId, itemIds: [PinnedItemId]) {
+    public func setPinnedItemIds(groupId: PeerGroupId, itemIds: [PinnedItemId], fromServer: Bool = false) {
+        if groupId == .root, ayuHasLocalRootPins {
+            if fromServer { return }
+            let ids = itemIds.map { item -> Int64 in
+                switch item { case let .peer(peerId): return peerId.toInt64() }
+            }
+            setPreferencesEntry(key: Self.ayuLocalRootPinsKey, value: PreferencesEntry(AyuLocalPinnedChats(ids: ids)))
+        }
         assert(!self.disposed)
         if let postbox = self.postbox {
             postbox.setPinnedItemIds(groupId: groupId, itemIds: itemIds)
@@ -2348,25 +2370,25 @@ final class PostboxImpl {
         self.messageHistoryTable.applyOutgoingReadMaxId(messageId, operationsByPeerId: &self.currentOperationsByPeerId, updatedPeerReadStateOperations: &self.currentUpdatedSynchronizeReadStateOperations)
     }
     
-    fileprivate func applyInteractiveReadMaxIndex(messageIndex: MessageIndex) -> [MessageId] {
+    fileprivate func applyInteractiveReadMaxIndex(messageIndex: MessageIndex, synchronize: Bool) -> [MessageId] {
         let peerIds = self.peerIdsForLocation(.peer(peerId: messageIndex.id.peerId, threadId: nil), ignoreRelatedChats: false)
         switch peerIds {
         case let .associated(_, messageId):
             if let messageId = messageId, let readState = self.readStateTable.getCombinedState(messageId.peerId), readState.count != 0 {
                 if let topMessage = self.messageHistoryTable.topMessage(peerId: messageId.peerId) {
-                    let _ = self.messageHistoryTable.applyInteractiveMaxReadIndex(postbox: self, messageIndex: topMessage.index, operationsByPeerId: &self.currentOperationsByPeerId, updatedPeerReadStateOperations: &self.currentUpdatedSynchronizeReadStateOperations)
+                    let _ = self.messageHistoryTable.applyInteractiveMaxReadIndex(postbox: self, messageIndex: topMessage.index, operationsByPeerId: &self.currentOperationsByPeerId, updatedPeerReadStateOperations: &self.currentUpdatedSynchronizeReadStateOperations, synchronize: synchronize)
                 }
             }
         default:
             break
         }
         let initialCombinedStates = self.readStateTable.getCombinedState(messageIndex.id.peerId)
-        var resultIds = self.messageHistoryTable.applyInteractiveMaxReadIndex(postbox: self, messageIndex: messageIndex, operationsByPeerId: &self.currentOperationsByPeerId, updatedPeerReadStateOperations: &self.currentUpdatedSynchronizeReadStateOperations)
+        var resultIds = self.messageHistoryTable.applyInteractiveMaxReadIndex(postbox: self, messageIndex: messageIndex, operationsByPeerId: &self.currentOperationsByPeerId, updatedPeerReadStateOperations: &self.currentUpdatedSynchronizeReadStateOperations, synchronize: synchronize)
         if let states = initialCombinedStates?.states {
             for (namespace, state) in states {
                 if namespace != messageIndex.id.namespace && state.count != 0 {
                     if let item = self.messageHistoryTable.fetch(peerId: messageIndex.id.peerId, namespace: namespace, tag: nil, customTag: nil, threadId: nil, from: MessageIndex(id: MessageId(peerId: messageIndex.id.peerId, namespace: namespace, id: 1), timestamp: messageIndex.timestamp), includeFrom: true, to: MessageIndex.lowerBound(peerId: messageIndex.id.peerId, namespace: namespace), ignoreMessagesInTimestampRange: nil, ignoreMessageIds: Set(), limit: 1).first {
-                        resultIds.append(contentsOf:  self.messageHistoryTable.applyInteractiveMaxReadIndex(postbox: self, messageIndex: item.index, operationsByPeerId: &self.currentOperationsByPeerId, updatedPeerReadStateOperations: &self.currentUpdatedSynchronizeReadStateOperations))
+                        resultIds.append(contentsOf:  self.messageHistoryTable.applyInteractiveMaxReadIndex(postbox: self, messageIndex: item.index, operationsByPeerId: &self.currentOperationsByPeerId, updatedPeerReadStateOperations: &self.currentUpdatedSynchronizeReadStateOperations, synchronize: synchronize))
                     }
                 }
             }
@@ -2606,6 +2628,14 @@ final class PostboxImpl {
     }
     
     private func beforeCommit(currentTransaction: Transaction) -> (updatedTransactionStateVersion: Int64?, updatedMasterClientId: Int64?) {
+        if let ids = self.getPreferencesEntry(key: Transaction.ayuLocalRootPinsKey)?.get(AyuLocalPinnedChats.self)?.ids {
+            // Prune deleted/archived chats and restore local ranks after server updates.
+            let activeIds = ids.filter { self.getPeerChatListInclusion(PeerId($0)).groupId == .root }
+            if activeIds != ids {
+                self.setPreferencesEntry(key: Transaction.ayuLocalRootPinsKey, value: PreferencesEntry(AyuLocalPinnedChats(ids: activeIds)))
+            }
+            self.setPinnedItemIds(groupId: .root, itemIds: activeIds.map { .peer(PeerId($0)) })
+        }
         self.chatListTable.replay(postbox: self, historyOperationsByPeerId: self.currentOperationsByPeerId, updatedPeerChatListEmbeddedStates: self.currentUpdatedPeerChatListEmbeddedStates, updatedPeerCachedData: self.currentUpdatedCachedPeerData, updatedChatListInclusions: self.currentUpdatedChatListInclusions, messageHistoryTable: self.messageHistoryTable, peerChatInterfaceStateTable: self.peerChatInterfaceStateTable, operations: &self.currentChatListOperations)
         
         self.peerChatTopTaggedMessageIdsTable.replay(historyOperationsByPeerId: self.currentOperationsByPeerId)

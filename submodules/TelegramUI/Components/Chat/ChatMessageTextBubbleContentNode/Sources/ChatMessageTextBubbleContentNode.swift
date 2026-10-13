@@ -632,6 +632,15 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                     attributedText = updatedString
                 }
                                 
+                if item.associatedData.subject == nil, let history = item.message.ayuHistory, history.editedAt != nil, !history.originalText.isEmpty, history.originalText != item.message.text {
+                    let combined = NSMutableAttributedString(attributedString: attributedText)
+                    combined.append(NSAttributedString(string: "\n", font: textFont, textColor: messageTheme.primaryTextColor))
+                    let label = item.presentationData.strings.Channel_AdminLog_MessagePreviousMessage
+                    let original = NSMutableAttributedString(string: label + "\n" + history.originalText, attributes: [.font: item.presentationData.messageBlockQuoteFont, .foregroundColor: messageTheme.primaryTextColor])
+                    original.addAttribute(NSAttributedString.Key(rawValue: "Attribute__Blockquote"), value: TextNodeBlockQuoteData(kind: .quote, title: nil, color: messageTheme.accentTextColor, secondaryColor: nil, tertiaryColor: nil, backgroundColor: messageTheme.accentTextColor.withMultipliedAlpha(0.1), isCollapsible: true), range: NSRange(location: 0, length: original.length))
+                    combined.append(original)
+                    attributedText = combined
+                }
                 var customTruncationToken: ((UIFont, Bool) -> NSAttributedString?)?
                 var maximumNumberOfLines: Int = 0
                 if item.presentationData.isPreview {
@@ -1678,7 +1687,7 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                     enableQuote = false
                 }
                 
-                textSelectionNode.enableQuote = enableQuote
+                textSelectionNode.enableQuote = enableQuote && item.message.ayuHistory?.editedAt == nil
                 textSelectionNode.enableTranslate = enableOtherActions
                 textSelectionNode.enableShare = enableOtherActions && enableCopy
                 textSelectionNode.menuSkipCoordnateConversion = !enableOtherActions

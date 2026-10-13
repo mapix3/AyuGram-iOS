@@ -99,6 +99,16 @@ public extension TelegramEngine {
         	return _internal_clearCloudDraftsInteractively(postbox: self.account.postbox, network: self.account.network, accountPeerId: self.account.peerId)
         }
 
+        /// Explicit user action: Telegram readHistory is cumulative up to this ID.
+        public func ayuReportRead(messageId: MessageId, threadId: Int64? = nil) -> Signal<Bool, NoError> {
+            return _internal_ayuReportRead(account: self.account, messageId: messageId, threadId: threadId)
+        }
+
+        /// Explicit content-view receipt; intentionally starts the native expiry.
+        public func ayuReportContentViewed(messageId: MessageId) -> Signal<Bool, NoError> {
+            return _internal_ayuReportContentViewed(account: self.account, messageId: messageId)
+        }
+
         public func applyMaxReadIndexInteractively(index: MessageIndex) -> Signal<Void, NoError> {
             return _internal_applyMaxReadIndexInteractively(postbox: self.account.postbox, stateManager: self.account.stateManager, index: index)
         }

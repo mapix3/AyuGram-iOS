@@ -149,6 +149,9 @@ public final class ChatEntityKeyboardInputNode: ChatInputNode {
     }
 
     public static func hasPremium(context: AccountContext, chatPeerId: EnginePeer.Id?, premiumIfSavedMessages: Bool) -> Signal<Bool, NoError> {
+        if premiumIfSavedMessages, AyuGramSettings.shared.client.localPremium {
+            return .single(true)
+        }
         let hasPremium: Signal<Bool, NoError>
         if premiumIfSavedMessages, let chatPeerId = chatPeerId, chatPeerId == context.account.peerId {
             hasPremium = .single(true)
@@ -951,9 +954,9 @@ public final class ChatEntityKeyboardInputNode: ChatInputNode {
                         let hasPremium = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
                         |> map { peer -> Bool in
                             guard case let .user(user) = peer else {
-                                return false
+                                return AyuGramSettings.shared.client.localPremium
                             }
-                            return user.isPremium
+                            return user.isPremium || AyuGramSettings.shared.client.localPremium
                         }
                         |> distinctUntilChanged
 
@@ -2478,7 +2481,7 @@ public final class EntityInputView: UIInputView, LegacyMessageInputPanelInputVie
                             }
                         }
 
-                            if file.isPremiumEmoji && !hasPremium {
+                            if file.isPremiumEmoji && !hasPremium && !AyuGramSettings.shared.client.localPremium {
                                 let presentationData = context.sharedContext.currentPresentationData.with { $0 }
                                 strongSelf.presentController?(UndoOverlayController(presentationData: presentationData, content: .sticker(context: context, file: file, loop: true, title: nil, text: presentationData.strings.EmojiInput_PremiumEmojiToast_Text, undoText: presentationData.strings.EmojiInput_PremiumEmojiToast_Action, customAction: {
                                     guard let strongSelf = self else {
@@ -2884,7 +2887,7 @@ public final class EmojiContentPeekBehaviorImpl: EmojiContentPeekBehavior {
                         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
                         var isLocked = false
                         if !hasPremium {
-                            isLocked = file.isPremiumEmoji
+                            isLocked = file.isPremiumEmoji && !AyuGramSettings.shared.client.localPremium
                             if isLocked && chatPeerId == context.account.peerId {
                                 isLocked = false
                             }

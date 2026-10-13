@@ -4969,7 +4969,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                             }
                         }
                         
-                        if file.isPremiumEmoji && !self.chatPresentationInterfaceState.isPremium && self.chatPresentationInterfaceState.chatLocation.peerId != self.context.account.peerId && !isPeerSpecific {
+                        if file.isPremiumEmoji && !AyuGramSettings.shared.client.localPremium && !self.chatPresentationInterfaceState.isPremium && self.chatPresentationInterfaceState.chatLocation.peerId != self.context.account.peerId && !isPeerSpecific {
                             if firstLockedPremiumEmoji == nil {
                                 firstLockedPremiumEmoji = file
                             }

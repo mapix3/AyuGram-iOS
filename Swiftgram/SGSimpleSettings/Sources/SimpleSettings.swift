@@ -7,6 +7,7 @@ let APP_GROUP_IDENTIFIER = sgAppGroupIdentifier()
 public class SGSimpleSettings {
     
     public static let shared = SGSimpleSettings()
+    public let ayuGram = AyuGramSettings()
     
     private init() {
         setDefaultValues()

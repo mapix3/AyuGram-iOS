@@ -1,5 +1,6 @@
 import Foundation
 import Postbox
+import SGSimpleSettings
 
 public enum MessageTextEntityType: Equatable {
     public typealias CustomEntityType = Int32
@@ -361,8 +362,27 @@ extension MessageTextEntity {
 }
 
 public class TextEntitiesMessageAttribute: MessageAttribute, Equatable {
-    public let entities: [MessageTextEntity]
-    
+    private let storedEntities: [MessageTextEntity]
+    public let ayuLocalEmojiText: String?
+    public var ayuWireEntities: [MessageTextEntity] {
+        guard self.ayuLocalEmojiText != nil else { return storedEntities }
+        return storedEntities.filter { entity in
+            if case .CustomEmoji = entity.type { return false }
+            if case let .TextUrl(url) = entity.type, ayuEmojiFileIdFromLink(url) != nil { return false }
+            return true
+        }
+    }
+    public var entities: [MessageTextEntity] {
+        // Every client user can display the marker, independently of local Premium.
+        // Raw entities remain untouched for forwarding and network serialization.
+        return storedEntities.map { entity in
+            if case let .TextUrl(url) = entity.type, let fileId = ayuEmojiFileIdFromLink(url) {
+                return MessageTextEntity(range: entity.range, type: .CustomEmoji(stickerPack: nil, fileId: fileId))
+            }
+            return entity
+        }
+    }
+
     public var associatedPeerIds: [PeerId] {
         var result: [PeerId] = []
         for entity in entities {
@@ -393,20 +413,23 @@ public class TextEntitiesMessageAttribute: MessageAttribute, Equatable {
         }
     }
     
-    public init(entities: [MessageTextEntity]) {
-        self.entities = entities
+    public init(entities: [MessageTextEntity], ayuLocalEmojiText: String? = nil) {
+        self.storedEntities = entities
+        self.ayuLocalEmojiText = ayuLocalEmojiText
     }
     
     required public init(decoder: PostboxDecoder) {
-        self.entities = decoder.decodeObjectArrayWithDecoderForKey("entities")
+        self.storedEntities = decoder.decodeObjectArrayWithDecoderForKey("entities")
+        self.ayuLocalEmojiText = decoder.decodeOptionalStringForKey("ayu.localText")
     }
     
     public func encode(_ encoder: PostboxEncoder) {
-        encoder.encodeObjectArray(self.entities, forKey: "entities")
+        encoder.encodeObjectArray(self.storedEntities, forKey: "entities")
+        if let text = self.ayuLocalEmojiText { encoder.encodeString(text, forKey: "ayu.localText") }
     }
     
     public static func ==(lhs: TextEntitiesMessageAttribute, rhs: TextEntitiesMessageAttribute) -> Bool {
-        return lhs.entities == rhs.entities
+        return lhs.storedEntities == rhs.storedEntities && lhs.ayuLocalEmojiText == rhs.ayuLocalEmojiText
     }
 }
 
