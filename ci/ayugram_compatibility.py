@@ -160,7 +160,7 @@ struct ItemListPresentationData { var theme = CompatibilityTheme(); var strings 
 
 def check_silent_video(source: Path, output: Path):
     helper = source / 'submodules/Display/Source/AyuGramSilentVideo.swift'
-    tests = Path(__file__).resolve().parent / 'ayugram-tests/AyuGramSilentVideoTests.swift'
+    tests = Path(__file__).resolve().parent / 'tests/AyuGramSilentVideoTests.swift'
     main = output / 'main.swift'
     main.write_text(tests.read_text(), encoding='utf-8')
     binary = output / 'silent-video-tests'

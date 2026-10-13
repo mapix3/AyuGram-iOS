@@ -18,11 +18,11 @@ Everything AyuGram stores stays on the device. The only request it makes on its 
 
 | Branch | Build | Contents |
 | --- | --- | --- |
-| `main` | Standard | Swiftgram with the AyuGram features |
-| `custom` | Custom | `main` plus the appearance options |
+| `standard` | Standard | Swiftgram with the AyuGram features |
+| `custom` | Custom | `standard` plus the appearance options |
 | `upstream` | — | Unmodified Swiftgram this project is based on |
 
-The first commit on `main` is the unmodified Swiftgram source. Every change AyuGram makes is in the commits after it, so you can compare `upstream...main` (and `main...custom`) on GitHub to see exactly what is different.
+The first commit on `standard` is the unmodified Swiftgram source. Every change AyuGram makes is in the commits after it, so you can compare `upstream...standard` (and `standard...custom`) on GitHub to see exactly what is different.
 
 ## Building
 
@@ -40,13 +40,13 @@ The app is built by GitHub Actions as unsigned IPAs. Sign them with your own cer
 
 ## Updating to a new Swiftgram or Telegram version
 
-Fetch the new upstream revision into the `upstream` branch, then merge `upstream` into `main` and `main` into `custom`, resolving any conflicts.
+Fetch the new upstream revision into the `upstream` branch, then merge `upstream` into `standard` and `standard` into `custom`, resolving any conflicts.
 
 ## Publishing an update
 
 1. Build a new version. The build number is in `build-manifest.json` next to the IPA.
 2. Post the IPA in the channel.
-3. Edit `update.json` on `main`: set `build` to the new build number, `version` to the version you want to show, and `url` to the post link.
+3. Edit `update.json` on `standard`: set `build` to the new build number, `version` to the version you want to show, and `url` to the post link.
 
 Everyone on an older build sees the update notice on the next launch. Only put a build number in `update.json` once that build is actually published.
 
