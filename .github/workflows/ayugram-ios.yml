@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       variant:
-        description: 'Versions to build (Standard from main, Custom from custom)'
+        description: 'Versions to build (Standard from standard, Custom from custom)'
         type: choice
         options: [both, standard, custom]
         default: both
@@ -39,7 +39,7 @@ jobs:
       - name: Checkout source with submodules
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ matrix.variant == 'custom' && 'custom' || 'main' }}
+          ref: ${{ matrix.variant == 'custom' && 'custom' || 'standard' }}
           submodules: recursive
           fetch-depth: 1
           persist-credentials: false

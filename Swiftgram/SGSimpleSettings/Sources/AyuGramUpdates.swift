@@ -11,7 +11,7 @@ public struct AyuGramUpdateInfo: Equatable {
 public final class AyuGramUpdates {
     public static let shared = AyuGramUpdates()
     public static let didChange = Notification.Name("AyuGram.Updates.didChange")
-    public static let manifestURL = URL(string: "https://raw.githubusercontent.com/mapix3/AyuGram-iOS/main/update.json")!
+    public static let manifestURL = URL(string: "https://raw.githubusercontent.com/mapix3/AyuGram-iOS/standard/update.json")!
     public static let channelURL = "https://t.me/ayugramiosupdates"
     public static let developerId: Int64 = 1272887902
 
