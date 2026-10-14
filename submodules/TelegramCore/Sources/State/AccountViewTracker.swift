@@ -329,6 +329,7 @@ public final class AccountViewTracker {
     private var pendingRefreshCanSendMessagesForPeerIds: [PeerId] = []
     
     private var updatedSeenPersonalMessageIds = Set<MessageId>()
+    private var ayuMentionRepairTimes: [PeerId: Double] = [:]
     private var updatedReactionsSeenForMessageIds = Set<MessageId>()
     
     private var cachedDataContexts: [PeerId: PeerCachedDataContext] = [:]
@@ -1649,8 +1650,11 @@ public final class AccountViewTracker {
     public func updateMarkMentionsSeenForMessageIds(messageIds: Set<MessageId>) {
         self.queue.async {
             var addedMessageIds: [MessageId] = []
+            // With read receipts hidden the server can mark a mention unseen again; it is
+            // consumed again on the next view (the attribute check below skips duplicates).
+            let allowRepeat = AyuGramSettings.shared.snapshot.suppressRead
             for messageId in messageIds {
-                if !self.updatedSeenPersonalMessageIds.contains(messageId) {
+                if allowRepeat || !self.updatedSeenPersonalMessageIds.contains(messageId) {
                     self.updatedSeenPersonalMessageIds.insert(messageId)
                     addedMessageIds.append(messageId)
                 }
@@ -2627,8 +2631,29 @@ public final class AccountViewTracker {
                 }
                 return true
             })
+            |> afterNext { [weak self] counts in
+                if threadId == nil, counts.mentionCount > 0, AyuGramSettings.shared.snapshot.suppressRead {
+                    self?.ayuRepairStaleMentions(peerId: peerId)
+                }
+            }
         } else {
             return .never()
+        }
+    }
+
+    /// A mention counter restored by the server for mentions already read with receipts
+    /// hidden has no unseen message behind it; looking one up repairs it (at most once a minute).
+    private func ayuRepairStaleMentions(peerId: PeerId) {
+        self.queue.async {
+            guard let account = self.account else {
+                return
+            }
+            let now = CFAbsoluteTimeGetCurrent()
+            if let last = self.ayuMentionRepairTimes[peerId], now - last < 60.0 {
+                return
+            }
+            self.ayuMentionRepairTimes[peerId] = now
+            let _ = _internal_earliestUnseenPersonalMentionMessage(account: account, peerId: peerId, threadId: nil).start()
         }
     }
     
