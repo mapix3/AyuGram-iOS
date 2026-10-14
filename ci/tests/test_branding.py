@@ -13,14 +13,19 @@ spec.loader.exec_module(branding)
 
 
 class BrandingArtifactTests(unittest.TestCase):
-    def ipa(self, path, name='AyuGram', icons=True, images=True, correct_size=True, optimized=False):
+    def ipa(self, path, name='AyuGram', icons=True, images=True, correct_size=True, optimized=False, official=True):
         info = {'CFBundleDisplayName': name}
+        keys = ['AyuClassic', 'AyuPurple', 'AyuRed'] + (branding.OFFICIAL_ICONS if official else [])
         if icons:
-            info['CFBundleIcons'] = {'CFBundleAlternateIcons': {key: {'CFBundleIconFiles': [key]} for key in ['AyuClassic', 'AyuPurple', 'AyuRed']}}
+            alternates = {key: {'CFBundleIconFiles': [key]} for key in keys}
+            if official:
+                # rules_apple lists every image name found in the .alticon folder.
+                alternates['BlueIcon'] = {'CFBundleIconFiles': ['BlueIcon', 'BlueIconIpad', 'BlueNotificationIcon']}
+            info['CFBundleIcons'] = {'CFBundleAlternateIcons': alternates}
         with zipfile.ZipFile(path, 'w') as archive:
             archive.writestr('Payload/Telegram.app/Info.plist', plistlib.dumps(info))
             if images:
-                for key in ['AyuClassic', 'AyuPurple', 'AyuRed']:
+                for key in keys:
                     for scale, size in [(2, 120), (3, 180)]:
                         def chunk(kind, data):
                             return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
@@ -60,3 +65,8 @@ class BrandingArtifactTests(unittest.TestCase):
     def test_apple_optimized_png_icon_headers(self):
         with tempfile.TemporaryDirectory() as tmp:
             branding.verify_branding_ipa(self.ipa(Path(tmp) / 'app.ipa', optimized=True))
+
+    def test_missing_telegram_icons_fail_delivery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, 'Telegram alternate icons'):
+                branding.verify_branding_ipa(self.ipa(Path(tmp) / 'app.ipa', official=False))
