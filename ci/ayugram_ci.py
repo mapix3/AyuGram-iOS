@@ -110,7 +110,7 @@ def build(source, ci, output, env):
     # of disable_legacy_signing. Gate only that partial for unsigned CI.
     rules_path = source / 'build-system/bazel-rules/rules_apple/apple/internal/ios_rules.bzl'
     original_rules = rules_path.read_bytes()
-    if hashlib.sha256(original_rules).hexdigest() != '900fe828aa2d5f9ac236aec3555cf4f01944a012273ea03a12f9b52e8b601540':
+    if hashlib.sha256(original_rules).hexdigest() != 'b6776b1c10a2c965f01259dd95ebe1b045afc5e22b3446b8ae81d44f11c3a7da':
         raise ValueError('Unexpected rules_apple iOS rules revision')
     # Builds from this repository start above every earlier build so update checks compare correctly.
     number = 200000 + int(env.get('GITHUB_RUN_NUMBER', '1')) * 100 + int(env.get('GITHUB_RUN_ATTEMPT', '1'))
@@ -188,7 +188,7 @@ def build(source, ci, output, env):
         run(make + ['generateProject'] + common + ['--disableProvisioningProfiles'], cwd=source)
         if not (source / 'Telegram/Swiftgram.xcodeproj').is_dir():
             raise ValueError('Make.py did not generate Telegram/Swiftgram.xcodeproj')
-        run(make + ['build'] + common + ['--configuration=' + configuration], cwd=source)
+        run(make + ['build', '--continueOnError'] + common + ['--configuration=' + configuration], cwd=source)
         ipa = source / 'bazel-bin/Telegram/Swiftgram.ipa'
         if not ipa.is_file():
             raise FileNotFoundError('Make.py succeeded but Swiftgram.ipa is missing')
