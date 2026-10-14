@@ -426,7 +426,7 @@ class ThemeSettingsAppIconItemNode: ListViewItemNode, ItemListItemNode {
                                     name = "Day"
                                     bordered = false
                                 case "BlueIcon":
-                                    name = item.strings.Appearance_AppIconDefault
+                                    name = "Telegram"
                                 case "BlackIcon":
                                     name = item.strings.Appearance_AppIconDefaultX
                                 case "BlueClassicIcon":
@@ -439,8 +439,8 @@ class ThemeSettingsAppIconItemNode: ListViewItemNode, ItemListItemNode {
                                 case "BlackFilledIcon":
                                     name = item.strings.Appearance_AppIconFilledX
                                     bordered = false
-                                case "WhiteFilled":
-                                    name = "⍺ White"
+                                case "WhiteFilled", "WhiteFilledIcon":
+                                    name = "White"
                                 case "New1":
                                     name = item.strings.Appearance_AppIconNew1
                                 case "New2":
