@@ -104,6 +104,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     private var ayuPresenceTimer: SwiftSignalKit.Timer?
     private var ayuServerPresence: EnginePeer.Presence?
     private var ayuPresenceReceivedAt: Date?
+    private var ayuPresenceRequestInFlight = false
     private let isMyProfile: Bool
     private let videoCallsEnabled: Bool
     private let forumTopicThreadId: Int64?
@@ -405,12 +406,19 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     }
     
     private func refreshAyuPresence() {
+        // A slow reply is not cancelled by the next tick; a failed one keeps the last known status.
+        guard !self.ayuPresenceRequestInFlight else { return }
+        self.ayuPresenceRequestInFlight = true
         self.ayuPresenceDisposable.set((self.context.engine.peers.ayuAccountServerPresence()
         |> deliverOnMainQueue).start(next: { [weak self] presence in
             guard let self else { return }
-            self.ayuServerPresence = presence
-            self.ayuPresenceReceivedAt = presence == nil ? nil : Date()
+            if let presence {
+                self.ayuServerPresence = presence
+                self.ayuPresenceReceivedAt = Date()
+            }
             self.requestUpdateLayout?(false)
+        }, completed: { [weak self] in
+            self?.ayuPresenceRequestInFlight = false
         }))
     }
 
@@ -418,7 +426,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         super.didLoad()
         if self.isSettings || self.isMyProfile {
             self.refreshAyuPresence()
-            let timer = SwiftSignalKit.Timer(timeout: 30.0, repeat: true, completion: { [weak self] in
+            let timer = SwiftSignalKit.Timer(timeout: 5.0, repeat: true, completion: { [weak self] in
                 guard let self, self.view.window != nil else { return }
                 self.refreshAyuPresence()
             }, queue: .mainQueue())
@@ -1745,13 +1753,13 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         }
         
         if self.isSettings || self.isMyProfile {
-            let text: String
-            if let presence = self.ayuServerPresence, let receivedAt = self.ayuPresenceReceivedAt, Date().timeIntervalSince(receivedAt) < 90.0 {
+            // Shown only while the server status is fresh; hidden instead of reporting it unavailable.
+            var text = ""
+            if let presence = self.ayuServerPresence, let receivedAt = self.ayuPresenceReceivedAt, Date().timeIntervalSince(receivedAt) < 30.0 {
                 let (status, _) = stringAndActivityForUserPresence(strings: presentationData.strings, dateTimeFormat: presentationData.dateTimeFormat, presence: presence, relativeTo: Int32(Date().timeIntervalSince1970), expanded: true)
                 text = i18n("Ayu.ServerPresence", presentationData.strings.baseLanguageCode, status)
-            } else {
-                text = i18n("Ayu.ServerUnavailable", presentationData.strings.baseLanguageCode)
             }
+            self.ayuPresenceLabel.isHidden = text.isEmpty
             self.ayuPresenceLabel.text = text
             self.ayuPresenceLabel.accessibilityLabel = text
             self.ayuPresenceLabel.textColor = navigationContentsSecondaryColor

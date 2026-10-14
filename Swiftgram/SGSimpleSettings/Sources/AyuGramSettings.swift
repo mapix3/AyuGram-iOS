@@ -29,8 +29,12 @@ public final class AyuGramSettings {
     private let lock = NSLock()
     private let key = "swiftgram.ayuGram.privacy.v1"
     private let extraKey = "swiftgram.ayuGram.extra.v1"
-    // Read on hot rendering paths (copy protection checks per message).
+    // Read on hot rendering paths (copy protection checks per message, every peer's
+    // emoji status), so decoded values stay in memory until this store changes them.
     private var extraCache: AyuGramExtraSettings?
+    private var privacyCache: AyuGramPrivacySettings?
+    private var clientCache: AyuGramClientSettings?
+    private var statusCache: [Int64: AyuGramLocalStatus?] = [:]
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -42,11 +46,13 @@ public final class AyuGramSettings {
         return readSnapshot()
     }
 
+    /// Caller holds the lock.
     private func readSnapshot() -> AyuGramPrivacySettings {
-        guard let data = defaults.data(forKey: key),
-              let value = try? JSONDecoder().decode(AyuGramPrivacySettings.self, from: data) else {
-            return AyuGramPrivacySettings()
+        if let cached = privacyCache {
+            return cached
         }
+        let value = defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(AyuGramPrivacySettings.self, from: $0) } ?? AyuGramPrivacySettings()
+        privacyCache = value
         return value
     }
 
@@ -57,6 +63,7 @@ public final class AyuGramSettings {
         if let data = try? JSONEncoder().encode(value) {
             defaults.set(data, forKey: key)
         }
+        privacyCache = value
         lock.unlock()
         // Notify outside the lock: observers are allowed to read the snapshot.
         NotificationCenter.default.post(name: Self.didChange, object: self)
@@ -74,21 +81,26 @@ public extension AyuGramSettings {
     var client: AyuGramClientSettings {
         lock.lock()
         defer { lock.unlock() }
-        guard let data = defaults.data(forKey: "swiftgram.ayuGram.client.v1"),
-              let value = try? JSONDecoder().decode(AyuGramClientSettings.self, from: data) else {
-            return AyuGramClientSettings()
+        return readClient()
+    }
+    /// Caller holds the lock.
+    private func readClient() -> AyuGramClientSettings {
+        if let cached = clientCache {
+            return cached
         }
+        let value = defaults.data(forKey: "swiftgram.ayuGram.client.v1").flatMap { try? JSONDecoder().decode(AyuGramClientSettings.self, from: $0) } ?? AyuGramClientSettings()
+        clientCache = value
         return value
     }
     func updateClient(_ transform: (inout AyuGramClientSettings) -> Void) {
         lock.lock()
-        let data = defaults.data(forKey: "swiftgram.ayuGram.client.v1")
-        var value = data.flatMap { try? JSONDecoder().decode(AyuGramClientSettings.self, from: $0) } ?? AyuGramClientSettings()
+        var value = readClient()
         transform(&value)
         value.maxPinnedChats = value.pinnedChatLimit
         if let encoded = try? JSONEncoder().encode(value) {
             defaults.set(encoded, forKey: "swiftgram.ayuGram.client.v1")
         }
+        clientCache = value
         lock.unlock()
         NotificationCenter.default.post(name: Self.didChange, object: self)
     }
@@ -105,11 +117,17 @@ public struct AyuGramLocalStatus: Codable, Equatable {
 
 public extension AyuGramSettings {
     func localStatus(peerId: Int64) -> AyuGramLocalStatus? {
-        guard client.localPremium else { return nil }
         lock.lock()
         defer { lock.unlock() }
-        guard let data = defaults.data(forKey: "swiftgram.ayuGram.status.v1.\(peerId)"),
-              let status = try? JSONDecoder().decode(AyuGramLocalStatus.self, from: data) else { return nil }
+        guard readClient().localPremium else { return nil }
+        let status: AyuGramLocalStatus?
+        if let cached = statusCache[peerId] {
+            status = cached
+        } else {
+            status = defaults.data(forKey: "swiftgram.ayuGram.status.v1.\(peerId)").flatMap { try? JSONDecoder().decode(AyuGramLocalStatus.self, from: $0) }
+            statusCache[peerId] = .some(status)
+        }
+        guard let status else { return nil }
         if let expiry = status.expirationDate, Int64(expiry) <= Int64(Date().timeIntervalSince1970) { return nil }
         return status
     }
@@ -118,6 +136,7 @@ public extension AyuGramSettings {
         let key = "swiftgram.ayuGram.status.v1.\(peerId)"
         if let status, let data = try? JSONEncoder().encode(status) { defaults.set(data, forKey: key) }
         else { defaults.removeObject(forKey: key) }
+        statusCache[peerId] = .some(status)
         lock.unlock()
         NotificationCenter.default.post(name: Self.didChange, object: self)
     }
