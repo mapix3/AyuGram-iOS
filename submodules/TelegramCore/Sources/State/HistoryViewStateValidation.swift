@@ -848,7 +848,8 @@ private func validateBatch(postbox: Postbox, network: Network, transaction: Tran
                                         return Set(maybeRemovedMessageIds).subtracting(ids)
                                     }
                                     |> `catch` { _ -> Signal<Set<MessageId>, NoError> in
-                                        return .single(Set(maybeRemovedMessageIds))
+                                        // A failed check (flood wait, timeout) proves nothing; the next validation retries.
+                                        return .single(Set())
                                     }
                                 }
                                 return .single(Set(maybeRemovedMessageIds))
@@ -1096,7 +1097,7 @@ private func validateReplyThreadBatch(postbox: Postbox, network: Network, transa
                             return Set(maybeRemovedMessageIds).subtracting(ids)
                         }
                         |> `catch` { _ -> Signal<Set<MessageId>, NoError> in
-                            return .single(Set(maybeRemovedMessageIds))
+                            return .single(Set())
                         }
                     }
                     return .single(Set(maybeRemovedMessageIds))

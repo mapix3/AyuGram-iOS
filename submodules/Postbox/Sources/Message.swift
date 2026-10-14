@@ -620,6 +620,9 @@ public struct StoryId: Codable, Hashable {
 
 public protocol MessageAttribute: AnyObject, PostboxCoding {
     var retainedOnServerRefresh: Bool { get }
+    /// The attribute to keep when the server sends a message that was kept as locally deleted:
+    /// the message still exists, so a deleted marker must be dropped.
+    func ayuRestoredOnServerRefresh() -> MessageAttribute
     var associatedPeerIds: [PeerId] { get }
     var associatedMessageIds: [MessageId] { get }
     var associatedMediaIds: [MediaId] { get }
@@ -629,6 +632,9 @@ public protocol MessageAttribute: AnyObject, PostboxCoding {
 
 public extension MessageAttribute {
     var retainedOnServerRefresh: Bool { false }
+    func ayuRestoredOnServerRefresh() -> MessageAttribute {
+        return self
+    }
     var associatedPeerIds: [PeerId] {
         return []
     }

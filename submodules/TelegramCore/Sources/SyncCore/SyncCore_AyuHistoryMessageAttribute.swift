@@ -11,6 +11,12 @@ public final class AyuHistoryMessageAttribute: MessageAttribute {
         self.editedAt = editedAt
         self.deletedAt = deletedAt
     }
+    public func ayuRestoredOnServerRefresh() -> MessageAttribute {
+        guard self.deletedAt != nil else {
+            return self
+        }
+        return AyuHistoryMessageAttribute(originalText: self.editedAt == nil ? "" : self.originalText, editedAt: self.editedAt, deletedAt: nil)
+    }
     public init(decoder: PostboxDecoder) {
         self.originalText = decoder.decodeStringForKey("t", orElse: "")
         self.editedAt = decoder.decodeOptionalInt32ForKey("e")
