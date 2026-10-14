@@ -21,11 +21,19 @@ def attribute_retention_test_code(source: Path):
     end = function.index('            self.seedConfiguration.mergeMessageAttributes', start)
     retained_attributes = function[start:end]
     return '''
-protocol MessageAttribute: AnyObject { var retainedOnServerRefresh: Bool { get } }
+protocol MessageAttribute: AnyObject {
+    var retainedOnServerRefresh: Bool { get }
+    func ayuRestoredOnServerRefresh() -> MessageAttribute
+}
+extension MessageAttribute {
+    func ayuRestoredOnServerRefresh() -> MessageAttribute { self }
+}
 final class RetainedAttribute: MessageAttribute {
     let value: Int
+    let deleted: Bool
     var retainedOnServerRefresh: Bool { true }
-    init(_ value: Int) { self.value = value }
+    init(_ value: Int, deleted: Bool = false) { self.value = value; self.deleted = deleted }
+    func ayuRestoredOnServerRefresh() -> MessageAttribute { self.deleted ? RetainedAttribute(self.value) : self }
 }
 final class ServerAttribute: MessageAttribute {
     var retainedOnServerRefresh: Bool { false }
@@ -34,7 +42,7 @@ struct AttributeRefreshMessage { let attributes: [MessageAttribute] }
 enum MessageHistoryTable {
     static func renderMessageAttributes(_ attributes: [MessageAttribute]) -> [MessageAttribute] { attributes }
 }
-func refreshAttributes(previousMessage: [MessageAttribute], incoming: [MessageAttribute]) -> [MessageAttribute] {
+func refreshAttributes(previousMessage: [MessageAttribute], incoming: [MessageAttribute], ayuRestored: Bool = false) -> [MessageAttribute] {
     let message = AttributeRefreshMessage(attributes: incoming)
     let type: Int8 = 0
 ''' + retained_attributes + '''
@@ -49,6 +57,11 @@ let replacementMarker = RetainedAttribute(2)
 let refreshed = refreshAttributes(previousMessage: [previousMarker], incoming: [serverAttribute, replacementMarker])
 expect(refreshed.count == 2 && refreshed[1] === replacementMarker, "Refresh keeps the incoming marker without a duplicate")
 expect(refreshAttributes(previousMessage: [], incoming: [serverAttribute]).count == 1, "Refresh preserves normal server attributes")
+let deletedMarker = RetainedAttribute(3, deleted: true)
+let kept = refreshAttributes(previousMessage: [deletedMarker], incoming: [])
+expect(kept.count == 1 && kept[0] === deletedMarker, "Refresh of a deleted message keeps its deleted marker")
+let restored = refreshAttributes(previousMessage: [deletedMarker], incoming: [], ayuRestored: true)
+expect(restored.count == 1 && (restored[0] as? RetainedAttribute).map { $0.value == 3 && !$0.deleted } == true, "A server copy of a message kept as deleted drops the deleted marker")
 print("Attribute retention passed with a local Int8 named type")
 '''
 
