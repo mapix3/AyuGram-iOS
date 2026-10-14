@@ -51,6 +51,11 @@ def prepare_branding(source: Path):
     (composer / 'icon.json').write_text(json.dumps(template, indent=2))
 
 
+# Official Telegram icons shipped next to the AyuGram and Swiftgram ones.
+OFFICIAL_ICONS = ['BlueIcon', 'New2', 'New1', 'BlackIcon', 'BlueClassicIcon', 'BlackClassicIcon', 'BlueFilledIcon',
+                  'BlackFilledIcon', 'WhiteFilledIcon', 'Premium', 'PremiumBlack', 'PremiumTurbo']
+
+
 def verify_branding_ipa(path):
     with zipfile.ZipFile(path) as archive:
         mains = [name for name in archive.namelist() if name.startswith('Payload/') and name.endswith('.app/Info.plist') and name.count('/') == 2]
@@ -62,9 +67,14 @@ def verify_branding_ipa(path):
         alternates = info.get('CFBundleIcons', {}).get('CFBundleAlternateIcons', {})
         if not {'AyuClassic', 'AyuPurple', 'AyuRed'}.issubset(alternates):
             raise ValueError('AyuGram alternate icons were not included')
+        missing = [name for name in OFFICIAL_ICONS if name not in alternates]
+        if missing:
+            raise ValueError('Telegram alternate icons were not included: ' + ', '.join(missing))
         bundle = mains[0].removesuffix('Info.plist')
-        for name in ['AyuClassic', 'AyuPurple', 'AyuRed']:
-            if alternates[name].get('CFBundleIconFiles') != [name]:
+        for name in ['AyuClassic', 'AyuPurple', 'AyuRed'] + OFFICIAL_ICONS:
+            files = alternates[name].get('CFBundleIconFiles') or []
+            expected = files == [name] if name.startswith('Ayu') else name in files
+            if not expected:
                 raise ValueError('Unexpected alternate icon file reference: ' + name)
             for scale, pixels in [(2, 120), (3, 180)]:
                 path = bundle + name + '@' + str(scale) + 'x.png'
