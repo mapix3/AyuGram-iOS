@@ -254,8 +254,11 @@ func managedReadReactionOrPollVoteActions(postbox: Postbox, network: Network, st
 
 private func synchronizeConsumeMessageContents(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, id: MessageId) -> Signal<Void, NoError> {
     if AyuGramSettings.shared.snapshot.suppressRead {
-        ayuConsumeMentionLocally(transaction: transaction, id: id)
-        return .complete()
+        let message = transaction.getMessage(id)
+        guard let message, ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes) else {
+            ayuConsumeMentionLocally(transaction: transaction, id: id)
+            return .complete()
+        }
     }
     if id.peerId.namespace == Namespaces.Peer.CloudUser || id.peerId.namespace == Namespaces.Peer.CloudGroup {
         return network.request(Api.functions.messages.readMessageContents(id: [id.id]))

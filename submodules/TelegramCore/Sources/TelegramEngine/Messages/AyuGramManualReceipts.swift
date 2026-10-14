@@ -69,6 +69,19 @@ func ayuApplyThreadReceipt(transaction: Transaction, index: MessageIndex, thread
     }
 }
 
+/// While read receipts are hidden, a mention is still marked read on the server so its
+/// counter does not come back after the next sync. That is invisible to the sender unless
+/// the message has media with a played or opened state: voice, round video or timer media.
+func ayuMentionReadIsPrivate(media: [Media], attributes: [MessageAttribute]) -> Bool {
+    if attributes.contains(where: { $0 is AutoremoveTimeoutMessageAttribute || $0 is AutoclearTimeoutMessageAttribute }) {
+        return false
+    }
+    return !media.contains(where: { item in
+        guard let file = item as? TelegramMediaFile else { return false }
+        return file.isVoice || file.isInstantVideo
+    })
+}
+
 // Mention-only consumption never starts media timers or sends a content receipt.
 // It also repairs pending=true mentions left behind by older private builds.
 func ayuConsumeMentionLocally(transaction: Transaction, id: MessageId) {
