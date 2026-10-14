@@ -1005,9 +1005,9 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                     PresentationAppIcon(name: "BlueFilledIcon", imageName: "BlueFilledIcon"),
                     PresentationAppIcon(name: "BlackFilledIcon", imageName: "BlackFilledIcon"),
                     PresentationAppIcon(name: "WhiteFilledIcon", imageName: "WhiteFilledIcon"),
-                    PresentationAppIcon(name: "Premium", imageName: "Premium", isPremium: true),
-                    PresentationAppIcon(name: "PremiumTurbo", imageName: "PremiumTurbo", isPremium: true),
-                    PresentationAppIcon(name: "PremiumBlack", imageName: "PremiumBlack", isPremium: true),
+                    PresentationAppIcon(name: "Premium", imageName: "Premium"),
+                    PresentationAppIcon(name: "PremiumTurbo", imageName: "PremiumTurbo"),
+                    PresentationAppIcon(name: "PremiumBlack", imageName: "PremiumBlack"),
                     PresentationAppIcon(name: "SGDefault", imageName: "SGDefault"),
                     PresentationAppIcon(name: "SGBlack", imageName: "SGBlack"),
                     PresentationAppIcon(name: "SGLegacy", imageName: "SGLegacy"),
@@ -1016,19 +1016,17 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                     PresentationAppIcon(name: "SGNight", imageName: "SGNight"),
                     PresentationAppIcon(name: "SGSky", imageName: "SGSky"),
                     PresentationAppIcon(name: "SGTitanium", imageName: "SGTitanium"),
-                    PresentationAppIcon(isSGPro: true, name: "SGPro", imageName: "SGPro"),
-                    PresentationAppIcon(isSGPro: true, name: "SGDay", imageName: "SGDay"),
-                    PresentationAppIcon(isSGPro: true, name: "SGGold", imageName: "SGGold"),
-                    SGSimpleSettings.shared.duckyAppIconAvailable ? PresentationAppIcon(isSGPro: true, name: "SGDucky", imageName: "SGDucky") : PresentationAppIcon(name: "", imageName: ""), // Empty
+                    PresentationAppIcon(name: "SGPro", imageName: "SGPro"),
+                    PresentationAppIcon(name: "SGDay", imageName: "SGDay"),
+                    PresentationAppIcon(name: "SGGold", imageName: "SGGold"),
+                    PresentationAppIcon(name: "SGDucky", imageName: "SGDucky"),
                     PresentationAppIcon(name: "SGNeon", imageName: "SGNeon"),
                     PresentationAppIcon(name: "SGNeonBlue", imageName: "SGNeonBlue"),
                     PresentationAppIcon(name: "SGGlass", imageName: "SGGlass"),
                     PresentationAppIcon(name: "SGSparkling", imageName: "SGSparkling"),
+                    PresentationAppIcon(name: "SGBeta", imageName: "SGBeta"),
                 ]
-
-                if Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt" {
-                    icons.append(PresentationAppIcon(name: "SGBeta", imageName: "SGBeta"))
-                }
+                // AyuGram: every bundled icon is available without Telegram Premium or Swiftgram Pro.
                 
                 return icons
             } else {
