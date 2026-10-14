@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       variant:
-        description: 'Versions to build (Standard from standard, Custom from custom)'
+        description: 'Versions to build (Standard from the selected branch, Custom from its custom branch)'
         type: choice
         options: [both, standard, custom]
         default: both
@@ -39,7 +39,9 @@ jobs:
       - name: Checkout source with submodules
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          ref: ${{ matrix.variant == 'custom' && 'custom' || 'standard' }}
+          # Run from standard: Standard builds standard and Custom builds custom. Run from another
+          # branch: Standard builds it and Custom builds <branch>-custom.
+          ref: ${{ matrix.variant == 'custom' && (github.ref_name == 'standard' && 'custom' || format('{0}-custom', github.ref_name)) || github.ref_name }}
           submodules: recursive
           fetch-depth: 1
           persist-credentials: false
