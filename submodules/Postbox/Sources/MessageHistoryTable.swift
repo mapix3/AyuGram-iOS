@@ -1551,9 +1551,9 @@ final class MessageHistoryTable: Table {
     
     private func justUpdate(_ index: MessageIndex, message: InternalStoreMessage, keepLocalTags: Bool, sharedKey: ValueBoxKey, sharedBuffer: WriteBuffer, sharedEncoder: PostboxEncoder, unsentMessageOperations: inout [IntermediateMessageHistoryUnsentOperation], updatedMessageTagSummaries: inout [MessageHistoryTagsSummaryKey: MessageHistoryTagNamespaceSummary], invalidateMessageTagSummaries: inout [InvalidatedMessageHistoryTagsSummaryEntryOperation], updatedGroupInfos: inout [MessageId: MessageGroupInfo], localTagsOperations: inout [IntermediateMessageHistoryLocalTagsOperation], timestampBasedMessageAttributesOperations: inout [TimestampBasedMessageAttributesOperation], updatedMedia: inout [MediaId: Media?]) -> (IntermediateMessage, MessageTags, Int64?)? {
         if let previousMessage = self.getMessage(index) {
-            if previousMessage.flags.contains(.AyuLocallyDeleted) && !message.flags.contains(.AyuLocallyDeleted) {
-                return (previousMessage, previousMessage.tags, previousMessage.threadId)
-            }
+            // A server copy of a message kept as deleted means it still exists (a failed
+            // history check marked it deleted by mistake), so the server copy replaces it.
+            let ayuRestored = previousMessage.flags.contains(.AyuLocallyDeleted) && !message.flags.contains(.AyuLocallyDeleted)
             var mediaToUpdate: [Media] = []
             
             var previousEmbeddedMediaWithIds: [(MediaId, Media)] = []
@@ -1613,7 +1613,8 @@ final class MessageHistoryTable: Table {
             }
             
             var updatedAttributes = message.attributes
-            for attribute in MessageHistoryTable.renderMessageAttributes(previousMessage) where attribute.retainedOnServerRefresh {
+            for retained in MessageHistoryTable.renderMessageAttributes(previousMessage) where retained.retainedOnServerRefresh {
+                let attribute = ayuRestored ? retained.ayuRestoredOnServerRefresh() : retained
                 if !updatedAttributes.contains(where: { ObjectIdentifier(Swift.type(of: $0)) == ObjectIdentifier(Swift.type(of: attribute)) }) {
                     updatedAttributes.append(attribute)
                 }
