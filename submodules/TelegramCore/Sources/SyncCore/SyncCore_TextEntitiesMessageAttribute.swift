@@ -90,6 +90,7 @@ public enum MessageTextEntityType: Equatable {
     case BlockQuote(isCollapsed: Bool)
     case Underline
     case BankCard
+    case TonAddress
     case Spoiler
     case CustomEmoji(stickerPack: StickerPackReference?, fileId: Int64)
     case FormattedDate(format: DateTimeFormat?, date: Int32)
@@ -148,6 +149,8 @@ public struct MessageTextEntity: PostboxCoding, Codable, Equatable {
             self.type = .CustomEmoji(stickerPack: stickerPack, fileId: decoder.decodeInt64ForKey("f", orElse: 0))
         case 19:
             self.type = .FormattedDate(format: decoder.decodeOptionalInt32ForKey("format").flatMap { MessageTextEntityType.DateTimeFormat(rawValue: $0) }, date: decoder.decodeInt32ForKey("date", orElse: 0))
+        case 20:
+            self.type = .TonAddress
         case Int32.max:
             self.type = .Custom(type: decoder.decodeInt32ForKey("type", orElse: 0))
         default:
@@ -207,6 +210,8 @@ public struct MessageTextEntity: PostboxCoding, Codable, Equatable {
             self.type = .CustomEmoji(stickerPack: try container.decodeIfPresent(StickerPackReference.self, forKey: "s"), fileId: try container.decode(Int64.self, forKey: "f"))
         case 19:
             self.type = .FormattedDate(format: try container.decodeIfPresent(Int32.self, forKey: "format").flatMap { MessageTextEntityType.DateTimeFormat(rawValue: $0) }, date: try container.decode(Int32.self, forKey: "date"))
+        case 20:
+            self.type = .TonAddress
         case Int32.max:
             let customType: Int32 = (try? container.decode(Int32.self, forKey: "type")) ?? 0
             self.type = .Custom(type: customType)
@@ -261,6 +266,8 @@ public struct MessageTextEntity: PostboxCoding, Codable, Equatable {
             encoder.encodeInt32(15, forKey: "_rawValue")
         case .BankCard:
             encoder.encodeInt32(16, forKey: "_rawValue")
+        case .TonAddress:
+            encoder.encodeInt32(20, forKey: "_rawValue")
         case .Spoiler:
             encoder.encodeInt32(17, forKey: "_rawValue")
         case let .CustomEmoji(stickerPack, fileId):
@@ -329,6 +336,8 @@ public struct MessageTextEntity: PostboxCoding, Codable, Equatable {
             try container.encode(15 as Int32, forKey: "_rawValue")
         case .BankCard:
             try container.encode(16 as Int32, forKey: "_rawValue")
+        case .TonAddress:
+            try container.encode(20 as Int32, forKey: "_rawValue")
         case .Spoiler:
             try container.encode(17 as Int32, forKey: "_rawValue")
         case let .CustomEmoji(stickerPack, fileId):
