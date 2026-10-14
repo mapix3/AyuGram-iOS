@@ -118,7 +118,8 @@ private enum GetUnseenIdsError {
 }
 
 private func synchronizeMarkAllUnseen(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, peerId: PeerId, operation: SynchronizeMarkAllUnseenPersonalMessagesOperation) -> Signal<Void, NoError> {
-    guard !AyuGramSettings.shared.snapshot.suppressRead else { return .complete() }
+    // With read receipts hidden only mentions whose read state is invisible are reported.
+    let onlyPrivate = AyuGramSettings.shared.snapshot.suppressRead
     guard let inputPeer = transaction.getPeer(peerId).flatMap(apiInputPeer) else {
         return .complete()
     }
@@ -126,23 +127,28 @@ private func synchronizeMarkAllUnseen(transaction: Transaction, postbox: Postbox
     let limit: Int32 = 100
     let oneOperation: (Int32) -> Signal<Int32?, MTRpcError> = { maxId in
         return network.request(Api.functions.messages.getUnreadMentions(flags: 0, peer: inputPeer, topMsgId: nil, offsetId: maxId, addOffset: maxId == 0 ? 0 : -1, limit: limit, maxId: maxId == 0 ? 0 : (maxId + 1), minId: 1))
-        |> mapToSignal { result -> Signal<[MessageId], MTRpcError> in
+        |> mapToSignal { result -> Signal<[(MessageId, Bool)], MTRpcError> in
+            let messages: [Api.Message]
             switch result {
                 case let .messages(messagesData):
-                    let messages = messagesData.messages
-                    return .single(messages.compactMap({ $0.id() }))
+                    messages = messagesData.messages
                 case let .channelMessages(channelMessagesData):
-                    let messages = channelMessagesData.messages
-                    return .single(messages.compactMap({ $0.id() }))
+                    messages = channelMessagesData.messages
                 case .messagesNotModified:
-                    return .single([])
+                    messages = []
                 case let .messagesSlice(messagesSliceData):
-                    let messages = messagesSliceData.messages
-                    return .single(messages.compactMap({ $0.id() }))
+                    messages = messagesSliceData.messages
             }
+            return .single(messages.compactMap { message -> (MessageId, Bool)? in
+                guard let id = message.id() else { return nil }
+                guard onlyPrivate else { return (id, true) }
+                guard let stored = StoreMessage(apiMessage: message, accountPeerId: stateManager.accountPeerId, peerIsForum: false) else { return (id, false) }
+                return (id, ayuMentionReadIsPrivate(media: stored.media, attributes: stored.attributes))
+            })
         }
-        |> mapToSignal { ids -> Signal<Int32?, MTRpcError> in
-            let filteredIds = ids.filter { $0.id <= operation.maxId }
+        |> mapToSignal { entries -> Signal<Int32?, MTRpcError> in
+            let ids = entries.map { $0.0 }
+            let filteredIds = entries.filter { $0.1 && $0.0.id <= operation.maxId }.map { $0.0 }
             if filteredIds.isEmpty {
                 return .single(ids.min()?.id)
             }
@@ -213,7 +219,16 @@ private func synchronizeMarkAllUnseen(transaction: Transaction, postbox: Postbox
 
 func markUnseenPersonalMessage(transaction: Transaction, id: MessageId, addSynchronizeAction: Bool) {
     if AyuGramSettings.shared.snapshot.suppressRead {
+        // Consumed here at once; the server is told only when that is invisible to the sender.
+        var report = false
+        if addSynchronizeAction, let message = transaction.getMessage(id) {
+            let unseen = message.tags.contains(.unseenPersonalMessage) || message.attributes.contains(where: { ($0 as? ConsumablePersonalMentionMessageAttribute)?.consumed == false })
+            report = unseen && ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes)
+        }
         ayuConsumeMentionLocally(transaction: transaction, id: id)
+        if report {
+            transaction.setPendingMessageAction(type: .consumeUnseenPersonalMessage, id: id, action: ConsumePersonalMessageAction())
+        }
         return
     }
     if let message = transaction.getMessage(id) {

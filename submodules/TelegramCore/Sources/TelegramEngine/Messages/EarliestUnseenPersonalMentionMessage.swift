@@ -2,6 +2,7 @@ import Foundation
 import Postbox
 import SwiftSignalKit
 import MtProtoKit
+import SGSimpleSettings
 
 
 public enum EarliestUnseenPersonalMentionMessageResult: Equatable {
@@ -53,7 +54,13 @@ func _internal_earliestUnseenPersonalMentionMessage(account: Account, peerId: Pe
         } else {
             return account.postbox.transaction { transaction -> EarliestUnseenPersonalMentionMessageResult in
                 if let topId = transaction.getTopPeerMessageId(peerId: peerId, namespace: Namespaces.Message.Cloud) {
+                    let staleCount = transaction.getMessageTagSummary(peerId: peerId, threadId: threadId, tagMask: .unseenPersonalMessage, namespace: Namespaces.Message.Cloud, customTag: nil)?.count ?? 0
                     transaction.replaceMessageTagSummary(peerId: peerId, threadId: threadId, tagMask: .unseenPersonalMessage, namespace: Namespaces.Message.Cloud, customTag: nil, count: 0, maxId: topId.id)
+                    // Mentions read earlier with receipts hidden are still unread on the server,
+                    // which would restore this counter on the next sync.
+                    if staleCount > 0, threadId == nil, AyuGramSettings.shared.snapshot.suppressRead {
+                        addSynchronizeMarkAllUnseenPersonalMessagesOperation(transaction: transaction, peerId: peerId, maxId: topId.id)
+                    }
                     
                     transaction.removeHole(peerId: peerId, threadId: threadId, namespace: Namespaces.Message.Cloud, space: .tag(.unseenPersonalMessage), range: 1 ... (Int32.max - 1))
                     let ids = transaction.getMessageIndicesWithTag(peerId: peerId, threadId: threadId, namespace: Namespaces.Message.Cloud, tag: .unseenPersonalMessage).map({ $0.id })
