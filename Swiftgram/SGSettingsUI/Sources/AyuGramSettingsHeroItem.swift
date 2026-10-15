@@ -3,6 +3,7 @@ import UIKit
 import Display
 import SwiftSignalKit
 import ItemListUI
+import AppBundle
 
 /// Rounded, Settings-style icon with a white SF Symbol (iOS 13+).
 func ayuGramRowIcon(_ symbol: String, color: UIColor) -> UIImage {
@@ -17,6 +18,18 @@ func ayuGramRowIcon(_ symbol: String, color: UIColor) -> UIImage {
         let fitted = glyph.size.width > 0.0 && glyph.size.height > 0.0 ? min(1.0, min(19.0 / glyph.size.width, 19.0 / glyph.size.height)) : 1.0
         let glyphSize = CGSize(width: glyph.size.width * fitted, height: glyph.size.height * fitted)
         glyph.draw(in: CGRect(x: (size.width - glyphSize.width) / 2.0, y: (size.height - glyphSize.height) / 2.0, width: glyphSize.width, height: glyphSize.height))
+    }
+}
+
+/// A bundled picture cut to the same rounded square as the symbol icons.
+func ayuGramRowImage(_ name: String) -> UIImage? {
+    guard let image = UIImage(bundleImageName: name) else {
+        return nil
+    }
+    let size = CGSize(width: 29.0, height: 29.0)
+    return UIGraphicsImageRenderer(size: size).image { _ in
+        UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 7.0).addClip()
+        image.draw(in: CGRect(origin: .zero, size: size))
     }
 }
 
