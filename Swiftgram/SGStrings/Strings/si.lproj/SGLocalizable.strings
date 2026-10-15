@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "%@ අනුවාදය නිකුත් විය. බාගැනීමට නාලිකාව විවෘත කරන්න.";
 "Ayu.UpdateIgnore" = "නොසලකා හරින්න";
 "Ayu.UpdateOpen" = "යාවත්කාලීන කරන්න";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "ශ්‍රව්‍ය සුරකින්න";
 "Ayu.HistoryDeleteEntry" = "ඉතිහාසයෙන් මකන්න";
 "Ayu.HistorySubtitle" = "තෝරාගත් කතාබස් වලින් මකා දැමූ සහ සංස්කරණය කළ පණිවිඩ, මෙම උපාංගයේ පමණක් තබා ගනී.";

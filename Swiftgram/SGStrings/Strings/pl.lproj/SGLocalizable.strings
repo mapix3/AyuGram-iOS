@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Wyszła wersja %@. Otwórz kanał, aby ją pobrać.";
 "Ayu.UpdateIgnore" = "Ignoruj";
 "Ayu.UpdateOpen" = "Aktualizuj";
+"Ayu.UpdateNoticeTitle" = "Dostępna aktualizacja! 🆕";
+"Ayu.UpdateNoticeText" = "Stuknij, aby zaktualizować";
+"Ayu.UpdateQuestion" = "Zaktualizować AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Wersja %@ zostanie pobrana i zainstalowana.";
 "Ayu.HistorySaveAudio" = "Zapisz audio";
 "Ayu.HistoryDeleteEntry" = "Usuń z historii";
 "Ayu.HistorySubtitle" = "Usunięte i edytowane wiadomości z wybranych czatów, przechowywane tylko na tym urządzeniu.";

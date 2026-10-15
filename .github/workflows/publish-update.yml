@@ -1,0 +1,72 @@
+name: Publish update
+
+# Offers a finished build to users: writes update.json, which the app reads to show the
+# "Available update" notice. Tapping it hands this build's IPA to the user's installer app.
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: 'Build number to publish (from the build-NNNNNN release)'
+        required: true
+        type: string
+      version:
+        description: 'Version shown to users, for example 13.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-update
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout standard
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: standard
+          fetch-depth: 1
+
+      - name: Write update.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD: ${{ inputs.build }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD" =~ ^[0-9]+$ ]] || { echo "::error::Build must be a number"; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "::error::Version must look like 13.0"; exit 1; }
+          TAG="build-$BUILD"
+          ASSETS="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          for VARIANT in standard custom; do
+            grep -qx "AyuGram-$VARIANT.ipa" <<<"$ASSETS" || { echo "::error::$TAG has no AyuGram-$VARIANT.ipa"; exit 1; }
+          done
+          python3 - <<'PY'
+          import json, os
+          base = 'https://github.com/%s/releases/download/build-%s/' % (os.environ['GITHUB_REPOSITORY'], os.environ['BUILD'])
+          manifest = {
+              'build': int(os.environ['BUILD']),
+              'version': '%s (%s)' % (os.environ['VERSION'], os.environ['BUILD']),
+              'url': 'https://t.me/ayugramiosupdates',
+              'ipa': {variant: base + 'AyuGram-%s.ipa' % variant for variant in ('standard', 'custom')},
+          }
+          open('update.json', 'w').write(json.dumps(manifest, indent=2) + '\n')
+          PY
+          cat update.json
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+
+      - name: Commit update.json
+        env:
+          BUILD: ${{ inputs.build }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git commit -m "Publish build $BUILD"
+          git push origin HEAD:standard

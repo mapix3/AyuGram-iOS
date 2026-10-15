@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "버전 %@ 출시. 채널을 열어 다운로드하세요.";
 "Ayu.UpdateIgnore" = "무시";
 "Ayu.UpdateOpen" = "업데이트";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "오디오 저장";
 "Ayu.HistoryDeleteEntry" = "기록에서 삭제";
 "Ayu.HistorySubtitle" = "선택한 채팅에서 삭제되거나 수정된 메시지로, 이 기기에만 저장됩니다.";

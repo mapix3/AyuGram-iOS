@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Versi %@ telah rilis. Buka kanal untuk mengunduhnya.";
 "Ayu.UpdateIgnore" = "Abaikan";
 "Ayu.UpdateOpen" = "Perbarui";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Simpan audio";
 "Ayu.HistoryDeleteEntry" = "Hapus dari riwayat";
 "Ayu.HistorySubtitle" = "Pesan yang dihapus dan diedit dari obrolan pilihan, hanya disimpan di perangkat ini.";

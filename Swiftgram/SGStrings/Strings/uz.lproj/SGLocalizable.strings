@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "%@ versiyasi chiqdi. Yuklab olish uchun kanalni oching.";
 "Ayu.UpdateIgnore" = "E’tiborsiz qoldirish";
 "Ayu.UpdateOpen" = "Yangilash";
+"Ayu.UpdateNoticeTitle" = "Yangilanish mavjud! 🆕";
+"Ayu.UpdateNoticeText" = "Yangilash uchun bosing";
+"Ayu.UpdateQuestion" = "AyuGram yangilansinmi?";
+"Ayu.UpdateQuestionInfo" = "%@ versiyasi yuklab olinadi va oʻrnatiladi.";
 "Ayu.HistorySaveAudio" = "Audioni saqlash";
 "Ayu.HistoryDeleteEntry" = "Tarixdan o‘chirish";
 "Ayu.HistorySubtitle" = "Tanlangan chatlardan o‘chirilgan va tahrirlangan xabarlar, faqat shu qurilmada saqlanadi.";

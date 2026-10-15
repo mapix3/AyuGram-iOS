@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "%@ sürümü çıktı. İndirmek için kanalı aç.";
 "Ayu.UpdateIgnore" = "Yoksay";
 "Ayu.UpdateOpen" = "Güncelle";
+"Ayu.UpdateNoticeTitle" = "Güncelleme mevcut! 🆕";
+"Ayu.UpdateNoticeText" = "Güncellemek için dokunun";
+"Ayu.UpdateQuestion" = "AyuGram güncellensin mi?";
+"Ayu.UpdateQuestionInfo" = "%@ sürümü indirilip yüklenecek.";
 "Ayu.HistorySaveAudio" = "Sesi kaydet";
 "Ayu.HistoryDeleteEntry" = "Geçmişten sil";
 "Ayu.HistorySubtitle" = "Seçtiğin sohbetlerden silinen ve düzenlenen mesajlar, yalnızca bu cihazda saklanır.";

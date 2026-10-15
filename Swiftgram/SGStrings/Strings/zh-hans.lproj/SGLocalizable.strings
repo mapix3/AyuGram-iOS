@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "版本 %@ 已发布。打开频道下载。";
 "Ayu.UpdateIgnore" = "忽略";
 "Ayu.UpdateOpen" = "更新";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "保存音频";
 "Ayu.HistoryDeleteEntry" = "从历史记录中删除";
 "Ayu.HistorySubtitle" = "所选聊天中被删除和编辑的消息，仅保存在此设备上。";

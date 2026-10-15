@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Guhertoya %@ derket. Ji bo daxistinê kanalê veke.";
 "Ayu.UpdateIgnore" = "Paşguh bike";
 "Ayu.UpdateOpen" = "Nû bike";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Deng tomar bike";
 "Ayu.HistoryDeleteEntry" = "Ji dîrokê jê bibe";
 "Ayu.HistorySubtitle" = "Peyamên jêbirî û guherandî ji sohbetên hilbijartî, tenê li ser vê cîhazê têne parastin.";

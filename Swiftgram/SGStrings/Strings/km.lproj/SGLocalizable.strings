@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "កំណែ %@ បានចេញហើយ។ បើកឆានែលដើម្បីទាញយក។";
 "Ayu.UpdateIgnore" = "មិនអើពើ";
 "Ayu.UpdateOpen" = "អាប់ដេត";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "រក្សាទុកសំឡេង";
 "Ayu.HistoryDeleteEntry" = "លុបពីប្រវត្តិ";
 "Ayu.HistorySubtitle" = "សារដែលបានលុប និងកែប្រែពីការជជែកដែលបានជ្រើស រក្សាទុកតែលើឧបករណ៍នេះ។";

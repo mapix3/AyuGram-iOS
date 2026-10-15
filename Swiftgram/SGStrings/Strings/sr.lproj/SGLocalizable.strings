@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Изашла је верзија %@. Отворите канал да је преузмете.";
 "Ayu.UpdateIgnore" = "Игнориши";
 "Ayu.UpdateOpen" = "Ажурирај";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Сачувај звук";
 "Ayu.HistoryDeleteEntry" = "Обриши из историје";
 "Ayu.HistorySubtitle" = "Обрисане и измењене поруке из изабраних ћаскања, чуване само на овом уређају.";

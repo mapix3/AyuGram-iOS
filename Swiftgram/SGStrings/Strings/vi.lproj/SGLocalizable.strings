@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Đã có phiên bản %@. Mở kênh để tải về.";
 "Ayu.UpdateIgnore" = "Bỏ qua";
 "Ayu.UpdateOpen" = "Cập nhật";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Lưu âm thanh";
 "Ayu.HistoryDeleteEntry" = "Xóa khỏi lịch sử";
 "Ayu.HistorySubtitle" = "Tin nhắn đã xóa và đã sửa từ các cuộc trò chuyện được chọn, chỉ lưu trên thiết bị này.";

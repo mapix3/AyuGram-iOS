@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "संस्करण %@ आ गया है। डाउनलोड करने के लिए चैनल खोलें।";
 "Ayu.UpdateIgnore" = "अनदेखा करें";
 "Ayu.UpdateOpen" = "अपडेट करें";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "ऑडियो सहेजें";
 "Ayu.HistoryDeleteEntry" = "इतिहास से हटाएं";
 "Ayu.HistorySubtitle" = "चुनी गई चैट से हटाए और संपादित किए गए संदेश, केवल इसी डिवाइस पर रखे जाते हैं।";

@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "La version %@ est sortie. Ouvrez le canal pour la télécharger.";
 "Ayu.UpdateIgnore" = "Ignorer";
 "Ayu.UpdateOpen" = "Mettre à jour";
+"Ayu.UpdateNoticeTitle" = "Mise à jour disponible ! 🆕";
+"Ayu.UpdateNoticeText" = "Touchez pour mettre à jour";
+"Ayu.UpdateQuestion" = "Mettre à jour AyuGram ?";
+"Ayu.UpdateQuestionInfo" = "La version %@ sera téléchargée et installée.";
 "Ayu.HistorySaveAudio" = "Enregistrer l’audio";
 "Ayu.HistoryDeleteEntry" = "Supprimer de l’historique";
 "Ayu.HistorySubtitle" = "Messages supprimés et modifiés des discussions choisies, conservés uniquement sur cet appareil.";

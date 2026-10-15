@@ -8,6 +8,8 @@ import TelegramUIPreferences
 import TelegramCallsUI
 import Display
 import UndoUI
+import SGSimpleSettings
+import SGStrings
 
 public final class GlobalControlPanelsContext {
     public final class MediaPlayback: Equatable {
@@ -492,7 +494,28 @@ public final class GlobalControlPanelsContext {
                 }
                 |> distinctUntilChanged
                 
-                self.suggestedChatListNoticeDisposable = (suggestedChatListNoticeSignal
+                // AyuGram: a newer build replaces any other notice until it is installed or declined.
+                let locale = context.sharedContext.currentPresentationData.with({ $0 }).strings.baseLanguageCode
+                let ayuGramUpdateNotice = Signal<ChatListNotice?, NoError> { subscriber in
+                    let emit = {
+                        if let info = AyuGramUpdates.shared.availableUpdate, !AyuGramUpdates.shared.isIgnored(info) {
+                            subscriber.putNext(.sgUrl(id: AyuGramUpdates.noticeId, title: i18n("Ayu.UpdateNoticeTitle", locale), text: i18n("Ayu.UpdateNoticeText", locale), url: info.url, needAuth: false, permanent: true))
+                        } else {
+                            subscriber.putNext(nil)
+                        }
+                    }
+                    emit()
+                    let observer = NotificationCenter.default.addObserver(forName: AyuGramUpdates.didChange, object: nil, queue: .main, using: { _ in emit() })
+                    return ActionDisposable {
+                        NotificationCenter.default.removeObserver(observer)
+                    }
+                }
+                |> runOn(.mainQueue())
+                
+                self.suggestedChatListNoticeDisposable = (combineLatest(ayuGramUpdateNotice, suggestedChatListNoticeSignal)
+                |> map { ayuGramNotice, suggestedNotice -> ChatListNotice? in
+                    return ayuGramNotice ?? suggestedNotice
+                }
                 |> deliverOn(self.queue)).startStrict(next: { [weak self] chatListNotice in
                     guard let self else {
                         return
