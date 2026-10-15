@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
+    inputs:
+      test:
+        description: 'Post a test comment to check that the signal reaches the session'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,7 +36,15 @@ jobs:
 
       - name: Compare upstream releases
         id: check
-        run: python3 ci/upstream_watch.py
+        run: |
+          python3 ci/upstream_watch.py
+          if [ "${{ inputs.test }}" = "true" ]; then
+            {
+              echo "update=true"
+              echo "marker=test:$GITHUB_RUN_ID"
+              echo "report=- Test signal from run $GITHUB_RUN_ID; nothing to merge."
+            } >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Report a new release on the inbox PR
         if: ${{ steps.check.outputs.update == 'true' }}
