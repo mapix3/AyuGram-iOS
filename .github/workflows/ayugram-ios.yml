@@ -15,7 +15,8 @@ on:
         default: release_arm64
 
 permissions:
-  contents: read
+  # Releases hold the IPA behind a direct link, which the in-app updater hands to installer apps.
+  contents: write
 
 concurrency:
   group: ayugram-ios-${{ inputs.variant }}
@@ -117,6 +118,24 @@ jobs:
             artifacts/build-manifest.json
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Attach the IPA to the build release
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          BUILD="$(python -c 'import json; print(json.load(open("artifacts/build-manifest.json"))["build_number"])')"
+          TAG="build-$BUILD"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # Both variants race to create it; whichever loses just uploads.
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+              --title "AyuGram build $BUILD" \
+              --notes "Unsigned IPAs; re-sign them with your installer. Published to users with the Publish update workflow." || true
+          fi
+          cp "artifacts/AyuGram-$VARIANT-unsigned.ipa" "AyuGram-$VARIANT.ipa"
+          gh release upload "$TAG" "AyuGram-$VARIANT.ipa" --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Remove generated credential files
         if: ${{ always() }}

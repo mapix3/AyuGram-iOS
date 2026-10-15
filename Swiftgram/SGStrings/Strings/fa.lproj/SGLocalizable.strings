@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "نسخه %@ منتشر شد. برای دانلود، کانال را باز کنید.";
 "Ayu.UpdateIgnore" = "نادیده گرفتن";
 "Ayu.UpdateOpen" = "به‌روزرسانی";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "ذخیره صدا";
 "Ayu.HistoryDeleteEntry" = "حذف از تاریخچه";
 "Ayu.HistorySubtitle" = "پیام‌های حذف‌شده و ویرایش‌شده از گفتگوهای انتخابی، فقط روی همین دستگاه نگهداری می‌شوند.";

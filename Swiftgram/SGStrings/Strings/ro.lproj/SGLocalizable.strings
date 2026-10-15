@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "A apărut versiunea %@. Deschide canalul ca s-o descarci.";
 "Ayu.UpdateIgnore" = "Ignoră";
 "Ayu.UpdateOpen" = "Actualizează";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Salvează audio";
 "Ayu.HistoryDeleteEntry" = "Șterge din istoric";
 "Ayu.HistorySubtitle" = "Mesaje șterse și editate din chaturile alese, păstrate doar pe acest dispozitiv.";

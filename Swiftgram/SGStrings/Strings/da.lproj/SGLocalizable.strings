@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Version %@ er ude. Åbn kanalen for at hente den.";
 "Ayu.UpdateIgnore" = "Ignorer";
 "Ayu.UpdateOpen" = "Opdater";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Gem lyd";
 "Ayu.HistoryDeleteEntry" = "Slet fra historik";
 "Ayu.HistorySubtitle" = "Slettede og redigerede beskeder fra valgte chats, kun gemt på denne enhed.";

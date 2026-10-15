@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Version %@ är ute. Öppna kanalen för att ladda ner den.";
 "Ayu.UpdateIgnore" = "Ignorera";
 "Ayu.UpdateOpen" = "Uppdatera";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Spara ljud";
 "Ayu.HistoryDeleteEntry" = "Ta bort från historik";
 "Ayu.HistorySubtitle" = "Raderade och redigerade meddelanden från valda chattar, sparade bara på den här enheten.";

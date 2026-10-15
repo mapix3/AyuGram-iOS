@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Vyšla verzia %@. Otvorte kanál a stiahnite ju.";
 "Ayu.UpdateIgnore" = "Ignorovať";
 "Ayu.UpdateOpen" = "Aktualizovať";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Uložiť zvuk";
 "Ayu.HistoryDeleteEntry" = "Odstrániť z histórie";
 "Ayu.HistorySubtitle" = "Vymazané a upravené správy z vybraných četov, uložené len v tomto zariadení.";

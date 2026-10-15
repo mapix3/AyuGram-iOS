@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Versie %@ is uit. Open het kanaal om hem te downloaden.";
 "Ayu.UpdateIgnore" = "Negeren";
 "Ayu.UpdateOpen" = "Bijwerken";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Audio opslaan";
 "Ayu.HistoryDeleteEntry" = "Verwijderen uit geschiedenis";
 "Ayu.HistorySubtitle" = "Verwijderde en bewerkte berichten uit gekozen chats, alleen op dit apparaat bewaard.";

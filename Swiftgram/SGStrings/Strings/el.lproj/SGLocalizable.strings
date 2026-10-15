@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Κυκλοφόρησε η έκδοση %@. Ανοίξτε το κανάλι για λήψη.";
 "Ayu.UpdateIgnore" = "Παράβλεψη";
 "Ayu.UpdateOpen" = "Ενημέρωση";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Αποθήκευση ήχου";
 "Ayu.HistoryDeleteEntry" = "Διαγραφή από το ιστορικό";
 "Ayu.HistorySubtitle" = "Διαγραμμένα και επεξεργασμένα μηνύματα από τις επιλεγμένες συνομιλίες, μόνο σε αυτή τη συσκευή.";

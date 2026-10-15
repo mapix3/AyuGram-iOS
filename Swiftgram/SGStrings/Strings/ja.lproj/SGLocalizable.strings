@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "バージョン %@ が公開されました。チャンネルを開いてダウンロードしてください。";
 "Ayu.UpdateIgnore" = "無視";
 "Ayu.UpdateOpen" = "アップデート";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "音声を保存";
 "Ayu.HistoryDeleteEntry" = "履歴から削除";
 "Ayu.HistorySubtitle" = "選択したチャットの削除・編集されたメッセージ。この端末にのみ保存されます。";

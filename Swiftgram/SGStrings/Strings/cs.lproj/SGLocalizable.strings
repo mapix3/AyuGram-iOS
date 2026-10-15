@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Vyšla verze %@. Otevřete kanál a stáhněte ji.";
 "Ayu.UpdateIgnore" = "Ignorovat";
 "Ayu.UpdateOpen" = "Aktualizovat";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Uložit zvuk";
 "Ayu.HistoryDeleteEntry" = "Odstranit z historie";
 "Ayu.HistorySubtitle" = "Smazané a upravené zprávy z vybraných chatů, uložené jen v tomto zařízení.";

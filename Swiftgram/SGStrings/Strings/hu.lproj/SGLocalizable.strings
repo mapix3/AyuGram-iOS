@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Megjelent a(z) %@ verzió. Nyisd meg a csatornát a letöltéshez.";
 "Ayu.UpdateIgnore" = "Kihagyás";
 "Ayu.UpdateOpen" = "Frissítés";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Hang mentése";
 "Ayu.HistoryDeleteEntry" = "Törlés az előzményekből";
 "Ayu.HistorySubtitle" = "Törölt és szerkesztett üzenetek a kiválasztott csevegésekből, csak ezen az eszközön tárolva.";

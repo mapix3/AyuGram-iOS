@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Вышла версия %@. Откройте канал, чтобы скачать её.";
 "Ayu.UpdateIgnore" = "Игнорировать";
 "Ayu.UpdateOpen" = "Обновить";
+"Ayu.UpdateNoticeTitle" = "Доступно обновление! 🆕";
+"Ayu.UpdateNoticeText" = "Нажмите, чтобы обновить";
+"Ayu.UpdateQuestion" = "Обновить AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Версия %@ будет скачана и установлена.";
 "Ayu.HistorySaveAudio" = "Сохранить аудио";
 "Ayu.HistoryDeleteEntry" = "Удалить из истории";
 "Ayu.HistorySubtitle" = "Удалённые и изменённые сообщения из выбранных чатов. Хранятся только на этом устройстве.";

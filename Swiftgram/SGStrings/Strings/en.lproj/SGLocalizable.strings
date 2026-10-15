@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Version %@ is out. Open the channel to download it.";
 "Ayu.UpdateIgnore" = "Ignore";
 "Ayu.UpdateOpen" = "Update";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Save audio";
 "Ayu.HistoryDeleteEntry" = "Delete from history";
 "Ayu.HistorySubtitle" = "Deleted and edited messages from your chosen chats, kept only on this device.";

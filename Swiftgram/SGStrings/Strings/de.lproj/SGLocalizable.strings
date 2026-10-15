@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Version %@ ist erschienen. Öffne den Kanal, um sie herunterzuladen.";
 "Ayu.UpdateIgnore" = "Ignorieren";
 "Ayu.UpdateOpen" = "Aktualisieren";
+"Ayu.UpdateNoticeTitle" = "Update verfügbar! 🆕";
+"Ayu.UpdateNoticeText" = "Zum Aktualisieren tippen";
+"Ayu.UpdateQuestion" = "AyuGram aktualisieren?";
+"Ayu.UpdateQuestionInfo" = "Version %@ wird heruntergeladen und installiert.";
 "Ayu.HistorySaveAudio" = "Audio speichern";
 "Ayu.HistoryDeleteEntry" = "Aus Verlauf löschen";
 "Ayu.HistorySubtitle" = "Gelöschte und bearbeitete Nachrichten aus ausgewählten Chats, nur auf diesem Gerät gespeichert.";
