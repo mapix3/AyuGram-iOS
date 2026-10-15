@@ -200,6 +200,7 @@ print("History migration, direction/unread flags, path containment, record cap a
     native += '''
 typealias ItemListSectionId = Int32
 protocol ListViewItem {}
+struct ListViewItemNeighbors {}
 protocol ItemListItem { var sectionId: ItemListSectionId { get } }
 struct ListViewItemLayoutParams { let width: CGFloat; let leftInset: CGFloat; let rightInset: CGFloat }
 struct ListViewItemNodeLayout { let contentSize: CGSize; let insets: UIEdgeInsets }

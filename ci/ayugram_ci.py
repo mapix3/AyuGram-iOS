@@ -159,6 +159,10 @@ def build(source, ci, output, env):
         manifest['bazel'] = bazel_version
         manifest['bazel_sha256'] = expected_hash
         make = [sys.executable, '-u', 'build-system/Make/Make.py', '--bazel=' + str(bazel)]
+        # The workflow restores and saves this directory between runs, so a rebuild only compiles what changed.
+        cache = env.get('AYUGRAM_BAZEL_CACHE')
+        if cache:
+            make.append('--cacheDir=' + cache)
         # This source supplies the configuration model without importing fake certs.
         # Actual provisioning and codesigning are disabled above in Bazel.
         common = ['--configurationPath=' + str(config_path), '--xcodeManagedCodesigning', '--buildNumber=' + str(number)]
