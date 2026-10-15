@@ -104,7 +104,8 @@ private enum AyuScreenEntry: ItemListNodeEntry {
                 arguments.toggle(key, value)
             })
         case let .link(_, _, link, symbol, tint, title):
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: ayuGramRowIcon(symbol, color: tint.color), title: title, label: "", sectionId: self.section, style: .blocks, action: {
+            let icon = (link == .channel ? ayuGramRowImage("AyuUpdatesChannel") : nil) ?? ayuGramRowIcon(symbol, color: tint.color)
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: icon, title: title, label: "", sectionId: self.section, style: .blocks, action: {
                 arguments.open(link)
             })
         case let .pins(_, _, value):
