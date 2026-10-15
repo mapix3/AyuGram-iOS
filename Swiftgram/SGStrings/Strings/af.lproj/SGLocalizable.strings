@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Weergawe %@ is uit. Maak die kanaal oop om dit af te laai.";
 "Ayu.UpdateIgnore" = "Ignoreer";
 "Ayu.UpdateOpen" = "Opdateer";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "Stoor oudio";
 "Ayu.HistoryDeleteEntry" = "Verwyder uit geskiedenis";
 "Ayu.HistorySubtitle" = "Geskrapte en geredigeerde boodskappe uit gekose kletse, slegs op hierdie toestel gestoor.";

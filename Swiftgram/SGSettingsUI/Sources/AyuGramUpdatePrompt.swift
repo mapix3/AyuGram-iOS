@@ -29,23 +29,61 @@ func ayuGramOpenDeveloper(context: AccountContext) {
     })
 }
 
+/// Installer apps tried in order; each receives the IPA link and installs it. The first
+/// one present on the device opens; without any, the IPA link opens in the browser.
+private let ayuGramInstallers: [(String) -> String] = [
+    { "apple-magnifier://install?url=" + $0 },
+    { "sidestore://install?url=" + $0 },
+    { "altstore://install?url=" + $0 },
+    { "feather://install/" + $0 },
+    { "esign://install?url=" + $0 },
+    { "scarlet://install=" + $0 }
+]
+
+private func ayuGramOpenInstaller(_ candidates: ArraySlice<URL>, fallback: URL) {
+    guard let url = candidates.first else {
+        UIApplication.shared.open(fallback, options: [:], completionHandler: nil)
+        return
+    }
+    UIApplication.shared.open(url, options: [:]) { opened in
+        if !opened {
+            ayuGramOpenInstaller(candidates.dropFirst(), fallback: fallback)
+        }
+    }
+}
+
+/// Hands the IPA of this variant to an installer app; without a direct IPA link the
+/// update channel opens instead.
+func ayuGramInstallUpdate(context: AccountContext, info: AyuGramUpdateInfo) {
+    guard let ipa = info.ipa[ayuGramHasAppearanceEntry ? "custom" : "standard"], let ipaURL = URL(string: ipa) else {
+        ayuGramOpenLink(context: context, url: info.url)
+        return
+    }
+    let encoded = ipa.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? ipa
+    ayuGramOpenInstaller(ArraySlice(ayuGramInstallers.compactMap { URL(string: $0(encoded)) }), fallback: ipaURL)
+}
+
 func ayuGramUpdateAlert(context: AccountContext, info: AyuGramUpdateInfo) -> ViewController {
-    let locale = context.sharedContext.currentPresentationData.with { $0 }.strings.baseLanguageCode
-    return textAlertController(context: context, title: i18n("Ayu.UpdateAvailable", locale), text: i18n("Ayu.UpdateAvailableInfo", locale, info.version), actions: [
-        TextAlertAction(type: .genericAction, title: i18n("Ayu.UpdateIgnore", locale), action: {
+    let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+    let locale = presentationData.strings.baseLanguageCode
+    return textAlertController(context: context, title: i18n("Ayu.UpdateQuestion", locale), text: i18n("Ayu.UpdateQuestionInfo", locale, info.version), actions: [
+        TextAlertAction(type: .genericAction, title: presentationData.strings.Common_No, action: {
             AyuGramUpdates.shared.ignore(info)
         }),
-        TextAlertAction(type: .defaultAction, title: i18n("Ayu.UpdateOpen", locale), action: {
-            ayuGramOpenLink(context: context, url: info.url)
+        TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_Yes, action: {
+            ayuGramInstallUpdate(context: context, info: info)
         })
     ])
 }
 
-/// Called once the main interface is ready: shows the update alert for a newer build
-/// unless the user already chose Ignore for it.
+/// Called once the main interface is ready: checks for a newer build, which the chat
+/// list then announces; tapping the notice opens the update dialog.
 public func ayuGramPresentUpdateIfNeeded(context: AccountContext) {
-    AyuGramUpdates.shared.check { info in
-        guard let info, !AyuGramUpdates.shared.isIgnored(info) else { return }
+    AyuGramUpdates.presentUpdate = { [weak context] in
+        guard let context, let info = AyuGramUpdates.shared.availableUpdate else {
+            return
+        }
         context.sharedContext.mainWindow?.present(ayuGramUpdateAlert(context: context, info: info), on: .root)
     }
+    AyuGramUpdates.shared.check { _ in }
 }

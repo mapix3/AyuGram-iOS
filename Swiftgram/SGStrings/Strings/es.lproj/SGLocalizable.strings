@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "Ya está la versión %@. Abre el canal para descargarla.";
 "Ayu.UpdateIgnore" = "Ignorar";
 "Ayu.UpdateOpen" = "Actualizar";
+"Ayu.UpdateNoticeTitle" = "¡Actualización disponible! 🆕";
+"Ayu.UpdateNoticeText" = "Toca para actualizar";
+"Ayu.UpdateQuestion" = "¿Actualizar AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Se descargará e instalará la versión %@.";
 "Ayu.HistorySaveAudio" = "Guardar audio";
 "Ayu.HistoryDeleteEntry" = "Eliminar del historial";
 "Ayu.HistorySubtitle" = "Mensajes eliminados y editados de los chats elegidos, guardados solo en este dispositivo.";

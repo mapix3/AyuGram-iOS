@@ -18,6 +18,8 @@ swift_library(
         "//submodules/TelegramCallsUI",
         "//submodules/Display",
         "//submodules/UndoUI",
+        "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+        "//Swiftgram/SGStrings:SGStrings",
     ],
     visibility = [
         "//visibility:public",

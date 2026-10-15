@@ -8,6 +8,10 @@
 "Ayu.UpdateAvailableInfo" = "صدر الإصدار %@. افتح القناة لتنزيله.";
 "Ayu.UpdateIgnore" = "تجاهل";
 "Ayu.UpdateOpen" = "تحديث";
+"Ayu.UpdateNoticeTitle" = "Available update! 🆕";
+"Ayu.UpdateNoticeText" = "Tap to update";
+"Ayu.UpdateQuestion" = "Update AyuGram?";
+"Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.HistorySaveAudio" = "حفظ الصوت";
 "Ayu.HistoryDeleteEntry" = "حذف من السجل";
 "Ayu.HistorySubtitle" = "الرسائل المحذوفة والمعدلة من المحادثات المختارة، محفوظة على هذا الجهاز فقط.";
