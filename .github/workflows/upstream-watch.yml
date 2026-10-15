@@ -1,0 +1,60 @@
+name: Upstream watch
+
+# Hourly, without AI: compares Telegram-iOS and Swiftgram releases with ci/upstream.json.
+# When something new is out it comments once on the inbox PR, which wakes the
+# Claude session subscribed to it; that session merges the update and builds.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout CI helpers
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: ci
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Compare upstream releases
+        id: check
+        run: python3 ci/upstream_watch.py
+
+      - name: Report a new release on the inbox PR
+        if: ${{ steps.check.outputs.update == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MARKER: ${{ steps.check.outputs.marker }}
+          REPORT: ${{ steps.check.outputs.report }}
+        run: |
+          set -euo pipefail
+          PR="$(python3 -c 'import json; print(json.load(open("ci/upstream.json"))["inbox_pr"])')"
+          if [ "$PR" = "0" ]; then
+            echo "::warning::ci/upstream.json has no inbox_pr; nobody to notify"
+            exit 0
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[].body' | grep -qF "<!-- upstream $MARKER -->"; then
+            echo "Already reported: $MARKER"
+            exit 0
+          fi
+          {
+            echo "<!-- upstream $MARKER -->"
+            echo "Upstream update available:"
+            echo
+            echo "$REPORT"
+            echo
+            echo "Merge it following ci/UPSTREAM_SYNC.md, then run the AyuGram iOS workflow from standard."
+          } | gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file -
