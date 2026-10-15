@@ -89,6 +89,7 @@ func i18n(_ key: String, _ language: String) -> String { key }
         declarations += '''
 typealias ItemListSectionId = Int32
 protocol ListViewItem {}
+struct ListViewItemNeighbors {}
 protocol ItemListItem { var sectionId: ItemListSectionId { get } }
 struct ListViewItemLayoutParams { let width: CGFloat; let leftInset: CGFloat; let rightInset: CGFloat }
 struct ListViewItemNodeLayout { let contentSize: CGSize; let insets: UIEdgeInsets }
