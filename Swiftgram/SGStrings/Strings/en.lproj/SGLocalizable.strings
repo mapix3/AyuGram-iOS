@@ -12,6 +12,7 @@
 "Ayu.UpdateNoticeText" = "Tap to update";
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
+"Ayu.LiveContainerUpdate" = "LiveContainer can't install apps while one of them is running. The update link is copied: close LiveContainer in the app switcher, then paste the link into Safari's address bar and open it.";
 "Ayu.HistorySaveAudio" = "Save audio";
 "Ayu.HistoryDeleteEntry" = "Delete from history";
 "Ayu.HistorySubtitle" = "Deleted and edited messages from your chosen chats, kept only on this device.";
