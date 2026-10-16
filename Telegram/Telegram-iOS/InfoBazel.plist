@@ -66,6 +66,11 @@
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
+		<string>sidestore</string>
+		<string>altstore</string>
+		<string>feather</string>
+		<string>esign</string>
+		<string>scarlet</string>
 		<string>instagram</string>
 		<string>comgooglemaps-x-callback</string>
 		<string>foursquare</string>
