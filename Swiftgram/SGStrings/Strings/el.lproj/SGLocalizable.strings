@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Για ενημέρωση, ανοίξτε το AyuGram σε λειτουργία Multitask (πατήστε παρατεταμένα την εφαρμογή μέσα στο LiveContainer) και δοκιμάστε ξανά.";
+"Ayu.NotificationsSection" = "Ειδοποιήσεις";
+"Ayu.BarkSetUp" = "Ρύθμιση ειδοποιήσεων Bark";
+"Ayu.BarkConnected" = "Ειδοποιήσεις Bark: ενεργές";
+"Ayu.BarkFooter" = "Μια εφαρμογή εγκατεστημένη με sideload δεν λαμβάνει ειδοποιήσεις από την Apple. Εγκαταστήστε το Bark από το App Store, αντιγράψτε εκεί το κλειδί σας και επικολλήστε το εδώ. Τα νέα μηνύματα θα φτάνουν μέσω του αναμεταδότη του AyuGram ως ειδοποιήσεις Bark.";
+"Ayu.BarkPrompt" = "Επικολλήστε το κλειδί Bark ή τον σύνδεσμο από την εφαρμογή Bark. Αφήστε κενό για να απενεργοποιήσετε τις ειδοποιήσεις.";
+"Ayu.BarkEnabled" = "Έτοιμο. Τα νέα μηνύματα θα φτάνουν ως ειδοποιήσεις Bark όσο το AyuGram είναι κλειστό.";
+"Ayu.BarkDisabled" = "Οι ειδοποιήσεις Bark είναι απενεργοποιημένες.";
+"Ayu.BarkInvalid" = "Αυτό δεν είναι κλειδί Bark. Αντιγράψτε το κλειδί ή έναν σύνδεσμο από την εφαρμογή Bark.";
+"Ayu.BarkFailed" = "Το Telegram δεν αποδέχτηκε τη συνδρομή: %@";
 "Ayu.HistorySaveAudio" = "Αποθήκευση ήχου";
 "Ayu.HistoryDeleteEntry" = "Διαγραφή από το ιστορικό";
 "Ayu.HistorySubtitle" = "Διαγραμμένα και επεξεργασμένα μηνύματα από τις επιλεγμένες συνομιλίες, μόνο σε αυτή τη συσκευή.";

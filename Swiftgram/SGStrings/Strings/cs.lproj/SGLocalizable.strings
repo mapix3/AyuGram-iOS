@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Pro aktualizaci spusťte AyuGram v režimu Multitask (podržte aplikaci v LiveContaineru) a zkuste to znovu.";
+"Ayu.NotificationsSection" = "Oznámení";
+"Ayu.BarkSetUp" = "Nastavit oznámení Bark";
+"Ayu.BarkConnected" = "Oznámení Bark: zapnuto";
+"Ayu.BarkFooter" = "Aplikace nainstalovaná přes sideload nedostává oznámení od Apple. Nainstalujte Bark z App Store, zkopírujte v něm svůj klíč a vložte ho sem. Nové zprávy pak budou chodit přes relay AyuGram jako oznámení Bark.";
+"Ayu.BarkPrompt" = "Vložte klíč Bark nebo odkaz z aplikace Bark. Ponechte prázdné pro vypnutí oznámení.";
+"Ayu.BarkEnabled" = "Hotovo. Nové zprávy budou chodit jako oznámení Bark, když je AyuGram zavřený.";
+"Ayu.BarkDisabled" = "Oznámení Bark jsou vypnutá.";
+"Ayu.BarkInvalid" = "Toto není klíč Bark. Zkopírujte klíč nebo odkaz z aplikace Bark.";
+"Ayu.BarkFailed" = "Telegram nepřijal odběr: %@";
 "Ayu.HistorySaveAudio" = "Uložit zvuk";
 "Ayu.HistoryDeleteEntry" = "Odstranit z historie";
 "Ayu.HistorySubtitle" = "Smazané a upravené zprávy z vybraných chatů, uložené jen v tomto zařízení.";

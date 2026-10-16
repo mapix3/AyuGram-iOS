@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Обновить AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Версия %@ будет скачана и установлена.";
 "Ayu.LiveContainerUpdate" = "Чтобы обновить, запустите AyuGram в режиме Multitask (зажмите приложение внутри LiveContainer) и попробуйте снова.";
+"Ayu.NotificationsSection" = "Уведомления";
+"Ayu.BarkSetUp" = "Настроить уведомления Bark";
+"Ayu.BarkConnected" = "Уведомления Bark: вкл.";
+"Ayu.BarkFooter" = "Приложение, установленное через сайдлоад, не получает уведомления от Apple. Установите Bark из App Store, скопируйте в нём свой ключ и вставьте сюда. Новые сообщения будут приходить через ретранслятор AyuGram как уведомления Bark.";
+"Ayu.BarkPrompt" = "Вставьте ключ Bark или ссылку из приложения Bark. Оставьте пустым, чтобы выключить уведомления.";
+"Ayu.BarkEnabled" = "Готово. Новые сообщения будут приходить уведомлениями Bark, пока AyuGram закрыт.";
+"Ayu.BarkDisabled" = "Уведомления Bark выключены.";
+"Ayu.BarkInvalid" = "Это не ключ Bark. Скопируйте ключ или ссылку из приложения Bark.";
+"Ayu.BarkFailed" = "Telegram не принял подписку: %@";
 "Ayu.HistorySaveAudio" = "Сохранить аудио";
 "Ayu.HistoryDeleteEntry" = "Удалить из истории";
 "Ayu.HistorySubtitle" = "Удалённые и изменённые сообщения из выбранных чатов. Хранятся только на этом устройстве.";

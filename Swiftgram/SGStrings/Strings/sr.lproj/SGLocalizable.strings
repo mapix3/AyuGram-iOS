@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Да бисте ажурирали, покрените AyuGram у Multitask режиму (притисните и држите апликацију у LiveContainer-у) и покушајте поново.";
+"Ayu.NotificationsSection" = "Обавештења";
+"Ayu.BarkSetUp" = "Подеси Bark обавештења";
+"Ayu.BarkConnected" = "Bark обавештења: укључена";
+"Ayu.BarkFooter" = "Апликација инсталирана преко sideload-а не добија обавештења од Apple-а. Инсталирајте Bark из App Store-а, копирајте у њему свој кључ и налепите га овде. Нове поруке ће стизати преко AyuGram релеја као Bark обавештења.";
+"Ayu.BarkPrompt" = "Налепите Bark кључ или линк из апликације Bark. Оставите празно да искључите обавештења.";
+"Ayu.BarkEnabled" = "Готово. Нове поруке ће стизати као Bark обавештења док је AyuGram затворен.";
+"Ayu.BarkDisabled" = "Bark обавештења су искључена.";
+"Ayu.BarkInvalid" = "Ово није Bark кључ. Копирајте кључ или линк из апликације Bark.";
+"Ayu.BarkFailed" = "Telegram није прихватио претплату: %@";
 "Ayu.HistorySaveAudio" = "Сачувај звук";
 "Ayu.HistoryDeleteEntry" = "Обриши из историје";
 "Ayu.HistorySubtitle" = "Обрисане и измењене поруке из изабраних ћаскања, чуване само на овом уређају.";

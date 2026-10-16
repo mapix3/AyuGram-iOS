@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "AyuGram güncellensin mi?";
 "Ayu.UpdateQuestionInfo" = "%@ sürümü indirilip yüklenecek.";
 "Ayu.LiveContainerUpdate" = "Güncellemek için AyuGram'ı Multitask modunda açın (LiveContainer içinde uygulamaya basılı tutun) ve tekrar deneyin.";
+"Ayu.NotificationsSection" = "Bildirimler";
+"Ayu.BarkSetUp" = "Bark Bildirimlerini Ayarla";
+"Ayu.BarkConnected" = "Bark Bildirimleri: Açık";
+"Ayu.BarkFooter" = "Sideload ile yüklenen bir uygulama Apple’dan bildirim almaz. App Store’dan Bark’ı yükleyin, oradaki anahtarınızı kopyalayıp buraya yapıştırın. Yeni mesajlar AyuGram aktarıcısı üzerinden Bark bildirimi olarak gelir.";
+"Ayu.BarkPrompt" = "Bark anahtarınızı veya Bark uygulamasındaki bağlantıyı yapıştırın. Bildirimleri kapatmak için boş bırakın.";
+"Ayu.BarkEnabled" = "Tamam. AyuGram kapalıyken yeni mesajlar Bark bildirimi olarak gelecek.";
+"Ayu.BarkDisabled" = "Bark bildirimleri kapalı.";
+"Ayu.BarkInvalid" = "Bu bir Bark anahtarı değil. Bark uygulamasından anahtarı veya bir bağlantıyı kopyalayın.";
+"Ayu.BarkFailed" = "Telegram aboneliği kabul etmedi: %@";
 "Ayu.HistorySaveAudio" = "Sesi kaydet";
 "Ayu.HistoryDeleteEntry" = "Geçmişten sil";
 "Ayu.HistorySubtitle" = "Seçtiğin sohbetlerden silinen ve düzenlenen mesajlar, yalnızca bu cihazda saklanır.";

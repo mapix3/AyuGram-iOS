@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "AyuGram yangilansinmi?";
 "Ayu.UpdateQuestionInfo" = "%@ versiyasi yuklab olinadi va oʻrnatiladi.";
 "Ayu.LiveContainerUpdate" = "Yangilash uchun AyuGram’ni Multitask rejimida ishga tushiring (LiveContainer ichida ilovani bosib turing) va qayta urinib ko‘ring.";
+"Ayu.NotificationsSection" = "Bildirishnomalar";
+"Ayu.BarkSetUp" = "Bark bildirishnomalarini sozlash";
+"Ayu.BarkConnected" = "Bark bildirishnomalari: yoqilgan";
+"Ayu.BarkFooter" = "Sideload orqali o‘rnatilgan ilova Apple’dan bildirishnoma olmaydi. App Store’dan Bark’ni o‘rnating, undagi kalitingizdan nusxa oling va shu yerga qo‘ying. Yangi xabarlar AyuGram releyi orqali Bark bildirishnomasi sifatida keladi.";
+"Ayu.BarkPrompt" = "Bark kalitingizni yoki Bark ilovasidagi havolani qo‘ying. Bildirishnomalarni o‘chirish uchun bo‘sh qoldiring.";
+"Ayu.BarkEnabled" = "Tayyor. AyuGram yopiq paytda yangi xabarlar Bark bildirishnomasi sifatida keladi.";
+"Ayu.BarkDisabled" = "Bark bildirishnomalari o‘chirilgan.";
+"Ayu.BarkInvalid" = "Bu Bark kaliti emas. Bark ilovasidan kalit yoki havoladan nusxa oling.";
+"Ayu.BarkFailed" = "Telegram obunani qabul qilmadi: %@";
 "Ayu.HistorySaveAudio" = "Audioni saqlash";
 "Ayu.HistoryDeleteEntry" = "Tarixdan o‘chirish";
 "Ayu.HistorySubtitle" = "Tanlangan chatlardan o‘chirilgan va tahrirlangan xabarlar, faqat shu qurilmada saqlanadi.";

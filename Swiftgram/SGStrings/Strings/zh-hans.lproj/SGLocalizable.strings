@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "要更新，请在 LiveContainer 中长按应用，以 Multitask 模式启动 AyuGram，然后重试。";
+"Ayu.NotificationsSection" = "通知";
+"Ayu.BarkSetUp" = "设置 Bark 通知";
+"Ayu.BarkConnected" = "Bark 通知：已开启";
+"Ayu.BarkFooter" = "侧载安装的应用无法收到 Apple 的通知。请从 App Store 安装 Bark，复制其中的密钥并粘贴到这里。新消息将通过 AyuGram 中继以 Bark 通知送达。";
+"Ayu.BarkPrompt" = "粘贴你的 Bark 密钥或 Bark 应用中的链接。留空即可关闭通知。";
+"Ayu.BarkEnabled" = "完成。AyuGram 关闭时，新消息将以 Bark 通知送达。";
+"Ayu.BarkDisabled" = "Bark 通知已关闭。";
+"Ayu.BarkInvalid" = "这不是 Bark 密钥。请从 Bark 应用复制密钥或链接。";
+"Ayu.BarkFailed" = "Telegram 未接受订阅：%@";
 "Ayu.HistorySaveAudio" = "保存音频";
 "Ayu.HistoryDeleteEntry" = "从历史记录中删除";
 "Ayu.HistorySubtitle" = "所选聊天中被删除和编辑的消息，仅保存在此设备上。";

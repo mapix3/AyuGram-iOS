@@ -131,6 +131,19 @@ def check_update_installers(source: Path):
             assert '<string>%s</string>' % scheme in text, (plist, scheme)
 
 
+def check_push_relay(source: Path):
+    relay = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramPushRelay.swift').read_text()
+    worker = (source / 'push-relay/worker.js').read_text()
+    # The app and the relay agree on the endpoint layout: d (32) | public key (65) | auth (16) | Bark key.
+    assert 'keys.count == 113' in relay and 'subdata(in: 32 ..< 97)' in relay and 'subdata(in: 97 ..< 113)' in relay
+    assert 'blob.slice(113)' in worker and 'blob.slice(32, 97)' in worker
+    assert re.search(r'baseURL = "https://[^"]+"', relay), 'The relay address is set'
+    assert 'AyuGramPushRelay.renew(context: context)' in (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramUpdatePrompt.swift').read_text()
+    for plist in ['Info.plist', 'InfoBazel.plist']:
+        assert '<string>ayugram</string>' in (source / 'Telegram/Telegram-iOS' / plist).read_text(), 'Bark opens AyuGram'
+    subprocess.run(['node', 'push-relay/test.mjs'], cwd=source, check=True)
+
+
 def check_deferred_reads(source: Path):
     core = source / 'submodules/TelegramCore/Sources'
     earliest = (core / 'TelegramEngine/Messages/EarliestUnseenPersonalMentionMessage.swift').read_text()
@@ -159,6 +172,7 @@ def check_history(source: Path):
     check_edit_versions(source)
     check_update_installers(source)
     check_deferred_reads(source)
+    check_push_relay(source)
     output = source / 'build-input/ayu-history-checks'
     output.mkdir(parents=True, exist_ok=True)
     core = (source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages/AyuGramMessageHistory.swift').read_text()

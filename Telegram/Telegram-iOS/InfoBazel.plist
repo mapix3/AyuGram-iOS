@@ -36,6 +36,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>telegram</string>
+				<string>ayugram</string>
 			</array>
 		</dict>
 		<dict>

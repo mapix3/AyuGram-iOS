@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "अपडेट करने के लिए, AyuGram को Multitask मोड में खोलें (LiveContainer में ऐप को दबाकर रखें) और फिर से कोशिश करें।";
+"Ayu.NotificationsSection" = "सूचनाएँ";
+"Ayu.BarkSetUp" = "Bark सूचनाएँ सेट करें";
+"Ayu.BarkConnected" = "Bark सूचनाएँ: चालू";
+"Ayu.BarkFooter" = "साइडलोड से इंस्टॉल ऐप को Apple से सूचनाएँ नहीं मिलतीं। App Store से Bark इंस्टॉल करें, उसमें अपनी कुंजी कॉपी करें और यहाँ पेस्ट करें। नए संदेश AyuGram रिले के ज़रिए Bark सूचनाओं के रूप में आएँगे।";
+"Ayu.BarkPrompt" = "अपनी Bark कुंजी या Bark ऐप का लिंक पेस्ट करें। सूचनाएँ बंद करने के लिए खाली छोड़ें।";
+"Ayu.BarkEnabled" = "हो गया। AyuGram बंद होने पर नए संदेश Bark सूचनाओं के रूप में आएँगे।";
+"Ayu.BarkDisabled" = "Bark सूचनाएँ बंद हैं।";
+"Ayu.BarkInvalid" = "यह Bark कुंजी नहीं है। Bark ऐप से कुंजी या लिंक कॉपी करें।";
+"Ayu.BarkFailed" = "Telegram ने सदस्यता स्वीकार नहीं की: %@";
 "Ayu.HistorySaveAudio" = "ऑडियो सहेजें";
 "Ayu.HistoryDeleteEntry" = "इतिहास से हटाएं";
 "Ayu.HistorySubtitle" = "चुनी गई चैट से हटाए और संपादित किए गए संदेश, केवल इसी डिवाइस पर रखे जाते हैं।";

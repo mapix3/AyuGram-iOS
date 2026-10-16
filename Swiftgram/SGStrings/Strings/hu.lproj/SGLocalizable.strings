@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "A frissítéshez indítsd el az AyuGramot Multitask módban (tartsd lenyomva az appot a LiveContainerben), majd próbáld újra.";
+"Ayu.NotificationsSection" = "Értesítések";
+"Ayu.BarkSetUp" = "Bark-értesítések beállítása";
+"Ayu.BarkConnected" = "Bark-értesítések: be";
+"Ayu.BarkFooter" = "A sideloaddal telepített alkalmazás nem kap értesítést az Apple-től. Telepítsd a Barkot az App Store-ból, másold ki benne a kulcsodat, és illeszd be ide. Az új üzenetek ezután az AyuGram továbbítón át Bark-értesítésként érkeznek.";
+"Ayu.BarkPrompt" = "Illeszd be a Bark-kulcsodat vagy a Bark alkalmazás linkjét. Hagyd üresen az értesítések kikapcsolásához.";
+"Ayu.BarkEnabled" = "Kész. Az új üzenetek Bark-értesítésként érkeznek, amíg az AyuGram be van zárva.";
+"Ayu.BarkDisabled" = "A Bark-értesítések ki vannak kapcsolva.";
+"Ayu.BarkInvalid" = "Ez nem Bark-kulcs. Másold ki a kulcsot vagy egy linket a Bark alkalmazásból.";
+"Ayu.BarkFailed" = "A Telegram nem fogadta el a feliratkozást: %@";
 "Ayu.HistorySaveAudio" = "Hang mentése";
 "Ayu.HistoryDeleteEntry" = "Törlés az előzményekből";
 "Ayu.HistorySubtitle" = "Törölt és szerkesztett üzenetek a kiválasztott csevegésekből, csak ezen az eszközön tárolva.";

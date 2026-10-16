@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "För att uppdatera, starta AyuGram i Multitask-läge (tryck och håll på appen i LiveContainer) och försök igen.";
+"Ayu.NotificationsSection" = "Notiser";
+"Ayu.BarkSetUp" = "Konfigurera Bark-notiser";
+"Ayu.BarkConnected" = "Bark-notiser: på";
+"Ayu.BarkFooter" = "En app installerad via sideload får inga notiser från Apple. Installera Bark från App Store, kopiera din nyckel där och klistra in den här. Nya meddelanden kommer då via AyuGram-reläet som Bark-notiser.";
+"Ayu.BarkPrompt" = "Klistra in din Bark-nyckel eller länken från Bark-appen. Lämna tomt för att stänga av notiser.";
+"Ayu.BarkEnabled" = "Klart. Nya meddelanden kommer som Bark-notiser medan AyuGram är stängt.";
+"Ayu.BarkDisabled" = "Bark-notiser är avstängda.";
+"Ayu.BarkInvalid" = "Det här är inte en Bark-nyckel. Kopiera nyckeln eller en länk från Bark-appen.";
+"Ayu.BarkFailed" = "Telegram godtog inte prenumerationen: %@";
 "Ayu.HistorySaveAudio" = "Spara ljud";
 "Ayu.HistoryDeleteEntry" = "Ta bort från historik";
 "Ayu.HistorySubtitle" = "Raderade och redigerade meddelanden från valda chattar, sparade bara på den här enheten.";

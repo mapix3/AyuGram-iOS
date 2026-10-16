@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Om op te dateer, begin AyuGram in Multitask-modus (druk en hou die app binne LiveContainer) en probeer weer.";
+"Ayu.NotificationsSection" = "Kennisgewings";
+"Ayu.BarkSetUp" = "Stel Bark-kennisgewings op";
+"Ayu.BarkConnected" = "Bark-kennisgewings: aan";
+"Ayu.BarkFooter" = "’n App wat met sideload geïnstalleer is, kry geen kennisgewings van Apple nie. Installeer Bark uit die App Store, kopieer jou sleutel daar en plak dit hier. Nuwe boodskappe kom dan deur die AyuGram-aanstuurder as Bark-kennisgewings.";
+"Ayu.BarkPrompt" = "Plak jou Bark-sleutel of die skakel uit die Bark-app. Laat leeg om kennisgewings af te skakel.";
+"Ayu.BarkEnabled" = "Klaar. Nuwe boodskappe kom as Bark-kennisgewings terwyl AyuGram toe is.";
+"Ayu.BarkDisabled" = "Bark-kennisgewings is af.";
+"Ayu.BarkInvalid" = "Dit is nie ’n Bark-sleutel nie. Kopieer die sleutel of ’n skakel uit die Bark-app.";
+"Ayu.BarkFailed" = "Telegram het die intekening nie aanvaar nie: %@";
 "Ayu.HistorySaveAudio" = "Stoor oudio";
 "Ayu.HistoryDeleteEntry" = "Verwyder uit geskiedenis";
 "Ayu.HistorySubtitle" = "Geskrapte en geredigeerde boodskappe uit gekose kletse, slegs op hierdie toestel gestoor.";

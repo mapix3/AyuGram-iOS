@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "כדי לעדכן, הפעילו את AyuGram במצב Multitask (לחיצה ארוכה על האפליקציה בתוך LiveContainer) ונסו שוב.";
+"Ayu.NotificationsSection" = "התראות";
+"Ayu.BarkSetUp" = "הגדרת התראות Bark";
+"Ayu.BarkConnected" = "התראות Bark: פעילות";
+"Ayu.BarkFooter" = "אפליקציה שהותקנה ב-sideload לא מקבלת התראות מ-Apple. התקינו את Bark מה-App Store, העתיקו ממנה את המפתח שלכם והדביקו כאן. הודעות חדשות יגיעו דרך הממסר של AyuGram כהתראות Bark.";
+"Ayu.BarkPrompt" = "הדביקו את מפתח Bark או את הקישור מאפליקציית Bark. השאירו ריק כדי לכבות התראות.";
+"Ayu.BarkEnabled" = "בוצע. הודעות חדשות יגיעו כהתראות Bark כש-AyuGram סגורה.";
+"Ayu.BarkDisabled" = "התראות Bark כבויות.";
+"Ayu.BarkInvalid" = "זה לא מפתח Bark. העתיקו את המפתח או קישור מאפליקציית Bark.";
+"Ayu.BarkFailed" = "Telegram לא קיבלה את המינוי: %@";
 "Ayu.HistorySaveAudio" = "שמור אודיו";
 "Ayu.HistoryDeleteEntry" = "מחק מההיסטוריה";
 "Ayu.HistorySubtitle" = "הודעות שנמחקו ונערכו מהצ׳אטים שנבחרו, נשמרות רק במכשיר הזה.";

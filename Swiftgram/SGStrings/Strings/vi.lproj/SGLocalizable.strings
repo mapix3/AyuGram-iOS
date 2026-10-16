@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Để cập nhật, hãy mở AyuGram ở chế độ Multitask (nhấn giữ ứng dụng trong LiveContainer) rồi thử lại.";
+"Ayu.NotificationsSection" = "Thông báo";
+"Ayu.BarkSetUp" = "Thiết lập thông báo Bark";
+"Ayu.BarkConnected" = "Thông báo Bark: Bật";
+"Ayu.BarkFooter" = "Ứng dụng cài qua sideload không nhận được thông báo từ Apple. Hãy cài Bark từ App Store, sao chép khóa của bạn trong đó và dán vào đây. Tin nhắn mới sẽ đến qua bộ chuyển tiếp AyuGram dưới dạng thông báo Bark.";
+"Ayu.BarkPrompt" = "Dán khóa Bark hoặc liên kết từ ứng dụng Bark. Để trống để tắt thông báo.";
+"Ayu.BarkEnabled" = "Xong. Tin nhắn mới sẽ đến dưới dạng thông báo Bark khi AyuGram đóng.";
+"Ayu.BarkDisabled" = "Thông báo Bark đã tắt.";
+"Ayu.BarkInvalid" = "Đây không phải khóa Bark. Hãy sao chép khóa hoặc liên kết từ ứng dụng Bark.";
+"Ayu.BarkFailed" = "Telegram không chấp nhận đăng ký: %@";
 "Ayu.HistorySaveAudio" = "Lưu âm thanh";
 "Ayu.HistoryDeleteEntry" = "Xóa khỏi lịch sử";
 "Ayu.HistorySubtitle" = "Tin nhắn đã xóa và đã sửa từ các cuộc trò chuyện được chọn, chỉ lưu trên thiết bị này.";

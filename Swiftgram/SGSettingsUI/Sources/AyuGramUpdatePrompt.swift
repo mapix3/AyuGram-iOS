@@ -145,4 +145,5 @@ public func ayuGramPresentUpdateIfNeeded(context: AccountContext) {
         context.sharedContext.mainWindow?.present(ayuGramUpdateAlert(context: context, info: info), on: .root)
     }
     AyuGramUpdates.shared.check { _ in }
+    AyuGramPushRelay.renew(context: context)
 }
