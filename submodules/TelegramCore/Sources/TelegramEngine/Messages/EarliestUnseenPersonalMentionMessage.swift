@@ -114,7 +114,9 @@ private func ayuEarliestUnseenWithRefetch(account: Account, peerId: PeerId, thre
 
 func _internal_earliestUnseenPersonalMentionMessage(account: Account, peerId: PeerId, threadId: Int64?) -> Signal<EarliestUnseenPersonalMentionMessageResult, NoError> {
     return ayuEarliestUnseenWithRefetch(account: account, peerId: peerId, threadId: threadId, tag: .unseenPersonalMessage, isDeferred: { transaction, id in
-        return ayuIsDeferredMentionRead(transaction: transaction, id: id)
+        // Also mentions read here by builds that did not remember them: still tagged, but consumed.
+        let consumed = transaction.getMessage(id)?.attributes.contains(where: { ($0 as? ConsumablePersonalMentionMessageAttribute)?.consumed == true }) ?? false
+        return consumed || ayuIsDeferredMentionRead(transaction: transaction, id: id)
     }, readLocally: { transaction, id in
         ayuConsumeMentionLocally(transaction: transaction, id: id)
     }, clear: { transaction, id in
