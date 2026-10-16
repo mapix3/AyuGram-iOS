@@ -12,7 +12,7 @@
 "Ayu.UpdateNoticeText" = "Stuknij, aby zaktualizować";
 "Ayu.UpdateQuestion" = "Zaktualizować AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Wersja %@ zostanie pobrana i zainstalowana.";
-"Ayu.LiveContainerUpdate" = "LiveContainer can't install apps while one of them is running. The update link is copied: close LiveContainer in the app switcher, then paste the link into Safari's address bar and open it.";
+"Ayu.LiveContainerUpdate" = "Aby zaktualizować, uruchom AyuGram w trybie Multitask (przytrzymaj aplikację w LiveContainer) i spróbuj ponownie.";
 "Ayu.HistorySaveAudio" = "Zapisz audio";
 "Ayu.HistoryDeleteEntry" = "Usuń z historii";
 "Ayu.HistorySubtitle" = "Usunięte i edytowane wiadomości z wybranych czatów, przechowywane tylko na tym urządzeniu.";
