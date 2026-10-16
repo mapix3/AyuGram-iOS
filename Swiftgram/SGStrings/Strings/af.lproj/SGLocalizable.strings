@@ -12,7 +12,7 @@
 "Ayu.UpdateNoticeText" = "Tap to update";
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
-"Ayu.LiveContainerUpdate" = "LiveContainer can't install apps while one of them is running. The update link is copied: close LiveContainer in the app switcher, then paste the link into Safari's address bar and open it.";
+"Ayu.LiveContainerUpdate" = "Om op te dateer, begin AyuGram in Multitask-modus (druk en hou die app binne LiveContainer) en probeer weer.";
 "Ayu.HistorySaveAudio" = "Stoor oudio";
 "Ayu.HistoryDeleteEntry" = "Verwyder uit geskiedenis";
 "Ayu.HistorySubtitle" = "Geskrapte en geredigeerde boodskappe uit gekose kletse, slegs op hierdie toestel gestoor.";

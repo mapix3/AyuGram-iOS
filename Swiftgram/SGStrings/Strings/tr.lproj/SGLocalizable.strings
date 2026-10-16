@@ -12,7 +12,7 @@
 "Ayu.UpdateNoticeText" = "Güncellemek için dokunun";
 "Ayu.UpdateQuestion" = "AyuGram güncellensin mi?";
 "Ayu.UpdateQuestionInfo" = "%@ sürümü indirilip yüklenecek.";
-"Ayu.LiveContainerUpdate" = "LiveContainer can't install apps while one of them is running. The update link is copied: close LiveContainer in the app switcher, then paste the link into Safari's address bar and open it.";
+"Ayu.LiveContainerUpdate" = "Güncellemek için AyuGram'ı Multitask modunda açın (LiveContainer içinde uygulamaya basılı tutun) ve tekrar deneyin.";
 "Ayu.HistorySaveAudio" = "Sesi kaydet";
 "Ayu.HistoryDeleteEntry" = "Geçmişten sil";
 "Ayu.HistorySubtitle" = "Seçtiğin sohbetlerden silinen ve düzenlenen mesajlar, yalnızca bu cihazda saklanır.";
