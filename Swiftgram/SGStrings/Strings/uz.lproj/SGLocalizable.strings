@@ -12,7 +12,7 @@
 "Ayu.UpdateNoticeText" = "Yangilash uchun bosing";
 "Ayu.UpdateQuestion" = "AyuGram yangilansinmi?";
 "Ayu.UpdateQuestionInfo" = "%@ versiyasi yuklab olinadi va oʻrnatiladi.";
-"Ayu.LiveContainerUpdate" = "LiveContainer can't install apps while one of them is running. The update link is copied: close LiveContainer in the app switcher, then paste the link into Safari's address bar and open it.";
+"Ayu.LiveContainerUpdate" = "Yangilash uchun AyuGram’ni Multitask rejimida ishga tushiring (LiveContainer ichida ilovani bosib turing) va qayta urinib ko‘ring.";
 "Ayu.HistorySaveAudio" = "Audioni saqlash";
 "Ayu.HistoryDeleteEntry" = "Tarixdan o‘chirish";
 "Ayu.HistorySubtitle" = "Tanlangan chatlardan o‘chirilgan va tahrirlangan xabarlar, faqat shu qurilmada saqlanadi.";

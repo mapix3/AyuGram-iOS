@@ -12,7 +12,7 @@
 "Ayu.UpdateNoticeText" = "Tap to update";
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
-"Ayu.LiveContainerUpdate" = "LiveContainer can't install apps while one of them is running. The update link is copied: close LiveContainer in the app switcher, then paste the link into Safari's address bar and open it.";
+"Ayu.LiveContainerUpdate" = "若要更新，請在 LiveContainer 中長按 App，以 Multitask 模式啟動 AyuGram，然後再試一次。";
 "Ayu.HistorySaveAudio" = "儲存音訊";
 "Ayu.HistoryDeleteEntry" = "從歷史記錄中刪除";
 "Ayu.HistorySubtitle" = "所選聊天中被刪除與編輯的訊息，僅儲存在此裝置上。";

@@ -86,10 +86,8 @@ func ayuGramInstallUpdate(context: AccountContext, info: AyuGramUpdateInfo) {
         return
     }
     // Otherwise LiveContainer installs nothing while one of its apps runs ("Please restart
-    // LiveContainer to install apps"), so the install link is copied for after a restart.
+    // LiveContainer to install apps"), so it asks for multitask mode.
     if ayuGramRunsInLiveContainer {
-        let link = "livecontainer://install?url=" + encoded
-        UIPasteboard.general.string = link
         let data = context.sharedContext.currentPresentationData.with { $0 }
         context.sharedContext.mainWindow?.present(textAlertController(context: context, title: "LiveContainer", text: i18n("Ayu.LiveContainerUpdate", data.strings.baseLanguageCode), actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), on: .root)
         return
