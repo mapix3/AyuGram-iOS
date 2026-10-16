@@ -4597,9 +4597,11 @@ func replayFinalState(
             case let .DeleteEphemeralMessages(peerId, ids):
                 deleteEphemeralMessages(transaction: transaction, peerId: peerId, ids: ids)
             case let .DeleteMessagesWithGlobalIds(ids):
-                ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: transaction.messageIdsForGlobalIds(ids))
+                let restored = ayuGramRestoreNotifiedMessages(transaction: transaction, globalIds: ids)
+                ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: Array(Set(transaction.messageIdsForGlobalIds(ids) + restored)))
                 deletedMessageIds.append(contentsOf: ids.map { .global($0) })
             case let .DeleteMessages(ids):
+                ayuGramRestoreNotifiedMessages(transaction: transaction, ids: ids)
                 ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
                     addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
                 })

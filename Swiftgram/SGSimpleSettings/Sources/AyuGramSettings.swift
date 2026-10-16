@@ -26,6 +26,9 @@ public final class AyuGramSettings {
     public static var shared: AyuGramSettings { SGSimpleSettings.shared.ayuGram }
     public static let didChange = Notification.Name("Swiftgram.AyuGramSettings.didChange")
     private let defaults: UserDefaults
+    /// App group copy of the privacy snapshot. App extensions cannot read the app's
+    /// standard defaults; the notification service needs Save Deleted Messages.
+    private let shared: UserDefaults?
     private let lock = NSLock()
     private let key = "swiftgram.ayuGram.privacy.v1"
     private let extraKey = "swiftgram.ayuGram.extra.v1"
@@ -36,8 +39,9 @@ public final class AyuGramSettings {
     private var clientCache: AyuGramClientSettings?
     private var statusCache: [Int64: AyuGramLocalStatus?] = [:]
 
-    public init(defaults: UserDefaults = .standard) {
+    public init(defaults: UserDefaults = .standard, shared: UserDefaults? = nil) {
         self.defaults = defaults
+        self.shared = shared
     }
 
     public var snapshot: AyuGramPrivacySettings {
@@ -51,7 +55,16 @@ public final class AyuGramSettings {
         if let cached = privacyCache {
             return cached
         }
-        let value = defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(AyuGramPrivacySettings.self, from: $0) } ?? AyuGramPrivacySettings()
+        guard let data = defaults.data(forKey: key) else {
+            // An app extension has only the app group copy. It is read again every
+            // time: the extension process outlives changes made in the app.
+            return shared?.data(forKey: key).flatMap { try? JSONDecoder().decode(AyuGramPrivacySettings.self, from: $0) } ?? AyuGramPrivacySettings()
+        }
+        // Settings saved before the copy existed reach the app group on first read.
+        if let shared, shared.data(forKey: key) != data {
+            shared.set(data, forKey: key)
+        }
+        let value = (try? JSONDecoder().decode(AyuGramPrivacySettings.self, from: data)) ?? AyuGramPrivacySettings()
         privacyCache = value
         return value
     }
@@ -62,6 +75,7 @@ public final class AyuGramSettings {
         transform(&value)
         if let data = try? JSONEncoder().encode(value) {
             defaults.set(data, forKey: key)
+            shared?.set(data, forKey: key)
         }
         privacyCache = value
         lock.unlock()

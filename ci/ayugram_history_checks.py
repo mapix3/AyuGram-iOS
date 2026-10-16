@@ -108,7 +108,20 @@ enum OwnerBadgeCompatibility {
 '''
 
 
+def check_notified_messages(source: Path):
+    service = (source / 'Telegram/NotificationService/Sources/NotificationService.swift').read_text()
+    deletion = service.split('case let .deleteMessage(ids):', 1)[1].split('case let .readReactions(', 1)[0]
+    assert '_internal_ayuGramDeleteNotifiedMessages(' in deletion and '_internal_deleteMessages(' not in deletion, 'MESSAGE_DELETED pushes keep deleted messages'
+    assert '_internal_ayuGramRememberNotifiedMessage(' in service, 'Notified messages are remembered before the poll'
+    simple = (source / 'Swiftgram/SGSimpleSettings/Sources/SimpleSettings.swift').read_text()
+    assert 'AyuGramSettings(shared: UserDefaults(suiteName: APP_GROUP_IDENTIFIER))' in simple, 'The notification service sees Save Deleted Messages'
+    utils = (source / 'submodules/TelegramCore/Sources/State/AccountStateManagementUtils.swift').read_text()
+    assert 'ayuGramRestoreNotifiedMessages(transaction: transaction, globalIds: ids)' in utils
+    assert 'ayuGramRestoreNotifiedMessages(transaction: transaction, ids: ids)' in utils
+
+
 def check_history(source: Path):
+    check_notified_messages(source)
     output = source / 'build-input/ayu-history-checks'
     output.mkdir(parents=True, exist_ok=True)
     core = (source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages/AyuGramMessageHistory.swift').read_text()

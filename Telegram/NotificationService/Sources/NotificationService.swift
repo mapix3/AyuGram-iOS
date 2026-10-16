@@ -799,6 +799,19 @@ private func getCurrentRenderedTotalUnreadCount(accountManager: AccountManager<T
     }
 }
 
+// MARK: AyuGram
+/// Notifications that carry a message's own text or media. Self-destructing media,
+/// hidden previews and service events are left out.
+private func ayuGramIsMessageNotification(locKey: String) -> Bool {
+    guard locKey.hasPrefix("MESSAGE_") || locKey.hasPrefix("CHAT_MESSAGE_") || locKey.hasPrefix("CHANNEL_MESSAGE_") else {
+        return false
+    }
+    if locKey.hasSuffix("_SECRET") || locKey.hasSuffix("_NOTEXT") {
+        return false
+    }
+    return !["MESSAGE_SCREENSHOT", "MESSAGE_MUTED", "MESSAGE_DELETED"].contains(locKey)
+}
+
 @available(iOSApplicationExtension 10.0, iOS 10.0, *)
 private final class NotificationServiceHandler {
     private let queue: Queue
@@ -1089,6 +1102,7 @@ private final class NotificationServiceHandler {
                     var messageId: MessageId.Id?
                     var storyId: Int32?
                     var mediaAttachment: Media?
+                    var ayuGramAttachmentData: Data?
                     // Commits the notification → message link Siri's announce flow looks up;
                     // the poll path runs it ahead of the fetch so the content is handed to the
                     // system only after the link is stored.
@@ -1358,6 +1372,7 @@ private final class NotificationServiceHandler {
                                 }
                                 if let attachmentData = Data(base64Encoded: attachmentDataString) {
                                     mediaAttachment = _internal_parseMediaAttachment(data: attachmentData)
+                                    ayuGramAttachmentData = attachmentData
                                 }
                             }
 
@@ -1431,6 +1446,21 @@ private final class NotificationServiceHandler {
                                         _internal_setNotificationRequestMessageId(transaction: transaction, requestIdentifier: requestIdentifier, messageId: messageIdValue)
                                     }
                                     |> ignoreValues
+
+                                    // MARK: AyuGram
+                                    // A message deleted before the poll stores it exists only in this
+                                    // notification; Save Deleted Messages keeps it from this copy.
+                                    if let locKey = payloadJson["loc-key"] as? String, ayuGramIsMessageNotification(locKey: locKey) {
+                                        let text = content.body ?? ""
+                                        let attachment = ayuGramAttachmentData
+                                        let authorId: PeerId? = peerId.namespace == Namespaces.Peer.CloudUser ? peerId : nil
+                                        let threadId = (payloadJson["topic_id"] as? String).flatMap { Int64($0) }
+                                        recordNotificationLink = recordNotificationLink
+                                        |> then(stateManager.postbox.transaction { transaction -> Void in
+                                            _internal_ayuGramRememberNotifiedMessage(transaction: transaction, id: messageIdValue, threadId: threadId, authorId: authorId, text: text, attachment: attachment)
+                                        }
+                                        |> ignoreValues)
+                                    }
                                 }
                             }
 
@@ -2541,7 +2571,8 @@ private final class NotificationServiceHandler {
                             Logger.shared.log("NotificationService \(episode)", "Will delete messages \(ids)")
                             let mediaBox = stateManager.postbox.mediaBox
                             let _ = (stateManager.postbox.transaction { transaction -> Void in
-                                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, deleteMedia: true)
+                                // MARK: AyuGram
+                                _internal_ayuGramDeleteNotifiedMessages(transaction: transaction, mediaBox: mediaBox, ids: ids)
                             }
                             |> deliverOn(strongSelf.queue)).start(completed: {
                                 UNUserNotificationCenter.current().getDeliveredNotifications(completionHandler: { notifications in
