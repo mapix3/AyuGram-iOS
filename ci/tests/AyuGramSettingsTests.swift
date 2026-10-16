@@ -44,6 +44,20 @@ struct AyuGramSettingsTests {
         store.update { $0.storyPrivacy = true }
         NotificationCenter.default.removeObserver(observer)
         assert(observed)
+
+        // The notification service has only the app group copy and must see changes made after it started.
+        let appSuite = "AyuGramTests.app.\(UUID().uuidString)", groupSuite = "AyuGramTests.group.\(UUID().uuidString)", extensionSuite = "AyuGramTests.ext.\(UUID().uuidString)"
+        let appDefaults = UserDefaults(suiteName: appSuite)!, groupDefaults = UserDefaults(suiteName: groupSuite)!, extensionDefaults = UserDefaults(suiteName: extensionSuite)!
+        defer { [appSuite, groupSuite, extensionSuite].forEach { UserDefaults.standard.removePersistentDomain(forName: $0) } }
+        AyuGramSettings(defaults: appDefaults).update { $0.antiTyping = true }
+        let extensionStore = AyuGramSettings(defaults: extensionDefaults, shared: groupDefaults)
+        assert(!extensionStore.snapshot.antiTyping, "Nothing is shared before the app reads its settings")
+        let appStore = AyuGramSettings(defaults: appDefaults, shared: groupDefaults)
+        assert(appStore.snapshot.antiTyping && extensionStore.snapshot.antiTyping, "Settings saved before the copy existed are shared on first read")
+        appStore.update { $0.messageHistory = true }
+        assert(extensionStore.snapshot.messageHistory, "The extension sees Save Deleted Messages turned on later")
+        appStore.update { $0.messageHistory = false }
+        assert(!extensionStore.snapshot.messageHistory)
         #if AYUGRAM_CLIENT_EXTRAS
         let privacyBefore = store.snapshot
         assert(store.client == AyuGramClientSettings())
