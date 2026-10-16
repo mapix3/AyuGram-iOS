@@ -254,11 +254,10 @@ func managedReadReactionOrPollVoteActions(postbox: Postbox, network: Network, st
 
 private func synchronizeConsumeMessageContents(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, id: MessageId) -> Signal<Void, NoError> {
     if AyuGramSettings.shared.snapshot.suppressRead {
-        let message = transaction.getMessage(id)
-        guard let message, ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes) else {
-            ayuConsumeMentionLocally(transaction: transaction, id: id)
-            return .complete()
-        }
+        // Reported with the next message sent in this chat (AyuGramDeferredReads).
+        ayuConsumeMentionLocally(transaction: transaction, id: id)
+        ayuDeferMentionRead(transaction: transaction, id: id)
+        return .complete()
     }
     if id.peerId.namespace == Namespaces.Peer.CloudUser || id.peerId.namespace == Namespaces.Peer.CloudGroup {
         return network.request(Api.functions.messages.readMessageContents(id: [id.id]))
@@ -329,7 +328,11 @@ private func synchronizeConsumeMessageContents(transaction: Transaction, postbox
 }
 
 private func synchronizeReadMessageReactionsOrPollVotes(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, id: MessageId) -> Signal<Void, NoError> {
-    guard !AyuGramSettings.shared.snapshot.suppressRead else { return .complete() }
+    if AyuGramSettings.shared.snapshot.suppressRead {
+        // Seen here; reported with the next message sent in this chat (AyuGramDeferredReads).
+        ayuDeferReactionRead(transaction: transaction, id: id)
+        return .complete()
+    }
     if id.peerId.namespace == Namespaces.Peer.CloudUser || id.peerId.namespace == Namespaces.Peer.CloudGroup {
         return network.request(Api.functions.messages.readMessageContents(id: [id.id]))
         |> map(Optional.init)
