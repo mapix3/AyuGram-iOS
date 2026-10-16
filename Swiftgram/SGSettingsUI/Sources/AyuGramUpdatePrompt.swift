@@ -29,16 +29,28 @@ func ayuGramOpenDeveloper(context: AccountContext) {
     })
 }
 
-/// Installer apps tried in order; each receives the IPA link and installs it. The first
-/// one present on the device opens; without any, the IPA link opens in the browser.
-private let ayuGramInstallers: [(String) -> String] = [
-    { "apple-magnifier://install?url=" + $0 },
-    { "sidestore://install?url=" + $0 },
-    { "altstore://install?url=" + $0 },
-    { "feather://install/" + $0 },
-    { "esign://install?url=" + $0 },
-    { "scarlet://install=" + $0 }
+/// Installer apps that take an IPA link, tried in order. Their schemes are listed in
+/// LSApplicationQueriesSchemes, so only installers present on the device are opened.
+private let ayuGramInstallers: [(scheme: String, link: (String) -> String)] = [
+    ("sidestore", { "sidestore://install?url=" + $0 }),
+    ("altstore", { "altstore://install?url=" + $0 }),
+    ("feather", { "feather://install/" + $0 }),
+    ("esign", { "esign://install?url=" + $0 }),
+    ("scarlet", { "scarlet://install=" + $0 })
 ]
+
+/// TrollStore marks the apps it installs with a `_TrollStore` file next to the bundle.
+/// Its link uses the system Magnifier's scheme, which opens Magnifier without TrollStore,
+/// so it is only used for a TrollStore install.
+private var ayuGramInstalledByTrollStore: Bool {
+    return FileManager.default.fileExists(atPath: Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("_TrollStore").path)
+}
+
+/// LiveContainer runs its apps from its own Documents/Applications folder and sets LC_HOME_PATH.
+private var ayuGramRunsInLiveContainer: Bool {
+    let path = Bundle.main.bundlePath
+    return ProcessInfo.processInfo.environment["LC_HOME_PATH"] != nil || path.contains("/Documents/Applications/") || path.contains("/LiveContainer/")
+}
 
 private func ayuGramOpenInstaller(_ candidates: ArraySlice<URL>, fallback: URL) {
     guard let url = candidates.first else {
@@ -52,15 +64,35 @@ private func ayuGramOpenInstaller(_ candidates: ArraySlice<URL>, fallback: URL) 
     }
 }
 
-/// Hands the IPA of this variant to an installer app; without a direct IPA link the
-/// update channel opens instead.
+/// Hands the IPA of this variant to the installer AyuGram came from, or else the first
+/// installer found on the device; without one, the build's GitHub release page opens.
+/// Without a direct IPA link the update channel opens instead.
 func ayuGramInstallUpdate(context: AccountContext, info: AyuGramUpdateInfo) {
     guard let ipa = info.ipa[ayuGramHasAppearanceEntry ? "custom" : "standard"], let ipaURL = URL(string: ipa) else {
         ayuGramOpenLink(context: context, url: info.url)
         return
     }
     let encoded = ipa.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? ipa
-    ayuGramOpenInstaller(ArraySlice(ayuGramInstallers.compactMap { URL(string: $0(encoded)) }), fallback: ipaURL)
+    var candidates: [URL] = []
+    if ayuGramInstalledByTrollStore, let url = URL(string: "apple-magnifier://install?url=" + encoded) {
+        candidates.append(url)
+    }
+    // Only when AyuGram runs inside LiveContainer: otherwise it would add a second copy there.
+    if ayuGramRunsInLiveContainer, let url = URL(string: "livecontainer://install?url=" + encoded) {
+        candidates.append(url)
+    }
+    for installer in ayuGramInstallers where URL(string: installer.scheme + "://").map({ UIApplication.shared.canOpenURL($0) }) == true {
+        if let url = URL(string: installer.link(encoded)) {
+            candidates.append(url)
+        }
+    }
+    // .../releases/download/build-N/AyuGram-x.ipa -> .../releases/tag/build-N
+    var page = ipaURL.deletingLastPathComponent().absoluteString.replacingOccurrences(of: "/releases/download/", with: "/releases/tag/")
+    if page.hasSuffix("/") {
+        page.removeLast()
+    }
+    let release = URL(string: page) ?? ipaURL
+    ayuGramOpenInstaller(ArraySlice(candidates), fallback: release)
 }
 
 func ayuGramUpdateAlert(context: AccountContext, info: AyuGramUpdateInfo) -> ViewController {
