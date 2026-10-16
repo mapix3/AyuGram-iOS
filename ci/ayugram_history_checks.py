@@ -120,8 +120,20 @@ def check_notified_messages(source: Path):
     assert 'ayuGramRestoreNotifiedMessages(transaction: transaction, ids: ids)' in utils
 
 
+def check_update_installers(source: Path):
+    prompt = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramUpdatePrompt.swift').read_text()
+    # Without TrollStore the Magnifier scheme opens the system Magnifier.
+    assert prompt.count('apple-magnifier://') == 1 and 'if ayuGramInstalledByTrollStore, let url = URL(string: "apple-magnifier://' in prompt
+    assert '/releases/tag/' in prompt, 'Without an installer the release page opens'
+    for plist in ['Info.plist', 'InfoBazel.plist']:
+        text = (source / 'Telegram/Telegram-iOS' / plist).read_text()
+        for scheme in re.findall(r'\("([a-z]+)", \{ "\1://', prompt):
+            assert '<string>%s</string>' % scheme in text, (plist, scheme)
+
+
 def check_history(source: Path):
     check_notified_messages(source)
+    check_update_installers(source)
     output = source / 'build-input/ayu-history-checks'
     output.mkdir(parents=True, exist_ok=True)
     core = (source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages/AyuGramMessageHistory.swift').read_text()
