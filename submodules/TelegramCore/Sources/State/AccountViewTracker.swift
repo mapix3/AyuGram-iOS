@@ -1663,6 +1663,13 @@ public final class AccountViewTracker {
                 if let account = self.account {
                     let _ = (account.postbox.transaction { transaction -> Void in
                         for id in addedMessageIds {
+                            // A seen mention is read here at once, also when the server brought it
+                            // back after it was read here (consumed or pending but still tagged).
+                            if allowRepeat, let message = transaction.getMessage(id), message.tags.contains(.unseenPersonalMessage) || message.attributes.contains(where: { ($0 as? ConsumablePersonalMentionMessageAttribute)?.consumed == false }) {
+                                ayuConsumeMentionLocally(transaction: transaction, id: id)
+                                ayuDeferMentionRead(transaction: transaction, id: id)
+                                continue
+                            }
                             if let message = transaction.getMessage(id) {
                                 var consume = false
                                 inner: for attribute in message.attributes {

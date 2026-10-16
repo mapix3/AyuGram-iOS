@@ -353,7 +353,7 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                 }
                 
                 var rawText: String
-                var attributedText: NSAttributedString
+                let attributedText: NSAttributedString
                 var messageEntities: [MessageTextEntity]?
                 
                 var mediaDuration: Double? = nil
@@ -613,16 +613,6 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                 // (`.FormattedDate` renders to text of a different length). An entity's own offsets
                 // index `rawText`, not the string above, so indexing with them lands on the wrong
                 // characters — or out of bounds.
-
-                if item.associatedData.subject == nil, let history = item.message.ayuHistory, history.editedAt != nil, !history.originalText.isEmpty, history.originalText != item.message.text {
-                    let combined = NSMutableAttributedString(attributedString: attributedText)
-                    combined.append(NSAttributedString(string: "\n", font: textFont, textColor: messageTheme.primaryTextColor))
-                    let label = item.presentationData.strings.Channel_AdminLog_MessagePreviousMessage
-                    let original = NSMutableAttributedString(string: label + "\n" + history.originalText, attributes: [.font: item.presentationData.messageBlockQuoteFont, .foregroundColor: messageTheme.primaryTextColor])
-                    original.addAttribute(NSAttributedString.Key(rawValue: "Attribute__Blockquote"), value: TextNodeBlockQuoteData(kind: .quote, title: nil, color: messageTheme.accentTextColor, secondaryColor: nil, tertiaryColor: nil, backgroundColor: messageTheme.accentTextColor.withMultipliedAlpha(0.1), isCollapsible: true), range: NSRange(location: 0, length: original.length))
-                    combined.append(original)
-                    attributedText = combined
-                }
 
                 var customTruncationToken: ((UIFont, Bool) -> NSAttributedString?)?
                 var maximumNumberOfLines: Int = 0
@@ -1681,7 +1671,7 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                     enableQuote = false
                 }
                 
-                textSelectionNode.enableQuote = enableQuote && item.message.ayuHistory?.editedAt == nil
+                textSelectionNode.enableQuote = enableQuote
                 textSelectionNode.enableTranslate = enableOtherActions
                 textSelectionNode.enableShare = enableOtherActions && enableCopy
                 textSelectionNode.menuSkipCoordnateConversion = !enableOtherActions
