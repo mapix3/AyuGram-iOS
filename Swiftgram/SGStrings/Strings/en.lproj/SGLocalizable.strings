@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "To update, launch AyuGram in Multitask mode (press and hold the app inside LiveContainer) and try again.";
+"Ayu.NotificationsSection" = "Notifications";
+"Ayu.BarkSetUp" = "Set Up Bark Notifications";
+"Ayu.BarkConnected" = "Bark Notifications: On";
+"Ayu.BarkFooter" = "A sideloaded app gets no notifications from Apple. Install Bark from the App Store, copy your key from it and paste it here. New messages then arrive through the AyuGram relay as Bark notifications.";
+"Ayu.BarkPrompt" = "Paste your Bark key or the link from the Bark app. Leave it empty to turn notifications off.";
+"Ayu.BarkEnabled" = "Done. New messages will arrive as Bark notifications while AyuGram is closed.";
+"Ayu.BarkDisabled" = "Bark notifications are off.";
+"Ayu.BarkInvalid" = "This is not a Bark key. Copy the key or a link from the Bark app.";
+"Ayu.BarkFailed" = "Telegram did not accept the subscription: %@";
 "Ayu.HistorySaveAudio" = "Save audio";
 "Ayu.HistoryDeleteEntry" = "Delete from history";
 "Ayu.HistorySubtitle" = "Deleted and edited messages from your chosen chats, kept only on this device.";

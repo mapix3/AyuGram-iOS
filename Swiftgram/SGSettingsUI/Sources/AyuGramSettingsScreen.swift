@@ -10,9 +10,10 @@ import ItemListUI
 import SGItemListUI
 import SGSimpleSettings
 import SGStrings
+import PromptUI
 
 private enum AyuScreenSection: Int32 {
-    case hero, ghost, hide, behavior, content, history, client, update, support
+    case hero, ghost, hide, behavior, content, history, client, update, notifications, support
 }
 
 private enum AyuScreenToggle: Equatable {
@@ -23,7 +24,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer
+    case history, appearance, update, checkUpdates, channel, developer, bark
 }
 
 private enum AyuScreenTint: Equatable {
@@ -170,6 +171,11 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.pins(id: 64, section: .client, value: client.pinnedChatLimit))
     entries.append(.footer(id: 65, section: .client, text: s("Ayu.LocalOnly")))
 
+    let barkOn = !(AyuGramPushRelay.barkKey ?? "").isEmpty
+    entries.append(.header(id: 66, section: .notifications, text: s("Ayu.NotificationsSection")))
+    entries.append(.link(id: 67, section: .notifications, link: .bark, symbol: "bell.badge.fill", tint: .red, title: s(barkOn ? "Ayu.BarkConnected" : "Ayu.BarkSetUp")))
+    entries.append(.footer(id: 68, section: .notifications, text: s("Ayu.BarkFooter")))
+
     entries.append(.header(id: 70, section: .support, text: s("Ayu.SupportSection")))
     entries.append(.link(id: 71, section: .support, link: .channel, symbol: "paperplane.fill", tint: .blue, title: s("Ayu.SupportChannel")))
     entries.append(.link(id: 72, section: .support, link: .developer, symbol: "person.crop.circle.fill", tint: .purple, title: s("Ayu.SupportDeveloper")))
@@ -240,6 +246,32 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             ayuGramOpenLink(context: context, url: AyuGramUpdates.channelURL)
         case .developer:
             ayuGramOpenDeveloper(context: context)
+        case .bark:
+            let data = context.sharedContext.currentPresentationData.with { $0 }
+            let locale = data.strings.baseLanguageCode
+            let result: (String) -> Void = { text in
+                presentController?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]))
+            }
+            presentController?(promptController(context: context, text: i18n("Ayu.BarkPrompt", locale), value: AyuGramPushRelay.barkKey ?? "", placeholder: "Bark key", characterLimit: 200, apply: { value in
+                guard let value else {
+                    return
+                }
+                guard let key = AyuGramPushRelay.parseBarkKey(value) else {
+                    result(i18n("Ayu.BarkInvalid", locale))
+                    return
+                }
+                AyuGramPushRelay.apply(context: context, barkKey: key, completion: { error in
+                    // Redraws the row's title.
+                    NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
+                    if key.isEmpty {
+                        result(i18n("Ayu.BarkDisabled", locale))
+                    } else if let error {
+                        result(i18n("Ayu.BarkFailed", locale, error))
+                    } else {
+                        result(i18n("Ayu.BarkEnabled", locale))
+                    }
+                })
+            }))
         }
     })
     let hasAppearance = ayuGramHasAppearanceEntry

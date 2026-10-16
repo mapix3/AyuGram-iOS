@@ -2710,6 +2710,10 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             }
         }
         |> deliverOnMainQueue).start(next: { sharedContext, context, authContext in
+            // AyuGram: Bark notifications open the app with this scheme and nothing more.
+            if url.scheme?.lowercased() == "ayugram" {
+                return
+            }
             let url = sgActionRequestHandlerSanitizer(url)
             if let authContext = authContext, let confirmationCode = parseConfirmationCodeUrl(sharedContext: sharedContext, url: url) {
                 authContext.rootController.applyConfirmationCode(confirmationCode)

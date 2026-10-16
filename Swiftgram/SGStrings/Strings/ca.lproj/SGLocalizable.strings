@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Per actualitzar, obre AyuGram en mode Multitask (mantén premuda l'app dins de LiveContainer) i torna-ho a provar.";
+"Ayu.NotificationsSection" = "Notificacions";
+"Ayu.BarkSetUp" = "Configura les notificacions de Bark";
+"Ayu.BarkConnected" = "Notificacions de Bark: activades";
+"Ayu.BarkFooter" = "Una app instal·lada per sideload no rep notificacions d’Apple. Instal·la Bark des de l’App Store, copia-hi la teva clau i enganxa-la aquí. Els missatges nous arribaran pel relé d’AyuGram com a notificacions de Bark.";
+"Ayu.BarkPrompt" = "Enganxa la teva clau de Bark o l’enllaç de l’app Bark. Deixa-ho buit per desactivar les notificacions.";
+"Ayu.BarkEnabled" = "Fet. Els missatges nous arribaran com a notificacions de Bark mentre AyuGram estigui tancat.";
+"Ayu.BarkDisabled" = "Les notificacions de Bark estan desactivades.";
+"Ayu.BarkInvalid" = "Això no és una clau de Bark. Copia la clau o un enllaç de l’app Bark.";
+"Ayu.BarkFailed" = "Telegram no ha acceptat la subscripció: %@";
 "Ayu.HistorySaveAudio" = "Desa l’àudio";
 "Ayu.HistoryDeleteEntry" = "Elimina de l’historial";
 "Ayu.HistorySubtitle" = "Missatges eliminats i editats dels xats triats, desats només en aquest dispositiu.";

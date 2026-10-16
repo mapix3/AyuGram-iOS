@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "යාවත්කාලීන කිරීමට, AyuGram Multitask ප්‍රකාරයෙන් විවෘත කරන්න (LiveContainer තුළ යෙදුම තද කර අල්ලාගෙන සිටින්න) සහ නැවත උත්සාහ කරන්න.";
+"Ayu.NotificationsSection" = "දැනුම්දීම්";
+"Ayu.BarkSetUp" = "Bark දැනුම්දීම් සකසන්න";
+"Ayu.BarkConnected" = "Bark දැනුම්දීම්: සක්‍රියයි";
+"Ayu.BarkFooter" = "Sideload මඟින් ස්ථාපනය කළ යෙදුමකට Apple වෙතින් දැනුම්දීම් නොලැබේ. App Store වෙතින් Bark ස්ථාපනය කර, එහි ඔබගේ යතුර පිටපත් කර මෙහි අලවන්න. නව පණිවිඩ AyuGram relay හරහා Bark දැනුම්දීම් ලෙස ලැබේ.";
+"Ayu.BarkPrompt" = "ඔබගේ Bark යතුර හෝ Bark යෙදුමේ සබැඳිය අලවන්න. දැනුම්දීම් අක්‍රිය කිරීමට හිස්ව තබන්න.";
+"Ayu.BarkEnabled" = "හරි. AyuGram වසා ඇති විට නව පණිවිඩ Bark දැනුම්දීම් ලෙස ලැබේ.";
+"Ayu.BarkDisabled" = "Bark දැනුම්දීම් අක්‍රියයි.";
+"Ayu.BarkInvalid" = "මෙය Bark යතුරක් නොවේ. Bark යෙදුමෙන් යතුර හෝ සබැඳියක් පිටපත් කරන්න.";
+"Ayu.BarkFailed" = "Telegram දායකත්වය පිළිගත්තේ නැත: %@";
 "Ayu.HistorySaveAudio" = "ශ්‍රව්‍ය සුරකින්න";
 "Ayu.HistoryDeleteEntry" = "ඉතිහාසයෙන් මකන්න";
 "Ayu.HistorySubtitle" = "තෝරාගත් කතාබස් වලින් මකා දැමූ සහ සංස්කරණය කළ පණිවිඩ, මෙම උපාංගයේ පමණක් තබා ගනී.";

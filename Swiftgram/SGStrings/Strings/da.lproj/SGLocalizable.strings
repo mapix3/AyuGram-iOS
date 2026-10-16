@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "For at opdatere skal du starte AyuGram i Multitask-tilstand (tryk og hold på appen i LiveContainer) og prøve igen.";
+"Ayu.NotificationsSection" = "Notifikationer";
+"Ayu.BarkSetUp" = "Konfigurer Bark-notifikationer";
+"Ayu.BarkConnected" = "Bark-notifikationer: til";
+"Ayu.BarkFooter" = "En app installeret via sideload får ingen notifikationer fra Apple. Installer Bark fra App Store, kopier din nøgle der og indsæt den her. Nye beskeder kommer så gennem AyuGram-relæet som Bark-notifikationer.";
+"Ayu.BarkPrompt" = "Indsæt din Bark-nøgle eller linket fra Bark-appen. Lad feltet være tomt for at slå notifikationer fra.";
+"Ayu.BarkEnabled" = "Færdig. Nye beskeder kommer som Bark-notifikationer, mens AyuGram er lukket.";
+"Ayu.BarkDisabled" = "Bark-notifikationer er slået fra.";
+"Ayu.BarkInvalid" = "Dette er ikke en Bark-nøgle. Kopier nøglen eller et link fra Bark-appen.";
+"Ayu.BarkFailed" = "Telegram accepterede ikke abonnementet: %@";
 "Ayu.HistorySaveAudio" = "Gem lyd";
 "Ayu.HistoryDeleteEntry" = "Slet fra historik";
 "Ayu.HistorySubtitle" = "Slettede og redigerede beskeder fra valgte chats, kun gemt på denne enhed.";

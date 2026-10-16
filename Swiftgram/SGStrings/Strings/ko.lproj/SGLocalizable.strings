@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "업데이트하려면 LiveContainer에서 앱을 길게 눌러 AyuGram을 Multitask 모드로 실행한 뒤 다시 시도하세요.";
+"Ayu.NotificationsSection" = "알림";
+"Ayu.BarkSetUp" = "Bark 알림 설정";
+"Ayu.BarkConnected" = "Bark 알림: 켬";
+"Ayu.BarkFooter" = "사이드로드로 설치한 앱은 Apple 알림을 받을 수 없습니다. App Store에서 Bark를 설치하고 키를 복사해 여기에 붙여 넣으세요. 새 메시지가 AyuGram 릴레이를 거쳐 Bark 알림으로 도착합니다.";
+"Ayu.BarkPrompt" = "Bark 키 또는 Bark 앱의 링크를 붙여 넣으세요. 비워 두면 알림이 꺼집니다.";
+"Ayu.BarkEnabled" = "완료되었습니다. AyuGram이 닫혀 있는 동안 새 메시지가 Bark 알림으로 도착합니다.";
+"Ayu.BarkDisabled" = "Bark 알림이 꺼져 있습니다.";
+"Ayu.BarkInvalid" = "Bark 키가 아닙니다. Bark 앱에서 키나 링크를 복사하세요.";
+"Ayu.BarkFailed" = "Telegram이 구독을 받아들이지 않았습니다: %@";
 "Ayu.HistorySaveAudio" = "오디오 저장";
 "Ayu.HistoryDeleteEntry" = "기록에서 삭제";
 "Ayu.HistorySubtitle" = "선택한 채팅에서 삭제되거나 수정된 메시지로, 이 기기에만 저장됩니다.";

@@ -11,7 +11,9 @@ NEW_KEYS = ['HeroGhostOn', 'HeroGhostOff', 'HeroHidden', 'GhostSubtitle', 'Ghost
             'AddAccountHelp', 'HistorySubtitle', 'HistoryAll', 'HistoryEdited', 'HistoryNow', 'HistoryShowMessage', 'HistoryOpenChat',
             'HistoryStopSaving', 'HistoryNoChats', 'HistoryEmptyInfo', 'HistorySaveAudio', 'HistoryDeleteEntry',
             'SupportSection', 'SupportChannel', 'SupportDeveloper', 'CheckUpdates', 'UpToDate', 'UpdateAvailable',
-            'UpdateAvailableInfo', 'UpdateIgnore', 'UpdateOpen']
+            'UpdateAvailableInfo', 'UpdateIgnore', 'UpdateOpen',
+            'NotificationsSection', 'BarkSetUp', 'BarkConnected', 'BarkFooter', 'BarkPrompt', 'BarkEnabled', 'BarkDisabled',
+            'BarkInvalid', 'BarkFailed']
 
 
 def check_strings(source: Path):
@@ -22,6 +24,7 @@ def check_strings(source: Path):
         missing = [key for key in NEW_KEYS if not strings.get('Ayu.' + key, '').strip()]
         assert not missing, (file, missing)
         assert strings['Ayu.HeroHidden'].count('%@') == 2, file
+        assert strings['Ayu.BarkFailed'].count('%@') == 1, file
         assert '500' in strings['Ayu.AddAccountHelp'] or '۵۰۰' in strings['Ayu.AddAccountHelp'], file
         for key in NEW_KEYS:
             # i18n formats every string; a stray % would corrupt the text.
