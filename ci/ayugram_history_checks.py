@@ -131,9 +131,25 @@ def check_update_installers(source: Path):
             assert '<string>%s</string>' % scheme in text, (plist, scheme)
 
 
+def check_deferred_reads(source: Path):
+    core = source / 'submodules/TelegramCore/Sources'
+    earliest = (core / 'TelegramEngine/Messages/EarliestUnseenPersonalMentionMessage.swift').read_text()
+    # Clearing a stale counter must never mark every mention in the chat read on the server.
+    assert 'addSynchronizeMarkAllUnseenPersonalMessagesOperation' not in earliest
+    assert earliest.count('ayuEarliestUnseenWithRefetch(account: account') == 2 and 'case .refetch' in earliest
+    actions = (core / 'State/ManagedConsumePersonalMessagesActions.swift').read_text()
+    assert 'ayuDeferReactionRead(transaction: transaction, id: id)' in actions and 'ayuDeferMentionRead(transaction: transaction, id: id)' in actions
+    receipts = (core / 'TelegramEngine/Messages/AyuGramManualReceipts.swift').read_text()
+    after = receipts.split('func _internal_ayuAfterSending(', 1)[1].split('\n}\n', 1)[0]
+    assert after.count('flushDeferredReads |> then(') == 2, 'Reads are reported after every sent message, with or without read-on-send'
+    deferred = (core / 'TelegramEngine/Messages/AyuGramDeferredReads.swift').read_text()
+    assert 'ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes)' in deferred, 'Voice and round mentions stay unplayed for the sender'
+
+
 def check_history(source: Path):
     check_notified_messages(source)
     check_update_installers(source)
+    check_deferred_reads(source)
     output = source / 'build-input/ayu-history-checks'
     output.mkdir(parents=True, exist_ok=True)
     core = (source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages/AyuGramMessageHistory.swift').read_text()
