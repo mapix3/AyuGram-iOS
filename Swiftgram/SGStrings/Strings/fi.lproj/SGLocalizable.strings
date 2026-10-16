@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Päivitä käynnistämällä AyuGram Multitask-tilassa (paina sovellusta pitkään LiveContainerissa) ja yritä uudelleen.";
+"Ayu.NotificationsSection" = "Ilmoitukset";
+"Ayu.BarkSetUp" = "Ota Bark-ilmoitukset käyttöön";
+"Ayu.BarkConnected" = "Bark-ilmoitukset: päällä";
+"Ayu.BarkFooter" = "Sivulatauksella asennettu sovellus ei saa ilmoituksia Applelta. Asenna Bark App Storesta, kopioi avaimesi sieltä ja liitä se tähän. Uudet viestit saapuvat AyuGram-välittimen kautta Bark-ilmoituksina.";
+"Ayu.BarkPrompt" = "Liitä Bark-avaimesi tai linkki Bark-sovelluksesta. Jätä tyhjäksi poistaaksesi ilmoitukset käytöstä.";
+"Ayu.BarkEnabled" = "Valmis. Uudet viestit saapuvat Bark-ilmoituksina, kun AyuGram on suljettu.";
+"Ayu.BarkDisabled" = "Bark-ilmoitukset ovat pois päältä.";
+"Ayu.BarkInvalid" = "Tämä ei ole Bark-avain. Kopioi avain tai linkki Bark-sovelluksesta.";
+"Ayu.BarkFailed" = "Telegram ei hyväksynyt tilausta: %@";
 "Ayu.HistorySaveAudio" = "Tallenna ääni";
 "Ayu.HistoryDeleteEntry" = "Poista historiasta";
 "Ayu.HistorySubtitle" = "Poistetut ja muokatut viestit valituista keskusteluista, tallennettu vain tälle laitteelle.";

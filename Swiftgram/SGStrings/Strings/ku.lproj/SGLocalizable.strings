@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Ji bo nûkirinê, AyuGram di moda Multitask de veke (di nav LiveContainer de sepanê bi tiliyê bigire) û dîsa biceribîne.";
+"Ayu.NotificationsSection" = "Agahdarî";
+"Ayu.BarkSetUp" = "Agahdariyên Bark saz bike";
+"Ayu.BarkConnected" = "Agahdariyên Bark: vekirî";
+"Ayu.BarkFooter" = "Sepana ku bi sideload hatiye sazkirin ji Apple agahdariyan nagire. Bark ji App Store saz bike, mifteya xwe li wir kopî bike û li vir bi cih bike. Peyamên nû wê bi rêya relaya AyuGram wekî agahdariyên Bark bên.";
+"Ayu.BarkPrompt" = "Mifteya Bark an girêdana ji sepana Bark bi cih bike. Ji bo girtina agahdariyan vala bihêle.";
+"Ayu.BarkEnabled" = "Temam. Dema AyuGram girtî be, peyamên nû wê wekî agahdariyên Bark bên.";
+"Ayu.BarkDisabled" = "Agahdariyên Bark girtî ne.";
+"Ayu.BarkInvalid" = "Ev ne mifteya Bark e. Mifteyê an girêdanekê ji sepana Bark kopî bike.";
+"Ayu.BarkFailed" = "Telegram abonetiyê qebûl nekir: %@";
 "Ayu.HistorySaveAudio" = "Deng tomar bike";
 "Ayu.HistoryDeleteEntry" = "Ji dîrokê jê bibe";
 "Ayu.HistorySubtitle" = "Peyamên jêbirî û guherandî ji sohbetên hilbijartî, tenê li ser vê cîhazê têne parastin.";

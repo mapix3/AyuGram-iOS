@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Pentru actualizare, pornește AyuGram în modul Multitask (ține apăsat pe aplicație în LiveContainer) și încearcă din nou.";
+"Ayu.NotificationsSection" = "Notificări";
+"Ayu.BarkSetUp" = "Configurează notificările Bark";
+"Ayu.BarkConnected" = "Notificări Bark: activate";
+"Ayu.BarkFooter" = "O aplicație instalată prin sideload nu primește notificări de la Apple. Instalează Bark din App Store, copiază acolo cheia ta și lipește-o aici. Mesajele noi vor sosi prin releul AyuGram ca notificări Bark.";
+"Ayu.BarkPrompt" = "Lipește cheia Bark sau linkul din aplicația Bark. Lasă gol pentru a dezactiva notificările.";
+"Ayu.BarkEnabled" = "Gata. Mesajele noi vor sosi ca notificări Bark cât timp AyuGram este închis.";
+"Ayu.BarkDisabled" = "Notificările Bark sunt dezactivate.";
+"Ayu.BarkInvalid" = "Aceasta nu este o cheie Bark. Copiază cheia sau un link din aplicația Bark.";
+"Ayu.BarkFailed" = "Telegram nu a acceptat abonarea: %@";
 "Ayu.HistorySaveAudio" = "Salvează audio";
 "Ayu.HistoryDeleteEntry" = "Șterge din istoric";
 "Ayu.HistorySubtitle" = "Mesaje șterse și editate din chaturile alese, păstrate doar pe acest dispozitiv.";

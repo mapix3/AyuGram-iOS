@@ -13,6 +13,15 @@
 "Ayu.UpdateQuestion" = "Update AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Version %@ will be downloaded and installed.";
 "Ayu.LiveContainerUpdate" = "Untuk memperbarui, buka AyuGram dalam mode Multitask (tekan lama aplikasi di dalam LiveContainer) lalu coba lagi.";
+"Ayu.NotificationsSection" = "Notifikasi";
+"Ayu.BarkSetUp" = "Atur Notifikasi Bark";
+"Ayu.BarkConnected" = "Notifikasi Bark: Aktif";
+"Ayu.BarkFooter" = "Aplikasi yang dipasang lewat sideload tidak menerima notifikasi dari Apple. Pasang Bark dari App Store, salin kunci Anda di sana lalu tempel di sini. Pesan baru akan datang melalui relai AyuGram sebagai notifikasi Bark.";
+"Ayu.BarkPrompt" = "Tempel kunci Bark atau tautan dari aplikasi Bark. Biarkan kosong untuk mematikan notifikasi.";
+"Ayu.BarkEnabled" = "Selesai. Pesan baru akan datang sebagai notifikasi Bark saat AyuGram tertutup.";
+"Ayu.BarkDisabled" = "Notifikasi Bark nonaktif.";
+"Ayu.BarkInvalid" = "Ini bukan kunci Bark. Salin kunci atau tautan dari aplikasi Bark.";
+"Ayu.BarkFailed" = "Telegram tidak menerima langganan: %@";
 "Ayu.HistorySaveAudio" = "Simpan audio";
 "Ayu.HistoryDeleteEntry" = "Hapus dari riwayat";
 "Ayu.HistorySubtitle" = "Pesan yang dihapus dan diedit dari obrolan pilihan, hanya disimpan di perangkat ini.";
