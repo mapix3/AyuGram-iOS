@@ -1,9 +1,5 @@
 {
-  "build": 201601,
-  "version": "13.0 (201601)",
-  "url": "https://t.me/ayugramiosupdates",
-  "ipa": {
-    "standard": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-201601/AyuGram-standard.ipa",
-    "custom": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-201601/AyuGram-custom.ipa"
-  }
+  "build": 0,
+  "version": "",
+  "url": "https://t.me/ayugramiosupdates"
 }
