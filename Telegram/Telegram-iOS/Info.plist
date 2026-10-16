@@ -233,6 +233,7 @@
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>sidestore</string>
+		<string>livecontainer</string>
 		<string>altstore</string>
 		<string>feather</string>
 		<string>esign</string>

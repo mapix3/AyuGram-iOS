@@ -73,16 +73,33 @@ func ayuGramInstallUpdate(context: AccountContext, info: AyuGramUpdateInfo) {
         return
     }
     let encoded = ipa.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? ipa
+    // LiveContainer installs nothing while one of its apps runs ("Please restart LiveContainer
+    // to install apps"), so from inside it the install link is copied for after a restart.
+    if ayuGramRunsInLiveContainer {
+        let link = "livecontainer://install?url=" + encoded
+        UIPasteboard.general.string = link
+        let data = context.sharedContext.currentPresentationData.with { $0 }
+        context.sharedContext.mainWindow?.present(textAlertController(context: context, title: "LiveContainer", text: i18n("Ayu.LiveContainerUpdate", data.strings.baseLanguageCode), actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), on: .root)
+        return
+    }
     var candidates: [URL] = []
     if ayuGramInstalledByTrollStore, let url = URL(string: "apple-magnifier://install?url=" + encoded) {
         candidates.append(url)
     }
-    // Only when AyuGram runs inside LiveContainer: otherwise it would add a second copy there.
-    if ayuGramRunsInLiveContainer, let url = URL(string: "livecontainer://install?url=" + encoded) {
-        candidates.append(url)
+    let isInstalled: (String) -> Bool = { scheme in
+        return URL(string: scheme + "://").map { UIApplication.shared.canOpenURL($0) } == true
     }
-    for installer in ayuGramInstallers where URL(string: installer.scheme + "://").map({ UIApplication.shared.canOpenURL($0) }) == true {
+    for installer in ayuGramInstallers where isInstalled(installer.scheme) {
         if let url = URL(string: installer.link(encoded)) {
+            candidates.append(url)
+        }
+    }
+    // SideStore built into LiveContainer has no URL scheme of its own; LiveContainer launches
+    // it with the install link.
+    if isInstalled("livecontainer") {
+        let sideStoreLink = Data(("sidestore://install?url=" + encoded).utf8).base64EncodedString()
+        let query = sideStoreLink.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? sideStoreLink
+        if let url = URL(string: "livecontainer://livecontainer-launch?bundle-name=builtinSideStore&open-url=" + query) {
             candidates.append(url)
         }
     }

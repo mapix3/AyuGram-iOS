@@ -12,6 +12,7 @@
 "Ayu.UpdateNoticeText" = "Натисніть, щоб оновити";
 "Ayu.UpdateQuestion" = "Оновити AyuGram?";
 "Ayu.UpdateQuestionInfo" = "Версію %@ буде завантажено та встановлено.";
+"Ayu.LiveContainerUpdate" = "LiveContainer не встановлює застосунки, поки в ньому запущено інший. Посилання на оновлення скопійовано: закрийте LiveContainer у перемикачі застосунків, потім вставте посилання в адресний рядок Safari і відкрийте його.";
 "Ayu.HistorySaveAudio" = "Зберегти аудіо";
 "Ayu.HistoryDeleteEntry" = "Видалити з історії";
 "Ayu.HistorySubtitle" = "Видалені та змінені повідомлення з вибраних чатів. Зберігаються лише на цьому пристрої.";
