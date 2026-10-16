@@ -146,8 +146,17 @@ def check_deferred_reads(source: Path):
     assert 'ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes)' in deferred, 'Voice and round mentions stay unplayed for the sender'
 
 
+def check_edit_versions(source: Path):
+    retained = (source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages/AyuGramRetainedMessages.swift').read_text()
+    record = retained.split('func ayuGramRecordEdit(', 1)[1].split('\n}\n', 1)[0]
+    assert 'AyuGramSettings.shared.snapshot.messageHistory && ayuGramIsHistoryCandidate(' in record, 'Edits keep their first version in every chat'
+    history = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramHistoryController.swift').read_text()
+    assert 'context.engine.ayuGramMessageVersions(messageId: messageId)' in history, 'A message opens its own versions'
+
+
 def check_history(source: Path):
     check_notified_messages(source)
+    check_edit_versions(source)
     check_update_installers(source)
     check_deferred_reads(source)
     output = source / 'build-input/ayu-history-checks'

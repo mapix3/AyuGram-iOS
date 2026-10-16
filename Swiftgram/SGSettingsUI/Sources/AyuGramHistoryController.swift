@@ -73,7 +73,11 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
     let records = Promise<[AyuGramHistoryEntry]>()
     let policy = Promise<(AyuGramHistoryPolicy, [EnginePeer])>()
     let filter = ValuePromise<Int>(0, ignoreRepeated: true)
-    records.set(context.engine.ayuGramMessageHistory())
+    if let messageId {
+        records.set(context.engine.ayuGramMessageVersions(messageId: messageId))
+    } else {
+        records.set(context.engine.ayuGramMessageHistory())
+    }
     policy.set(context.engine.ayuGramHistoryPolicy())
     var actionImpl: ((HistoryAction) -> Void)?
     let arguments = HistoryArguments(context: context, setBoolValue: { _, enabled in

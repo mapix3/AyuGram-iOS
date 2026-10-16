@@ -279,6 +279,22 @@ public extension TelegramEngine {
             |> map { view in Array((view.values[ayuGramHistoryKey]?.get(AyuGramHistory.self)?.entries ?? []).reversed()) }
         }
     }
+    /// The versions of one message: its Message history records, or, in a chat outside
+    /// Message history, the version before its first edit kept on the message itself.
+    func ayuGramMessageVersions(messageId: MessageId) -> Signal<[AyuGramHistoryEntry], NoError> {
+        return combineLatest(self.ayuGramMessageHistory(), self.account.postbox.messageView(messageId))
+        |> map { entries, view -> [AyuGramHistoryEntry] in
+            let records = entries.filter { $0.peerId == messageId.peerId.toInt64() && $0.messageId == messageId.id }
+            guard !records.contains(where: { $0.event == "edited" }), let message = view.message, let history = message.ayuHistory,
+                  let editedAt = history.editedAt, !history.originalText.isEmpty, history.originalText != message.text else {
+                return records
+            }
+            let peerTitle = message.peers[message.id.peerId].map { String($0.debugDisplayTitle.prefix(256)) } ?? ""
+            let author = String((message.author?.debugDisplayTitle ?? "").prefix(256))
+            let original = AyuGramHistoryEntry(peerId: messageId.peerId.toInt64(), messageId: messageId.id, peerTitle: peerTitle, author: author, text: history.originalText, event: "edited", timestamp: editedAt, photoFileName: nil, photoResourceId: nil, authorId: message.author?.id.toInt64(), messageTimestamp: message.timestamp, mediaKind: nil, mediaTitle: nil, updatedText: message.text)
+            return [original] + records
+        }
+    }
     func ayuGramClearMessageHistory() -> Signal<Void, NoError> {
         return self.account.postbox.transaction { transaction in
             var empty = AyuGramHistory(entries: [])

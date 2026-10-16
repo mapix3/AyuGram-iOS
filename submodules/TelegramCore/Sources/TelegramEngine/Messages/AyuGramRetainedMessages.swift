@@ -32,8 +32,13 @@ func ayuGramRecordEdit(transaction: Transaction, mediaBox: MediaBox, id: Message
     let changed = previous.text != updated.text || ayuGramEditableMediaIds(previous.media) != ayuGramEditableMediaIds(updated.media)
     guard changed else { return previous.ayuHistory }
     let saved = ayuGramRecordHistory(transaction: transaction, mediaBox: mediaBox, ids: [id], event: "edited")
-    guard saved.contains(id) else { return previous.ayuHistory }
-    ayuGramCompleteEditSnapshot(transaction: transaction, id: id, updatedText: updated.text)
+    if saved.contains(id) {
+        ayuGramCompleteEditSnapshot(transaction: transaction, id: id, updatedText: updated.text)
+    } else if !(AyuGramSettings.shared.snapshot.messageHistory && ayuGramIsHistoryCandidate(transaction: transaction, id: id)) {
+        return previous.ayuHistory
+    }
+    // Chats outside Message history keep the version before the first edit on the message
+    // itself, like deleted messages, so it can still be shown.
     return AyuHistoryMessageAttribute(originalText: previous.ayuHistory?.originalText ?? previous.text, editedAt: Int32(Date().timeIntervalSince1970), deletedAt: nil)
 }
 
