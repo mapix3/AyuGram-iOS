@@ -52,6 +52,13 @@ private var ayuGramRunsInLiveContainer: Bool {
     return ProcessInfo.processInfo.environment["LC_HOME_PATH"] != nil || path.contains("/Documents/Applications/") || path.contains("/LiveContainer/")
 }
 
+/// In LiveContainer's multitask mode an app runs in the LiveProcess extension while
+/// LiveContainer itself stays free to install.
+private var ayuGramRunsInLiveProcess: Bool {
+    let process = ProcessInfo.processInfo
+    return process.processName == "LiveProcess" || process.arguments.first?.contains("LiveProcess.appex") == true
+}
+
 private func ayuGramOpenInstaller(_ candidates: ArraySlice<URL>, fallback: URL) {
     guard let url = candidates.first else {
         UIApplication.shared.open(fallback, options: [:], completionHandler: nil)
@@ -73,8 +80,13 @@ func ayuGramInstallUpdate(context: AccountContext, info: AyuGramUpdateInfo) {
         return
     }
     let encoded = ipa.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? ipa
-    // LiveContainer installs nothing while one of its apps runs ("Please restart LiveContainer
-    // to install apps"), so from inside it the install link is copied for after a restart.
+    // In multitask mode the link reaches LiveContainer itself, which installs the update.
+    if ayuGramRunsInLiveContainer, ayuGramRunsInLiveProcess, let url = URL(string: "livecontainer://install?url=" + encoded) {
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        return
+    }
+    // Otherwise LiveContainer installs nothing while one of its apps runs ("Please restart
+    // LiveContainer to install apps"), so the install link is copied for after a restart.
     if ayuGramRunsInLiveContainer {
         let link = "livecontainer://install?url=" + encoded
         UIPasteboard.general.string = link
