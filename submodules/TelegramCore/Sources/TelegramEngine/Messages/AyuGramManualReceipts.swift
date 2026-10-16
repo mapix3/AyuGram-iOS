@@ -22,6 +22,14 @@ public func ayuPrivateMediaDisplayMessage(_ message: Message) -> Message? {
 
 func _internal_ayuReportRead(account: Account, messageId: MessageId, threadId: Int64?) -> Signal<Bool, NoError> {
     return ayuReportRead(postbox: account.postbox, network: account.network, stateManager: account.stateManager, messageId: messageId, requestedThreadId: threadId, allowOutgoing: false)
+    |> mapToSignal { result -> Signal<Bool, NoError> in
+        // Reading a chat on purpose also reports the mentions and reactions read in it.
+        return (_internal_ayuFlushDeferredReads(postbox: account.postbox, network: account.network, stateManager: account.stateManager, peerId: messageId.peerId)
+        |> mapToSignal { _ -> Signal<Bool, NoError> in
+            return .complete()
+        })
+        |> then(.single(result))
+    }
 }
 
 func _internal_ayuReportReadAfterSending(postbox: Postbox, network: Network, stateManager: AccountStateManager, accountPeerId: PeerId, messageId: MessageId) -> Signal<Bool, NoError> {
@@ -43,10 +51,20 @@ func _internal_ayuAfterSending(postbox: Postbox, network: Network, stateManager:
             return .single(.boolFalse)
         }).startStandalone()
     }
+    // Mentions and reactions read here are reported once you write in the chat.
+    let flushDeferredReads: Signal<Bool, NoError> = (privacy.suppressRead && messageId.namespace == Namespaces.Message.Cloud
+        ? _internal_ayuFlushDeferredReads(postbox: postbox, network: network, stateManager: stateManager, peerId: messageId.peerId)
+        : .complete())
+    |> mapToSignal { _ -> Signal<Bool, NoError> in
+        return .complete()
+    }
     guard extra.readOnSend else {
-        return .single(false)
+        return flushDeferredReads |> then(.single(false))
     }
     return _internal_ayuReportReadAfterSending(postbox: postbox, network: network, stateManager: stateManager, accountPeerId: accountPeerId, messageId: messageId)
+    |> mapToSignal { result -> Signal<Bool, NoError> in
+        return flushDeferredReads |> then(.single(result))
+    }
 }
 
 // Kept independent of the transport so routing can be exercised in CI.
@@ -151,6 +169,7 @@ private func ayuReportRead(postbox: Postbox, network: Network, stateManager: Acc
                 }
                 for index in transaction.getMessageIndicesWithTag(peerId: messageId.peerId, threadId: threadId, namespace: messageId.namespace, tag: .unseenPersonalMessage) where index.id.id <= messageId.id {
                     ayuConsumeMentionLocally(transaction: transaction, id: index.id)
+                    ayuDeferMentionRead(transaction: transaction, id: index.id)
                 }
                 return true
             }

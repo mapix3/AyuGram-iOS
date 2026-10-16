@@ -219,16 +219,12 @@ private func synchronizeMarkAllUnseen(transaction: Transaction, postbox: Postbox
 
 func markUnseenPersonalMessage(transaction: Transaction, id: MessageId, addSynchronizeAction: Bool) {
     if AyuGramSettings.shared.snapshot.suppressRead {
-        // Consumed here at once; the server is told only when that is invisible to the sender.
-        var report = false
-        if addSynchronizeAction, let message = transaction.getMessage(id) {
-            let unseen = message.tags.contains(.unseenPersonalMessage) || message.attributes.contains(where: { ($0 as? ConsumablePersonalMentionMessageAttribute)?.consumed == false })
-            report = unseen && ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes)
+        // Consumed here at once; the server is told with the next message sent in this chat,
+        // and only when that is invisible to the sender (AyuGramDeferredReads).
+        if addSynchronizeAction {
+            ayuDeferMentionRead(transaction: transaction, id: id)
         }
         ayuConsumeMentionLocally(transaction: transaction, id: id)
-        if report {
-            transaction.setPendingMessageAction(type: .consumeUnseenPersonalMessage, id: id, action: ConsumePersonalMessageAction())
-        }
         return
     }
     if let message = transaction.getMessage(id) {

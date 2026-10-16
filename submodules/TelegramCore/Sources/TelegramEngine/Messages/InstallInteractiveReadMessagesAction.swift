@@ -63,8 +63,10 @@ func _internal_installInteractiveReadMessagesAction(postbox: Postbox, stateManag
         }
         
         if AyuGramSettings.shared.snapshot.suppressRead {
+            // Read here; the server is told when a message is next sent in this chat.
             for id in consumeMessageIds {
                 ayuConsumeMentionLocally(transaction: transaction, id: id)
+                ayuDeferMentionRead(transaction: transaction, id: id)
             }
             consumeMessageIds.removeAll()
         }
