@@ -134,8 +134,10 @@ jobs:
               --title "AyuGram build $BUILD" \
               --notes "Unsigned IPAs; re-sign them with your installer. Published to users with the Publish update workflow." || true
           fi
-          cp "artifacts/AyuGram-$VARIANT-unsigned.ipa" "AyuGram-$VARIANT.ipa"
-          gh release upload "$TAG" "AyuGram-$VARIANT.ipa" --repo "$GITHUB_REPOSITORY" --clobber
+          # The build number in the name keeps downloads of different builds apart; Safari
+          # turns a second "AyuGram-standard.ipa" into "AyuGram-standard.ipa 2".
+          cp "artifacts/AyuGram-$VARIANT-unsigned.ipa" "AyuGram-$VARIANT-$BUILD.ipa"
+          gh release upload "$TAG" "AyuGram-$VARIANT-$BUILD.ipa" --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Remove generated credential files
         if: ${{ always() }}

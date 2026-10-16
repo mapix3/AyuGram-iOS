@@ -50,7 +50,15 @@ jobs:
           TAG="build-$BUILD"
           ASSETS="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
           for VARIANT in standard custom; do
-            grep -qx "AyuGram-$VARIANT.ipa" <<<"$ASSETS" || { echo "::error::$TAG has no AyuGram-$VARIANT.ipa"; exit 1; }
+            NAME="AyuGram-$VARIANT-$BUILD.ipa"
+            if ! grep -qx "$NAME" <<<"$ASSETS"; then
+              # Builds before 18 attached the IPAs without the build number.
+              grep -qx "AyuGram-$VARIANT.ipa" <<<"$ASSETS" || { echo "::error::$TAG has no $NAME"; exit 1; }
+              gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "AyuGram-$VARIANT.ipa" --output "$NAME"
+              gh release upload "$TAG" "$NAME" --repo "$GITHUB_REPOSITORY" --clobber
+              gh release delete-asset "$TAG" "AyuGram-$VARIANT.ipa" --repo "$GITHUB_REPOSITORY" --yes
+              rm -f "$NAME"
+            fi
           done
           python3 - <<'PY'
           import json, os
@@ -59,7 +67,7 @@ jobs:
               'build': int(os.environ['BUILD']),
               'version': '%s (%s)' % (os.environ['VERSION'], os.environ['BUILD']),
               'url': 'https://t.me/ayugramiosupdates',
-              'ipa': {variant: base + 'AyuGram-%s.ipa' % variant for variant in ('standard', 'custom')},
+              'ipa': {variant: base + 'AyuGram-%s-%s.ipa' % (variant, os.environ['BUILD']) for variant in ('standard', 'custom')},
           }
           open('update.json', 'w').write(json.dumps(manifest, indent=2) + '\n')
           PY
@@ -131,7 +139,7 @@ jobs:
           NOTES: ${{ inputs.notes }}
         run: |
           set -euo pipefail
-          gh release download "build-$BUILD" --repo "$GITHUB_REPOSITORY" --pattern 'AyuGram-*.ipa' --dir ipa
+          gh release download "build-$BUILD" --repo "$GITHUB_REPOSITORY" --pattern "AyuGram-*-$BUILD.ipa" --dir ipa
           mkdir -p bot-data bot-temp
           bot-api/bin/telegram-bot-api --api-id="$API_ID" --api-hash="$API_HASH" --local \
             --http-port=8081 --dir="$PWD/bot-data" --temp-dir="$PWD/bot-temp" &
@@ -158,4 +166,4 @@ jobs:
           MEDIA="$(jq -cn --arg caption "$CAPTION" '[{type: "document", media: "attach://standard"}, {type: "document", media: "attach://custom", caption: $caption}]')"
           # --form-string: the notes may contain ';' or start with '@', which -F would interpret.
           check "$(curl -sS "$API/sendMediaGroup" --form-string "chat_id=$CHANNEL" --form-string "media=$MEDIA" \
-            -F "standard=@ipa/AyuGram-standard.ipa" -F "custom=@ipa/AyuGram-custom.ipa")"
+            -F "standard=@ipa/AyuGram-standard-$BUILD.ipa" -F "custom=@ipa/AyuGram-custom-$BUILD.ipa")"
