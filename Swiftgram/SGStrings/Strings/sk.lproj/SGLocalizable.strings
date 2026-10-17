@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Upozornenia Bark sú vypnuté.";
 "Ayu.BarkInvalid" = "Toto nie je kľúč Bark. Skopírujte kľúč alebo odkaz z aplikácie Bark.";
 "Ayu.BarkFailed" = "Telegram neprijal odber: %@";
+"Ayu.BarkFixTitle" = "Opraviť upozornenia";
+"Ayu.BarkFixInstall" = "Nainštalujte Bark z App Store";
+"Ayu.BarkFixConnect" = "Pripojte Bark, aby ste dostávali upozornenia";
+"Ayu.BarkEnterKey" = "Zadať kľúč";
 "Ayu.HistorySaveAudio" = "Uložiť zvuk";
 "Ayu.HistoryDeleteEntry" = "Odstrániť z histórie";
 "Ayu.HistorySubtitle" = "Vymazané a upravené správy z vybraných četov, uložené len v tomto zariadení.";

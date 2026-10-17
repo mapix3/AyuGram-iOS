@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "As notificações do Bark estão desativadas.";
 "Ayu.BarkInvalid" = "Isto não é uma chave do Bark. Copie a chave ou um link do app Bark.";
 "Ayu.BarkFailed" = "O Telegram não aceitou a assinatura: %@";
+"Ayu.BarkFixTitle" = "Corrigir notificações";
+"Ayu.BarkFixInstall" = "Instale o Bark pela App Store";
+"Ayu.BarkFixConnect" = "Conecte o Bark para receber notificações";
+"Ayu.BarkEnterKey" = "Inserir chave";
 "Ayu.HistorySaveAudio" = "Salvar áudio";
 "Ayu.HistoryDeleteEntry" = "Excluir do histórico";
 "Ayu.HistorySubtitle" = "Mensagens apagadas e editadas dos chats escolhidos, guardadas apenas neste dispositivo.";

@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark notifications are off.";
 "Ayu.BarkInvalid" = "This is not a Bark key. Copy the key or a link from the Bark app.";
 "Ayu.BarkFailed" = "Telegram did not accept the subscription: %@";
+"Ayu.BarkFixTitle" = "Fix notifications";
+"Ayu.BarkFixInstall" = "Install Bark from App Store";
+"Ayu.BarkFixConnect" = "Connect Bark to get notifications";
+"Ayu.BarkEnterKey" = "Enter Key";
 "Ayu.HistorySaveAudio" = "Save audio";
 "Ayu.HistoryDeleteEntry" = "Delete from history";
 "Ayu.HistorySubtitle" = "Deleted and edited messages from your chosen chats, kept only on this device.";

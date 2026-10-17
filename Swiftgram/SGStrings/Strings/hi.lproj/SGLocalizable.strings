@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark सूचनाएँ बंद हैं।";
 "Ayu.BarkInvalid" = "यह Bark कुंजी नहीं है। Bark ऐप से कुंजी या लिंक कॉपी करें।";
 "Ayu.BarkFailed" = "Telegram ने सदस्यता स्वीकार नहीं की: %@";
+"Ayu.BarkFixTitle" = "सूचनाएँ ठीक करें";
+"Ayu.BarkFixInstall" = "App Store से Bark इंस्टॉल करें";
+"Ayu.BarkFixConnect" = "सूचनाएँ पाने के लिए Bark जोड़ें";
+"Ayu.BarkEnterKey" = "कुंजी डालें";
 "Ayu.HistorySaveAudio" = "ऑडियो सहेजें";
 "Ayu.HistoryDeleteEntry" = "इतिहास से हटाएं";
 "Ayu.HistorySubtitle" = "चुनी गई चैट से हटाए और संपादित किए गए संदेश, केवल इसी डिवाइस पर रखे जाते हैं।";

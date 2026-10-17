@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Уведомления Bark выключены.";
 "Ayu.BarkInvalid" = "Это не ключ Bark. Скопируйте ключ или ссылку из приложения Bark.";
 "Ayu.BarkFailed" = "Telegram не принял подписку: %@";
+"Ayu.BarkFixTitle" = "Исправить уведомления";
+"Ayu.BarkFixInstall" = "Установите Bark из App Store";
+"Ayu.BarkFixConnect" = "Подключите Bark, чтобы получать уведомления";
+"Ayu.BarkEnterKey" = "Ввести ключ";
 "Ayu.HistorySaveAudio" = "Сохранить аудио";
 "Ayu.HistoryDeleteEntry" = "Удалить из истории";
 "Ayu.HistorySubtitle" = "Удалённые и изменённые сообщения из выбранных чатов. Хранятся только на этом устройстве.";

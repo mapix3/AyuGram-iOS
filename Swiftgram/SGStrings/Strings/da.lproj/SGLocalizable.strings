@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark-notifikationer er slået fra.";
 "Ayu.BarkInvalid" = "Dette er ikke en Bark-nøgle. Kopier nøglen eller et link fra Bark-appen.";
 "Ayu.BarkFailed" = "Telegram accepterede ikke abonnementet: %@";
+"Ayu.BarkFixTitle" = "Ret notifikationer";
+"Ayu.BarkFixInstall" = "Installer Bark fra App Store";
+"Ayu.BarkFixConnect" = "Forbind Bark for at få notifikationer";
+"Ayu.BarkEnterKey" = "Indtast nøgle";
 "Ayu.HistorySaveAudio" = "Gem lyd";
 "Ayu.HistoryDeleteEntry" = "Slet fra historik";
 "Ayu.HistorySubtitle" = "Slettede og redigerede beskeder fra valgte chats, kun gemt på denne enhed.";

@@ -10,7 +10,6 @@ import ItemListUI
 import SGItemListUI
 import SGSimpleSettings
 import SGStrings
-import PromptUI
 
 private enum AyuScreenSection: Int32 {
     case hero, ghost, hide, behavior, content, history, client, update, notifications, support
@@ -247,31 +246,9 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .developer:
             ayuGramOpenDeveloper(context: context)
         case .bark:
-            let data = context.sharedContext.currentPresentationData.with { $0 }
-            let locale = data.strings.baseLanguageCode
-            let result: (String) -> Void = { text in
-                presentController?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]))
-            }
-            presentController?(promptController(context: context, text: i18n("Ayu.BarkPrompt", locale), value: AyuGramPushRelay.barkKey ?? "", placeholder: "Bark key", characterLimit: 200, apply: { value in
-                guard let value else {
-                    return
-                }
-                guard let key = AyuGramPushRelay.parseBarkKey(value) else {
-                    result(i18n("Ayu.BarkInvalid", locale))
-                    return
-                }
-                AyuGramPushRelay.apply(context: context, barkKey: key, completion: { error in
-                    // Redraws the row's title.
-                    NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
-                    if key.isEmpty {
-                        result(i18n("Ayu.BarkDisabled", locale))
-                    } else if let error {
-                        result(i18n("Ayu.BarkFailed", locale, error))
-                    } else {
-                        result(i18n("Ayu.BarkEnabled", locale))
-                    }
-                })
-            }))
+            ayuGramSetUpBark(context: context, present: { controller in
+                presentController?(controller)
+            })
         }
     })
     let hasAppearance = ayuGramHasAppearanceEntry

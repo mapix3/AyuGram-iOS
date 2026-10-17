@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark-Mitteilungen sind aus.";
 "Ayu.BarkInvalid" = "Das ist kein Bark-Schlüssel. Kopiere den Schlüssel oder einen Link aus der Bark-App.";
 "Ayu.BarkFailed" = "Telegram hat das Abo nicht angenommen: %@";
+"Ayu.BarkFixTitle" = "Mitteilungen reparieren";
+"Ayu.BarkFixInstall" = "Installiere Bark aus dem App Store";
+"Ayu.BarkFixConnect" = "Verbinde Bark, um Mitteilungen zu erhalten";
+"Ayu.BarkEnterKey" = "Schlüssel eingeben";
 "Ayu.HistorySaveAudio" = "Audio speichern";
 "Ayu.HistoryDeleteEntry" = "Aus Verlauf löschen";
 "Ayu.HistorySubtitle" = "Gelöschte und bearbeitete Nachrichten aus ausgewählten Chats, nur auf diesem Gerät gespeichert.";
