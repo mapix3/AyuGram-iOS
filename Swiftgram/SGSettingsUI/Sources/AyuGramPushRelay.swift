@@ -9,7 +9,7 @@ import AccountContext
 /// AyuGram push relay (`push-relay/worker.js`). The endpoint carries this device's subscription
 /// keys and the Bark key; the relay decrypts each push and hands it to the Bark app.
 enum AyuGramPushRelay {
-    static let baseURL = "https://ayugram-push.mapix3.workers.dev"
+    static let baseURL = "https://ayugram-push.ayugram-status.workers.dev"
 
     private static let barkKeyDefaultsKey = "ayuGram.pushRelay.barkKey"
     private static let keysDefaultsKey = "ayuGram.pushRelay.keys"
