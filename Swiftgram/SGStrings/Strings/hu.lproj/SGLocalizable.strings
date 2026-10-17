@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Telepítsd a Barkot az App Store-ból";
 "Ayu.BarkFixConnect" = "Csatlakoztasd a Barkot az értesítésekhez";
 "Ayu.BarkEnterKey" = "Kulcs megadása";
+"Ayu.BarkHowTo" = "1. Telepítsd a Barkot az App Store-ból, és nyisd meg.\n2. Másold ki a(z) https://api.day.app/… címet a főképernyőjéről.\n3. Gyere vissza, koppints a „Kulcs megadása” gombra, és illeszd be.";
 "Ayu.HistorySaveAudio" = "Hang mentése";
 "Ayu.HistoryDeleteEntry" = "Törlés az előzményekből";
 "Ayu.HistorySubtitle" = "Törölt és szerkesztett üzenetek a kiválasztott csevegésekből, csak ezen az eszközön tárolva.";

@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "App Store에서 Bark 설치";
 "Ayu.BarkFixConnect" = "알림을 받으려면 Bark를 연결하세요";
 "Ayu.BarkEnterKey" = "키 입력";
+"Ayu.BarkHowTo" = "1. App Store에서 Bark를 설치하고 엽니다.\n2. 메인 화면의 주소 https://api.day.app/… 를 복사합니다.\n3. 돌아와서 「키 입력」을 누르고 붙여 넣습니다.";
 "Ayu.HistorySaveAudio" = "오디오 저장";
 "Ayu.HistoryDeleteEntry" = "기록에서 삭제";
 "Ayu.HistorySubtitle" = "선택한 채팅에서 삭제되거나 수정된 메시지로, 이 기기에만 저장됩니다.";

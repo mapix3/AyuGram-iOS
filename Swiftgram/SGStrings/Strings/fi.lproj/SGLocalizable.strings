@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Asenna Bark App Storesta";
 "Ayu.BarkFixConnect" = "Yhdistä Bark saadaksesi ilmoituksia";
 "Ayu.BarkEnterKey" = "Syötä avain";
+"Ayu.BarkHowTo" = "1. Asenna Bark App Storesta ja avaa se.\n2. Kopioi osoite https://api.day.app/… sen päänäkymästä.\n3. Palaa tänne, napauta ”Syötä avain” ja liitä se.";
 "Ayu.HistorySaveAudio" = "Tallenna ääni";
 "Ayu.HistoryDeleteEntry" = "Poista historiasta";
 "Ayu.HistorySubtitle" = "Poistetut ja muokatut viestit valituista keskusteluista, tallennettu vain tälle laitteelle.";
