@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Zainstaluj Bark z App Store";
 "Ayu.BarkFixConnect" = "Połącz Bark, aby otrzymywać powiadomienia";
 "Ayu.BarkEnterKey" = "Wpisz klucz";
+"Ayu.BarkHowTo" = "1. Zainstaluj Bark z App Store i otwórz go.\n2. Skopiuj adres https://api.day.app/… z jego ekranu głównego.\n3. Wróć tutaj, stuknij „Wpisz klucz” i wklej go.";
 "Ayu.HistorySaveAudio" = "Zapisz audio";
 "Ayu.HistoryDeleteEntry" = "Usuń z historii";
 "Ayu.HistorySubtitle" = "Usunięte i edytowane wiadomości z wybranych czatów, przechowywane tylko na tym urządzeniu.";

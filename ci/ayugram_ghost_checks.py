@@ -13,7 +13,7 @@ NEW_KEYS = ['HeroGhostOn', 'HeroGhostOff', 'HeroHidden', 'GhostSubtitle', 'Ghost
             'SupportSection', 'SupportChannel', 'SupportDeveloper', 'CheckUpdates', 'UpToDate', 'UpdateAvailable',
             'UpdateAvailableInfo', 'UpdateIgnore', 'UpdateOpen',
             'NotificationsSection', 'BarkSetUp', 'BarkConnected', 'BarkFooter', 'BarkPrompt', 'BarkEnabled', 'BarkDisabled',
-            'BarkInvalid', 'BarkFailed', 'BarkFixTitle', 'BarkFixInstall', 'BarkFixConnect', 'BarkEnterKey']
+            'BarkInvalid', 'BarkFailed', 'BarkFixTitle', 'BarkFixInstall', 'BarkFixConnect', 'BarkEnterKey', 'BarkHowTo']
 
 
 def check_strings(source: Path):

@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Cài Bark từ App Store";
 "Ayu.BarkFixConnect" = "Kết nối Bark để nhận thông báo";
 "Ayu.BarkEnterKey" = "Nhập khóa";
+"Ayu.BarkHowTo" = "1. Cài Bark từ App Store và mở nó.\n2. Sao chép địa chỉ https://api.day.app/… trên màn hình chính của nó.\n3. Quay lại, chạm “Nhập khóa” và dán vào.";
 "Ayu.HistorySaveAudio" = "Lưu âm thanh";
 "Ayu.HistoryDeleteEntry" = "Xóa khỏi lịch sử";
 "Ayu.HistorySubtitle" = "Tin nhắn đã xóa và đã sửa từ các cuộc trò chuyện được chọn, chỉ lưu trên thiết bị này.";

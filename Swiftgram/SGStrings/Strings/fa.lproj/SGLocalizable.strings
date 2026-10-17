@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Bark را از App Store نصب کنید";
 "Ayu.BarkFixConnect" = "برای دریافت اعلان‌ها Bark را وصل کنید";
 "Ayu.BarkEnterKey" = "وارد کردن کلید";
+"Ayu.BarkHowTo" = "1. Bark را از App Store نصب و باز کنید.\n2. نشانی https://api.day.app/… را از صفحه اصلی آن کپی کنید.\n3. برگردید، «وارد کردن کلید» را بزنید و آن را جای‌گذاری کنید.";
 "Ayu.HistorySaveAudio" = "ذخیره صدا";
 "Ayu.HistoryDeleteEntry" = "حذف از تاریخچه";
 "Ayu.HistorySubtitle" = "پیام‌های حذف‌شده و ویرایش‌شده از گفتگوهای انتخابی، فقط روی همین دستگاه نگهداری می‌شوند.";

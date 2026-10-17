@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Nainstalujte Bark z App Store";
 "Ayu.BarkFixConnect" = "Připojte Bark, abyste dostávali oznámení";
 "Ayu.BarkEnterKey" = "Zadat klíč";
+"Ayu.BarkHowTo" = "1. Nainstalujte Bark z App Store a otevřete ho.\n2. Zkopírujte adresu https://api.day.app/… z jeho hlavní obrazovky.\n3. Vraťte se, klepněte na „Zadat klíč“ a vložte ji.";
 "Ayu.HistorySaveAudio" = "Uložit zvuk";
 "Ayu.HistoryDeleteEntry" = "Odstranit z historie";
 "Ayu.HistorySubtitle" = "Smazané a upravené zprávy z vybraných chatů, uložené jen v tomto zařízení.";

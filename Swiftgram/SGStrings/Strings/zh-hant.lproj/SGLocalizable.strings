@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "從 App Store 安裝 Bark";
 "Ayu.BarkFixConnect" = "連接 Bark 以接收通知";
 "Ayu.BarkEnterKey" = "輸入金鑰";
+"Ayu.BarkHowTo" = "1. 從 App Store 安裝並開啟 Bark。\n2. 複製其主畫面上的位址 https://api.day.app/…。\n3. 回到這裡，點按「輸入金鑰」並貼上。";
 "Ayu.HistorySaveAudio" = "儲存音訊";
 "Ayu.HistoryDeleteEntry" = "從歷史記錄中刪除";
 "Ayu.HistorySubtitle" = "所選聊天中被刪除與編輯的訊息，僅儲存在此裝置上。";

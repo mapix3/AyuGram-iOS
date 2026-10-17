@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Instalează Bark din App Store";
 "Ayu.BarkFixConnect" = "Conectează Bark pentru a primi notificări";
 "Ayu.BarkEnterKey" = "Introdu cheia";
+"Ayu.BarkHowTo" = "1. Instalează Bark din App Store și deschide-l.\n2. Copiază adresa https://api.day.app/… de pe ecranul său principal.\n3. Revino, atinge „Introdu cheia” și lipește-o.";
 "Ayu.HistorySaveAudio" = "Salvează audio";
 "Ayu.HistoryDeleteEntry" = "Șterge din istoric";
 "Ayu.HistorySubtitle" = "Mesaje șterse și editate din chaturile alese, păstrate doar pe acest dispozitiv.";

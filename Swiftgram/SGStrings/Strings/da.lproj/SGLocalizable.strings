@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Installer Bark fra App Store";
 "Ayu.BarkFixConnect" = "Forbind Bark for at få notifikationer";
 "Ayu.BarkEnterKey" = "Indtast nøgle";
+"Ayu.BarkHowTo" = "1. Installer Bark fra App Store, og åbn den.\n2. Kopier adressen https://api.day.app/… fra hovedskærmen.\n3. Kom tilbage, tryk på “Indtast nøgle”, og indsæt den.";
 "Ayu.HistorySaveAudio" = "Gem lyd";
 "Ayu.HistoryDeleteEntry" = "Slet fra historik";
 "Ayu.HistorySubtitle" = "Slettede og redigerede beskeder fra valgte chats, kun gemt på denne enhed.";

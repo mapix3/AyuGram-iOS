@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Bark’ni App Store’dan o‘rnating";
 "Ayu.BarkFixConnect" = "Bildirishnoma olish uchun Bark’ni ulang";
 "Ayu.BarkEnterKey" = "Kalitni kiritish";
+"Ayu.BarkHowTo" = "1. Bark’ni App Store’dan o‘rnatib, oching.\n2. Uning asosiy ekranidagi https://api.day.app/… manzilidan nusxa oling.\n3. Qayting, “Kalitni kiritish”ni bosing va qo‘ying.";
 "Ayu.HistorySaveAudio" = "Audioni saqlash";
 "Ayu.HistoryDeleteEntry" = "Tarixdan o‘chirish";
 "Ayu.HistorySubtitle" = "Tanlangan chatlardan o‘chirilgan va tahrirlangan xabarlar, faqat shu qurilmada saqlanadi.";

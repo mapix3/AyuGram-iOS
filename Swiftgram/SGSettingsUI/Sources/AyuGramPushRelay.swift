@@ -155,9 +155,9 @@ enum AyuGramPushRelay {
     }
 }
 
-/// Asks for the Bark key; without Bark installed, opens its App Store page instead.
-/// LiveContainer answers app queries with its own list, which may not include Bark, so
-/// there an undetected Bark offers both.
+/// Asks for the Bark key. When Bark is not found, explains where the key comes from and
+/// offers both the App Store and entering the key: LiveContainer and some installers answer
+/// app queries with their own list, so an installed Bark can look missing.
 func ayuGramSetUpBark(context: AccountContext, present: @escaping (ViewController) -> Void) {
     let data = context.sharedContext.currentPresentationData.with { $0 }
     let locale = data.strings.baseLanguageCode
@@ -166,16 +166,15 @@ func ayuGramSetUpBark(context: AccountContext, present: @escaping (ViewControlle
     }
     if AyuGramPushRelay.isBarkInstalled {
         askForKey()
-    } else if ayuGramRunsInLiveContainer {
-        present(textAlertController(context: context, title: i18n("Ayu.BarkFixTitle", locale), text: i18n("Ayu.BarkFixInstall", locale), actions: [
-            TextAlertAction(type: .genericAction, title: "App Store", action: {
-                UIApplication.shared.open(AyuGramPushRelay.barkAppStoreURL, options: [:], completionHandler: nil)
-            }),
-            TextAlertAction(type: .defaultAction, title: i18n("Ayu.BarkEnterKey", locale), action: askForKey)
-        ], actionLayout: .vertical))
-    } else {
-        UIApplication.shared.open(AyuGramPushRelay.barkAppStoreURL, options: [:], completionHandler: nil)
+        return
     }
+    present(textAlertController(context: context, title: i18n("Ayu.BarkFixTitle", locale), text: i18n("Ayu.BarkHowTo", locale), actions: [
+        TextAlertAction(type: .genericAction, title: "App Store", action: {
+            UIApplication.shared.open(AyuGramPushRelay.barkAppStoreURL, options: [:], completionHandler: nil)
+        }),
+        TextAlertAction(type: .defaultAction, title: i18n("Ayu.BarkEnterKey", locale), action: askForKey),
+        TextAlertAction(type: .genericAction, title: data.strings.Common_Cancel, action: {})
+    ], actionLayout: .vertical))
 }
 
 private func ayuGramBarkKeyPrompt(context: AccountContext, present: @escaping (ViewController) -> Void) -> ViewController {

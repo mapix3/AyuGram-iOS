@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Bark’ı App Store’dan yükleyin";
 "Ayu.BarkFixConnect" = "Bildirim almak için Bark’ı bağlayın";
 "Ayu.BarkEnterKey" = "Anahtarı gir";
+"Ayu.BarkHowTo" = "1. Bark’ı App Store’dan yükleyip açın.\n2. Ana ekranındaki https://api.day.app/… adresini kopyalayın.\n3. Geri dönün, “Anahtarı gir”e dokunup yapıştırın.";
 "Ayu.HistorySaveAudio" = "Sesi kaydet";
 "Ayu.HistoryDeleteEntry" = "Geçmişten sil";
 "Ayu.HistorySubtitle" = "Seçtiğin sohbetlerden silinen ve düzenlenen mesajlar, yalnızca bu cihazda saklanır.";

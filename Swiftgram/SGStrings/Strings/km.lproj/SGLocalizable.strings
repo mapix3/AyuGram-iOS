@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "ដំឡើង Bark ពី App Store";
 "Ayu.BarkFixConnect" = "ភ្ជាប់ Bark ដើម្បីទទួលការជូនដំណឹង";
 "Ayu.BarkEnterKey" = "បញ្ចូលសោ";
+"Ayu.BarkHowTo" = "1. ដំឡើង Bark ពី App Store ហើយបើកវា។\n2. ចម្លងអាសយដ្ឋាន https://api.day.app/… ពីអេក្រង់មេរបស់វា។\n3. ត្រឡប់មកវិញ ចុច «បញ្ចូលសោ» ហើយបិទភ្ជាប់។";
 "Ayu.HistorySaveAudio" = "រក្សាទុកសំឡេង";
 "Ayu.HistoryDeleteEntry" = "លុបពីប្រវត្តិ";
 "Ayu.HistorySubtitle" = "សារដែលបានលុប និងកែប្រែពីការជជែកដែលបានជ្រើស រក្សាទុកតែលើឧបករណ៍នេះ។";
