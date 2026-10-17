@@ -17,10 +17,13 @@ func _internal_ayuRegisterWebPush(account: Account, subscription: String) -> Sig
     }
 }
 
-func _internal_ayuUnregisterWebPush(account: Account, subscription: String) -> Signal<Never, NoError> {
+/// Emits once the server has answered, whatever the answer.
+func _internal_ayuUnregisterWebPush(account: Account, subscription: String) -> Signal<Void, NoError> {
     return account.network.request(Api.functions.account.unregisterDevice(tokenType: 10, token: subscription, otherUids: []))
     |> `catch` { _ -> Signal<Api.Bool, NoError> in
         return .single(.boolFalse)
     }
-    |> ignoreValues
+    |> map { _ -> Void in
+        return Void()
+    }
 }

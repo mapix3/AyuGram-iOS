@@ -122,8 +122,9 @@ enum AyuGramPushRelay {
                 var request: Signal<String?, NoError> = .single(nil)
                 if let previous, previous != current {
                     request = engine.accountData.ayuUnregisterWebPush(subscription: previous)
-                    |> mapToSignal { _ -> Signal<String?, NoError> in .complete() }
-                    |> then(.single(nil))
+                    |> map { _ -> String? in
+                        return nil
+                    }
                 }
                 if let current {
                     request = request
