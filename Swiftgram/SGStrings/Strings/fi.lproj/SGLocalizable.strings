@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark-ilmoitukset ovat pois päältä.";
 "Ayu.BarkInvalid" = "Tämä ei ole Bark-avain. Kopioi avain tai linkki Bark-sovelluksesta.";
 "Ayu.BarkFailed" = "Telegram ei hyväksynyt tilausta: %@";
+"Ayu.BarkFixTitle" = "Korjaa ilmoitukset";
+"Ayu.BarkFixInstall" = "Asenna Bark App Storesta";
+"Ayu.BarkFixConnect" = "Yhdistä Bark saadaksesi ilmoituksia";
+"Ayu.BarkEnterKey" = "Syötä avain";
 "Ayu.HistorySaveAudio" = "Tallenna ääni";
 "Ayu.HistoryDeleteEntry" = "Poista historiasta";
 "Ayu.HistorySubtitle" = "Poistetut ja muokatut viestit valituista keskusteluista, tallennettu vain tälle laitteelle.";

@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark 알림이 꺼져 있습니다.";
 "Ayu.BarkInvalid" = "Bark 키가 아닙니다. Bark 앱에서 키나 링크를 복사하세요.";
 "Ayu.BarkFailed" = "Telegram이 구독을 받아들이지 않았습니다: %@";
+"Ayu.BarkFixTitle" = "알림 고치기";
+"Ayu.BarkFixInstall" = "App Store에서 Bark 설치";
+"Ayu.BarkFixConnect" = "알림을 받으려면 Bark를 연결하세요";
+"Ayu.BarkEnterKey" = "키 입력";
 "Ayu.HistorySaveAudio" = "오디오 저장";
 "Ayu.HistoryDeleteEntry" = "기록에서 삭제";
 "Ayu.HistorySubtitle" = "선택한 채팅에서 삭제되거나 수정된 메시지로, 이 기기에만 저장됩니다.";

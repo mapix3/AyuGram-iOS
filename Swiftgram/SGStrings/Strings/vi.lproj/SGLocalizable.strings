@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Thông báo Bark đã tắt.";
 "Ayu.BarkInvalid" = "Đây không phải khóa Bark. Hãy sao chép khóa hoặc liên kết từ ứng dụng Bark.";
 "Ayu.BarkFailed" = "Telegram không chấp nhận đăng ký: %@";
+"Ayu.BarkFixTitle" = "Sửa thông báo";
+"Ayu.BarkFixInstall" = "Cài Bark từ App Store";
+"Ayu.BarkFixConnect" = "Kết nối Bark để nhận thông báo";
+"Ayu.BarkEnterKey" = "Nhập khóa";
 "Ayu.HistorySaveAudio" = "Lưu âm thanh";
 "Ayu.HistoryDeleteEntry" = "Xóa khỏi lịch sử";
 "Ayu.HistorySubtitle" = "Tin nhắn đã xóa và đã sửa từ các cuộc trò chuyện được chọn, chỉ lưu trên thiết bị này.";

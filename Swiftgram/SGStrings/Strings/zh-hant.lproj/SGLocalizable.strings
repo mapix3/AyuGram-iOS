@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark 通知已關閉。";
 "Ayu.BarkInvalid" = "這不是 Bark 金鑰。請從 Bark App 複製金鑰或連結。";
 "Ayu.BarkFailed" = "Telegram 未接受訂閱：%@";
+"Ayu.BarkFixTitle" = "修復通知";
+"Ayu.BarkFixInstall" = "從 App Store 安裝 Bark";
+"Ayu.BarkFixConnect" = "連接 Bark 以接收通知";
+"Ayu.BarkEnterKey" = "輸入金鑰";
 "Ayu.HistorySaveAudio" = "儲存音訊";
 "Ayu.HistoryDeleteEntry" = "從歷史記錄中刪除";
 "Ayu.HistorySubtitle" = "所選聊天中被刪除與編輯的訊息，僅儲存在此裝置上。";

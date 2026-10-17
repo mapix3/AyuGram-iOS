@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark-meldingen staan uit.";
 "Ayu.BarkInvalid" = "Dit is geen Bark-sleutel. Kopieer de sleutel of een link uit de Bark-app.";
 "Ayu.BarkFailed" = "Telegram heeft het abonnement niet geaccepteerd: %@";
+"Ayu.BarkFixTitle" = "Meldingen herstellen";
+"Ayu.BarkFixInstall" = "Installeer Bark uit de App Store";
+"Ayu.BarkFixConnect" = "Koppel Bark om meldingen te krijgen";
+"Ayu.BarkEnterKey" = "Sleutel invoeren";
 "Ayu.HistorySaveAudio" = "Audio opslaan";
 "Ayu.HistoryDeleteEntry" = "Verwijderen uit geschiedenis";
 "Ayu.HistorySubtitle" = "Verwijderde en bewerkte berichten uit gekozen chats, alleen op dit apparaat bewaard.";

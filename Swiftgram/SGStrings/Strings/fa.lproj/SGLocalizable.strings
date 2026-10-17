@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "اعلان‌های Bark خاموش است.";
 "Ayu.BarkInvalid" = "این کلید Bark نیست. کلید یا پیوندی را از برنامه Bark کپی کنید.";
 "Ayu.BarkFailed" = "Telegram اشتراک را نپذیرفت: %@";
+"Ayu.BarkFixTitle" = "رفع مشکل اعلان‌ها";
+"Ayu.BarkFixInstall" = "Bark را از App Store نصب کنید";
+"Ayu.BarkFixConnect" = "برای دریافت اعلان‌ها Bark را وصل کنید";
+"Ayu.BarkEnterKey" = "وارد کردن کلید";
 "Ayu.HistorySaveAudio" = "ذخیره صدا";
 "Ayu.HistoryDeleteEntry" = "حذف از تاریخچه";
 "Ayu.HistorySubtitle" = "پیام‌های حذف‌شده و ویرایش‌شده از گفتگوهای انتخابی، فقط روی همین دستگاه نگهداری می‌شوند.";

@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark-notiser är avstängda.";
 "Ayu.BarkInvalid" = "Det här är inte en Bark-nyckel. Kopiera nyckeln eller en länk från Bark-appen.";
 "Ayu.BarkFailed" = "Telegram godtog inte prenumerationen: %@";
+"Ayu.BarkFixTitle" = "Fixa notiser";
+"Ayu.BarkFixInstall" = "Installera Bark från App Store";
+"Ayu.BarkFixConnect" = "Anslut Bark för att få notiser";
+"Ayu.BarkEnterKey" = "Ange nyckel";
 "Ayu.HistorySaveAudio" = "Spara ljud";
 "Ayu.HistoryDeleteEntry" = "Ta bort från historik";
 "Ayu.HistorySubtitle" = "Raderade och redigerade meddelanden från valda chattar, sparade bara på den här enheten.";

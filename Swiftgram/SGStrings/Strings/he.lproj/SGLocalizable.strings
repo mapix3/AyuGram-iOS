@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "התראות Bark כבויות.";
 "Ayu.BarkInvalid" = "זה לא מפתח Bark. העתיקו את המפתח או קישור מאפליקציית Bark.";
 "Ayu.BarkFailed" = "Telegram לא קיבלה את המינוי: %@";
+"Ayu.BarkFixTitle" = "תיקון התראות";
+"Ayu.BarkFixInstall" = "התקינו את Bark מה-App Store";
+"Ayu.BarkFixConnect" = "חברו את Bark כדי לקבל התראות";
+"Ayu.BarkEnterKey" = "הזנת מפתח";
 "Ayu.HistorySaveAudio" = "שמור אודיו";
 "Ayu.HistoryDeleteEntry" = "מחק מההיסטוריה";
 "Ayu.HistorySubtitle" = "הודעות שנמחקו ונערכו מהצ׳אטים שנבחרו, נשמרות רק במכשיר הזה.";

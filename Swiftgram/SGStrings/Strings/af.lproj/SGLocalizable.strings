@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark-kennisgewings is af.";
 "Ayu.BarkInvalid" = "Dit is nie ’n Bark-sleutel nie. Kopieer die sleutel of ’n skakel uit die Bark-app.";
 "Ayu.BarkFailed" = "Telegram het die intekening nie aanvaar nie: %@";
+"Ayu.BarkFixTitle" = "Herstel kennisgewings";
+"Ayu.BarkFixInstall" = "Installeer Bark uit die App Store";
+"Ayu.BarkFixConnect" = "Koppel Bark om kennisgewings te kry";
+"Ayu.BarkEnterKey" = "Voer sleutel in";
 "Ayu.HistorySaveAudio" = "Stoor oudio";
 "Ayu.HistoryDeleteEntry" = "Verwyder uit geskiedenis";
 "Ayu.HistorySubtitle" = "Geskrapte en geredigeerde boodskappe uit gekose kletse, slegs op hierdie toestel gestoor.";

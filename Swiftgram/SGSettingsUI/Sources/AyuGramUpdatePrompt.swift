@@ -47,7 +47,7 @@ private var ayuGramInstalledByTrollStore: Bool {
 }
 
 /// LiveContainer runs its apps from its own Documents/Applications folder and sets LC_HOME_PATH.
-private var ayuGramRunsInLiveContainer: Bool {
+var ayuGramRunsInLiveContainer: Bool {
     let path = Bundle.main.bundlePath
     return ProcessInfo.processInfo.environment["LC_HOME_PATH"] != nil || path.contains("/Documents/Applications/") || path.contains("/LiveContainer/")
 }
@@ -146,4 +146,5 @@ public func ayuGramPresentUpdateIfNeeded(context: AccountContext) {
     }
     AyuGramUpdates.shared.check { _ in }
     AyuGramPushRelay.renew(context: context)
+    ayuGramOfferBarkIfNeeded(context: context)
 }

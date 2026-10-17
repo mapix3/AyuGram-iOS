@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark通知はオフです。";
 "Ayu.BarkInvalid" = "Barkのキーではありません。Barkアプリからキーまたはリンクをコピーしてください。";
 "Ayu.BarkFailed" = "Telegramが購読を受け付けませんでした：%@";
+"Ayu.BarkFixTitle" = "通知を修正";
+"Ayu.BarkFixInstall" = "App StoreからBarkをインストール";
+"Ayu.BarkFixConnect" = "通知を受け取るにはBarkを接続してください";
+"Ayu.BarkEnterKey" = "キーを入力";
 "Ayu.HistorySaveAudio" = "音声を保存";
 "Ayu.HistoryDeleteEntry" = "履歴から削除";
 "Ayu.HistorySubtitle" = "選択したチャットの削除・編集されたメッセージ。この端末にのみ保存されます。";

@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark bildirishnomalari o‘chirilgan.";
 "Ayu.BarkInvalid" = "Bu Bark kaliti emas. Bark ilovasidan kalit yoki havoladan nusxa oling.";
 "Ayu.BarkFailed" = "Telegram obunani qabul qilmadi: %@";
+"Ayu.BarkFixTitle" = "Bildirishnomalarni tuzatish";
+"Ayu.BarkFixInstall" = "Bark’ni App Store’dan o‘rnating";
+"Ayu.BarkFixConnect" = "Bildirishnoma olish uchun Bark’ni ulang";
+"Ayu.BarkEnterKey" = "Kalitni kiritish";
 "Ayu.HistorySaveAudio" = "Audioni saqlash";
 "Ayu.HistoryDeleteEntry" = "Tarixdan o‘chirish";
 "Ayu.HistorySubtitle" = "Tanlangan chatlardan o‘chirilgan va tahrirlangan xabarlar, faqat shu qurilmada saqlanadi.";

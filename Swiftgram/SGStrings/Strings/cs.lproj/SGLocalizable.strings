@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Oznámení Bark jsou vypnutá.";
 "Ayu.BarkInvalid" = "Toto není klíč Bark. Zkopírujte klíč nebo odkaz z aplikace Bark.";
 "Ayu.BarkFailed" = "Telegram nepřijal odběr: %@";
+"Ayu.BarkFixTitle" = "Opravit oznámení";
+"Ayu.BarkFixInstall" = "Nainstalujte Bark z App Store";
+"Ayu.BarkFixConnect" = "Připojte Bark, abyste dostávali oznámení";
+"Ayu.BarkEnterKey" = "Zadat klíč";
 "Ayu.HistorySaveAudio" = "Uložit zvuk";
 "Ayu.HistoryDeleteEntry" = "Odstranit z historie";
 "Ayu.HistorySubtitle" = "Smazané a upravené zprávy z vybraných chatů, uložené jen v tomto zařízení.";
