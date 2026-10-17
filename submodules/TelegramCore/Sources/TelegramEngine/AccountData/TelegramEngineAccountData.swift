@@ -333,7 +333,7 @@ public extension TelegramEngine {
             return _internal_ayuRegisterWebPush(account: self.account, subscription: subscription)
         }
 
-        public func ayuUnregisterWebPush(subscription: String) -> Signal<Never, NoError> {
+        public func ayuUnregisterWebPush(subscription: String) -> Signal<Void, NoError> {
             return _internal_ayuUnregisterWebPush(account: self.account, subscription: subscription)
         }
     }
