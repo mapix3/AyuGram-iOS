@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark bildirimleri kapalı.";
 "Ayu.BarkInvalid" = "Bu bir Bark anahtarı değil. Bark uygulamasından anahtarı veya bir bağlantıyı kopyalayın.";
 "Ayu.BarkFailed" = "Telegram aboneliği kabul etmedi: %@";
+"Ayu.BarkFixTitle" = "Bildirimleri düzelt";
+"Ayu.BarkFixInstall" = "Bark’ı App Store’dan yükleyin";
+"Ayu.BarkFixConnect" = "Bildirim almak için Bark’ı bağlayın";
+"Ayu.BarkEnterKey" = "Anahtarı gir";
 "Ayu.HistorySaveAudio" = "Sesi kaydet";
 "Ayu.HistoryDeleteEntry" = "Geçmişten sil";
 "Ayu.HistorySubtitle" = "Seçtiğin sohbetlerden silinen ve düzenlenen mesajlar, yalnızca bu cihazda saklanır.";

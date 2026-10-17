@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Bark обавештења су искључена.";
 "Ayu.BarkInvalid" = "Ово није Bark кључ. Копирајте кључ или линк из апликације Bark.";
 "Ayu.BarkFailed" = "Telegram није прихватио претплату: %@";
+"Ayu.BarkFixTitle" = "Поправи обавештења";
+"Ayu.BarkFixInstall" = "Инсталирајте Bark из App Store-а";
+"Ayu.BarkFixConnect" = "Повежите Bark да бисте добијали обавештења";
+"Ayu.BarkEnterKey" = "Унеси кључ";
 "Ayu.HistorySaveAudio" = "Сачувај звук";
 "Ayu.HistoryDeleteEntry" = "Обриши из историје";
 "Ayu.HistorySubtitle" = "Обрисане и измењене поруке из изабраних ћаскања, чуване само на овом уређају.";

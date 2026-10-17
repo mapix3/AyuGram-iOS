@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Notifikasi Bark nonaktif.";
 "Ayu.BarkInvalid" = "Ini bukan kunci Bark. Salin kunci atau tautan dari aplikasi Bark.";
 "Ayu.BarkFailed" = "Telegram tidak menerima langganan: %@";
+"Ayu.BarkFixTitle" = "Perbaiki notifikasi";
+"Ayu.BarkFixInstall" = "Pasang Bark dari App Store";
+"Ayu.BarkFixConnect" = "Hubungkan Bark untuk menerima notifikasi";
+"Ayu.BarkEnterKey" = "Masukkan kunci";
 "Ayu.HistorySaveAudio" = "Simpan audio";
 "Ayu.HistoryDeleteEntry" = "Hapus dari riwayat";
 "Ayu.HistorySubtitle" = "Pesan yang dihapus dan diedit dari obrolan pilihan, hanya disimpan di perangkat ini.";

@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Agahdariyên Bark girtî ne.";
 "Ayu.BarkInvalid" = "Ev ne mifteya Bark e. Mifteyê an girêdanekê ji sepana Bark kopî bike.";
 "Ayu.BarkFailed" = "Telegram abonetiyê qebûl nekir: %@";
+"Ayu.BarkFixTitle" = "Agahdariyan rast bike";
+"Ayu.BarkFixInstall" = "Bark ji App Store saz bike";
+"Ayu.BarkFixConnect" = "Ji bo agahdariyan Bark girê bide";
+"Ayu.BarkEnterKey" = "Mifteyê binivîse";
 "Ayu.HistorySaveAudio" = "Deng tomar bike";
 "Ayu.HistoryDeleteEntry" = "Ji dîrokê jê bibe";
 "Ayu.HistorySubtitle" = "Peyamên jêbirî û guherandî ji sohbetên hilbijartî, tenê li ser vê cîhazê têne parastin.";

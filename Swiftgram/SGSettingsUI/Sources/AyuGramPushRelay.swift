@@ -1,8 +1,15 @@
 import Foundation
+import UIKit
 import CryptoKit
+import Display
 import SwiftSignalKit
 import TelegramCore
 import AccountContext
+import TelegramPresentationData
+import PresentationDataUtils
+import PromptUI
+import SGSimpleSettings
+import SGStrings
 
 /// Notifications for a sideloaded AyuGram. Telegram holds no APNs key for this app, so instead
 /// every logged-in account registers a Telegram Web Push subscription whose endpoint is the
@@ -11,13 +18,31 @@ import AccountContext
 enum AyuGramPushRelay {
     static let baseURL = "https://ayugram-push.ayugram-status.workers.dev"
 
+    static let barkAppStoreURL = URL(string: "https://apps.apple.com/app/id1403753865")!
+
     private static let barkKeyDefaultsKey = "ayuGram.pushRelay.barkKey"
+    /// Set once the "Fix notifications" dialog has been shown.
+    private static let offeredDefaultsKey = "ayuGram.pushRelay.offered"
     private static let keysDefaultsKey = "ayuGram.pushRelay.keys"
     /// The subscription last registered, so changing the key unsubscribes the old one.
     private static let subscriptionDefaultsKey = "ayuGram.pushRelay.subscription"
 
     static var barkKey: String? {
         return UserDefaults.standard.string(forKey: barkKeyDefaultsKey)
+    }
+
+    /// Bark's `bark` scheme is listed in LSApplicationQueriesSchemes.
+    static var isBarkInstalled: Bool {
+        return URL(string: "bark://").map { UIApplication.shared.canOpenURL($0) } == true
+    }
+
+    /// True the first time it is asked on an install without a Bark key.
+    static func shouldOffer() -> Bool {
+        guard (barkKey ?? "").isEmpty, !UserDefaults.standard.bool(forKey: offeredDefaultsKey) else {
+            return false
+        }
+        UserDefaults.standard.set(true, forKey: offeredDefaultsKey)
+        return true
     }
 
     /// The key from a Bark key or from a link the Bark app shows (`https://api.day.app/KEY/...`).
@@ -126,5 +151,78 @@ enum AyuGramPushRelay {
             return
         }
         apply(context: context, barkKey: barkKey, completion: { _ in })
+    }
+}
+
+/// Asks for the Bark key; without Bark installed, opens its App Store page instead.
+/// LiveContainer answers app queries with its own list, which may not include Bark, so
+/// there an undetected Bark offers both.
+func ayuGramSetUpBark(context: AccountContext, present: @escaping (ViewController) -> Void) {
+    let data = context.sharedContext.currentPresentationData.with { $0 }
+    let locale = data.strings.baseLanguageCode
+    let askForKey: () -> Void = {
+        present(ayuGramBarkKeyPrompt(context: context, present: present))
+    }
+    if AyuGramPushRelay.isBarkInstalled {
+        askForKey()
+    } else if ayuGramRunsInLiveContainer {
+        present(textAlertController(context: context, title: i18n("Ayu.BarkFixTitle", locale), text: i18n("Ayu.BarkFixInstall", locale), actions: [
+            TextAlertAction(type: .genericAction, title: "App Store", action: {
+                UIApplication.shared.open(AyuGramPushRelay.barkAppStoreURL, options: [:], completionHandler: nil)
+            }),
+            TextAlertAction(type: .defaultAction, title: i18n("Ayu.BarkEnterKey", locale), action: askForKey)
+        ], actionLayout: .vertical))
+    } else {
+        UIApplication.shared.open(AyuGramPushRelay.barkAppStoreURL, options: [:], completionHandler: nil)
+    }
+}
+
+private func ayuGramBarkKeyPrompt(context: AccountContext, present: @escaping (ViewController) -> Void) -> ViewController {
+    let data = context.sharedContext.currentPresentationData.with { $0 }
+    let locale = data.strings.baseLanguageCode
+    let result: (String) -> Void = { text in
+        present(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]))
+    }
+    return promptController(context: context, text: i18n("Ayu.BarkPrompt", locale), value: AyuGramPushRelay.barkKey ?? "", placeholder: "Bark key", characterLimit: 200, apply: { value in
+        guard let value else {
+            return
+        }
+        guard let key = AyuGramPushRelay.parseBarkKey(value) else {
+            result(i18n("Ayu.BarkInvalid", locale))
+            return
+        }
+        AyuGramPushRelay.apply(context: context, barkKey: key, completion: { error in
+            // Redraws the settings row's title.
+            NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
+            if key.isEmpty {
+                result(i18n("Ayu.BarkDisabled", locale))
+            } else if let error {
+                result(i18n("Ayu.BarkFailed", locale, error))
+            } else {
+                result(i18n("Ayu.BarkEnabled", locale))
+            }
+        })
+    })
+}
+
+/// Once per install without a Bark key: a sideloaded AyuGram gets notifications only through Bark.
+func ayuGramOfferBarkIfNeeded(context: AccountContext) {
+    guard AyuGramPushRelay.shouldOffer() else {
+        return
+    }
+    let data = context.sharedContext.currentPresentationData.with { $0 }
+    let locale = data.strings.baseLanguageCode
+    let present: (ViewController) -> Void = { [weak context] controller in
+        context?.sharedContext.mainWindow?.present(controller, on: .root)
+    }
+    let text = i18n(AyuGramPushRelay.isBarkInstalled ? "Ayu.BarkFixConnect" : "Ayu.BarkFixInstall", locale)
+    // After the root controller is in the window.
+    Queue.mainQueue().after(1.0) {
+        present(textAlertController(context: context, title: i18n("Ayu.BarkFixTitle", locale), text: text, actions: [
+            TextAlertAction(type: .genericAction, title: data.strings.Common_No, action: {}),
+            TextAlertAction(type: .defaultAction, title: data.strings.Common_Yes, action: {
+                ayuGramSetUpBark(context: context, present: present)
+            })
+        ]))
     }
 }

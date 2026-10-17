@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Les notifications Bark sont désactivées.";
 "Ayu.BarkInvalid" = "Ce n’est pas une clé Bark. Copiez la clé ou un lien depuis l’app Bark.";
 "Ayu.BarkFailed" = "Telegram a refusé l’abonnement : %@";
+"Ayu.BarkFixTitle" = "Réparer les notifications";
+"Ayu.BarkFixInstall" = "Installez Bark depuis l’App Store";
+"Ayu.BarkFixConnect" = "Connectez Bark pour recevoir les notifications";
+"Ayu.BarkEnterKey" = "Saisir la clé";
 "Ayu.HistorySaveAudio" = "Enregistrer l’audio";
 "Ayu.HistoryDeleteEntry" = "Supprimer de l’historique";
 "Ayu.HistorySubtitle" = "Messages supprimés et modifiés des discussions choisies, conservés uniquement sur cet appareil.";

@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "ការជូនដំណឹង Bark ត្រូវបានបិទ។";
 "Ayu.BarkInvalid" = "នេះមិនមែនជាសោ Bark ទេ។ ចម្លងសោ ឬតំណពីកម្មវិធី Bark។";
 "Ayu.BarkFailed" = "Telegram មិនបានទទួលការជាវទេ៖ %@";
+"Ayu.BarkFixTitle" = "ជួសជុលការជូនដំណឹង";
+"Ayu.BarkFixInstall" = "ដំឡើង Bark ពី App Store";
+"Ayu.BarkFixConnect" = "ភ្ជាប់ Bark ដើម្បីទទួលការជូនដំណឹង";
+"Ayu.BarkEnterKey" = "បញ្ចូលសោ";
 "Ayu.HistorySaveAudio" = "រក្សាទុកសំឡេង";
 "Ayu.HistoryDeleteEntry" = "លុបពីប្រវត្តិ";
 "Ayu.HistorySubtitle" = "សារដែលបានលុប និងកែប្រែពីការជជែកដែលបានជ្រើស រក្សាទុកតែលើឧបករណ៍នេះ។";

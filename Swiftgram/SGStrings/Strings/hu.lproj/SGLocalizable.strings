@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "A Bark-értesítések ki vannak kapcsolva.";
 "Ayu.BarkInvalid" = "Ez nem Bark-kulcs. Másold ki a kulcsot vagy egy linket a Bark alkalmazásból.";
 "Ayu.BarkFailed" = "A Telegram nem fogadta el a feliratkozást: %@";
+"Ayu.BarkFixTitle" = "Értesítések javítása";
+"Ayu.BarkFixInstall" = "Telepítsd a Barkot az App Store-ból";
+"Ayu.BarkFixConnect" = "Csatlakoztasd a Barkot az értesítésekhez";
+"Ayu.BarkEnterKey" = "Kulcs megadása";
 "Ayu.HistorySaveAudio" = "Hang mentése";
 "Ayu.HistoryDeleteEntry" = "Törlés az előzményekből";
 "Ayu.HistorySubtitle" = "Törölt és szerkesztett üzenetek a kiválasztott csevegésekből, csak ezen az eszközön tárolva.";

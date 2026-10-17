@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Οι ειδοποιήσεις Bark είναι απενεργοποιημένες.";
 "Ayu.BarkInvalid" = "Αυτό δεν είναι κλειδί Bark. Αντιγράψτε το κλειδί ή έναν σύνδεσμο από την εφαρμογή Bark.";
 "Ayu.BarkFailed" = "Το Telegram δεν αποδέχτηκε τη συνδρομή: %@";
+"Ayu.BarkFixTitle" = "Διόρθωση ειδοποιήσεων";
+"Ayu.BarkFixInstall" = "Εγκαταστήστε το Bark από το App Store";
+"Ayu.BarkFixConnect" = "Συνδέστε το Bark για να λαμβάνετε ειδοποιήσεις";
+"Ayu.BarkEnterKey" = "Εισαγωγή κλειδιού";
 "Ayu.HistorySaveAudio" = "Αποθήκευση ήχου";
 "Ayu.HistoryDeleteEntry" = "Διαγραφή από το ιστορικό";
 "Ayu.HistorySubtitle" = "Διαγραμμένα και επεξεργασμένα μηνύματα από τις επιλεγμένες συνομιλίες, μόνο σε αυτή τη συσκευή.";

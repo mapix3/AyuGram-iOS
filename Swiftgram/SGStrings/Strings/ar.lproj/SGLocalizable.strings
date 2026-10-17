@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "إشعارات Bark متوقفة.";
 "Ayu.BarkInvalid" = "هذا ليس مفتاح Bark. انسخ المفتاح أو رابطًا من تطبيق Bark.";
 "Ayu.BarkFailed" = "لم يقبل Telegram الاشتراك: %@";
+"Ayu.BarkFixTitle" = "إصلاح الإشعارات";
+"Ayu.BarkFixInstall" = "ثبّت Bark من App Store";
+"Ayu.BarkFixConnect" = "اربط Bark لتلقي الإشعارات";
+"Ayu.BarkEnterKey" = "إدخال المفتاح";
 "Ayu.HistorySaveAudio" = "حفظ الصوت";
 "Ayu.HistoryDeleteEntry" = "حذف من السجل";
 "Ayu.HistorySubtitle" = "الرسائل المحذوفة والمعدلة من المحادثات المختارة، محفوظة على هذا الجهاز فقط.";

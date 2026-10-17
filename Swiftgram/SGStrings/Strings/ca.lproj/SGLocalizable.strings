@@ -22,6 +22,10 @@
 "Ayu.BarkDisabled" = "Les notificacions de Bark estan desactivades.";
 "Ayu.BarkInvalid" = "Això no és una clau de Bark. Copia la clau o un enllaç de l’app Bark.";
 "Ayu.BarkFailed" = "Telegram no ha acceptat la subscripció: %@";
+"Ayu.BarkFixTitle" = "Arregla les notificacions";
+"Ayu.BarkFixInstall" = "Instal·la Bark des de l’App Store";
+"Ayu.BarkFixConnect" = "Connecta Bark per rebre notificacions";
+"Ayu.BarkEnterKey" = "Introdueix la clau";
 "Ayu.HistorySaveAudio" = "Desa l’àudio";
 "Ayu.HistoryDeleteEntry" = "Elimina de l’historial";
 "Ayu.HistorySubtitle" = "Missatges eliminats i editats dels xats triats, desats només en aquest dispositiu.";
