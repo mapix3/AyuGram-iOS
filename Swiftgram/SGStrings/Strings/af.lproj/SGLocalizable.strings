@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Installeer Bark uit die App Store";
 "Ayu.BarkFixConnect" = "Koppel Bark om kennisgewings te kry";
 "Ayu.BarkEnterKey" = "Voer sleutel in";
+"Ayu.BarkHowTo" = "1. Installeer Bark uit die App Store en maak dit oop.\n2. Kopieer die adres https://api.day.app/… op sy hoofskerm.\n3. Kom terug, tik “Voer sleutel in” en plak dit.";
 "Ayu.HistorySaveAudio" = "Stoor oudio";
 "Ayu.HistoryDeleteEntry" = "Verwyder uit geskiedenis";
 "Ayu.HistorySubtitle" = "Geskrapte en geredigeerde boodskappe uit gekose kletse, slegs op hierdie toestel gestoor.";

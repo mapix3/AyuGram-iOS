@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "App StoreからBarkをインストール";
 "Ayu.BarkFixConnect" = "通知を受け取るにはBarkを接続してください";
 "Ayu.BarkEnterKey" = "キーを入力";
+"Ayu.BarkHowTo" = "1. App StoreからBarkをインストールして開きます。\n2. メイン画面のアドレス https://api.day.app/… をコピーします。\n3. ここに戻り「キーを入力」をタップして貼り付けます。";
 "Ayu.HistorySaveAudio" = "音声を保存";
 "Ayu.HistoryDeleteEntry" = "履歴から削除";
 "Ayu.HistorySubtitle" = "選択したチャットの削除・編集されたメッセージ。この端末にのみ保存されます。";

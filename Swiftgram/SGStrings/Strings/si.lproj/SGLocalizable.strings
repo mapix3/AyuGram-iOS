@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "App Store වෙතින් Bark ස්ථාපනය කරන්න";
 "Ayu.BarkFixConnect" = "දැනුම්දීම් ලැබීමට Bark සම්බන්ධ කරන්න";
 "Ayu.BarkEnterKey" = "යතුර ඇතුළත් කරන්න";
+"Ayu.BarkHowTo" = "1. App Store වෙතින් Bark ස්ථාපනය කර විවෘත කරන්න.\n2. එහි ප්‍රධාන තිරයේ ඇති https://api.day.app/… ලිපිනය පිටපත් කරන්න.\n3. ආපසු පැමිණ “යතුර ඇතුළත් කරන්න” තට්ටු කර අලවන්න.";
 "Ayu.HistorySaveAudio" = "ශ්‍රව්‍ය සුරකින්න";
 "Ayu.HistoryDeleteEntry" = "ඉතිහාසයෙන් මකන්න";
 "Ayu.HistorySubtitle" = "තෝරාගත් කතාබස් වලින් මකා දැමූ සහ සංස්කරණය කළ පණිවිඩ, මෙම උපාංගයේ පමණක් තබා ගනී.";

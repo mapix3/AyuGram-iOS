@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "התקינו את Bark מה-App Store";
 "Ayu.BarkFixConnect" = "חברו את Bark כדי לקבל התראות";
 "Ayu.BarkEnterKey" = "הזנת מפתח";
+"Ayu.BarkHowTo" = "1. התקינו את Bark מה-App Store ופתחו אותה.\n2. העתיקו את הכתובת https://api.day.app/… מהמסך הראשי שלה.\n3. חזרו לכאן, הקישו על „הזנת מפתח” והדביקו.";
 "Ayu.HistorySaveAudio" = "שמור אודיו";
 "Ayu.HistoryDeleteEntry" = "מחק מההיסטוריה";
 "Ayu.HistorySubtitle" = "הודעות שנמחקו ונערכו מהצ׳אטים שנבחרו, נשמרות רק במכשיר הזה.";

@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Bark ji App Store saz bike";
 "Ayu.BarkFixConnect" = "Ji bo agahdariyan Bark girê bide";
 "Ayu.BarkEnterKey" = "Mifteyê binivîse";
+"Ayu.BarkHowTo" = "1. Bark ji App Store saz bike û veke.\n2. Navnîşana https://api.day.app/… ji ekrana wê ya sereke kopî bike.\n3. Vegere, li «Mifteyê binivîse» bitikîne û bi cih bike.";
 "Ayu.HistorySaveAudio" = "Deng tomar bike";
 "Ayu.HistoryDeleteEntry" = "Ji dîrokê jê bibe";
 "Ayu.HistorySubtitle" = "Peyamên jêbirî û guherandî ji sohbetên hilbijartî, tenê li ser vê cîhazê têne parastin.";

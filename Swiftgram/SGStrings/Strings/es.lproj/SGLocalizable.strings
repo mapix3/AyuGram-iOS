@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Instala Bark desde la App Store";
 "Ayu.BarkFixConnect" = "Conecta Bark para recibir notificaciones";
 "Ayu.BarkEnterKey" = "Introducir clave";
+"Ayu.BarkHowTo" = "1. Instala Bark desde la App Store y ábrelo.\n2. Copia la dirección https://api.day.app/… de su pantalla principal.\n3. Vuelve, toca «Introducir clave» y pégala.";
 "Ayu.HistorySaveAudio" = "Guardar audio";
 "Ayu.HistoryDeleteEntry" = "Eliminar del historial";
 "Ayu.HistorySubtitle" = "Mensajes eliminados y editados de los chats elegidos, guardados solo en este dispositivo.";

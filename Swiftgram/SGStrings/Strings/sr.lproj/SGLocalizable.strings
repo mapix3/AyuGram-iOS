@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Инсталирајте Bark из App Store-а";
 "Ayu.BarkFixConnect" = "Повежите Bark да бисте добијали обавештења";
 "Ayu.BarkEnterKey" = "Унеси кључ";
+"Ayu.BarkHowTo" = "1. Инсталирајте Bark из App Store-а и отворите га.\n2. Копирајте адресу https://api.day.app/… са његовог главног екрана.\n3. Вратите се, додирните „Унеси кључ“ и налепите је.";
 "Ayu.HistorySaveAudio" = "Сачувај звук";
 "Ayu.HistoryDeleteEntry" = "Обриши из историје";
 "Ayu.HistorySubtitle" = "Обрисане и измењене поруке из изабраних ћаскања, чуване само на овом уређају.";

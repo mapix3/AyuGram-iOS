@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "App Store से Bark इंस्टॉल करें";
 "Ayu.BarkFixConnect" = "सूचनाएँ पाने के लिए Bark जोड़ें";
 "Ayu.BarkEnterKey" = "कुंजी डालें";
+"Ayu.BarkHowTo" = "1. App Store से Bark इंस्टॉल करके खोलें।\n2. उसकी मुख्य स्क्रीन से पता https://api.day.app/… कॉपी करें।\n3. यहाँ लौटें, “कुंजी डालें” दबाएँ और पेस्ट करें।";
 "Ayu.HistorySaveAudio" = "ऑडियो सहेजें";
 "Ayu.HistoryDeleteEntry" = "इतिहास से हटाएं";
 "Ayu.HistorySubtitle" = "चुनी गई चैट से हटाए और संपादित किए गए संदेश, केवल इसी डिवाइस पर रखे जाते हैं।";

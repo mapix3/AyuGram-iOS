@@ -26,6 +26,7 @@
 "Ayu.BarkFixInstall" = "Pasang Bark dari App Store";
 "Ayu.BarkFixConnect" = "Hubungkan Bark untuk menerima notifikasi";
 "Ayu.BarkEnterKey" = "Masukkan kunci";
+"Ayu.BarkHowTo" = "1. Pasang Bark dari App Store lalu buka.\n2. Salin alamat https://api.day.app/… dari layar utamanya.\n3. Kembali ke sini, ketuk “Masukkan kunci” dan tempel.";
 "Ayu.HistorySaveAudio" = "Simpan audio";
 "Ayu.HistoryDeleteEntry" = "Hapus dari riwayat";
 "Ayu.HistorySubtitle" = "Pesan yang dihapus dan diedit dari obrolan pilihan, hanya disimpan di perangkat ini.";
