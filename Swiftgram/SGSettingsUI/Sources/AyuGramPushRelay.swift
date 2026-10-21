@@ -63,6 +63,10 @@ enum AyuGramPushRelay {
         guard key.count >= 8, key.count <= 64, key.unicodeScalars.allSatisfy({ allowed.contains($0) && $0.isASCII }) else {
             return nil
         }
+        // Bark's settings also show the 64-digit APNs device token, which is not the key.
+        if key.count == 64, key.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0) }) {
+            return nil
+        }
         return key
     }
 

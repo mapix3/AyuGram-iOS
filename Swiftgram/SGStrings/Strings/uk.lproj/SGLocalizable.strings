@@ -20,7 +20,7 @@
 "Ayu.BarkPrompt" = "Вставте ключ Bark або посилання із застосунку Bark. Залиште порожнім, щоб вимкнути сповіщення.";
 "Ayu.BarkEnabled" = "Готово. Нові повідомлення надходитимуть сповіщеннями Bark, поки AyuGram закритий.";
 "Ayu.BarkDisabled" = "Сповіщення Bark вимкнено.";
-"Ayu.BarkInvalid" = "Це не ключ Bark. Скопіюйте ключ або посилання із застосунку Bark.";
+"Ayu.BarkInvalid" = "Це не ключ Bark. Скопіюйте в Bark адресу https://api.day.app/… з головного екрана, а не Device Token.";
 "Ayu.BarkFailed" = "Telegram не прийняв підписку: %@";
 "Ayu.BarkFixTitle" = "Виправити сповіщення";
 "Ayu.BarkFixInstall" = "Встановіть Bark з App Store";
