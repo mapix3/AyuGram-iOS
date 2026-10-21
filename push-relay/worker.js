@@ -43,8 +43,8 @@ export default {
       if (!notification) {
         return new Response(null, { status: 201 });
       }
-      const { title, text } = notification;
-      const result = await sendToBark(route.barkKey, title, text);
+      const { title, text, link, icon } = notification;
+      const result = await sendToBark(route.barkKey, title, text, { url: link, icon });
       if (!result.ok) {
         console.log('Bark refused the push: ' + result.status + ' ' + result.body);
       }
@@ -58,7 +58,9 @@ export default {
 
 // Sends a notification through Bark's JSON API; if Bark refuses it, retries with the older
 // path API (/<key>/<title>/<body>). Returns the last answer.
-export async function sendToBark(key, title, text) {
+export async function sendToBark(key, title, text, options = {}) {
+  const url = options.url || 'ayugram://';
+  const icon = options.icon || ICON;
   const attempt = async (request) => {
     const response = await request();
     return { ok: response.ok, status: response.status, body: (await response.text()).slice(0, 300) };
@@ -66,12 +68,12 @@ export async function sendToBark(key, title, text) {
   const json = await attempt(() => fetch(BARK_PUSH, {
     method: 'POST',
     headers: { 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ device_key: key, title, body: text, group: 'AyuGram', icon: ICON, url: 'ayugram://' }),
+    body: JSON.stringify({ device_key: key, title, body: text, group: 'AyuGram', icon, url }),
   }));
   if (json.ok) {
     return json;
   }
-  const query = new URLSearchParams({ group: 'AyuGram', icon: ICON, url: 'ayugram://' });
+  const query = new URLSearchParams({ group: 'AyuGram', icon, url });
   const path = BARK_BASE + '/' + encodeURIComponent(key) + '/' + encodeURIComponent(title) + '/' + encodeURIComponent(text) + '?' + query;
   const legacy = await attempt(() => fetch(path));
   return legacy.ok ? legacy : { ok: false, status: legacy.status, body: 'json ' + json.status + ' ' + json.body + ' | path ' + legacy.status + ' ' + legacy.body };
@@ -99,6 +101,33 @@ const MEDIA = {
 };
 // Sync pushes that tell other devices about reads or deletions; they are not notifications.
 const SILENT = /^(READ_|MESSAGE_DELETED|MESSAGE_MUTED|SESSION_REVOKE|GEO_LIVE_PENDING)/;
+
+// Telegram's placeholder avatar colors, picked by id the way Telegram picks them.
+const AVATAR_COLORS = ['e17076', 'eda86c', 'a695e7', '7bc862', '6ec9cb', '65aadd', 'ee7aae'];
+
+// The chat a push belongs to: a link that opens it in AyuGram and a letter avatar for it.
+// Real profile photos need Telegram's own protocol, so the avatar shows the first letter.
+export function chatTarget(custom, name) {
+  if (!custom || typeof custom !== 'object') {
+    return {};
+  }
+  let kind = null;
+  let id = null;
+  for (const [field, value] of [['channel', custom.channel_id], ['chat', custom.chat_id], ['user', custom.from_id]]) {
+    if (value !== undefined && /^\d+$/.test(String(value))) {
+      kind = field;
+      id = String(value);
+      break;
+    }
+  }
+  if (!kind) {
+    return {};
+  }
+  const color = AVATAR_COLORS[Number(BigInt(id) % 7n)];
+  const letter = (Array.from(name.trim())[0] || '?').toUpperCase();
+  const icon = 'https://ui-avatars.com/api/?' + new URLSearchParams({ name: letter, size: '128', background: color, color: 'ffffff', bold: 'true', format: 'png', length: '1' });
+  return { link: 'ayugram://chat?' + kind + '=' + id, icon };
+}
 
 // Title and text of a notification, or null for a push that shows nothing.
 export function describe(data) {
@@ -134,7 +163,8 @@ export function describe(data) {
     if (key.startsWith('PINNED_') || key.includes('_PINNED_')) {
       text = '📌 ' + text;
     }
-    return { title: title || 'AyuGram', text: author ? author + ': ' + text : text };
+    const name = title || 'AyuGram';
+    return { title: name, text: author ? author + ': ' + text : text, ...chatTarget(data.custom, name) };
   }
   const alert = data.aps && typeof data.aps.alert === 'object' ? data.aps.alert : {};
   const title = data.title || alert.title || 'AyuGram';
