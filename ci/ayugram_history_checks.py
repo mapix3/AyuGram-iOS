@@ -140,6 +140,8 @@ def check_deleted_chats(source: Path):
     assert history.count('ayuGramDeletedChatPeers(transaction: transaction)') >= 2, 'Pruning and clearing keep deleted chats'
     controller = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramHistoryController.swift').read_text()
     assert 'ayuGramDeletedChatsController(context: context)' in controller and 'ayuGramDeletedChats()' in controller
+    protection = (core / 'AyuGramContentProtection.swift').read_text()
+    assert 'source.flags.contains(.AyuLocallyDeleted) || (ignoresProtection && ayuIsSourceCopyProtected(' in protection, 'Deleted messages are forwarded as new messages'
 
 
 def check_push_relay(source: Path):
