@@ -1,7 +1,7 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
 import { webcrypto as crypto } from 'node:crypto';
-import worker, { base64urlEncode, describe, sendToBark } from './worker.js';
+import worker, { base64urlEncode, describe, sendToBark, chatTarget } from './worker.js';
 
 const enc = new TextEncoder();
 const concat = (...p) => { const r = new Uint8Array(p.reduce((s, x) => s + x.length, 0)); let o = 0; for (const x of p) { r.set(x, o); o += x.length; } return r; };
@@ -75,10 +75,17 @@ for (const encrypt of [encryptAes128gcm, encryptAesgcm]) {
   assert.equal(sent[0].body.device_key, 'BARKKEY123');
   assert.equal(sent[0].body.title, 'Alice');
   assert.equal(sent[0].body.body, 'привет');
+  assert.equal(sent[0].body.url, 'ayugram://chat?user=7');
 }
 assert.deepEqual(describe({ title: 'Bob', description: 'hi' }), { title: 'Bob', text: 'hi' });
 assert.deepEqual(describe({}), { title: 'AyuGram', text: 'New message' });
 assert.deepEqual(describe({ loc_key: 'CHAT_MESSAGE_TEXT', loc_args: ['Alice', 'Friends', 'hi all'] }), { title: 'Friends', text: 'Alice: hi all' });
+const target = chatTarget({ from_id: '7' }, 'даша');
+assert.equal(target.link, 'ayugram://chat?user=7');
+assert.ok(target.icon.startsWith('https://ui-avatars.com/api/?name=%D0%94&') && target.icon.includes('background=e17076'), target.icon);
+assert.equal(chatTarget({ chat_id: '12', from_id: '7' }, 'Team').link, 'ayugram://chat?chat=12');
+assert.equal(chatTarget({ channel_id: '99' }, 'News').link, 'ayugram://chat?channel=99');
+assert.deepEqual(chatTarget(undefined, 'x'), {});
 assert.deepEqual(describe({ loc_key: 'CHANNEL_MESSAGE_PHOTO', loc_args: ['News'] }), { title: 'News', text: '📷 Photo' });
 assert.deepEqual(describe({ loc_key: 'MESSAGE_AUDIO', loc_args: ['Bob'] }), { title: 'Bob', text: '🎤 Voice message' });
 assert.deepEqual(describe({ loc_key: 'MESSAGE_STICKER', loc_args: ['Bob', '😀'] }), { title: 'Bob', text: '😀 Sticker' });
