@@ -76,6 +76,7 @@ for (const encrypt of [encryptAes128gcm, encryptAesgcm]) {
   assert.equal(sent[0].body.title, 'Alice');
   assert.equal(sent[0].body.body, 'привет');
   assert.equal(sent[0].body.url, 'ayugram://chat?user=7');
+  assert.equal(sent[0].body.ttl, 86400, 'Bark deletes relayed notifications after a day');
 }
 assert.deepEqual(describe({ title: 'Bob', description: 'hi' }), { title: 'Bob', text: 'hi' });
 assert.deepEqual(describe({}), { title: 'AyuGram', text: 'New message' });

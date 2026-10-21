@@ -8,6 +8,9 @@
 
 const BARK_BASE = 'https://api.day.app';
 const BARK_PUSH = BARK_BASE + '/push';
+// Bark keeps relayed notifications in its history for a day, then deletes them itself.
+const ARCHIVE_TTL = 24 * 60 * 60;
+
 const ICON = 'https://raw.githubusercontent.com/mapix3/AyuGram-iOS/standard/Swiftgram/SGSettingsUI/Images.xcassets/AyuUpdatesChannel.imageset/AyuUpdatesChannel@3x.png';
 
 const encoder = new TextEncoder();
@@ -68,12 +71,12 @@ export async function sendToBark(key, title, text, options = {}) {
   const json = await attempt(() => fetch(BARK_PUSH, {
     method: 'POST',
     headers: { 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ device_key: key, title, body: text, group: 'AyuGram', icon, url }),
+    body: JSON.stringify({ device_key: key, title, body: text, group: 'AyuGram', icon, url, isArchive: '1', ttl: ARCHIVE_TTL }),
   }));
   if (json.ok) {
     return json;
   }
-  const query = new URLSearchParams({ group: 'AyuGram', icon, url });
+  const query = new URLSearchParams({ group: 'AyuGram', icon, url, isArchive: '1', ttl: String(ARCHIVE_TTL) });
   const path = BARK_BASE + '/' + encodeURIComponent(key) + '/' + encodeURIComponent(title) + '/' + encodeURIComponent(text) + '?' + query;
   const legacy = await attempt(() => fetch(path));
   return legacy.ok ? legacy : { ok: false, status: legacy.status, body: 'json ' + json.status + ' ' + json.body + ' | path ' + legacy.status + ' ' + legacy.body };
