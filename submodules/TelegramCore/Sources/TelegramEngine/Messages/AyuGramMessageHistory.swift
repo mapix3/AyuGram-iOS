@@ -43,9 +43,12 @@ private func pruneHistory(_ history: inout AyuGramHistory, transaction: Transact
     let previous = history.entries
     let threshold = Int32(Date().timeIntervalSince1970) - 30 * 24 * 60 * 60
     history.entries.removeAll { $0.timestamp < threshold }
+    // The record cap only shortens the list: the kept messages stay in their chats. Only
+    // records older than 30 days take their kept messages along, except in deleted chats.
     history.entries = Array(history.entries.suffix(200))
     let retained = Set(history.entries.filter { $0.event == "deleted" }.map { MessageId(peerId: PeerId($0.peerId), namespace: Namespaces.Message.Cloud, id: $0.messageId) })
-    let expired = Set(previous.filter { $0.event == "deleted" }.map { MessageId(peerId: PeerId($0.peerId), namespace: Namespaces.Message.Cloud, id: $0.messageId) }).subtracting(retained)
+    let deletedChats = ayuGramDeletedChatPeers(transaction: transaction)
+    let expired = Set(previous.filter { $0.event == "deleted" && $0.timestamp < threshold && !deletedChats.contains($0.peerId) }.map { MessageId(peerId: PeerId($0.peerId), namespace: Namespaces.Message.Cloud, id: $0.messageId) }).subtracting(retained)
     let tombstones = expired.filter { transaction.getMessage($0)?.ayuHistory?.deletedAt != nil }
     transaction.deleteMessages(Array(tombstones), forEachMedia: { _ in })
     let editedBefore = Set(previous.filter { $0.event == "edited" }.map { MessageId(peerId: PeerId($0.peerId), namespace: Namespaces.Message.Cloud, id: $0.messageId) })
@@ -299,7 +302,9 @@ public extension TelegramEngine {
         return self.account.postbox.transaction { transaction in
             var empty = AyuGramHistory(entries: [])
             var old = transaction.getPreferencesEntry(key: ayuGramHistoryKey)?.get(AyuGramHistory.self) ?? empty
-            let ids = Set(old.entries.filter { $0.event == "deleted" }.map { MessageId(peerId: PeerId($0.peerId), namespace: Namespaces.Message.Cloud, id: $0.messageId) })
+            // Deleted chats keep their messages until they are removed from that list.
+            let deletedChats = ayuGramDeletedChatPeers(transaction: transaction)
+            let ids = Set(old.entries.filter { $0.event == "deleted" && !deletedChats.contains($0.peerId) }.map { MessageId(peerId: PeerId($0.peerId), namespace: Namespaces.Message.Cloud, id: $0.messageId) })
             transaction.deleteMessages(Array(ids.filter { transaction.getMessage($0)?.ayuHistory?.deletedAt != nil }), forEachMedia: { _ in })
             let edits = Set(old.entries.filter { $0.event == "edited" }.map { MessageId(peerId: PeerId($0.peerId), namespace: Namespaces.Message.Cloud, id: $0.messageId) })
             ayuGramClearLocalEditMarker(transaction: transaction, ids: edits)

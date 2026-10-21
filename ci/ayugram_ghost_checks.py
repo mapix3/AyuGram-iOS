@@ -14,7 +14,10 @@ NEW_KEYS = ['HeroGhostOn', 'HeroGhostOff', 'HeroHidden', 'GhostSubtitle', 'Ghost
             'UpdateAvailableInfo', 'UpdateIgnore', 'UpdateOpen',
             'NotificationsSection', 'BarkSetUp', 'BarkConnected', 'BarkFooter', 'BarkPrompt', 'BarkEnabled', 'BarkDisabled',
             'BarkInvalid', 'BarkFailed', 'BarkFixTitle', 'BarkFixInstall', 'BarkFixConnect', 'BarkEnterKey', 'BarkHowTo']
+NEW_KEYS += ['ExportChat', 'ExportChatMedia', 'ExportChatWithMedia', 'ExportChatTextOnly', 'ExportChatLoading', 'ExportChatDownloading',
+             'ExportChatSaving', 'ExportChatEmpty', 'ChatTransferSection', 'ImportChat', 'ImportChatFooter', 'ImportChatInvalid']
 
+NEW_KEYS += ['DeletedChats', 'DeletedChatsInfo', 'DeletedChatSave', 'DeletedChatRemove', 'DeletedChatDelete']
 
 def check_strings(source: Path):
     locales = sorted((source / 'Swiftgram/SGStrings/Strings').glob('*.lproj/SGLocalizable.strings'))

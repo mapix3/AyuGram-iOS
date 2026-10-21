@@ -131,6 +131,17 @@ def check_update_installers(source: Path):
             assert '<string>%s</string>' % scheme in text, (plist, scheme)
 
 
+def check_deleted_chats(source: Path):
+    core = source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages'
+    retained = (core / 'AyuGramRetainedMessages.swift').read_text()
+    remote = retained.split('func ayuGramDeleteRemoteMessages(', 1)[1].split('\n}\n', 1)[0]
+    assert 'ayuGramFlagDeletedChats(transaction: transaction, retained:' in remote, 'A deleted whole chat is flagged'
+    history = (core / 'AyuGramMessageHistory.swift').read_text()
+    assert history.count('ayuGramDeletedChatPeers(transaction: transaction)') >= 2, 'Pruning and clearing keep deleted chats'
+    controller = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramHistoryController.swift').read_text()
+    assert 'ayuGramDeletedChatsController(context: context)' in controller and 'ayuGramDeletedChats()' in controller
+
+
 def check_push_relay(source: Path):
     relay = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramPushRelay.swift').read_text()
     worker = (source / 'push-relay/worker.js').read_text()
@@ -177,6 +188,7 @@ def check_history(source: Path):
     check_update_installers(source)
     check_deferred_reads(source)
     check_push_relay(source)
+    check_deleted_chats(source)
     output = source / 'build-input/ayu-history-checks'
     output.mkdir(parents=True, exist_ok=True)
     core = (source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages/AyuGramMessageHistory.swift').read_text()
@@ -200,6 +212,8 @@ final class Transaction {
     func deleteMessages(_ ids: [MessageId], forEachMedia: (Int) -> Void) { removed.formUnion(ids); ids.forEach { messages.removeValue(forKey: $0) } }
 }
 func ayuGramClearLocalEditMarker(transaction: Transaction, ids: Set<MessageId>) {}
+var deletedChatPeers: Set<Int64> = []
+func ayuGramDeletedChatPeers(transaction: Transaction) -> Set<Int64> { deletedChatPeers }
 func expect(_ condition: @autoclosure () -> Bool, _ description: String) {
     precondition(condition(), description)
 }
@@ -229,7 +243,7 @@ for index in 1 ... 205 {
 }
 private var history = AyuGramHistory(entries: entries)
 pruneHistory(&history, transaction: transaction, mediaBox: box)
-expect(history.entries.count == 200 && transaction.removed.count == 5, "Record cap also removes local tombstones")
+expect(history.entries.count == 200 && transaction.removed.isEmpty, "Record cap keeps the kept messages in their chats")
 let expired = AyuGramHistoryEntry(peerId: 1, messageId: 999, peerTitle: "chat", author: "user", text: "old", event: "deleted", timestamp: now - 31 * 86400, photoFileName: "old.jpg", photoResourceId: nil)
 transaction.messages[MessageId(peerId: PeerId(1), namespace: 0, id: 999)] = TestMessage(ayuHistory: HistoryAttribute(deletedAt: now))
 try Data([1, 2, 3]).write(to: archiveFile(box, name: "old.jpg")!)
@@ -237,7 +251,13 @@ history.entries.append(expired)
 pruneHistory(&history, transaction: transaction, mediaBox: box)
 expect(transaction.removed.contains(MessageId(peerId: PeerId(1), namespace: 0, id: 999)), "Retention removes expired tombstones")
 expect(!FileManager.default.fileExists(atPath: archiveFile(box, name: "old.jpg")!.path), "Retention removes archived media")
-print("History migration, direction/unread flags, path containment, record cap and expiry passed")
+let deletedChatRecord = AyuGramHistoryEntry(peerId: 2, messageId: 7, peerTitle: "gone", author: "user", text: "old", event: "deleted", timestamp: now - 31 * 86400, photoFileName: nil, photoResourceId: nil)
+transaction.messages[MessageId(peerId: PeerId(2), namespace: 0, id: 7)] = TestMessage(ayuHistory: HistoryAttribute(deletedAt: now))
+deletedChatPeers = [2]
+history.entries.append(deletedChatRecord)
+pruneHistory(&history, transaction: transaction, mediaBox: box)
+expect(!transaction.removed.contains(MessageId(peerId: PeerId(2), namespace: 0, id: 7)), "Deleted chats keep their messages past 30 days")
+print("History migration, direction/unread flags, path containment, record cap, expiry and deleted chats passed")
 '''
     code += attribute_retention_test_code(source)
     tests = output / 'HistoryTests.swift'
