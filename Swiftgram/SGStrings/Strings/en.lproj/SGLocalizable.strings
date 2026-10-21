@@ -20,7 +20,7 @@
 "Ayu.BarkPrompt" = "Paste your Bark key or the link from the Bark app. Leave it empty to turn notifications off.";
 "Ayu.BarkEnabled" = "Done. New messages will arrive as Bark notifications while AyuGram is closed.";
 "Ayu.BarkDisabled" = "Bark notifications are off.";
-"Ayu.BarkInvalid" = "This is not a Bark key. Copy the key or a link from the Bark app.";
+"Ayu.BarkInvalid" = "This is not a Bark key. In Bark, copy the address https://api.day.app/… from its main screen, not the Device Token.";
 "Ayu.BarkFailed" = "Telegram did not accept the subscription: %@";
 "Ayu.BarkFixTitle" = "Fix notifications";
 "Ayu.BarkFixInstall" = "Install Bark from App Store";
