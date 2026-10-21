@@ -1,7 +1,7 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
 import { webcrypto as crypto } from 'node:crypto';
-import worker, { base64urlEncode, describe } from './worker.js';
+import worker, { base64urlEncode, describe, sendToBark } from './worker.js';
 
 const enc = new TextEncoder();
 const concat = (...p) => { const r = new Uint8Array(p.reduce((s, x) => s + x.length, 0)); let o = 0; for (const x of p) { r.set(x, o); o += x.length; } return r; };
@@ -54,7 +54,15 @@ async function encryptAesgcm(sub, text) {
 }
 
 const sent = [];
-globalThis.fetch = async (url, init) => { sent.push({ url, body: JSON.parse(init.body) }); return new Response('{}'); };
+let refuseJson = false;
+globalThis.fetch = async (url, init) => {
+  if (init && init.body) {
+    sent.push({ url, body: JSON.parse(init.body) });
+    return refuseJson ? new Response('{"code":400,"message":"failed to get device token"}', { status: 400 }) : new Response('{}');
+  }
+  sent.push({ url });
+  return new Response('{"code":200}');
+};
 
 for (const encrypt of [encryptAes128gcm, encryptAesgcm]) {
   sent.length = 0;
@@ -78,6 +86,17 @@ assert.deepEqual(describe({ loc_key: 'CHAT_MESSAGE_POLL', loc_args: ['Bob', 'Tea
 assert.deepEqual(describe({ loc_key: 'PINNED_TEXT', loc_args: ['Bob', 'rules'] }), { title: 'Bob', text: '📌 rules' });
 assert.equal(describe({ loc_key: 'READ_HISTORY', loc_args: [] }), null);
 assert.equal(describe({ loc_key: '', custom: {} }), null);
+sent.length = 0;
+refuseJson = true;
+const fallback = await sendToBark('KEY1234567', 'Ann', 'hi / there');
+assert.ok(fallback.ok, 'The path API is tried when the JSON API refuses');
+assert.equal(sent.length, 2);
+assert.ok(sent[1].url.startsWith('https://api.day.app/KEY1234567/Ann/hi%20%2F%20there?'), sent[1].url);
+refuseJson = false;
+sent.length = 0;
+const test = await worker.fetch(new Request('https://relay.example/test/KEY1234567'));
+assert.equal(test.status, 200);
+assert.equal(sent[0].body.device_key, 'KEY1234567');
 const bad = await worker.fetch(new Request('https://relay.example/p/xx', { method: 'POST', body: 'x' }));
 assert.equal(bad.status, 400);
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');
