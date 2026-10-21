@@ -23,6 +23,12 @@ func ayuGramDeleteRemoteMessages(transaction: Transaction, mediaBox: MediaBox, i
     }
     _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: manualAddMessageThreadStatsDifference)
     let _ = transaction.addMessages(retained, location: .Random)
+    ayuGramFlagDeletedChats(transaction: transaction, retained: retained.compactMap { message -> MessageId? in
+        if case let .Id(id) = message.id {
+            return id
+        }
+        return nil
+    })
 }
 
 func ayuGramRecordEdit(transaction: Transaction, mediaBox: MediaBox, id: MessageId, updated: StoreMessage) -> AyuHistoryMessageAttribute? {

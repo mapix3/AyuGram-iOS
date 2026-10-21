@@ -12,7 +12,7 @@ import SGSimpleSettings
 import SGStrings
 
 private enum AyuScreenSection: Int32 {
-    case hero, ghost, hide, behavior, content, history, client, update, notifications, support
+    case hero, ghost, hide, behavior, content, history, transfer, client, update, notifications, support
 }
 
 private enum AyuScreenToggle: Equatable {
@@ -23,7 +23,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, bark
+    case history, appearance, update, checkUpdates, channel, developer, bark, importChat
 }
 
 private enum AyuScreenTint: Equatable {
@@ -161,6 +161,10 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 52, section: .history, link: .history, symbol: "clock.fill", tint: .teal, title: s("Ayu.OpenHistory")))
     entries.append(.footer(id: 53, section: .history, text: s("Ayu.HistoryInfo")))
 
+    entries.append(.header(id: 55, section: .transfer, text: s("Ayu.ChatTransferSection")))
+    entries.append(.link(id: 56, section: .transfer, link: .importChat, symbol: "square.and.arrow.down.fill", tint: .green, title: s("Ayu.ImportChat")))
+    entries.append(.footer(id: 57, section: .transfer, text: s("Ayu.ImportChatFooter")))
+
     entries.append(.header(id: 60, section: .client, text: s("Ayu.ClientSection")))
     entries.append(.toggle(id: 61, section: .client, key: .premium, symbol: "star.fill", tint: .purple, title: s("Ayu.LocalPremium"), subtitle: s("Ayu.LocalPremiumInfo"), value: client.localPremium, enabled: true))
     if hasAppearance {
@@ -249,6 +253,8 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             ayuGramSetUpBark(context: context, present: { controller in
                 presentController?(controller)
             })
+        case .importChat:
+            ayuGramImportChat(context: context)
         }
     })
     let hasAppearance = ayuGramHasAppearanceEntry

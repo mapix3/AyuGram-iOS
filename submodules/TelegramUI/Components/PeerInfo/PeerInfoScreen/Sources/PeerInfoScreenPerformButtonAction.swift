@@ -1,3 +1,5 @@
+import SGSettingsUI
+import SGStrings
 import Foundation
 import UIKit
 import Display
@@ -1304,7 +1306,43 @@ extension PeerInfoScreenNode {
                         }
                     }
                 }
-                
+
+                // MARK: AyuGram
+                var canExportChat = false
+                switch chatPeer {
+                case .user, .legacyGroup, .channel:
+                    canExportChat = strongSelf.peerId.namespace != Namespaces.Peer.SecretChat
+                default:
+                    break
+                }
+                if canExportChat {
+                    let exportPeerId = chatPeer.id
+                    let exportItem: ContextMenuItem = .action(ContextMenuActionItem(text: i18n("Ayu.ExportChat", presentationData.strings.baseLanguageCode), icon: { theme in
+                        generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Share"), color: theme.contextMenu.primaryColor)
+                    }, action: { [weak self] _, f in
+                        f(.dismissWithoutContent)
+                        guard let self else {
+                            return
+                        }
+                        ayuGramExportChat(context: self.context, peerId: exportPeerId, present: { [weak self] controller in
+                            self?.controller?.present(controller, in: .window(.root))
+                        })
+                    }))
+                    // Above the leave / delete items, which follow the first separator.
+                    if let separatorIndex = items.firstIndex(where: { item in
+                        if case .separator = item {
+                            return true
+                        } else {
+                            return false
+                        }
+                    }) {
+                        items.insert(exportItem, at: separatorIndex)
+                    } else {
+                        items.append(exportItem)
+                    }
+                }
+                //
+
                 return .single(items)
             }
             

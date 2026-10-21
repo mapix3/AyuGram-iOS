@@ -111,6 +111,18 @@ public extension TelegramEngine {
             return _internal_ayuReportContentViewed(account: self.account, messageId: messageId)
         }
 
+        /// AyuGram chat export: one page of the peer's server history, newest first, older than
+        /// `offsetId` (0 = newest). Nil on failure, empty at the start of the chat.
+        public func ayuExportHistoryPage(peerId: EnginePeer.Id, offsetId: Int32, limit: Int32 = 100) -> Signal<(messages: [EngineMessage], totalCount: Int)?, NoError> {
+            return _internal_ayuExportHistoryPage(account: self.account, peerId: peerId, offsetId: offsetId, limit: limit)
+            |> map { result -> (messages: [EngineMessage], totalCount: Int)? in
+                guard let result = result else {
+                    return nil
+                }
+                return (messages: result.messages.map(EngineMessage.init), totalCount: result.totalCount)
+            }
+        }
+
         public func stopIncomingTypingDraft(peerId: EnginePeer.Id, threadId: Int64?) -> Signal<Never, NoError> {
             return _internal_stopIncomingTypingDraft(postbox: self.account.postbox, network: self.account.network, peerId: peerId, threadId: threadId)
         }

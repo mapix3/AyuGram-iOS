@@ -14,8 +14,8 @@ import SGItemListUI
 import SGStrings
 import ConvertOpusToAAC
 
-private enum HistorySection: Int32, SGItemListSection { case summary, entries, options, chats, actions }
-private enum HistoryAction: Hashable { case clear, selectChats, chatOptions(Int64), media(String, String), author(Int64), chat(Int64, Int32), filter(Int), menu(Int64, Int32, String, Int32, String?, String) }
+private enum HistorySection: Int32, SGItemListSection { case summary, deletedChats, entries, options, chats, actions }
+private enum HistoryAction: Hashable { case clear, selectChats, deletedChats, chatOptions(Int64), media(String, String), author(Int64), chat(Int64, Int32), filter(Int), menu(Int64, Int32, String, Int32, String?, String) }
 private typealias HistorySettingsEntry = SGItemListUIEntry<HistorySection, Int, Int, Int, Int, HistoryAction>
 private typealias HistoryArguments = SGItemListArguments<Int, Int, Int, Int, HistoryAction>
 
@@ -26,19 +26,21 @@ private enum HistoryEntry: ItemListNodeEntry {
     case day(Int, String, Int)
     case record(Int, AyuGramHistoryEntry, EnginePeer?)
     case chat(Int, EnginePeer, Int)
+    case deletedChats(Int, String, Int)
     var section: ItemListSectionId {
         switch self {
         case let .setting(value): return value.section
         case .summary: return HistorySection.summary.rawValue
         case .empty, .day, .record: return HistorySection.entries.rawValue
         case .chat: return HistorySection.chats.rawValue
+        case .deletedChats: return HistorySection.deletedChats.rawValue
         }
     }
     var stableId: Int {
         switch self {
         case let .setting(value): return value.stableId
         case .summary: return 0
-        case let .empty(id, _, _), let .day(id, _, _), let .record(id, _, _), let .chat(id, _, _): return id
+        case let .empty(id, _, _), let .day(id, _, _), let .record(id, _, _), let .chat(id, _, _), let .deletedChats(id, _, _): return id
         }
     }
     static func < (lhs: HistoryEntry, rhs: HistoryEntry) -> Bool { lhs.stableId < rhs.stableId }
@@ -56,6 +58,8 @@ private enum HistoryEntry: ItemListNodeEntry {
             return AyuGramHistoryCardItem(context: args.context, data: presentationData, record: record, peer: peer, sectionId: section, openAuthor: { if let id = record.authorId { args.action(.author(id)) } }, openChat: { args.action(.chat(record.peerId, record.messageId)) }, openMedia: { if let name = record.photoFileName { args.action(.media(name, record.mediaKind ?? "photo")) } }, openMenu: { args.action(.menu(record.peerId, record.messageId, record.event, record.timestamp, record.photoFileName, record.mediaKind ?? "photo")) })
         case let .chat(_, peer, count):
             return ItemListDisclosureItem(presentationData: presentationData, context: args.context, iconPeer: peer, title: peer.debugDisplayTitle, label: count > 0 ? "\(count)" : "", sectionId: section, style: .blocks, action: { args.action(.chatOptions(peer.id.toInt64())) })
+        case let .deletedChats(_, title, count):
+            return ItemListDisclosureItem(presentationData: presentationData, icon: UIImage(systemName: "trash.circle.fill")?.withTintColor(presentationData.theme.list.itemDestructiveColor, renderingMode: .alwaysOriginal), title: title, label: "\(count)", sectionId: section, style: .blocks, action: { args.action(.deletedChats) })
         }
     }
 }
@@ -102,9 +106,10 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
             return peers
         }
     }
-    let signal = combineLatest(context.sharedContext.presentationData, records.get(), policy.get(), filter.get(), peers)
+    let deletedChats: Signal<Int, NoError> = messageId == nil ? (context.engine.ayuGramDeletedChats() |> map { $0.count }) : .single(0)
+    let signal = combineLatest(context.sharedContext.presentationData, records.get(), policy.get(), filter.get(), peers, deletedChats)
     |> deliverOnMainQueue
-    |> map { presentationData, records, policyData, filterValue, peersById -> (ItemListControllerState, (ItemListNodeState, HistoryArguments)) in
+    |> map { presentationData, records, policyData, filterValue, peersById, deletedChatCount -> (ItemListControllerState, (ItemListNodeState, HistoryArguments)) in
         let locale = presentationData.strings.baseLanguageCode
         let records = records.filter { messageId == nil || ($0.peerId == messageId?.peerId.toInt64() && $0.messageId == messageId?.id) }
         let (current, peers) = policyData
@@ -113,6 +118,9 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
         if messageId == nil {
             let deleted = records.filter { $0.event != "edited" }.count
             entries.append(.summary(AyuGramHistorySummary(total: records.count, deleted: deleted, edited: records.count - deleted, filter: filterValue)))
+            if deletedChatCount > 0 {
+                entries.append(.deletedChats(2, i18n("Ayu.DeletedChats", locale), deletedChatCount))
+            }
             visible = records.filter { filterValue == 0 || (filterValue == 1) == ($0.event != "edited") }
         } else {
             visible = records
@@ -196,6 +204,8 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
                 ActionSheetItemGroup(items: [ActionSheetButtonItem(title: data.strings.Common_Cancel, color: .accent, action: { [weak sheet] in sheet?.dismissAnimated() })])
             ])
             controller.present(sheet, in: .window(.root))
+        case .deletedChats:
+            (controller.navigationController as? NavigationController)?.pushViewController(ayuGramDeletedChatsController(context: context))
         case let .filter(value):
             filter.set(value)
         case let .menu(peerId, messageId, event, timestamp, fileName, kind):

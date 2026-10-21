@@ -40,6 +40,10 @@ swift_library(
         "//submodules/TelegramUI/Components/Settings/PeerNameColorScreen",
         "//submodules/UndoUI:UndoUI",
         "//submodules/PromptUI:PromptUI",
+        "//submodules/ChatImportUI:ChatImportUI",
+        "//third-party/ZipArchive:ZipArchive",
+        "//submodules/ManagedFile:ManagedFile",
+        "//submodules/TelegramUI/Components/SaveProgressScreen:SaveProgressScreen",
     ],
     visibility = [
         "//visibility:public",
