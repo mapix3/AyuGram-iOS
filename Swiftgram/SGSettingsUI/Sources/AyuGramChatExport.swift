@@ -431,7 +431,12 @@ public func ayuGramExportChat(context: AccountContext, peerId: EnginePeer.Id, pr
             let title = peer?.debugDisplayTitle ?? ""
             let job = ayuExportProgressScreen(context: context, peerId: peerId, text: i18n("Ayu.ExportChatLoading", locale, "0"), present: present)
             ayuExportLoadHistory(job: job, offsetId: 0, loaded: [], completion: { [weak job] messages in
-                job?.writeArchive(title: title, messages: messages, includeMedia: includeMedia, fetchMedia: true)
+                // Deleted messages AyuGram kept are gone from the server; they come from the device.
+                let _ = (context.engine.ayuGramDeletedChatMessages(peerId: peerId)
+                |> deliverOnMainQueue).startStandalone(next: { kept in
+                    let serverIds = Set(messages.map { $0.id })
+                    job?.writeArchive(title: title, messages: messages + kept.filter { !serverIds.contains($0.id) }, includeMedia: includeMedia, fetchMedia: true)
+                })
             })
         })
     }
