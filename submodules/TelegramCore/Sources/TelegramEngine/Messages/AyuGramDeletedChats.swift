@@ -18,19 +18,19 @@ private let ayuGramDeletedChatMinimum = 3
 /// How many of the newest messages must all be deleted copies.
 private let ayuGramDeletedChatScanLimit = 200
 
-private func ayuGramDeletedChats(transaction: Transaction) -> AyuGramDeletedChats {
+private func ayuGramLoadDeletedChats(transaction: Transaction) -> AyuGramDeletedChats {
     return transaction.getPreferencesEntry(key: ayuGramDeletedChatsKey)?.get(AyuGramDeletedChats.self) ?? AyuGramDeletedChats(chats: [])
 }
 
 func ayuGramDeletedChatPeers(transaction: Transaction) -> Set<Int64> {
-    return Set(ayuGramDeletedChats(transaction: transaction).chats.map { $0.peerId })
+    return Set(ayuGramLoadDeletedChats(transaction: transaction).chats.map { $0.peerId })
 }
 
 /// Called after a remote deletion kept copies of `retained`: a chat whose newest messages
 /// are now all deleted copies lost its whole history.
 func ayuGramFlagDeletedChats(transaction: Transaction, retained: [MessageId]) {
     guard AyuGramSettings.shared.snapshot.messageHistory else { return }
-    var list = ayuGramDeletedChats(transaction: transaction)
+    var list = ayuGramLoadDeletedChats(transaction: transaction)
     var changed = false
     let now = Int32(Date().timeIntervalSince1970)
     for (peerId, ids) in Dictionary(grouping: retained, by: { $0.peerId }) where ids.count >= ayuGramDeletedChatMinimum {
@@ -76,7 +76,7 @@ public extension TelegramEngine {
         return self.account.postbox.preferencesView(keys: [ayuGramDeletedChatsKey])
         |> mapToSignal { _ -> Signal<[(chat: AyuGramDeletedChat, peer: EnginePeer?, count: Int)], NoError> in
             return self.account.postbox.transaction { transaction -> [(chat: AyuGramDeletedChat, peer: EnginePeer?, count: Int)] in
-                return ayuGramDeletedChats(transaction: transaction).chats.sorted(by: { $0.deletedAt > $1.deletedAt }).map { chat in
+                return ayuGramLoadDeletedChats(transaction: transaction).chats.sorted(by: { $0.deletedAt > $1.deletedAt }).map { chat in
                     let peerId = PeerId(chat.peerId)
                     return (chat, transaction.getPeer(peerId).map(EnginePeer.init), ayuGramDeletedCopies(transaction: transaction, peerId: peerId).count)
                 }
@@ -95,7 +95,7 @@ public extension TelegramEngine {
     /// otherwise they stay in the chat like other deleted messages.
     func ayuGramForgetDeletedChat(peerId: EnginePeer.Id, deleteMessages: Bool) -> Signal<Void, NoError> {
         return self.account.postbox.transaction { transaction -> Void in
-            var list = ayuGramDeletedChats(transaction: transaction)
+            var list = ayuGramLoadDeletedChats(transaction: transaction)
             list.chats.removeAll(where: { $0.peerId == peerId.toInt64() })
             transaction.setPreferencesEntry(key: ayuGramDeletedChatsKey, value: list.chats.isEmpty ? nil : PreferencesEntry(list))
             if deleteMessages {
