@@ -45,29 +45,46 @@ enum AyuGramPushRelay {
         return true
     }
 
-    /// The key from a Bark key or from a link the Bark app shows (`https://api.day.app/KEY/...`).
-    /// Returns "" for empty input and nil for anything that is not a key.
+    /// The key from whatever the Bark app lets you copy: the key itself, a link
+    /// (`https://api.day.app/KEY/...`), a `GET` line, a `curl` command or its JSON body
+    /// (`"device_key": "KEY"`). Returns "" for empty input and nil when no key is found.
     static func parseBarkKey(_ input: String) -> String? {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty {
             return ""
         }
-        var key = text
-        if text.contains("://") {
-            guard let url = URL(string: text), let first = url.pathComponents.first(where: { $0 != "/" }) else {
-                return nil
+        let patterns = [
+            "\"device_key\"\\s*:\\s*\"([A-Za-z0-9]+)\"",
+            "device_key=([A-Za-z0-9]+)",
+            "https?://[^/\\s\"']+/([A-Za-z0-9]+)(?=[/?#\\s\"']|$)"
+        ]
+        var candidates: [String] = []
+        let range = NSRange(text.startIndex ..< text.endIndex, in: text)
+        for pattern in patterns {
+            guard let expression = try? NSRegularExpression(pattern: pattern) else {
+                continue
             }
-            key = first
+            for match in expression.matches(in: text, range: range) {
+                if let captured = Range(match.range(at: 1), in: text) {
+                    candidates.append(String(text[captured]))
+                }
+            }
         }
-        let allowed = CharacterSet.alphanumerics
-        guard key.count >= 8, key.count <= 64, key.unicodeScalars.allSatisfy({ allowed.contains($0) && $0.isASCII }) else {
-            return nil
+        if candidates.isEmpty, !text.contains("://") {
+            candidates.append(text.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+        }
+        return candidates.first(where: isBarkKey)
+    }
+
+    private static func isBarkKey(_ key: String) -> Bool {
+        guard key.count >= 8, key.count <= 64, key.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) && $0.isASCII }) else {
+            return false
         }
         // Bark's settings also show the 64-digit APNs device token, which is not the key.
         if key.count == 64, key.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0) }) {
-            return nil
+            return false
         }
-        return key
+        return true
     }
 
     /// Private key d (32) | public key (65, uncompressed) | auth secret (16), made once per install.
