@@ -6,7 +6,8 @@
 // Bark device key, so the worker stores nothing: it decrypts the push (RFC 8291) and forwards
 // the title and text to Bark, which shows the notification.
 
-const BARK_PUSH = 'https://api.day.app/push';
+const BARK_BASE = 'https://api.day.app';
+const BARK_PUSH = BARK_BASE + '/push';
 const ICON = 'https://raw.githubusercontent.com/mapix3/AyuGram-iOS/standard/Swiftgram/SGSettingsUI/Images.xcassets/AyuUpdatesChannel.imageset/AyuUpdatesChannel@3x.png';
 
 const encoder = new TextEncoder();
@@ -14,6 +15,15 @@ const encoder = new TextEncoder();
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+    // Open /test/<Bark key> in a browser to send a test notification and see Bark's answer.
+    if (request.method === 'GET' && url.pathname.startsWith('/test/')) {
+      const key = decodeURIComponent(url.pathname.slice(6)).replace(/\/+$/, '');
+      const result = await sendToBark(key, 'AyuGram', 'Test notification');
+      return new Response((result.ok ? 'OK' : 'Bark refused') + ' (' + result.status + '): ' + result.body + '\n', {
+        status: result.ok ? 200 : 502,
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+      });
+    }
     if (request.method !== 'POST' || !url.pathname.startsWith('/p/')) {
       return new Response('AyuGram push relay\n');
     }
@@ -34,11 +44,10 @@ export default {
         return new Response(null, { status: 201 });
       }
       const { title, text } = notification;
-      await fetch(BARK_PUSH, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json; charset=utf-8' },
-        body: JSON.stringify({ device_key: route.barkKey, title, body: text, group: 'AyuGram', icon: ICON, url: 'ayugram://' }),
-      });
+      const result = await sendToBark(route.barkKey, title, text);
+      if (!result.ok) {
+        console.log('Bark refused the push: ' + result.status + ' ' + result.body);
+      }
     } catch (error) {
       console.log('push not delivered: ' + error);
     }
@@ -46,6 +55,27 @@ export default {
     return new Response(null, { status: 201 });
   },
 };
+
+// Sends a notification through Bark's JSON API; if Bark refuses it, retries with the older
+// path API (/<key>/<title>/<body>). Returns the last answer.
+export async function sendToBark(key, title, text) {
+  const attempt = async (request) => {
+    const response = await request();
+    return { ok: response.ok, status: response.status, body: (await response.text()).slice(0, 300) };
+  };
+  const json = await attempt(() => fetch(BARK_PUSH, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ device_key: key, title, body: text, group: 'AyuGram', icon: ICON, url: 'ayugram://' }),
+  }));
+  if (json.ok) {
+    return json;
+  }
+  const query = new URLSearchParams({ group: 'AyuGram', icon: ICON, url: 'ayugram://' });
+  const path = BARK_BASE + '/' + encodeURIComponent(key) + '/' + encodeURIComponent(title) + '/' + encodeURIComponent(text) + '?' + query;
+  const legacy = await attempt(() => fetch(path));
+  return legacy.ok ? legacy : { ok: false, status: legacy.status, body: 'json ' + json.status + ' ' + json.body + ' | path ' + legacy.status + ' ' + legacy.body };
+}
 
 // Path layout (base64url): private key d (32) | public key (65, uncompressed) | auth (16) | Bark key.
 export function parseRoute(token) {
