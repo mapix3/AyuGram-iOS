@@ -144,7 +144,10 @@ def build(source, ci, output, env):
                             b'build --//Telegram:disableProvisioningProfiles=true\n'
                             b'build --features=disable_legacy_signing\n'
                             b'build --jobs=2\n'
-                            b'build --worker_max_instances=SwiftCompile=1\n')
+                            b'build --worker_max_instances=SwiftCompile=1\n'
+                            # A module with many warnings can exceed Bazel's 1 MB output cap,
+                            # which hides its compile errors from the log.
+                            b'build --experimental_ui_max_stdouterr_bytes=-1\n')
         # Let the repository download and checksum its own Bazel, not brew's latest.
         sys.path.insert(0, str(source / 'build-system/Make'))
         from BazelLocation import locate_bazel, calculate_sha256
