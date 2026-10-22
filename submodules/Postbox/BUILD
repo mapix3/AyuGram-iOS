@@ -85,9 +85,10 @@ swift_library(
         "//submodules/CryptoUtils",
         "//submodules/Utils/DarwinDirStat",
     ],
+    # AyuGram/Swiftgram modules still use Postbox directly, so the library stays public here;
+    # the client lists above document upstream's refactor progress.
     visibility = [
-        ":clients",
-        ":test_clients",
+        "//visibility:public",
     ],
 )
 
