@@ -1,6 +1,6 @@
 {
-  "telegram_version": "13.0",
-  "telegram_sha": "f1dd7a2dbd02cbbf513e75d5695d8d36d1cf5838",
+  "telegram_version": "13.1",
+  "telegram_sha": "1dd3e7f4ed5d72caed1caa04033832c28a5920f5",
   "swiftgram_tag": "12.9.2-281",
   "inbox_pr": 1
 }

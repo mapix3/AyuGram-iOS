@@ -67,7 +67,7 @@ public final class ThemeGridController: ViewController {
         self.presentationData = context.sharedContext.currentPresentationData.with { $0 }
         self.presentationDataPromise.set(.single(self.presentationData))
         
-        super.init(navigationBarPresentationData: NavigationBarPresentationData(presentationData: self.presentationData, style: .glass))
+        super.init(navigationBarPresentationData: NavigationBarPresentationData(presentationData: self.presentationData))
         
         switch mode {
         case .generic:
@@ -125,7 +125,7 @@ public final class ThemeGridController: ViewController {
         }
         
         self.statusBar.statusBarStyle = self.presentationData.theme.rootController.statusBarStyle.style
-        self.navigationBar?.updatePresentationData(NavigationBarPresentationData(presentationData: self.presentationData, style: .glass), transition: .immediate)
+        self.navigationBar?.updatePresentationData(NavigationBarPresentationData(presentationData: self.presentationData), transition: .immediate)
         
         if self.isNodeLoaded {
             self.controllerNode.updatePresentationData(self.presentationData)
@@ -398,30 +398,12 @@ public final class ThemeGridController: ViewController {
         }
         self.controllerNode.gridNode.visibleContentOffsetChanged = { [weak self] offset in
             if let strongSelf = self {
-                var previousContentOffsetValue: CGFloat?
-                if let previousContentOffset = strongSelf.previousContentOffset, case let .known(value) = previousContentOffset {
-                    previousContentOffsetValue = value
-                }
-                switch offset {
-                    case let .known(value):
-                        let transition: ContainedViewLayoutTransition
-                        if let previousContentOffsetValue = previousContentOffsetValue, value <= 0.0, previousContentOffsetValue > 30.0 {
-                            transition = .animated(duration: 0.2, curve: .easeInOut)
-                        } else {
-                            transition = .immediate
-                        }
-                        strongSelf.navigationBar?.updateBackgroundAlpha(min(30.0, max(0.0, value - 54.0)) / 30.0, transition: transition)
-                    case .unknown, .none:
-                        strongSelf.navigationBar?.updateBackgroundAlpha(1.0, transition: .immediate)
-                }
-                
                 strongSelf.previousContentOffset = offset
             }
         }
         
         self._ready.set(self.controllerNode.ready.get())
         
-        self.navigationBar?.updateBackgroundAlpha(0.0, transition: .immediate)
         
         self.displayNodeDidLoad()
         
@@ -469,7 +451,7 @@ public final class ThemeGridController: ViewController {
         } else {
             subject = .text(string)
         }
-        let shareController = context.sharedContext.makeShareController(context: context, params: ShareControllerParams(subject: subject))
+        let shareController = context.sharedContext.makeShareScreen(context: context, params: ShareControllerParams(subject: subject))
         self.present(shareController, in: .window(.root), blockInteraction: true)
         
         self.donePressed()

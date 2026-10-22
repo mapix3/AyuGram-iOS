@@ -1,6 +1,6 @@
 import SGSimpleSettings
 import Foundation
-import TelegramApi
+internal import TelegramApi
 import Postbox
 import SwiftSignalKit
 import MtProtoKit

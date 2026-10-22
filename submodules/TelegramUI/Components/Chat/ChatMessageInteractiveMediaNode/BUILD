@@ -16,7 +16,6 @@ swift_library(
     deps = sgdeps + [
         "//submodules/AsyncDisplayKit",
         "//submodules/LottieSettings:LottieSettings",
-        "//submodules/Postbox",
         "//submodules/SSignalKit/SwiftSignalKit",
         "//submodules/Display",
         "//submodules/ComponentFlow",

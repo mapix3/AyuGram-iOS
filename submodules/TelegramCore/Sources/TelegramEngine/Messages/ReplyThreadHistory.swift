@@ -2,7 +2,7 @@ import SGSimpleSettings
 import Foundation
 import Postbox
 import SwiftSignalKit
-import TelegramApi
+internal import TelegramApi
 
 private struct DiscussionMessage {
     var messageId: MessageId
