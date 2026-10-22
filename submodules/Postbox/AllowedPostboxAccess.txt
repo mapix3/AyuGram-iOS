@@ -81,6 +81,7 @@ submodules/PeerInfoUI/Sources/ChannelMembersSearchControllerNode.swift
 submodules/PhotoResources/Sources/PassResources.swift
 submodules/PhotoResources/Sources/PhotoResources.swift
 submodules/PremiumUI/Sources/PhoneDemoComponent.swift
+submodules/PremiumUI/Sources/PremiumGiftScreen.swift
 submodules/PremiumUI/Sources/PremiumIntroScreen.swift
 submodules/PremiumUI/Sources/StickersCarouselComponent.swift
 submodules/SelectablePeerNode/Sources/SelectablePeerNode.swift
