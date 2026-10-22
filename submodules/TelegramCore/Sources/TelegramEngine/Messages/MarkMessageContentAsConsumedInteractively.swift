@@ -1,7 +1,7 @@
 import Foundation
 import SGSimpleSettings
 import Postbox
-import TelegramApi
+internal import TelegramApi
 import SwiftSignalKit
 
 func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messageId: MessageId, reportToServer: Bool = true, allowPrivateConsumption: Bool = false) -> Signal<Void, NoError> {
