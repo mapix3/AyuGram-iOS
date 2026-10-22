@@ -8,7 +8,6 @@
 #
 # Not checked: test sources (directories named `Tests` or ending in `Tests`), and Postbox and
 # TelegramCore themselves. Keep the entries sorted (byte order, as `LC_ALL=C sort`).
-
 Telegram/NotificationService/Sources/NotificationService.swift
 Telegram/SiriIntents/IntentContacts.swift
 Telegram/SiriIntents/IntentHandler.swift
@@ -44,6 +43,7 @@ submodules/PassportUI/Sources/LegacySecureIdAttachmentMenu.swift
 submodules/PassportUI/Sources/SecureIdLocalResource.swift
 submodules/PhotoResources/Sources/PassResources.swift
 submodules/PhotoResources/Sources/PhotoResources.swift
+submodules/PlatformRestrictionMatching/Sources/PlatformRestrictionMatching.swift
 submodules/PremiumUI/Sources/PremiumIntroScreen.swift
 submodules/ShareController/Sources/ShareController.swift
 submodules/ShareController/Sources/ShareControllerNode.swift
@@ -58,6 +58,7 @@ submodules/TelegramPresentationData/Sources/MakePresentationTheme.swift
 submodules/TelegramPresentationData/Sources/PresentationData.swift
 submodules/TelegramUI/Components/Chat/ChatMessageBubbleItemNode/Sources/ChatMessageBubbleItemNode.swift
 submodules/TelegramUI/Components/Chat/ChatRecentActionsController/Sources/ChatRecentActionsHistoryTransition.swift
+submodules/TelegramUI/Components/ChatControllerInteraction/Sources/ChatControllerInteraction.swift
 submodules/TelegramUI/Components/ChatEntityKeyboardInputNode/Sources/ChatEntityKeyboardInputNode.swift
 submodules/TelegramUI/Components/DebugCompanionScreen/Sources/CompanionCatalog.swift
 submodules/TelegramUI/Components/DebugCompanionScreen/Sources/DebugCompanionScreen.swift
@@ -82,6 +83,7 @@ submodules/TelegramUI/Sources/ChatControllerOpenAttachmentMenu.swift
 submodules/TelegramUI/Sources/ChatHistoryEntriesForView.swift
 submodules/TelegramUI/Sources/ChatHistoryListNode.swift
 submodules/TelegramUI/Sources/ChatHistoryViewForLocation.swift
+submodules/TelegramUI/Sources/ChatInterfaceStateContextMenus.swift
 submodules/TelegramUI/Sources/CreateGroupController.swift
 submodules/TelegramUI/Sources/DocumentPreviewController.swift
 submodules/TelegramUI/Sources/FetchCachedRepresentations.swift
@@ -96,3 +98,6 @@ submodules/TelegramUniversalVideoContent/Sources/SystemVideoContent.swift
 submodules/TelegramUniversalVideoContent/Sources/WebEmbedVideoContent.swift
 submodules/TemporaryCachedPeerDataManager/Sources/ChannelMemberCategoryListContext.swift
 submodules/TemporaryCachedPeerDataManager/Sources/PeerChannelMemberCategoriesContextsManager.swift
+submodules/WatchBridge/Sources/WatchBridge.swift
+submodules/WatchBridge/Sources/WatchCommunicationManager.swift
+submodules/WatchBridge/Sources/WatchRequestHandlers.swift
