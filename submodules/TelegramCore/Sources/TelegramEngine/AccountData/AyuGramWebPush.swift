@@ -1,6 +1,6 @@
 import Foundation
 import SwiftSignalKit
-import TelegramApi
+internal import TelegramApi
 import MtProtoKit
 
 /// Subscribes this session to Telegram's Web Push (token type 10) with a subscription JSON
