@@ -117,7 +117,9 @@ public final class ThemeGridController: ViewController {
             if let isEmpty = self.isEmpty, isEmpty {
             } else {
                 if self.editingMode {
-                    self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "___done", style: .done, target: self, action: #selector(self.donePressed))
+                    let doneItem = UIBarButtonItem(title: "___done", style: .done, target: self, action: #selector(self.donePressed))
+                    doneItem.staysInRow = true
+                    self.navigationItem.rightBarButtonItem = doneItem
                 } else {
                     self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: self.presentationData.strings.Common_Edit, style: .plain, target: self, action: #selector(self.editPressed))
                 }
@@ -267,7 +269,9 @@ public final class ThemeGridController: ViewController {
                             strongSelf.navigationItem.setRightBarButton(nil, animated: true)
                         } else {
                             if strongSelf.editingMode {
-                                strongSelf.navigationItem.rightBarButtonItem = UIBarButtonItem(title: strongSelf.presentationData.strings.Common_Done, style: .done, target: strongSelf, action: #selector(strongSelf.donePressed))
+                                let doneItem = UIBarButtonItem(title: "___done", style: .done, target: strongSelf, action: #selector(strongSelf.donePressed))
+                                doneItem.staysInRow = true
+                                strongSelf.navigationItem.rightBarButtonItem = doneItem
                             } else {
                                 strongSelf.navigationItem.rightBarButtonItem = UIBarButtonItem(title: strongSelf.presentationData.strings.Common_Edit, style: .plain, target: strongSelf, action: #selector(strongSelf.editPressed))
                             }
@@ -465,7 +469,9 @@ public final class ThemeGridController: ViewController {
     
     @objc func editPressed() {
         self.editingMode = true
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "___done", style: .done, target: self, action: #selector(self.donePressed))
+        let doneItem = UIBarButtonItem(title: "___done", style: .done, target: self, action: #selector(self.donePressed))
+        doneItem.staysInRow = true
+        self.navigationItem.setRightBarButton(doneItem, animated: true)
         self.controllerNode.updateState { state in
             var state = state
             state.editing = true
@@ -475,7 +481,7 @@ public final class ThemeGridController: ViewController {
     
     @objc func donePressed() {
         self.editingMode = false
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: self.presentationData.strings.Common_Edit, style: .plain, target: self, action: #selector(self.editPressed))
+        self.navigationItem.setRightBarButton(UIBarButtonItem(title: self.presentationData.strings.Common_Edit, style: .plain, target: self, action: #selector(self.editPressed)), animated: true)
         self.controllerNode.updateState { state in
             var state = state
             state.editing = false
