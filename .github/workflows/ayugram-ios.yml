@@ -31,7 +31,7 @@ jobs:
       matrix:
         variant: ${{ fromJSON(inputs.variant == 'custom' && '["custom"]' || inputs.variant == 'standard' && '["standard"]' || '["standard","custom"]') }}
     # Set repository variable AYUGRAM_RUNNER to a larger macOS runner label if needed.
-    runs-on: ${{ vars.AYUGRAM_RUNNER || 'macos-26' }}
+    runs-on: ${{ vars.AYUGRAM_RUNNER || 'xcode-27' }}
     timeout-minutes: 360
     defaults:
       run:

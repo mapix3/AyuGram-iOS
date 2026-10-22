@@ -2,7 +2,7 @@ import SGSimpleSettings
 import Foundation
 import SwiftSignalKit
 import Postbox
-import TelegramApi
+internal import TelegramApi
 
 public extension TelegramEngine {
     final class AccountData {
