@@ -89,5 +89,22 @@ class ArtifactTests(unittest.TestCase):
             self.assertTrue(keep.exists())
 
 
+
+class BuildOutputTests(unittest.TestCase):
+    def test_keeps_errors_and_drops_warnings(self):
+        lines = [
+            'a.swift:1:2: warning: unused\n', ' 1 | let x = 1\n', '   | `- warning: unused\n', '\n',
+            'b.swift:4:8: error: ambiguous import\n', ' 4 | import TelegramApi\n',
+            '[1 / 9] Compiling A\n', '[2 / 9] Compiling B\n',
+            'c.swift:9:1: note: declared here\n', 'ERROR: Build did NOT complete successfully\n',
+        ]
+        times = iter([0.0, 10.0])
+        written = []
+        ci.filter_build_output(lines, written.append, clock=lambda: next(times))
+        self.assertEqual(written, [
+            'b.swift:4:8: error: ambiguous import\n', ' 4 | import TelegramApi\n',
+            '[1 / 9] Compiling A\n', 'ERROR: Build did NOT complete successfully\n',
+        ])
+
 if __name__ == '__main__':
     unittest.main()
