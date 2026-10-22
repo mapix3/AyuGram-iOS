@@ -6391,6 +6391,14 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             let _ = strongSelf.context.engine.peers.markChatListFeaturedFiltersAsSeen().startStandalone()
             let (_, filterItems) = filterItemsAndTotalCount
             
+            // The list keeps an .allChats entry (the server's dialogFilterDefault) without any folders
+            let hasFolders = presetList.contains(where: { filter in
+                if case .filter = filter {
+                    return true
+                }
+                return false
+            })
+            
             var items: [ContextMenuItem] = []
             if AyuGramSettings.shared.extra.ghostQuickToggle {
                 // AyuGram: one-tap Ghost Mode from the Chats tab.
@@ -6409,8 +6417,8 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                 })))
                 items.append(.separator)
             }
-            items.append(.action(ContextMenuActionItem(text: presetList.isEmpty ? strongSelf.presentationData.strings.ChatList_AddFolder : strongSelf.presentationData.strings.ChatList_EditFolders, icon: { theme in
-                return generateTintedImage(image: UIImage(bundleImageName: presetList.isEmpty ? "Chat/Context Menu/Add" : "Chat/Context Menu/EditFolder"), color: theme.contextMenu.primaryColor)
+            items.append(.action(ContextMenuActionItem(text: hasFolders ? strongSelf.presentationData.strings.ChatList_EditFolders : strongSelf.presentationData.strings.ChatList_AddFolder, icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: hasFolders ? "Chat/Context Menu/EditFolder" : "Chat/Context Menu/Add"), color: theme.contextMenu.primaryColor)
             }, action: { c, f in
                 c?.dismiss(completion: {
                     guard let strongSelf = self else {
@@ -6434,7 +6442,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                 })))
             }
             
-            if !presetList.isEmpty {
+            if hasFolders {
                 if strongSelf.chatListDisplayNode.effectiveContainerNode.currentItemNode.chatListFilter == nil {
                     items.append(.separator)
                 }
