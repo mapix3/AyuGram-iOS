@@ -22,6 +22,44 @@ def run(args, cwd=None, capture=False):
                           text=True, stdout=subprocess.PIPE if capture else None).stdout
 
 
+# Compiler diagnostics that are not errors, and the source lines quoted under them.
+_QUIET_DIAGNOSTIC = re.compile(r'^\S+:\d+:\d+: (warning|note|remark): ')
+_PROGRESS = re.compile(r'^\[[\d,]+ / [\d,]+\] ')
+
+
+def filter_build_output(lines, write, interval=60.0, clock=None):
+    """Writes the lines of a build log worth keeping: errors with the lines quoted under
+    them, Bazel's own messages, and a progress line at most every `interval` seconds.
+    Warnings run to megabytes on this build and took the runner down with them."""
+    import time
+    clock = clock or time.monotonic
+    quiet = False
+    last_progress = None
+    for line in lines:
+        if _QUIET_DIAGNOSTIC.match(line):
+            quiet = True
+            continue
+        if quiet and (line[:1] in (' ', '\t', '|') or not line.strip()):
+            continue
+        quiet = False
+        if _PROGRESS.match(line):
+            now = clock()
+            if last_progress is not None and now - last_progress < interval:
+                continue
+            last_progress = now
+        write(line)
+
+
+def run_build(args, cwd=None):
+    print('+ ' + ' '.join(map(str, args)), flush=True)
+    process = subprocess.Popen(list(map(str, args)), cwd=cwd, text=True, errors='replace',
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    filter_build_output(process.stdout, lambda line: print(line, end='', flush=True))
+    if process.wait() != 0:
+        subprocess.run(['df', '-h', str(cwd or '.')])
+        raise subprocess.CalledProcessError(process.returncode, args)
+
+
 def build_configuration(env):
     required = ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'APPLE_TEAM_ID', 'APP_BUNDLE_ID']
     missing = [key for key in required if not env.get(key, '').strip()]
@@ -195,7 +233,7 @@ def build(source, ci, output, env):
         run(make + ['generateProject'] + common + ['--disableProvisioningProfiles'], cwd=source)
         if not (source / 'Telegram/Swiftgram.xcodeproj').is_dir():
             raise ValueError('Make.py did not generate Telegram/Swiftgram.xcodeproj')
-        run(make + ['build', '--continueOnError'] + common + ['--configuration=' + configuration], cwd=source)
+        run_build(make + ['build', '--continueOnError'] + common + ['--configuration=' + configuration], cwd=source)
         ipa = source / 'bazel-bin/Telegram/Swiftgram.ipa'
         if not ipa.is_file():
             raise FileNotFoundError('Make.py succeeded but Swiftgram.ipa is missing')
