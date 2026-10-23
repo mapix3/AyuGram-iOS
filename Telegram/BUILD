@@ -469,6 +469,7 @@ plist_fragment(
             <key>CFBundleURLSchemes</key>
             <array>
                 <string>sg</string>
+                <string>ayugram</string>
             </array>
         </dict>
     </array>
@@ -1885,6 +1886,13 @@ plist_fragment(
     <false/>
     <key>LSApplicationQueriesSchemes</key>
     <array>
+        <string>bark</string>
+        <string>sidestore</string>
+        <string>livecontainer</string>
+        <string>altstore</string>
+        <string>feather</string>
+        <string>esign</string>
+        <string>scarlet</string>
         <string>instagram</string>
         <string>comgooglemaps-x-callback</string>
         <string>foursquare</string>
