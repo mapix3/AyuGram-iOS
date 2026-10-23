@@ -93,6 +93,15 @@ jobs:
           df -h /
           sysctl -n hw.memsize hw.ncpu
 
+      # Xcode 26 and later ship the Metal compiler as a separate download; the shaders need it.
+      - name: Install the Metal toolchain
+        run: |
+          set -euo pipefail
+          if ! xcrun metal --version >/dev/null 2>&1; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun metal --version
+
       - name: Check build utilities
         run: |
           set -euo pipefail
