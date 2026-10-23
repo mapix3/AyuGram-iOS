@@ -125,8 +125,8 @@ def check_update_installers(source: Path):
     # Without TrollStore the Magnifier scheme opens the system Magnifier.
     assert prompt.count('apple-magnifier://') == 1 and 'if ayuGramInstalledByTrollStore, let url = URL(string: "apple-magnifier://' in prompt
     assert '/releases/tag/' in prompt, 'Without an installer the release page opens'
-    for plist in ['Info.plist', 'InfoBazel.plist']:
-        text = (source / 'Telegram/Telegram-iOS' / plist).read_text()
+    for plist in ['Telegram-iOS/Info.plist', 'Telegram-iOS/InfoBazel.plist', 'BUILD']:
+        text = (source / 'Telegram' / plist).read_text()
         for scheme in re.findall(r'\("([a-z]+)", \{ "\1://', prompt):
             assert '<string>%s</string>' % scheme in text, (plist, scheme)
 
@@ -152,8 +152,8 @@ def check_push_relay(source: Path):
     assert 'blob.slice(113)' in worker and 'blob.slice(32, 97)' in worker
     assert re.search(r'baseURL = "https://[^"]+"', relay), 'The relay address is set'
     assert 'AyuGramPushRelay.renew(context: context)' in (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramUpdatePrompt.swift').read_text()
-    for plist in ['Info.plist', 'InfoBazel.plist']:
-        text = (source / 'Telegram/Telegram-iOS' / plist).read_text()
+    for plist in ['Telegram-iOS/Info.plist', 'Telegram-iOS/InfoBazel.plist', 'BUILD']:
+        text = (source / 'Telegram' / plist).read_text()
         assert '<string>ayugram</string>' in text, 'Bark opens AyuGram'
         assert '<string>bark</string>' in text, 'AyuGram can tell whether Bark is installed'
     assert 'apps.apple.com/app/id1403753865' in relay, 'Without Bark its App Store page opens'
