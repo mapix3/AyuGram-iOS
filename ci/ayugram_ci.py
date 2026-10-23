@@ -188,9 +188,9 @@ def build(source, ci, output, env):
                             b'build --experimental_ui_max_stdouterr_bytes=-1\n'
                             # Each new Xcode adds warnings, and with -warnings-as-errors one
                             # module failing hides the errors of every module above it until
-                            # the next run. --swiftcopt comes after a target's copts, so this
-                            # wins; Make.py does the same for the Swiftgram playground.
-                            b'build --swiftcopt=-no-warnings-as-errors\n')
+                            # the next run. rules_swift applies its copt setting after a target's
+                            # copts, so this wins (Bazel 9 has no native --swiftcopt).
+                            b'build --@build_bazel_rules_swift//swift:copt=-no-warnings-as-errors\n')
         # Let the repository download and checksum its own Bazel, not brew's latest.
         sys.path.insert(0, str(source / 'build-system/Make'))
         from BazelLocation import locate_bazel, calculate_sha256
