@@ -71,6 +71,28 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
           df -h .
 
+      # The xcode-27 image ships other Xcodes, simulator runtimes and SDKs the build never uses.
+      # Without the space, the runner died about an hour into the Telegram 13.1 build, logs and all.
+      - name: Free disk space
+        run: |
+          set -uo pipefail
+          df -h /
+          # The pinned Xcode may be a symlink to another name: keep its real path too.
+          KEEP="$(cd "${DEVELOPER_DIR%/Contents/Developer}" && pwd -P)"
+          [[ -n "$KEEP" && -x "$KEEP/Contents/Developer/usr/bin/xcodebuild" ]] || { echo "::error::Pinned Xcode not found"; exit 1; }
+          for app in /Applications/Xcode*.app; do
+            if [[ ! -L "$app" && "$(cd "$app" && pwd -P)" != "$KEEP" ]]; then
+              sudo rm -rf "$app" &
+            fi
+          done
+          xcrun simctl shutdown all 2>/dev/null
+          xcrun simctl delete all 2>/dev/null
+          xcrun simctl runtime delete all 2>/dev/null
+          sudo rm -rf ~/Library/Android /usr/local/share/dotnet ~/.dotnet ~/Library/Developer/CoreSimulator/Caches &
+          wait
+          df -h /
+          sysctl -n hw.memsize hw.ncpu
+
       - name: Check build utilities
         run: |
           set -euo pipefail
