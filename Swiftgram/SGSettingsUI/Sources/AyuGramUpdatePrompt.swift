@@ -55,8 +55,18 @@ var ayuGramRunsInLiveContainer: Bool {
 /// In LiveContainer's multitask mode an app runs in the LiveProcess extension while
 /// LiveContainer itself stays free to install.
 private var ayuGramRunsInLiveProcess: Bool {
-    let process = ProcessInfo.processInfo
-    return process.processName == "LiveProcess" || process.arguments.first?.contains("LiveProcess.appex") == true
+    let defaults: AnyClass = UserDefaults.self
+    let isLiveProcess = NSSelectorFromString("isLiveProcess")
+    if let method = class_getClassMethod(defaults, isLiveProcess) {
+        typealias Getter = @convention(c) (AnyClass, Selector) -> Bool
+        return unsafeBitCast(method_getImplementation(method), to: Getter.self)(defaults, isLiveProcess)
+    }
+    let lcMainBundle = NSSelectorFromString("lcMainBundle")
+    if let method = class_getClassMethod(defaults, lcMainBundle) {
+        typealias Getter = @convention(c) (AnyClass, Selector) -> Unmanaged<Bundle>?
+        return unsafeBitCast(method_getImplementation(method), to: Getter.self)(defaults, lcMainBundle)?.takeUnretainedValue().bundlePath.hasSuffix("LiveProcess.appex") == true
+    }
+    return false
 }
 
 private func ayuGramOpenInstaller(_ candidates: ArraySlice<URL>, fallback: URL) {
