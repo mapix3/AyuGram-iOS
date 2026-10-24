@@ -5,6 +5,11 @@ internal import TelegramApi
 import MtProtoKit
 import SGSimpleSettings
 
+private struct AyuGramSeenReactions: Codable {
+    var id: Int32
+    var keys: [String]
+}
+
 /// With read receipts hidden, mentions and reactions you have seen are read only on this
 /// device. The server is told when you next send a message in that chat. Mentions whose read
 /// state the sender can see (voice, round video, timer media) are never reported. Both lists
@@ -12,6 +17,7 @@ import SGSimpleSettings
 private struct AyuGramDeferredReads: Codable {
     var mentions: [Int32]
     var reactions: [Int32]
+    var seenReactions: [AyuGramSeenReactions]?
 }
 
 private let ayuGramDeferredReadsLimit = 500
@@ -31,6 +37,9 @@ private func ayuGramUpdateDeferredReads(transaction: Transaction, peerId: PeerId
     f(&reads)
     reads.mentions = Array(reads.mentions.suffix(ayuGramDeferredReadsLimit))
     reads.reactions = Array(reads.reactions.suffix(ayuGramDeferredReadsLimit))
+    let reactionIds = Set(reads.reactions)
+    let seenReactions = (reads.seenReactions ?? []).filter { reactionIds.contains($0.id) }
+    reads.seenReactions = seenReactions.isEmpty ? nil : seenReactions
     if reads.mentions.isEmpty && reads.reactions.isEmpty {
         transaction.removeItemCacheEntry(id: ayuGramDeferredReadsEntryId(peerId))
     } else if let entry = CodableEntry(reads) {
@@ -47,12 +56,36 @@ func ayuDeferMentionRead(transaction: Transaction, id: MessageId) {
     }
 }
 
+private func ayuReactionKeys(transaction: Transaction, id: MessageId, unseen: Bool) -> [String] {
+    guard let attribute = transaction.getMessage(id)?.attributes.first(where: { $0 is ReactionsMessageAttribute }) as? ReactionsMessageAttribute else {
+        return []
+    }
+    return attribute.recentPeers.filter { $0.isUnseen == unseen }.map { recentPeer in
+        let value: String
+        switch recentPeer.value {
+        case let .builtin(emoji):
+            value = "b" + emoji
+        case let .custom(fileId):
+            value = "c\(fileId)"
+        case .stars:
+            value = "s"
+        }
+        return "\(recentPeer.peerId.toInt64()):\(value):\(recentPeer.timestamp ?? 0)"
+    }
+}
+
 func ayuDeferReactionRead(transaction: Transaction, id: MessageId) {
     guard id.namespace == Namespaces.Message.Cloud else { return }
+    let keys = ayuReactionKeys(transaction: transaction, id: id, unseen: false)
     ayuGramUpdateDeferredReads(transaction: transaction, peerId: id.peerId) { reads in
         if !reads.reactions.contains(id.id) {
             reads.reactions.append(id.id)
         }
+        var seenReactions = reads.seenReactions ?? []
+        let previous = seenReactions.first(where: { $0.id == id.id })?.keys ?? []
+        seenReactions.removeAll(where: { $0.id == id.id })
+        seenReactions.append(AyuGramSeenReactions(id: id.id, keys: Array(Set(previous + keys)).sorted()))
+        reads.seenReactions = seenReactions
     }
 }
 
@@ -61,7 +94,11 @@ func ayuIsDeferredMentionRead(transaction: Transaction, id: MessageId) -> Bool {
 }
 
 func ayuIsDeferredReactionRead(transaction: Transaction, id: MessageId) -> Bool {
-    return ayuGramDeferredReads(transaction: transaction, peerId: id.peerId).reactions.contains(id.id)
+    let reads = ayuGramDeferredReads(transaction: transaction, peerId: id.peerId)
+    guard reads.reactions.contains(id.id), let seen = reads.seenReactions?.first(where: { $0.id == id.id }) else {
+        return false
+    }
+    return Set(ayuReactionKeys(transaction: transaction, id: id, unseen: true)).isSubset(of: Set(seen.keys))
 }
 
 /// Marks reactions and poll votes seen on this device only.

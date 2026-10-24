@@ -174,6 +174,7 @@ def check_deferred_reads(source: Path):
     assert after.count('flushDeferredReads |> then(') == 2, 'Reads are reported after every sent message, with or without read-on-send'
     deferred = (core / 'TelegramEngine/Messages/AyuGramDeferredReads.swift').read_text()
     assert 'ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes)' in deferred, 'Voice and round mentions stay unplayed for the sender'
+    assert 'isSubset(of: Set(seen.keys))' in deferred, 'A new reaction on a message seen earlier is shown again'
 
 
 def check_edit_versions(source: Path):
