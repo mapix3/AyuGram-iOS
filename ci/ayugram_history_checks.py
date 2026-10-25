@@ -175,6 +175,8 @@ def check_deferred_reads(source: Path):
     deferred = (core / 'TelegramEngine/Messages/AyuGramDeferredReads.swift').read_text()
     assert 'ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes)' in deferred, 'Voice and round mentions stay unplayed for the sender'
     assert 'isSubset(of: Set(seen.keys))' in deferred, 'A new reaction on a message seen earlier is shown again'
+    enqueue = (core / 'PendingMessages/EnqueueMessage.swift').read_text()
+    assert 'ayuPrepareDeletedReplies(account: account, messages: messages)' in enqueue, 'A reply to a kept deleted message is sent as a quote'
 
 
 def check_edit_versions(source: Path):
