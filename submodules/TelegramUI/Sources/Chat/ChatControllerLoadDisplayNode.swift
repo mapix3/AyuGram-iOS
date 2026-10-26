@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import UIKit
 import SwiftSignalKit
@@ -1408,7 +1409,18 @@ extension ChatControllerImpl {
                         switch result {
                             case let .result(messageId):
                                 if let messageId = messageId {
-                                    strongSelf.navigateToMessage(from: nil, to: .id(messageId, NavigateToMessageParams(timestamp: nil, quote: nil)))
+                                    if AyuGramSettings.shared.snapshot.suppressRead {
+                                        let context = strongSelf.context
+                                        let threadId = strongSelf.chatLocation.threadId
+                                        strongSelf.navigateToMessage(from: nil, to: .id(messageId, NavigateToMessageParams(timestamp: nil, quote: nil)), completion: {
+                                            context.account.viewTracker.updateMarkMentionsSeenForMessageIds(messageIds: Set([messageId]))
+                                            Queue.mainQueue().after(2.0) {
+                                                let _ = context.engine.messages.earliestUnseenPersonalMentionMessage(peerId: peerId, threadId: threadId).startStandalone()
+                                            }
+                                        })
+                                    } else {
+                                        strongSelf.navigateToMessage(from: nil, to: .id(messageId, NavigateToMessageParams(timestamp: nil, quote: nil)))
+                                    }
                                 }
                             case .loading:
                                 break
@@ -1475,6 +1487,17 @@ extension ChatControllerImpl {
                                         strongSelf.chatDisplayNode.historyNode.displayUnseenReactionAnimationsAndMarkSeen(messageIds: [messageId])
                                         
                                         strongSelf.chatDisplayNode.historyNode.suspendReadingReactions = false
+                                        
+                                        if AyuGramSettings.shared.snapshot.suppressRead {
+                                            let context = strongSelf.context
+                                            let threadId = strongSelf.chatLocation.threadId
+                                            Queue.mainQueue().after(0.5) {
+                                                context.account.viewTracker.updateMarkReactionsAndVotesSeenForMessageIds(messageIds: Set([messageId]))
+                                            }
+                                            Queue.mainQueue().after(2.5) {
+                                                let _ = context.engine.messages.earliestUnseenPersonalReactionMessage(peerId: peerId, threadId: threadId).startStandalone()
+                                            }
+                                        }
                                     })
                                 }
                             case .loading:
