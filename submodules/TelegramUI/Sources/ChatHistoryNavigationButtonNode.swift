@@ -117,7 +117,7 @@ class ChatHistoryNavigationButtonNode: ContextControllerSourceNode {
             self.theme = theme
             self.preferClearGlass = preferClearGlass
 
-            self.backgroundView.update(size: self.backgroundView.bounds.size, cornerRadius: self.backgroundView.bounds.size.height * 0.5, isDark: theme.overallDarkAppearance, tintColor: .init(kind: self.preferClearGlass ? .clear : .panel), transition: .immediate)
+            self.backgroundView.update(size: self.backgroundView.bounds.size, cornerRadius: self.backgroundView.bounds.size.height * 0.5, isDark: theme.overallDarkAppearance, tintColor: .init(kind: self.preferClearGlass ? .clear : .panel), isInteractive: true, transition: .immediate)
             self.imageView.tintColor = theme.chat.inputPanel.panelControlColor
             
             switch self.type {
