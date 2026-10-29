@@ -1064,6 +1064,15 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 }
             })))
         }
+        if messages.count == 1, AyuGramSettings.shared.extra.repeatMessage, canSendMessagesToChat(chatPresentationInterfaceState), message.id.namespace == Namespaces.Message.Cloud, message.id.peerId.namespace != Namespaces.Peer.SecretChat, !message.media.contains(where: { $0 is TelegramMediaAction || $0 is TelegramMediaExpiredContent }) {
+            actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.Repeat", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
+                generateTintedImage(image: UIImage(systemName: "arrow.2.squarepath"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, complete in
+                complete(.default)
+                let attributes: [MessageAttribute] = [ForwardOptionsMessageAttribute(hideNames: true, hideCaptions: false)]
+                let _ = enqueueMessages(account: context.account, peerId: message.id.peerId, messages: [.forward(source: message.id, threadId: chatPresentationInterfaceState.chatLocation.threadId, grouping: .auto, attributes: attributes, correlationId: nil)]).startStandalone()
+            })))
+        }
         var sgActions: [ContextMenuItem] = []
 
         var isPinnedMessages = false

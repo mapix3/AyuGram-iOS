@@ -669,6 +669,7 @@ open class ChatMessageItemView: ListViewItemNode, ChatMessageItemNodeProtocol {
     
     private var wasFilteredKeywordTested: Bool = false
     private var matchedFilterKeyword: String? = nil
+    private var ayuDimmed: Bool = false
     
     public required init(rotated: Bool) {
         super.init(layerBacked: false, rotated: rotated)
@@ -708,6 +709,15 @@ open class ChatMessageItemView: ListViewItemNode, ChatMessageItemNodeProtocol {
             }
         }
         self.wasFilteredKeywordTested = true
+        if self.matchedFilterKeyword == nil {
+            let dimmed = AyuGramSettings.shared.extra.dimDeletedMessages && item.message.ayuHistory?.deletedAt != nil
+            if dimmed {
+                self.alpha = 0.5
+            } else if self.ayuDimmed {
+                self.alpha = 1.0
+            }
+            self.ayuDimmed = dimmed
+        }
     }
     
     open func updateAccessibilityData(_ accessibilityData: ChatMessageAccessibilityData) {

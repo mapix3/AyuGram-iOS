@@ -1,4 +1,5 @@
 import Foundation
+import SGSimpleSettings
 import LottieSettings
 import UIKit
 import AsyncDisplayKit
@@ -202,6 +203,8 @@ public final class ChatEmptyNodeGreetingChatContent: ASDisplayNode, ChatEmptyNod
             let sticker: Signal<TelegramMediaFile?, NoError>
             if let customStickerFile {
                 sticker = .single(customStickerFile)
+            } else if AyuGramSettings.shared.extra.disableGreetingSticker {
+                sticker = .single(nil)
             } else if let preloadedSticker = interfaceState.greetingData?.sticker {
                 sticker = preloadedSticker
             } else {
