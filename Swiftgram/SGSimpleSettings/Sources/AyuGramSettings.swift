@@ -169,6 +169,19 @@ public struct AyuGramExtraSettings: Codable, Equatable {
     public var readOnSend = true
     /// Ghost Mode item in the Chats tab long-press menu.
     public var ghostQuickToggle = true
+    public var silentSending: Int32 = 0
+    public var scheduleInGhost = false
+    public var disableAds = true
+    public var disableLinkWarning = false
+    public var disableGreetingSticker = false
+    public var dimDeletedMessages = false
+    public var repeatMessage = true
+    public var confirmStickers = false
+    public var confirmGifs = false
+
+    public var sendsSilently: Bool {
+        return silentSending == 2 || (silentSending == 1 && AyuGramSettings.shared.snapshot.ghostMode)
+    }
 
     public init() {}
 
@@ -180,6 +193,15 @@ public struct AyuGramExtraSettings: Codable, Equatable {
         self.offlineAfterSending = try container.decodeIfPresent(Bool.self, forKey: .offlineAfterSending) ?? defaults.offlineAfterSending
         self.readOnSend = try container.decodeIfPresent(Bool.self, forKey: .readOnSend) ?? defaults.readOnSend
         self.ghostQuickToggle = try container.decodeIfPresent(Bool.self, forKey: .ghostQuickToggle) ?? defaults.ghostQuickToggle
+        self.silentSending = try container.decodeIfPresent(Int32.self, forKey: .silentSending) ?? defaults.silentSending
+        self.scheduleInGhost = try container.decodeIfPresent(Bool.self, forKey: .scheduleInGhost) ?? defaults.scheduleInGhost
+        self.disableAds = try container.decodeIfPresent(Bool.self, forKey: .disableAds) ?? defaults.disableAds
+        self.disableLinkWarning = try container.decodeIfPresent(Bool.self, forKey: .disableLinkWarning) ?? defaults.disableLinkWarning
+        self.disableGreetingSticker = try container.decodeIfPresent(Bool.self, forKey: .disableGreetingSticker) ?? defaults.disableGreetingSticker
+        self.dimDeletedMessages = try container.decodeIfPresent(Bool.self, forKey: .dimDeletedMessages) ?? defaults.dimDeletedMessages
+        self.repeatMessage = try container.decodeIfPresent(Bool.self, forKey: .repeatMessage) ?? defaults.repeatMessage
+        self.confirmStickers = try container.decodeIfPresent(Bool.self, forKey: .confirmStickers) ?? defaults.confirmStickers
+        self.confirmGifs = try container.decodeIfPresent(Bool.self, forKey: .confirmGifs) ?? defaults.confirmGifs
     }
 }
 

@@ -19,6 +19,10 @@ NEW_KEYS += ['ExportChat', 'ExportChatMedia', 'ExportChatWithMedia', 'ExportChat
 
 NEW_KEYS += ['DeletedChats', 'DeletedChatsInfo', 'DeletedChatSave', 'DeletedChatRemove', 'DeletedChatDelete']
 
+NEW_KEYS += ['SilentSending', 'SilentNever', 'SilentInGhost', 'SilentAlways', 'ScheduleInGhost', 'ScheduleInGhostInfo', 'ChatsSection',
+             'DisableAds', 'DisableLinkWarning', 'DisableGreeting', 'DimDeleted', 'RepeatMessage', 'Repeat', 'ConfirmStickers', 'ConfirmGifs',
+             'ConfirmSticker', 'ConfirmGif', 'Send']
+
 def check_strings(source: Path):
     locales = sorted((source / 'Swiftgram/SGStrings/Strings').glob('*.lproj/SGLocalizable.strings'))
     assert len(locales) == 37
