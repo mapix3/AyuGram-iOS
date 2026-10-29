@@ -1,3 +1,4 @@
+import SGStrings
 import SGSimpleSettings
 import Foundation
 import UIKit
@@ -2424,6 +2425,13 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                 return false
             }
             
+            if AyuGramSettings.shared.extra.confirmStickers && !strongSelf.ayuSendConfirmed {
+                strongSelf.ayuConfirmSend(text: "Ayu.ConfirmSticker", send: { [weak self] in
+                    let _ = self?.controllerInteraction?.sendSticker(fileReference, silentPosting, schedule, query, clearInput, sourceView, sourceRect, sourceLayer, bubbleUpEmojiOrStickersets)
+                })
+                return false
+            }
+            
             if let _ = strongSelf.presentationInterfaceState.slowmodeState, strongSelf.presentationInterfaceState.subject != .scheduledMessages {
                 if let sourceView, let sourceRect {
                     strongSelf.interfaceInteraction?.displaySlowmodeTooltip(sourceView, sourceRect)
@@ -2699,6 +2707,12 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             }
         }, sendGif: { [weak self] fileReference, sourceView, sourceRect, silentPosting, schedule in
             if let strongSelf = self {
+                if AyuGramSettings.shared.extra.confirmGifs && !strongSelf.ayuSendConfirmed {
+                    strongSelf.ayuConfirmSend(text: "Ayu.ConfirmGif", send: { [weak self] in
+                        let _ = self?.controllerInteraction?.sendGif(fileReference, sourceView, sourceRect, silentPosting, schedule)
+                    })
+                    return false
+                }
                 if let _ = strongSelf.presentationInterfaceState.slowmodeState, strongSelf.presentationInterfaceState.subject != .scheduledMessages {
                     strongSelf.interfaceInteraction?.displaySlowmodeTooltip(sourceView, sourceRect)
                     return false
@@ -7735,6 +7749,23 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             return state.message
         }
         |> distinctUntilChanged
+    }
+
+    var ayuSendConfirmed = false
+
+    func ayuConfirmSend(text: String, send: @escaping () -> Void) {
+        let locale = self.presentationData.strings.baseLanguageCode
+        self.present(textAlertController(context: self.context, title: nil, text: i18n(text, locale), actions: [
+            TextAlertAction(type: .genericAction, title: self.presentationData.strings.Common_Cancel, action: {}),
+            TextAlertAction(type: .defaultAction, title: i18n("Ayu.Send", locale), action: { [weak self] in
+                guard let self else {
+                    return
+                }
+                self.ayuSendConfirmed = true
+                send()
+                self.ayuSendConfirmed = false
+            })
+        ]), in: .window(.root))
     }
 
     var storedAnimateFromSnapshotState: ChatControllerNode.SnapshotState?

@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "المحادثات المحددة فقط. الصور المخزنة والنصوص: 30 يومًا، حتى 200 سجل. باستثناء الرسائل السرية والمؤقتة.";
 "Ayu.ReadWarning" = "إرسال إشعار قراءة للمحادثة حتى هذه الرسالة؟";
 "Ayu.ViewWarning" = "إرسال إشعار مشاهدة وبدء مؤقت الوسائط المؤقتة؟";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "عتامة صفوف المحادثات";
 "Ayu.MediaImportError" = "تعذر استيراد الملف. الحد الأقصى: 100 ميغابايت.";
+=======
+"Ayu.SilentSending" = "إرسال بدون صوت";
+"Ayu.SilentNever" = "أبدًا";
+"Ayu.SilentInGhost" = "في وضع الشبح";
+"Ayu.SilentAlways" = "دائمًا";
+"Ayu.ScheduleInGhost" = "إرسال كرسالة مجدولة";
+"Ayu.ScheduleInGhostInfo" = "في وضع الشبح تُرسل الرسائل مجدولة بعد 12 ثانية، فلا تظهر متصلًا أبدًا";
+"Ayu.ChatsSection" = "المحادثات";
+"Ayu.DisableAds" = "إخفاء الرسائل الممولة";
+"Ayu.DisableLinkWarning" = "بدون تحذير للروابط المخفية";
+"Ayu.DisableGreeting" = "بدون ملصق ترحيب";
+"Ayu.DimDeleted" = "رسائل محذوفة شبه شفافة";
+"Ayu.RepeatMessage" = "تكرار في قائمة الرسالة";
+"Ayu.Repeat" = "تكرار";
+"Ayu.ConfirmStickers" = "تأكيد إرسال الملصقات";
+"Ayu.ConfirmGifs" = "تأكيد إرسال صور GIF";
+"Ayu.ConfirmSticker" = "إرسال هذا الملصق؟";
+"Ayu.ConfirmGif" = "إرسال صورة GIF هذه؟";
+"Ayu.Send" = "إرسال";
+>>>>>>> standard

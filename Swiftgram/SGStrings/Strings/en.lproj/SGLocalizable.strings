@@ -400,6 +400,27 @@
 "Ayu.HistoryInfo" = "Selected chats only. Cached photos and text, 30 days, up to 200 entries. Secret and disappearing messages are excluded.";
 "Ayu.ReadWarning" = "Send a read receipt for this chat up to this message?";
 "Ayu.ViewWarning" = "Send a view receipt and start the disappearing media timer?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Chat row opacity";
 "Ayu.MediaImportError" = "Unable to import media. Maximum size: 100 MB.";
+=======
+"Ayu.SilentSending" = "Send without sound";
+"Ayu.SilentNever" = "Never";
+"Ayu.SilentInGhost" = "In Ghost Mode";
+"Ayu.SilentAlways" = "Always";
+"Ayu.ScheduleInGhost" = "Send as scheduled";
+"Ayu.ScheduleInGhostInfo" = "In Ghost Mode messages go out as scheduled in 12 seconds, so you never appear online";
+"Ayu.ChatsSection" = "Chats";
+"Ayu.DisableAds" = "Hide sponsored messages";
+"Ayu.DisableLinkWarning" = "No warning for hidden links";
+"Ayu.DisableGreeting" = "No greeting sticker";
+"Ayu.DimDeleted" = "Translucent deleted messages";
+"Ayu.RepeatMessage" = "Repeat in message menu";
+"Ayu.Repeat" = "Repeat";
+"Ayu.ConfirmStickers" = "Confirm sending stickers";
+"Ayu.ConfirmGifs" = "Confirm sending GIFs";
+"Ayu.ConfirmSticker" = "Send this sticker?";
+"Ayu.ConfirmGif" = "Send this GIF?";
+"Ayu.Send" = "Send";
+>>>>>>> standard

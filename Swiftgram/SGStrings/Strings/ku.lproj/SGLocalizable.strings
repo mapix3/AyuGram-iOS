@@ -131,6 +131,27 @@
 "Ayu.HistoryInfo" = "Tenê sohbetên hilbijartî. Wêneyên di bîrê de û nivîs: 30 roj, heta 200 tomar. Peyamên veşartî û winda dibin nayên tomarkirin.";
 "Ayu.ReadWarning" = "Pejirandina xwendinê ji bo vê sohbetê heta vê peyamê bişîne?";
 "Ayu.ViewWarning" = "Dîtinê bipejirîne û demjimêra medyaya winda dibe dest pê bike?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Nezelaliya rêzên sohbetê";
 "Ayu.MediaImportError" = "Pel nayê derxistin. Herî zêde: 100 MB.";
+=======
+"Ayu.SilentSending" = "Bê deng bişîne";
+"Ayu.SilentNever" = "Qet";
+"Ayu.SilentInGhost" = "Di moda xeyalê de";
+"Ayu.SilentAlways" = "Her dem";
+"Ayu.ScheduleInGhost" = "Wek plankirî bişîne";
+"Ayu.ScheduleInGhostInfo" = "Di moda xeyalê de peyam piştî 12 çirkeyan wek plankirî diçin, ji ber vê tu qet serhêl xuya nabî";
+"Ayu.ChatsSection" = "Sohbet";
+"Ayu.DisableAds" = "Peyamên sponsor veşêre";
+"Ayu.DisableLinkWarning" = "Ji bo girêdanên veşartî hişyarî tune";
+"Ayu.DisableGreeting" = "Stîkera silavê tune";
+"Ayu.DimDeleted" = "Peyamên jêbirî nîv-zelal";
+"Ayu.RepeatMessage" = "Dubare di menuya peyamê de";
+"Ayu.Repeat" = "Dubare bike";
+"Ayu.ConfirmStickers" = "Şandina stîkeran piştrast bike";
+"Ayu.ConfirmGifs" = "Şandina GIF piştrast bike";
+"Ayu.ConfirmSticker" = "Ev stîker bê şandin?";
+"Ayu.ConfirmGif" = "Ev GIF bê şandin?";
+"Ayu.Send" = "Bişîne";
+>>>>>>> standard

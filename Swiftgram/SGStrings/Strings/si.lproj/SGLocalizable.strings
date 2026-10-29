@@ -123,6 +123,27 @@
 "Ayu.HistoryInfo" = "තෝරාගත් කතාබස් පමණි. හැඹිලි ඡායාරූප සහ පෙළ: දින 30ක්, වාර්තා 200ක් දක්වා. රහස් සහ අතුරුදහන් වන පණිවිඩ ඇතුළත් නොවේ.";
 "Ayu.ReadWarning" = "මෙම පණිවිඩය දක්වා කතාබස කියවූ බව දන්වන්නද?";
 "Ayu.ViewWarning" = "නැරඹූ බව දන්වා අතුරුදහන් වන මාධ්‍ය කාලකය අරඹන්නද?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "කතාබස් පේළිවල පාරාන්ධතාව";
 "Ayu.MediaImportError" = "ගොනුව ආයාත කළ නොහැක. උපරිමය: 100 MB.";
+=======
+"Ayu.SilentSending" = "ශබ්දයකින් තොරව යවන්න";
+"Ayu.SilentNever" = "කිසිදා නැත";
+"Ayu.SilentInGhost" = "අවතාර ප්‍රකාරයේදී";
+"Ayu.SilentAlways" = "සැමවිටම";
+"Ayu.ScheduleInGhost" = "කාලසටහන්ගත ලෙස යවන්න";
+"Ayu.ScheduleInGhostInfo" = "අවතාර ප්‍රකාරයේදී පණිවිඩ තත්පර 12කට පසු කාලසටහන්ගතව යන නිසා ඔබ කිසිදා සබැඳිව නොපෙනේ";
+"Ayu.ChatsSection" = "කතාබස්";
+"Ayu.DisableAds" = "අනුග්‍රාහක පණිවිඩ සඟවන්න";
+"Ayu.DisableLinkWarning" = "සැඟවුණු සබැඳි සඳහා අනතුරු ඇඟවීමක් නැත";
+"Ayu.DisableGreeting" = "සුබපැතුම් ස්ටිකරයක් නැත";
+"Ayu.DimDeleted" = "අර්ධ විනිවිද මකා දැමූ පණිවිඩ";
+"Ayu.RepeatMessage" = "පණිවිඩ මෙනුවේ නැවත කරන්න";
+"Ayu.Repeat" = "නැවත කරන්න";
+"Ayu.ConfirmStickers" = "ස්ටිකර් යැවීම තහවුරු කරන්න";
+"Ayu.ConfirmGifs" = "GIF යැවීම තහවුරු කරන්න";
+"Ayu.ConfirmSticker" = "මෙම ස්ටිකරය යවන්නද?";
+"Ayu.ConfirmGif" = "මෙම GIF යවන්නද?";
+"Ayu.Send" = "යවන්න";
+>>>>>>> standard

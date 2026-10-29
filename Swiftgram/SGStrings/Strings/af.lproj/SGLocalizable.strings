@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "Slegs gekose geselsies. Gekaste foto's en teks: 30 dae, tot 200 inskrywings. Geen geheime of verdwynende boodskappe nie.";
 "Ayu.ReadWarning" = "Stuur 'n leesbewys vir die geselsie tot by hierdie boodskap?";
 "Ayu.ViewWarning" = "Bevestig die kyk en begin die tydhouer vir verdwynende media?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Ondeursigtigheid van geselsrye";
 "Ayu.MediaImportError" = "Kan nie lêer invoer nie. Maksimum: 100 MB.";
+=======
+"Ayu.SilentSending" = "Stuur sonder klank";
+"Ayu.SilentNever" = "Nooit";
+"Ayu.SilentInGhost" = "In spookmodus";
+"Ayu.SilentAlways" = "Altyd";
+"Ayu.ScheduleInGhost" = "Stuur as geskeduleer";
+"Ayu.ScheduleInGhostInfo" = "In spookmodus gaan boodskappe geskeduleer oor 12 sekondes, sodat jy nooit aanlyn verskyn nie";
+"Ayu.ChatsSection" = "Kletse";
+"Ayu.DisableAds" = "Versteek geborgde boodskappe";
+"Ayu.DisableLinkWarning" = "Geen waarskuwing vir versteekte skakels";
+"Ayu.DisableGreeting" = "Geen groetplakker";
+"Ayu.DimDeleted" = "Deursigtige geskrapte boodskappe";
+"Ayu.RepeatMessage" = "Herhaal in boodskapkieslys";
+"Ayu.Repeat" = "Herhaal";
+"Ayu.ConfirmStickers" = "Bevestig stuur van plakkers";
+"Ayu.ConfirmGifs" = "Bevestig stuur van GIF's";
+"Ayu.ConfirmSticker" = "Stuur hierdie plakker?";
+"Ayu.ConfirmGif" = "Stuur hierdie GIF?";
+"Ayu.Send" = "Stuur";
+>>>>>>> standard

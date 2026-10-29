@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "Yalnızca seçilen sohbetler. Önbellekteki fotoğraf ve metin: 30 gün, en fazla 200 kayıt. Gizli ve kaybolan mesajlar hariç.";
 "Ayu.ReadWarning" = "Bu mesaja kadar sohbet için okundu bilgisi gönderilsin mi?";
 "Ayu.ViewWarning" = "Görüntüleme bilgisi gönderilip kaybolan medya zamanlayıcısı başlatılsın mı?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Sohbet satırı opaklığı";
 "Ayu.MediaImportError" = "Dosya içe aktarılamadı. En fazla 100 MB.";
+=======
+"Ayu.SilentSending" = "Sessiz gönder";
+"Ayu.SilentNever" = "Asla";
+"Ayu.SilentInGhost" = "Hayalet modunda";
+"Ayu.SilentAlways" = "Her zaman";
+"Ayu.ScheduleInGhost" = "Zamanlanmış olarak gönder";
+"Ayu.ScheduleInGhostInfo" = "Hayalet modunda mesajlar 12 saniye sonrasına zamanlanarak gider, böylece hiç çevrimiçi görünmezsin";
+"Ayu.ChatsSection" = "Sohbetler";
+"Ayu.DisableAds" = "Sponsorlu mesajları gizle";
+"Ayu.DisableLinkWarning" = "Gizli bağlantılar için uyarı yok";
+"Ayu.DisableGreeting" = "Karşılama çıkartması yok";
+"Ayu.DimDeleted" = "Yarı saydam silinen mesajlar";
+"Ayu.RepeatMessage" = "Mesaj menüsünde Tekrarla";
+"Ayu.Repeat" = "Tekrarla";
+"Ayu.ConfirmStickers" = "Çıkartma gönderimini onayla";
+"Ayu.ConfirmGifs" = "GIF gönderimini onayla";
+"Ayu.ConfirmSticker" = "Bu çıkartma gönderilsin mi?";
+"Ayu.ConfirmGif" = "Bu GIF gönderilsin mi?";
+"Ayu.Send" = "Gönder";
+>>>>>>> standard

@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "Doar conversațiile selectate. Fotografii în cache și text: 30 de zile, până la 200 de înregistrări. Fără mesaje secrete sau temporare.";
 "Ayu.ReadWarning" = "Trimiți confirmarea de citire a conversației până la acest mesaj?";
 "Ayu.ViewWarning" = "Confirmi vizualizarea și pornești temporizatorul conținutului temporar?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Opacitatea rândurilor de conversații";
 "Ayu.MediaImportError" = "Fișierul nu poate fi importat. Maximum: 100 MB.";
+=======
+"Ayu.SilentSending" = "Trimite fără sunet";
+"Ayu.SilentNever" = "Niciodată";
+"Ayu.SilentInGhost" = "În modul fantomă";
+"Ayu.SilentAlways" = "Mereu";
+"Ayu.ScheduleInGhost" = "Trimite ca programat";
+"Ayu.ScheduleInGhostInfo" = "În modul fantomă mesajele pleacă programate peste 12 secunde, deci nu apari niciodată online";
+"Ayu.ChatsSection" = "Chaturi";
+"Ayu.DisableAds" = "Ascunde mesajele sponsorizate";
+"Ayu.DisableLinkWarning" = "Fără avertisment pentru linkuri ascunse";
+"Ayu.DisableGreeting" = "Fără autocolant de salut";
+"Ayu.DimDeleted" = "Mesaje șterse translucide";
+"Ayu.RepeatMessage" = "Repetă în meniul mesajului";
+"Ayu.Repeat" = "Repetă";
+"Ayu.ConfirmStickers" = "Confirmă trimiterea autocolantelor";
+"Ayu.ConfirmGifs" = "Confirmă trimiterea GIF-urilor";
+"Ayu.ConfirmSticker" = "Trimiți acest autocolant?";
+"Ayu.ConfirmGif" = "Trimiți acest GIF?";
+"Ayu.Send" = "Trimite";
+>>>>>>> standard

@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "Endast valda chattar. Cachade foton och text: 30 dagar, högst 200 poster. Inga hemliga eller försvinnande meddelanden.";
 "Ayu.ReadWarning" = "Skicka läskvitto för chatten fram till detta meddelande?";
 "Ayu.ViewWarning" = "Bekräfta visning och starta timern för försvinnande media?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Chattradernas opacitet";
 "Ayu.MediaImportError" = "Kan inte importera filen. Högst 100 MB.";
+=======
+"Ayu.SilentSending" = "Skicka utan ljud";
+"Ayu.SilentNever" = "Aldrig";
+"Ayu.SilentInGhost" = "I spökläge";
+"Ayu.SilentAlways" = "Alltid";
+"Ayu.ScheduleInGhost" = "Skicka som schemalagt";
+"Ayu.ScheduleInGhostInfo" = "I spökläge skickas meddelanden schemalagda om 12 sekunder, så du syns aldrig online";
+"Ayu.ChatsSection" = "Chattar";
+"Ayu.DisableAds" = "Dölj sponsrade meddelanden";
+"Ayu.DisableLinkWarning" = "Ingen varning för dolda länkar";
+"Ayu.DisableGreeting" = "Ingen hälsningsklistermärke";
+"Ayu.DimDeleted" = "Genomskinliga raderade meddelanden";
+"Ayu.RepeatMessage" = "Upprepa i meddelandemenyn";
+"Ayu.Repeat" = "Upprepa";
+"Ayu.ConfirmStickers" = "Bekräfta att skicka klistermärken";
+"Ayu.ConfirmGifs" = "Bekräfta att skicka GIF";
+"Ayu.ConfirmSticker" = "Skicka det här klistermärket?";
+"Ayu.ConfirmGif" = "Skicka den här GIF:en?";
+"Ayu.Send" = "Skicka";
+>>>>>>> standard

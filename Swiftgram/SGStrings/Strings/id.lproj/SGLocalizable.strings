@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "Hanya obrolan terpilih. Foto dalam cache dan teks: 30 hari, hingga 200 entri. Tanpa pesan rahasia dan sementara.";
 "Ayu.ReadWarning" = "Kirim tanda dibaca untuk obrolan hingga pesan ini?";
 "Ayu.ViewWarning" = "Kirim tanda dilihat dan mulai penghitung media sementara?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Opasitas baris obrolan";
 "Ayu.MediaImportError" = "Tidak dapat mengimpor berkas. Maksimum: 100 MB.";
+=======
+"Ayu.SilentSending" = "Kirim tanpa suara";
+"Ayu.SilentNever" = "Tidak pernah";
+"Ayu.SilentInGhost" = "Dalam Mode Hantu";
+"Ayu.SilentAlways" = "Selalu";
+"Ayu.ScheduleInGhost" = "Kirim sebagai terjadwal";
+"Ayu.ScheduleInGhostInfo" = "Dalam Mode Hantu pesan terkirim terjadwal 12 detik kemudian, jadi kamu tidak pernah terlihat online";
+"Ayu.ChatsSection" = "Obrolan";
+"Ayu.DisableAds" = "Sembunyikan pesan bersponsor";
+"Ayu.DisableLinkWarning" = "Tanpa peringatan tautan tersembunyi";
+"Ayu.DisableGreeting" = "Tanpa stiker sapaan";
+"Ayu.DimDeleted" = "Pesan terhapus tembus pandang";
+"Ayu.RepeatMessage" = "Ulangi di menu pesan";
+"Ayu.Repeat" = "Ulangi";
+"Ayu.ConfirmStickers" = "Konfirmasi kirim stiker";
+"Ayu.ConfirmGifs" = "Konfirmasi kirim GIF";
+"Ayu.ConfirmSticker" = "Kirim stiker ini?";
+"Ayu.ConfirmGif" = "Kirim GIF ini?";
+"Ayu.Send" = "Kirim";
+>>>>>>> standard

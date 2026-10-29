@@ -367,6 +367,27 @@
 "Ayu.HistoryInfo" = "選択したチャットのみ。キャッシュされた写真とテキストを30日間、最大200件保存。秘密・消えるメッセージは対象外。";
 "Ayu.ReadWarning" = "このメッセージまでの既読通知を送信しますか？";
 "Ayu.ViewWarning" = "閲覧通知を送信し、消えるメディアのタイマーを開始しますか？";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "チャット行の不透明度";
 "Ayu.MediaImportError" = "ファイルを読み込めません。最大100 MBです。";
+=======
+"Ayu.SilentSending" = "サウンドなしで送信";
+"Ayu.SilentNever" = "しない";
+"Ayu.SilentInGhost" = "ゴーストモード中";
+"Ayu.SilentAlways" = "常に";
+"Ayu.ScheduleInGhost" = "予約送信にする";
+"Ayu.ScheduleInGhostInfo" = "ゴーストモードではメッセージが12秒後の予約送信として送られるため、オンラインに表示されません";
+"Ayu.ChatsSection" = "チャット";
+"Ayu.DisableAds" = "スポンサーメッセージを隠す";
+"Ayu.DisableLinkWarning" = "隠しリンクの警告を表示しない";
+"Ayu.DisableGreeting" = "あいさつステッカーを表示しない";
+"Ayu.DimDeleted" = "削除済みメッセージを半透明に";
+"Ayu.RepeatMessage" = "メッセージメニューに「繰り返す」";
+"Ayu.Repeat" = "繰り返す";
+"Ayu.ConfirmStickers" = "ステッカー送信を確認";
+"Ayu.ConfirmGifs" = "GIF送信を確認";
+"Ayu.ConfirmSticker" = "このステッカーを送信しますか？";
+"Ayu.ConfirmGif" = "このGIFを送信しますか？";
+"Ayu.Send" = "送信";
+>>>>>>> standard

@@ -922,6 +922,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         
         self.prefetchManager = InChatPrefetchManager(context: context)
         
+        let adMessagesContext = AyuGramSettings.shared.extra.disableAds ? nil : adMessagesContext
         self.adMessagesContext = adMessagesContext
         var adMessages: Signal<(interPostInterval: Int32?, messages: [Message], startDelay: Int32?, betweenDelay: Int32?), NoError>
         if case .bubbles = mode, let adMessagesContext {

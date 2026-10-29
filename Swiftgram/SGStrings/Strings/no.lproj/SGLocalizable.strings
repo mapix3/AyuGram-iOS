@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "Bare valgte chatter. Bufrede bilder og tekst: 30 dager, opptil 200 oppføringer. Ingen hemmelige eller forsvinnende meldinger.";
 "Ayu.ReadWarning" = "Sende lesebekreftelse for chatten frem til denne meldingen?";
 "Ayu.ViewWarning" = "Bekrefte visning og starte tidtakeren for forsvinnende medier?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Ugjennomsiktighet for chatrader";
 "Ayu.MediaImportError" = "Kan ikke importere filen. Maksimalt 100 MB.";
+=======
+"Ayu.SilentSending" = "Send uten lyd";
+"Ayu.SilentNever" = "Aldri";
+"Ayu.SilentInGhost" = "I spøkelsesmodus";
+"Ayu.SilentAlways" = "Alltid";
+"Ayu.ScheduleInGhost" = "Send som planlagt";
+"Ayu.ScheduleInGhostInfo" = "I spøkelsesmodus sendes meldinger planlagt om 12 sekunder, så du aldri vises pålogget";
+"Ayu.ChatsSection" = "Chatter";
+"Ayu.DisableAds" = "Skjul sponsede meldinger";
+"Ayu.DisableLinkWarning" = "Ingen advarsel for skjulte lenker";
+"Ayu.DisableGreeting" = "Ingen velkomstklistremerke";
+"Ayu.DimDeleted" = "Gjennomsiktige slettede meldinger";
+"Ayu.RepeatMessage" = "Gjenta i meldingsmenyen";
+"Ayu.Repeat" = "Gjenta";
+"Ayu.ConfirmStickers" = "Bekreft sending av klistremerker";
+"Ayu.ConfirmGifs" = "Bekreft sending av GIF";
+"Ayu.ConfirmSticker" = "Sende dette klistremerket?";
+"Ayu.ConfirmGif" = "Sende denne GIF-en?";
+"Ayu.Send" = "Send";
+>>>>>>> standard

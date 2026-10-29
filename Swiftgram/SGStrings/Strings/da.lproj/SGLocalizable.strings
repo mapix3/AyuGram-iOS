@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "Kun valgte chats. Cachelagrede billeder og tekst: 30 dage, op til 200 poster. Ingen hemmelige eller forsvindende beskeder.";
 "Ayu.ReadWarning" = "Send læsekvittering for chatten frem til denne besked?";
 "Ayu.ViewWarning" = "Bekræft visning og start timeren for forsvindende medier?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "Chatlinjernes opacitet";
 "Ayu.MediaImportError" = "Kan ikke importere filen. Højst 100 MB.";
+=======
+"Ayu.SilentSending" = "Send uden lyd";
+"Ayu.SilentNever" = "Aldrig";
+"Ayu.SilentInGhost" = "I spøgelsestilstand";
+"Ayu.SilentAlways" = "Altid";
+"Ayu.ScheduleInGhost" = "Send som planlagt";
+"Ayu.ScheduleInGhostInfo" = "I spøgelsestilstand sendes beskeder planlagt om 12 sekunder, så du aldrig ses online";
+"Ayu.ChatsSection" = "Chats";
+"Ayu.DisableAds" = "Skjul sponsorerede beskeder";
+"Ayu.DisableLinkWarning" = "Ingen advarsel ved skjulte links";
+"Ayu.DisableGreeting" = "Intet velkomstklistermærke";
+"Ayu.DimDeleted" = "Gennemsigtige slettede beskeder";
+"Ayu.RepeatMessage" = "Gentag i beskedmenuen";
+"Ayu.Repeat" = "Gentag";
+"Ayu.ConfirmStickers" = "Bekræft afsendelse af klistermærker";
+"Ayu.ConfirmGifs" = "Bekræft afsendelse af GIF";
+"Ayu.ConfirmSticker" = "Send dette klistermærke?";
+"Ayu.ConfirmGif" = "Send denne GIF?";
+"Ayu.Send" = "Send";
+>>>>>>> standard

@@ -273,6 +273,27 @@
 "Ayu.HistoryInfo" = "केवल चुने हुए चैट। कैश किए फ़ोटो और टेक्स्ट: 30 दिन, अधिकतम 200 रिकॉर्ड। गुप्त और गायब होने वाले संदेश शामिल नहीं हैं।";
 "Ayu.ReadWarning" = "इस संदेश तक चैट पढ़ने की पुष्टि भेजें?";
 "Ayu.ViewWarning" = "देखने की पुष्टि भेजें और गायब होने वाले मीडिया का टाइमर शुरू करें?";
+<<<<<<< custom
 
 "Ayu.RowOpacity" = "चैट पंक्ति की अपारदर्शिता";
 "Ayu.MediaImportError" = "फ़ाइल आयात नहीं हो सकी। अधिकतम: 100 MB।";
+=======
+"Ayu.SilentSending" = "बिना आवाज़ भेजें";
+"Ayu.SilentNever" = "कभी नहीं";
+"Ayu.SilentInGhost" = "घोस्ट मोड में";
+"Ayu.SilentAlways" = "हमेशा";
+"Ayu.ScheduleInGhost" = "शेड्यूल्ड के रूप में भेजें";
+"Ayu.ScheduleInGhostInfo" = "घोस्ट मोड में संदेश 12 सेकंड बाद शेड्यूल होकर जाते हैं, जिससे आप कभी ऑनलाइन नहीं दिखते";
+"Ayu.ChatsSection" = "चैट";
+"Ayu.DisableAds" = "प्रायोजित संदेश छिपाएँ";
+"Ayu.DisableLinkWarning" = "छिपे लिंक पर कोई चेतावनी नहीं";
+"Ayu.DisableGreeting" = "कोई स्वागत स्टिकर नहीं";
+"Ayu.DimDeleted" = "अर्धपारदर्शी हटाए गए संदेश";
+"Ayu.RepeatMessage" = "संदेश मेनू में दोहराएँ";
+"Ayu.Repeat" = "दोहराएँ";
+"Ayu.ConfirmStickers" = "स्टिकर भेजने की पुष्टि करें";
+"Ayu.ConfirmGifs" = "GIF भेजने की पुष्टि करें";
+"Ayu.ConfirmSticker" = "यह स्टिकर भेजें?";
+"Ayu.ConfirmGif" = "यह GIF भेजें?";
+"Ayu.Send" = "भेजें";
+>>>>>>> standard
