@@ -296,3 +296,4 @@
 "Ayu.ViewDeleted" = "Tin nhắn đã xóa";
 "Ayu.ViewDeletedInfo" = "Các cuộc trò chuyện có tin nhắn đã xóa được giữ trên thiết bị này. Mở một cuộc để đọc tin nhắn đã xóa hoặc toàn bộ cuộc trò chuyện.";
 "Ayu.ViewDeletedEmpty" = "Chưa có tin nhắn đã xóa.";
+"Ayu.ConfirmReadReceipt" = "Xác nhận trước khi gửi đã đọc";

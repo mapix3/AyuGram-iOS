@@ -390,3 +390,4 @@
 "Ayu.ViewDeleted" = "削除されたメッセージ";
 "Ayu.ViewDeletedInfo" = "削除されたメッセージがこのデバイスに保存されているチャットです。開くと削除されたメッセージやチャット全体を読めます。";
 "Ayu.ViewDeletedEmpty" = "削除されたメッセージはまだありません。";
+"Ayu.ConfirmReadReceipt" = "既読の送信前に確認";

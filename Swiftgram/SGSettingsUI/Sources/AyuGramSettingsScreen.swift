@@ -20,7 +20,7 @@ private enum AyuScreenToggle: Equatable {
     case offlineAfterSending, readOnSend, quickToggle
     case ignoreProtection, screenshots
     case history, premium
-    case scheduleInGhost, disableAds, disableLinkWarning, disableGreeting, dimDeleted, repeatMessage, confirmStickers, confirmGifs
+    case scheduleInGhost, disableAds, disableLinkWarning, disableGreeting, dimDeleted, repeatMessage, confirmStickers, confirmGifs, confirmRead
 }
 
 private enum AyuScreenLink: Equatable {
@@ -154,6 +154,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     let silentLabels = ["Ayu.SilentNever", "Ayu.SilentInGhost", "Ayu.SilentAlways"]
     entries.append(.link(id: 350, section: .behavior, link: .silentSending, symbol: "bell.slash.fill", tint: .gray, title: s("Ayu.SilentSending"), label: s(silentLabels[Int(max(0, min(2, extra.silentSending)))])))
     entries.append(.toggle(id: 360, section: .behavior, key: .scheduleInGhost, symbol: "clock.badge.checkmark.fill", tint: .teal, title: s("Ayu.ScheduleInGhost"), subtitle: s("Ayu.ScheduleInGhostInfo"), value: extra.scheduleInGhost, enabled: true))
+    entries.append(.toggle(id: 370, section: .behavior, key: .confirmRead, symbol: "checkmark.bubble.fill", tint: .blue, title: s("Ayu.ConfirmReadReceipt"), subtitle: nil, value: extra.confirmReadReceipt, enabled: true))
 
     entries.append(.header(id: 400, section: .content, text: s("Ayu.ContentSection")))
     entries.append(.toggle(id: 410, section: .content, key: .ignoreProtection, symbol: "lock.open.fill", tint: .orange, title: s("Ayu.IgnoreProtection"), subtitle: s("Ayu.IgnoreProtectionInfo"), value: extra.ignoreCopyProtection, enabled: true))
@@ -243,6 +244,7 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .repeatMessage: settings.updateExtra { $0.repeatMessage = value }
         case .confirmStickers: settings.updateExtra { $0.confirmStickers = value }
         case .confirmGifs: settings.updateExtra { $0.confirmGifs = value }
+        case .confirmRead: settings.updateExtra { $0.confirmReadReceipt = value }
         }
     }, updatePins: { value in
         AyuGramSettings.shared.updateClient { $0.maxPinnedChats = value }

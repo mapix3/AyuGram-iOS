@@ -296,3 +296,4 @@
 "Ayu.ViewDeleted" = "Verwijderde berichten";
 "Ayu.ViewDeletedInfo" = "Chats met verwijderde berichten die op dit apparaat bewaard zijn. Open er een om de verwijderde berichten of de hele chat te lezen.";
 "Ayu.ViewDeletedEmpty" = "Nog geen verwijderde berichten.";
+"Ayu.ConfirmReadReceipt" = "Leesbevestigingen bevestigen";

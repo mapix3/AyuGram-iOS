@@ -150,11 +150,52 @@ func ayuConsumeGhostMirrors(transaction: Transaction, publishedIds: [MessageId])
     }
     if !consumed.isEmpty {
         transaction.deleteMessages(consumed, forEachMedia: nil)
+        let remainingSet = Set(remaining)
+        var published = ayuGhostPublished(transaction: transaction)
+        published.ids.append(contentsOf: publishedIds.filter { !remainingSet.contains($0) })
+        if let entry = CodableEntry(published) {
+            transaction.putItemCacheEntry(id: ayuGhostPublishedEntryId(), entry: entry)
+        }
+        let _ = ayuGhostPublishedFlag.swap(true)
     }
     if changed {
         ayuStoreGhostMirrors(transaction: transaction, list)
     }
     return remaining
+}
+
+private let ayuGhostPublishedFlag = Atomic<Bool>(value: false)
+
+func ayuHasGhostPublishedMessages() -> Bool {
+    return ayuGhostPublishedFlag.swap(false)
+}
+
+private struct AyuGhostPublished: Codable {
+    var ids: [MessageId]
+}
+
+private func ayuGhostPublishedEntryId() -> ItemCacheEntryId {
+    return ItemCacheEntryId(collectionId: 122, key: ValueBoxKey("ghostPublished"))
+}
+
+private func ayuGhostPublished(transaction: Transaction) -> AyuGhostPublished {
+    return transaction.retrieveItemCacheEntry(id: ayuGhostPublishedEntryId())?.get(AyuGhostPublished.self) ?? AyuGhostPublished(ids: [])
+}
+
+func ayuTakeGhostPublishedMessageIds(transaction: Transaction) -> [MessageId] {
+    let published = ayuGhostPublished(transaction: transaction)
+    if published.ids.isEmpty {
+        return []
+    }
+    transaction.removeItemCacheEntry(id: ayuGhostPublishedEntryId())
+    var latest: [PeerId: MessageId] = [:]
+    for id in published.ids {
+        if let current = latest[id.peerId], current.id >= id.id {
+            continue
+        }
+        latest[id.peerId] = id
+    }
+    return Array(latest.values)
 }
 
 func ayuGhostMirrorDeletion(transaction: Transaction, ids: [MessageId]) -> [MessageId] {

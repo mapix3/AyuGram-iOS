@@ -296,3 +296,4 @@
 "Ayu.ViewDeleted" = "Gelöschte Nachrichten";
 "Ayu.ViewDeletedInfo" = "Chats mit gelöschten Nachrichten, die auf diesem Gerät gespeichert sind. Öffne einen, um seine gelöschten Nachrichten oder den ganzen Chat zu lesen.";
 "Ayu.ViewDeletedEmpty" = "Noch keine gelöschten Nachrichten.";
+"Ayu.ConfirmReadReceipt" = "Lesebestätigungen bestätigen";

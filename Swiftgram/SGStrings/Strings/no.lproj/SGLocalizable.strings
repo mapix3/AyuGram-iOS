@@ -296,3 +296,4 @@
 "Ayu.ViewDeleted" = "Slettede meldinger";
 "Ayu.ViewDeletedInfo" = "Chatter med slettede meldinger lagret på denne enheten. Åpne en for å lese de slettede meldingene eller hele chatten.";
 "Ayu.ViewDeletedEmpty" = "Ingen slettede meldinger ennå.";
+"Ayu.ConfirmReadReceipt" = "Bekreft lesebekreftelser";

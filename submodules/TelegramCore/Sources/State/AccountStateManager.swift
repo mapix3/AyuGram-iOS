@@ -392,6 +392,7 @@ public final class AccountStateManager {
         
         let updateConfigRequested: (() -> Void)?
         let isPremiumUpdated: (() -> Void)?
+        var ayuGhostPublished: (([MessageId]) -> Void)?
         
         init(
             queue: Queue,
@@ -1230,6 +1231,16 @@ public final class AccountStateManager {
                     let _ = self.delayNotificatonsUntil.swap(events.delayNotificatonsUntil)
                 }
                 ayuGramPrefetchHistoryMedia(postbox: self.postbox, ids: events.addedIncomingMessageIds)
+                if ayuHasGhostPublishedMessages() {
+                    let _ = (self.postbox.transaction { transaction -> [MessageId] in
+                        return ayuTakeGhostPublishedMessageIds(transaction: transaction)
+                    }
+                    |> deliverOn(self.queue)).start(next: { [weak self] ids in
+                        if !ids.isEmpty {
+                            self?.ayuGhostPublished?(ids)
+                        }
+                    })
+                }
                 
                 let signal = self.postbox.transaction { transaction -> [([Message], PeerGroupId, Bool, MessageHistoryThreadData?)] in
                     var messageList: [([Message], PeerGroupId, Bool, MessageHistoryThreadData?)] = []
@@ -2170,6 +2181,16 @@ public final class AccountStateManager {
         }
         isPremiumUpdatedImpl = { [weak self] in
             self?.isPremiumUpdated?()
+        }
+        self.impl.with { [weak self] impl in
+            impl.ayuGhostPublished = { ids in
+                guard let self else {
+                    return
+                }
+                for id in ids {
+                    let _ = _internal_ayuAfterSending(postbox: self.postbox, network: self.network, stateManager: self, accountPeerId: self.accountPeerId, messageId: id).startStandalone()
+                }
+            }
         }
     }
     

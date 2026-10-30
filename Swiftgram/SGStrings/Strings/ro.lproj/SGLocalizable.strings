@@ -296,3 +296,4 @@
 "Ayu.ViewDeleted" = "Mesaje șterse";
 "Ayu.ViewDeletedInfo" = "Chaturi cu mesaje șterse păstrate pe acest dispozitiv. Deschide unul pentru a citi mesajele șterse sau tot chatul.";
 "Ayu.ViewDeletedEmpty" = "Încă nu există mesaje șterse.";
+"Ayu.ConfirmReadReceipt" = "Confirmă confirmările de citire";

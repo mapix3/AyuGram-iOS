@@ -281,3 +281,4 @@
 "Ayu.ViewDeleted" = "Messages supprimés";
 "Ayu.ViewDeletedInfo" = "Discussions dont les messages supprimés sont conservés sur cet appareil. Ouvrez-en une pour lire ses messages supprimés ou toute la discussion.";
 "Ayu.ViewDeletedEmpty" = "Aucun message supprimé pour l'instant.";
+"Ayu.ConfirmReadReceipt" = "Confirmer les accusés de lecture";

@@ -1011,20 +1011,28 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }, action: { _, f in
                 f(.default)
                 let data = context.sharedContext.currentPresentationData.with { $0 }
+                let confirm = AyuGramSettings.shared.extra.confirmReadReceipt
+                let send: () -> Void = {
+                    let receiptThreadId: Int64?
+                    if case let .replyThread(thread) = chatPresentationInterfaceState.chatLocation {
+                        receiptThreadId = thread.threadId
+                    } else {
+                        receiptThreadId = nil
+                    }
+                    let _ = (context.engine.messages.ayuReportRead(messageId: message.id, threadId: receiptThreadId)
+                    |> deliverOnMainQueue).startStandalone(next: { success in
+                        if confirm || !success {
+                            controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n(success ? "Ayu.ReceiptSent" : "Ayu.ReceiptError", data.strings.baseLanguageCode), text: "", actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), nil)
+                        }
+                    })
+                }
+                guard confirm else {
+                    send()
+                    return
+                }
                 controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n("Ayu.SendReadReceipt", data.strings.baseLanguageCode), text: i18n("Ayu.ReadWarning", data.strings.baseLanguageCode), actions: [
                     TextAlertAction(type: .genericAction, title: data.strings.Common_Cancel, action: {}),
-                    TextAlertAction(type: .defaultAction, title: i18n("Ayu.SendReceipt", data.strings.baseLanguageCode), action: {
-                        let receiptThreadId: Int64?
-                        if case let .replyThread(thread) = chatPresentationInterfaceState.chatLocation {
-                            receiptThreadId = thread.threadId
-                        } else {
-                            receiptThreadId = nil
-                        }
-                        let _ = (context.engine.messages.ayuReportRead(messageId: message.id, threadId: receiptThreadId)
-                        |> deliverOnMainQueue).startStandalone(next: { success in
-                            controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n(success ? "Ayu.ReceiptSent" : "Ayu.ReceiptError", data.strings.baseLanguageCode), text: "", actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), nil)
-                        })
-                    })
+                    TextAlertAction(type: .defaultAction, title: i18n("Ayu.SendReceipt", data.strings.baseLanguageCode), action: send)
                 ]), nil)
             })))
             if ayuPrivateMediaDisplayMessage(message) != nil {

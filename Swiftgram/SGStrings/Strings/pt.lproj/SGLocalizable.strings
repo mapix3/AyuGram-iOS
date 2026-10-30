@@ -418,3 +418,4 @@
 "Ayu.ViewDeleted" = "Mensagens apagadas";
 "Ayu.ViewDeletedInfo" = "Conversas com mensagens apagadas guardadas neste aparelho. Abra uma para ler as mensagens apagadas ou a conversa inteira.";
 "Ayu.ViewDeletedEmpty" = "Ainda não há mensagens apagadas.";
+"Ayu.ConfirmReadReceipt" = "Confirmar recibos de leitura";

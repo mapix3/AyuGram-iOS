@@ -374,3 +374,4 @@
 "Ayu.ViewDeleted" = "Poistetut viestit";
 "Ayu.ViewDeletedInfo" = "Keskustelut, joiden poistetut viestit on säilytetty tällä laitteella. Avaa keskustelu lukeaksesi sen poistetut viestit tai koko keskustelun.";
 "Ayu.ViewDeletedEmpty" = "Ei vielä poistettuja viestejä.";
+"Ayu.ConfirmReadReceipt" = "Vahvista lukukuittaukset";
