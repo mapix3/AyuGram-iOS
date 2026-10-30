@@ -163,16 +163,85 @@ enum AyuGramPushRelay {
         }
         |> take(1)
         |> deliverOnMainQueue).startStandalone(next: { error in
+            deliveryApplied = barkKey.isEmpty ? nil : true
             completion(error)
+            reconcileDelivery()
         })
     }
 
-    /// Renews the subscription at launch, also for accounts added since it was set up.
+    private final class BackgroundTask {
+        var id: UIBackgroundTaskIdentifier = .invalid
+    }
+
+    private static weak var deliveryContext: AccountContext?
+    private static var deliveryObservers: [NSObjectProtocol] = []
+    private static var deliveryDesired = false
+    private static var deliveryApplied: Bool?
+    private static var deliveryRunning = false
+
     static func renew(context: AccountContext) {
-        guard let barkKey, !barkKey.isEmpty else {
+        deliveryContext = context
+        deliveryApplied = nil
+        for observer in deliveryObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        deliveryObservers = [
+            NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main, using: { _ in
+                deliveryDesired = false
+                reconcileDelivery()
+            }),
+            NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main, using: { _ in
+                deliveryDesired = true
+                reconcileDelivery()
+            })
+        ]
+        deliveryDesired = UIApplication.shared.applicationState == .background
+        reconcileDelivery()
+    }
+
+    private static func reconcileDelivery() {
+        guard !deliveryRunning, let context = deliveryContext, let barkKey, !barkKey.isEmpty, deliveryApplied != deliveryDesired else {
             return
         }
-        apply(context: context, barkKey: barkKey, completion: { _ in })
+        let current = subscription(barkKey: barkKey)
+        let enable = deliveryDesired
+        deliveryRunning = true
+        let task = BackgroundTask()
+        task.id = UIApplication.shared.beginBackgroundTask(withName: "AyuGramPushRelay", expirationHandler: {
+            UIApplication.shared.endBackgroundTask(task.id)
+            task.id = .invalid
+        })
+        let _ = (engines(context: context)
+        |> mapToSignal { engines -> Signal<Void, NoError> in
+            if engines.isEmpty {
+                return .single(Void())
+            }
+            return combineLatest(engines.map { engine -> Signal<Void, NoError> in
+                if enable {
+                    return engine.accountData.ayuRegisterWebPush(subscription: current)
+                    |> map { _ -> Void in
+                        return Void()
+                    }
+                    |> take(1)
+                } else {
+                    return engine.accountData.ayuUnregisterWebPush(subscription: current)
+                    |> take(1)
+                }
+            })
+            |> map { _ -> Void in
+                return Void()
+            }
+        }
+        |> take(1)
+        |> deliverOnMainQueue).startStandalone(next: { _ in
+            deliveryApplied = enable
+            deliveryRunning = false
+            if task.id != .invalid {
+                UIApplication.shared.endBackgroundTask(task.id)
+                task.id = .invalid
+            }
+            reconcileDelivery()
+        })
     }
 }
 
