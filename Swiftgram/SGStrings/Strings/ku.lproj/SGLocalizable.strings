@@ -148,3 +148,6 @@
 "Ayu.ConfirmSticker" = "Ev stîker bê şandin?";
 "Ayu.ConfirmGif" = "Ev GIF bê şandin?";
 "Ayu.Send" = "Bişîne";
+"Ayu.ImportLocally" = "Herêmî derxe nav";
+"Ayu.ImportLocallyInfo" = "Tu dikarî sohbetê tenê li ser vê amûrê derxî nav: peyam tenê ji bo te di vê sohbetê de xuya dibin û nayên şandin ji Telegramê re.";
+"Ayu.ImportLocallyDone" = "Peyamên derxistî nav: %@. Tenê li ser vê amûrê xuya dibin.";

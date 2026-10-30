@@ -290,3 +290,6 @@
 "Ayu.ConfirmSticker" = "Trimiți acest autocolant?";
 "Ayu.ConfirmGif" = "Trimiți acest GIF?";
 "Ayu.Send" = "Trimite";
+"Ayu.ImportLocally" = "Importă local";
+"Ayu.ImportLocallyInfo" = "Poți importa chatul doar pe acest dispozitiv: mesajele apar în acest chat doar pentru tine și nu sunt trimise la Telegram.";
+"Ayu.ImportLocallyDone" = "Mesaje importate: %@. Sunt vizibile doar pe acest dispozitiv.";

@@ -290,3 +290,6 @@
 "Ayu.ConfirmSticker" = "Stuur hierdie plakker?";
 "Ayu.ConfirmGif" = "Stuur hierdie GIF?";
 "Ayu.Send" = "Stuur";
+"Ayu.ImportLocally" = "Voer plaaslik in";
+"Ayu.ImportLocallyInfo" = "Jy kan die klets net op hierdie toestel invoer: die boodskappe verskyn net vir jou in hierdie klets en word nie na Telegram gestuur nie.";
+"Ayu.ImportLocallyDone" = "Ingevoerde boodskappe: %@. Hulle is net op hierdie toestel sigbaar.";

@@ -368,3 +368,6 @@
 "Ayu.ConfirmSticker" = "Lähetetäänkö tämä tarra?";
 "Ayu.ConfirmGif" = "Lähetetäänkö tämä GIF?";
 "Ayu.Send" = "Lähetä";
+"Ayu.ImportLocally" = "Tuo paikallisesti";
+"Ayu.ImportLocallyInfo" = "Voit tuoda keskustelun vain tälle laitteelle: viestit näkyvät tässä keskustelussa vain sinulle eikä niitä lähetetä Telegramiin.";
+"Ayu.ImportLocallyDone" = "Tuotuja viestejä: %@. Ne näkyvät vain tällä laitteella.";

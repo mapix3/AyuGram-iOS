@@ -22,6 +22,7 @@ NEW_KEYS += ['DeletedChats', 'DeletedChatsInfo', 'DeletedChatSave', 'DeletedChat
 NEW_KEYS += ['SilentSending', 'SilentNever', 'SilentInGhost', 'SilentAlways', 'ScheduleInGhost', 'ScheduleInGhostInfo', 'ChatsSection',
              'DisableAds', 'DisableLinkWarning', 'DisableGreeting', 'DimDeleted', 'RepeatMessage', 'Repeat', 'ConfirmStickers', 'ConfirmGifs',
              'ConfirmSticker', 'ConfirmGif', 'Send']
+NEW_KEYS += ['ImportLocally', 'ImportLocallyInfo', 'ImportLocallyDone']
 
 def check_strings(source: Path):
     locales = sorted((source / 'Swiftgram/SGStrings/Strings').glob('*.lproj/SGLocalizable.strings'))
@@ -32,6 +33,7 @@ def check_strings(source: Path):
         assert not missing, (file, missing)
         assert strings['Ayu.HeroHidden'].count('%@') == 2, file
         assert strings['Ayu.BarkFailed'].count('%@') == 1, file
+        assert strings['Ayu.ImportLocallyDone'].count('%@') == 1, file
         assert '500' in strings['Ayu.AddAccountHelp'] or '۵۰۰' in strings['Ayu.AddAccountHelp'], file
         for key in NEW_KEYS:
             # i18n formats every string; a stray % would corrupt the text.

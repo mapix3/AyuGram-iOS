@@ -412,3 +412,6 @@
 "Ayu.ConfirmSticker" = "Enviar esta figurinha?";
 "Ayu.ConfirmGif" = "Enviar este GIF?";
 "Ayu.Send" = "Enviar";
+"Ayu.ImportLocally" = "Importar localmente";
+"Ayu.ImportLocallyInfo" = "Você pode importar a conversa só neste aparelho: as mensagens aparecem nesta conversa apenas para você e não são enviadas ao Telegram.";
+"Ayu.ImportLocallyDone" = "Mensagens importadas: %@. Elas aparecem só neste aparelho.";

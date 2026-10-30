@@ -275,3 +275,6 @@
 "Ayu.ConfirmSticker" = "Envoyer cet autocollant ?";
 "Ayu.ConfirmGif" = "Envoyer ce GIF ?";
 "Ayu.Send" = "Envoyer";
+"Ayu.ImportLocally" = "Importer localement";
+"Ayu.ImportLocallyInfo" = "Vous pouvez importer la discussion sur cet appareil uniquement : les messages apparaissent dans cette discussion pour vous seul et ne sont pas envoyés à Telegram.";
+"Ayu.ImportLocallyDone" = "Messages importés : %@. Ils ne sont visibles que sur cet appareil.";

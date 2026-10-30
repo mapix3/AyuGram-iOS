@@ -290,3 +290,6 @@
 "Ayu.ConfirmSticker" = "यह स्टिकर भेजें?";
 "Ayu.ConfirmGif" = "यह GIF भेजें?";
 "Ayu.Send" = "भेजें";
+"Ayu.ImportLocally" = "स्थानीय रूप से आयात करें";
+"Ayu.ImportLocallyInfo" = "आप चैट को केवल इस डिवाइस पर आयात कर सकते हैं: संदेश इस चैट में केवल आपको दिखेंगे और Telegram पर नहीं भेजे जाएँगे।";
+"Ayu.ImportLocallyDone" = "आयात किए गए संदेश: %@. वे केवल इस डिवाइस पर दिखते हैं।";

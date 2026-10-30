@@ -290,3 +290,6 @@
 "Ayu.ConfirmSticker" = "Deze sticker verzenden?";
 "Ayu.ConfirmGif" = "Deze GIF verzenden?";
 "Ayu.Send" = "Verzenden";
+"Ayu.ImportLocally" = "Lokaal importeren";
+"Ayu.ImportLocallyInfo" = "Je kunt de chat alleen op dit apparaat importeren: de berichten verschijnen alleen voor jou in deze chat en worden niet naar Telegram verzonden.";
+"Ayu.ImportLocallyDone" = "Geïmporteerde berichten: %@. Ze zijn alleen op dit apparaat zichtbaar.";
