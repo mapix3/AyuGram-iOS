@@ -151,3 +151,6 @@
 "Ayu.ImportLocally" = "Herêmî derxe nav";
 "Ayu.ImportLocallyInfo" = "Tu dikarî sohbetê tenê li ser vê amûrê derxî nav: peyam tenê ji bo te di vê sohbetê de xuya dibin û nayên şandin ji Telegramê re.";
 "Ayu.ImportLocallyDone" = "Peyamên derxistî nav: %@. Tenê li ser vê amûrê xuya dibin.";
+"Ayu.ViewDeleted" = "Peyamên jêbirî";
+"Ayu.ViewDeletedInfo" = "Sohbetên ku peyamên wan ên jêbirî li ser vê amûrê hatine parastin. Yekê veke da ku peyamên jêbirî an tevahiya sohbetê bixwînî.";
+"Ayu.ViewDeletedEmpty" = "Hêj peyamên jêbirî tune ne.";

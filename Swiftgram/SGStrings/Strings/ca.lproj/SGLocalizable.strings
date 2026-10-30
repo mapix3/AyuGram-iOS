@@ -293,3 +293,6 @@
 "Ayu.ImportLocally" = "Importa localment";
 "Ayu.ImportLocallyInfo" = "Pots importar el xat només en aquest dispositiu: els missatges apareixen en aquest xat només per a tu i no s'envien a Telegram.";
 "Ayu.ImportLocallyDone" = "Missatges importats: %@. Només es veuen en aquest dispositiu.";
+"Ayu.ViewDeleted" = "Missatges eliminats";
+"Ayu.ViewDeletedInfo" = "Xats amb missatges eliminats desats en aquest dispositiu. Obre'n un per llegir-ne els missatges eliminats o tot el xat.";
+"Ayu.ViewDeletedEmpty" = "Encara no hi ha missatges eliminats.";

@@ -19,10 +19,16 @@ func ayuGramDeleteRemoteMessages(transaction: Transaction, mediaBox: MediaBox, i
         flags.insert(.AyuLocallyDeleted)
         flags.remove(.TopIndexable)
         flags.remove(.ReactionsArePossible)
-        retained.append(StoreMessage(id: .Id(id), customStableId: message.stableId, globallyUniqueId: message.globallyUniqueId, groupingKey: message.groupingKey, threadId: message.threadId, timestamp: message.timestamp, flags: flags, tags: [], globalTags: [], localTags: [], forwardInfo: message.forwardInfo.map(StoreMessageForwardInfo.init), authorId: message.author?.id, text: message.text, attributes: attributes, media: policy.savePhotos ? ayuGramRetainedMedia(transaction: transaction, mediaBox: mediaBox, message: message) : []))
+        retained.append(StoreMessage(id: .Id(id), customStableId: message.stableId, globallyUniqueId: message.globallyUniqueId, groupingKey: message.groupingKey, threadId: message.threadId, timestamp: message.timestamp, flags: flags, tags: [], globalTags: [], localTags: [], forwardInfo: message.forwardInfo.map(StoreMessageForwardInfo.init), authorId: message.author?.id, text: message.text, attributes: attributes, media: policy.savePhotos ? ayuGramKeptMedia(mediaBox: mediaBox, media: ayuGramRetainedMedia(transaction: transaction, mediaBox: mediaBox, message: message)) : []))
     }
     _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: manualAddMessageThreadStatsDifference)
     let _ = transaction.addMessages(retained, location: .Random)
+    ayuGramNoteKeptPeers(transaction: transaction, peerIds: Set(retained.compactMap { message -> PeerId? in
+        if case let .Id(id) = message.id {
+            return id.peerId
+        }
+        return nil
+    }))
     ayuGramFlagDeletedChats(transaction: transaction, retained: retained.compactMap { message -> MessageId? in
         if case let .Id(id) = message.id {
             return id

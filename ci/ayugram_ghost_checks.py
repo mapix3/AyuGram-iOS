@@ -23,6 +23,7 @@ NEW_KEYS += ['SilentSending', 'SilentNever', 'SilentInGhost', 'SilentAlways', 'S
              'DisableAds', 'DisableLinkWarning', 'DisableGreeting', 'DimDeleted', 'RepeatMessage', 'Repeat', 'ConfirmStickers', 'ConfirmGifs',
              'ConfirmSticker', 'ConfirmGif', 'Send']
 NEW_KEYS += ['ImportLocally', 'ImportLocallyInfo', 'ImportLocallyDone']
+NEW_KEYS += ['ViewDeleted', 'ViewDeletedInfo', 'ViewDeletedEmpty']
 
 def check_strings(source: Path):
     locales = sorted((source / 'Swiftgram/SGStrings/Strings').glob('*.lproj/SGLocalizable.strings'))

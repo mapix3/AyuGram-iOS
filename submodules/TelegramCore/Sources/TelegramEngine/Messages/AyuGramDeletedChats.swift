@@ -9,6 +9,12 @@ public struct AyuGramDeletedChat: Codable, Equatable {
     public let peerId: Int64
     public var title: String
     public var deletedAt: Int32
+
+    public init(peerId: Int64, title: String, deletedAt: Int32) {
+        self.peerId = peerId
+        self.title = title
+        self.deletedAt = deletedAt
+    }
 }
 
 private struct AyuGramDeletedChats: Codable { var chats: [AyuGramDeletedChat] }
@@ -20,6 +26,26 @@ private let ayuGramDeletedChatScanLimit = 200
 
 private func ayuGramLoadDeletedChats(transaction: Transaction) -> AyuGramDeletedChats {
     return transaction.getPreferencesEntry(key: ayuGramDeletedChatsKey)?.get(AyuGramDeletedChats.self) ?? AyuGramDeletedChats(chats: [])
+}
+
+private struct AyuGramKeptPeers: Codable { var peers: [Int64] }
+private let ayuGramKeptPeersKey = applicationSpecificPreferencesKey(0x415958)
+
+private func ayuGramLoadKeptPeers(transaction: Transaction) -> [Int64] {
+    return transaction.getPreferencesEntry(key: ayuGramKeptPeersKey)?.get(AyuGramKeptPeers.self)?.peers ?? []
+}
+
+func ayuGramNoteKeptPeers(transaction: Transaction, peerIds: Set<PeerId>) {
+    guard !peerIds.isEmpty else { return }
+    var peers = ayuGramLoadKeptPeers(transaction: transaction)
+    var changed = false
+    for peerId in peerIds where !peers.contains(peerId.toInt64()) {
+        peers.append(peerId.toInt64())
+        changed = true
+    }
+    if changed {
+        transaction.setPreferencesEntry(key: ayuGramKeptPeersKey, value: PreferencesEntry(AyuGramKeptPeers(peers: peers)))
+    }
 }
 
 func ayuGramDeletedChatPeers(transaction: Transaction) -> Set<Int64> {
@@ -51,6 +77,9 @@ func ayuGramFlagDeletedChats(transaction: Transaction, retained: [MessageId]) {
         } else {
             list.chats.append(AyuGramDeletedChat(peerId: peerId.toInt64(), title: title, deletedAt: now))
         }
+        if case .notIncluded = transaction.getPeerChatListInclusion(peerId) {
+            transaction.updatePeerChatListInclusion(peerId, inclusion: .ifHasMessagesOrOneOf(groupId: .root, pinningIndex: nil, minTimestamp: nil))
+        }
         changed = true
     }
     if changed {
@@ -80,6 +109,62 @@ public extension TelegramEngine {
                     let peerId = PeerId(chat.peerId)
                     return (chat, transaction.getPeer(peerId).map(EnginePeer.init), ayuGramDeletedCopies(transaction: transaction, peerId: peerId).count)
                 }
+            }
+        }
+    }
+
+    /// Chats that hold kept deleted messages, most recently deleted first.
+    func ayuGramKeptDeletedChats() -> Signal<[(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32)], NoError> {
+        return self.account.postbox.transaction { transaction -> [(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32)] in
+            var ids = ayuGramLoadKeptPeers(transaction: transaction)
+            for chat in ayuGramLoadDeletedChats(transaction: transaction).chats where !ids.contains(chat.peerId) {
+                ids.append(chat.peerId)
+            }
+            var result: [(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32)] = []
+            var remaining: [Int64] = []
+            for id in ids {
+                let peerId = PeerId(id)
+                let copies = ayuGramDeletedCopies(transaction: transaction, peerId: peerId)
+                guard !copies.isEmpty else { continue }
+                remaining.append(id)
+                let deletedAt = copies.compactMap { $0.ayuHistory?.deletedAt }.max() ?? copies.last?.timestamp ?? 0
+                result.append((peerId, transaction.getPeer(peerId).map(EnginePeer.init), copies.count, deletedAt))
+            }
+            if remaining.count != ayuGramLoadKeptPeers(transaction: transaction).count {
+                transaction.setPreferencesEntry(key: ayuGramKeptPeersKey, value: remaining.isEmpty ? nil : PreferencesEntry(AyuGramKeptPeers(peers: remaining)))
+            }
+            return result.sorted(by: { $0.deletedAt > $1.deletedAt })
+        }
+    }
+
+    /// The kept deleted messages of a chat as history records, newest first.
+    func ayuGramKeptDeletedEntries(peerId: EnginePeer.Id) -> Signal<[AyuGramHistoryEntry], NoError> {
+        return self.account.postbox.transaction { transaction -> [AyuGramHistoryEntry] in
+            let peerTitle = String((transaction.getPeer(peerId)?.debugDisplayTitle ?? "").prefix(256))
+            return ayuGramDeletedCopies(transaction: transaction, peerId: peerId).reversed().map { message -> AyuGramHistoryEntry in
+                var text = message.text
+                if text.isEmpty {
+                    for media in message.media {
+                        if media is TelegramMediaImage {
+                            text = "🖼"
+                        } else if let file = media as? TelegramMediaFile {
+                            text = file.isVoice ? "🎤" : file.isInstantVideo || file.isVideo ? "📹" : file.isSticker ? "🏷" : "📎 " + (file.fileName ?? "")
+                        }
+                        if !text.isEmpty {
+                            break
+                        }
+                    }
+                }
+                return AyuGramHistoryEntry(peerId: peerId.toInt64(), messageId: message.id.id, peerTitle: peerTitle, author: String((message.author?.debugDisplayTitle ?? "").prefix(256)), text: text, event: "deleted", timestamp: message.ayuHistory?.deletedAt ?? message.timestamp, photoFileName: nil, photoResourceId: nil, authorId: message.author?.id.toInt64(), messageTimestamp: message.timestamp, mediaKind: nil, mediaTitle: nil, updatedText: nil)
+            }
+        }
+    }
+
+    func ayuGramDeleteKeptMessage(peerId: EnginePeer.Id, messageId: Int32) -> Signal<Void, NoError> {
+        return self.account.postbox.transaction { transaction -> Void in
+            let id = MessageId(peerId: peerId, namespace: Namespaces.Message.Cloud, id: messageId)
+            if let message = transaction.getMessage(id), message.flags.contains(.AyuLocallyDeleted) {
+                transaction.deleteMessages([id], forEachMedia: { _ in })
             }
         }
     }

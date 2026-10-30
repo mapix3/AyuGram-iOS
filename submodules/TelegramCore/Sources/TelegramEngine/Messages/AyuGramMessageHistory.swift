@@ -220,6 +220,46 @@ func ayuGramCompleteEditSnapshot(transaction: Transaction, id: MessageId, update
     transaction.setPreferencesEntry(key: ayuGramHistoryKey, value: PreferencesEntry(history))
 }
 
+private let ayuGramKeptMediaLimit: Int64 = 50 * 1024 * 1024
+
+private func ayuGramKeptCopy(mediaBox: MediaBox, resource: MediaResource, fallbackExtension: String) -> LocalFileReferenceMediaResource? {
+    guard let path = mediaBox.completedResourcePath(resource), let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size]) as? NSNumber, size.int64Value > 0, size.int64Value <= ayuGramKeptMediaLimit else { return nil }
+    let directory = URL(fileURLWithPath: mediaBox.basePath, isDirectory: true).appendingPathComponent("ayu-kept-media", isDirectory: true)
+    do {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var excluded = directory
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? excluded.setResourceValues(values)
+        let destination = directory.appendingPathComponent(UUID().uuidString + "." + fallbackExtension)
+        try FileManager.default.copyItem(at: URL(fileURLWithPath: path), to: destination)
+        return LocalFileReferenceMediaResource(localFilePath: destination.path, randomId: Int64.random(in: Int64.min ... Int64.max), size: size.int64Value)
+    } catch {
+        return nil
+    }
+}
+
+/// Copies the cached photos and files of a kept message out of the cache, so they stay after it is cleared.
+func ayuGramKeptMedia(mediaBox: MediaBox, media: [Media]) -> [Media] {
+    return media.map { item -> Media in
+        if let image = item as? TelegramMediaImage, !(largestImageRepresentation(image.representations)?.resource is LocalFileReferenceMediaResource) {
+            for representation in image.representations.sorted(by: { $0.dimensions.width * $0.dimensions.height > $1.dimensions.width * $1.dimensions.height }) {
+                if let resource = ayuGramKeptCopy(mediaBox: mediaBox, resource: representation.resource, fallbackExtension: "jpg") {
+                    let local = TelegramMediaImageRepresentation(dimensions: representation.dimensions, resource: resource, progressiveSizes: [], immediateThumbnailData: representation.immediateThumbnailData)
+                    return TelegramMediaImage(imageId: MediaId(namespace: Namespaces.Media.LocalImage, id: resource.randomId), representations: [local], immediateThumbnailData: image.immediateThumbnailData, emojiMarkup: image.emojiMarkup, reference: nil, partialReference: nil, flags: image.flags)
+                }
+            }
+            return item
+        }
+        if let file = item as? TelegramMediaFile, !(file.resource is LocalFileReferenceMediaResource), !file.isSticker, !file.isAnimatedSticker, !file.isVideoSticker, !file.isCustomEmoji {
+            if let resource = ayuGramKeptCopy(mediaBox: mediaBox, resource: file.resource, fallbackExtension: ayuGramFileExtension(file)) {
+                return TelegramMediaFile(fileId: MediaId(namespace: Namespaces.Media.LocalFile, id: resource.randomId), partialReference: nil, resource: resource, previewRepresentations: file.previewRepresentations, videoThumbnails: file.videoThumbnails, videoCover: file.videoCover, immediateThumbnailData: file.immediateThumbnailData, mimeType: file.mimeType, size: file.size, attributes: file.attributes, alternativeRepresentations: [])
+            }
+        }
+        return item
+    }
+}
+
 func ayuGramRetainedMedia(transaction: Transaction, mediaBox: MediaBox, message: Message) -> [Media] {
     guard let history = transaction.getPreferencesEntry(key: ayuGramHistoryKey)?.get(AyuGramHistory.self), let entry = history.entries.last(where: { $0.peerId == message.id.peerId.toInt64() && $0.messageId == message.id.id && $0.event == "deleted" }), let name = entry.photoFileName, let sourceId = entry.photoResourceId, let url = archiveFile(mediaBox, name: name), let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber else { return message.media }
     let randomId = Int64.random(in: Int64.min ... Int64.max)

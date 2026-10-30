@@ -293,3 +293,6 @@
 "Ayu.ImportLocally" = "Impor secara lokal";
 "Ayu.ImportLocallyInfo" = "Kamu bisa mengimpor obrolan hanya di perangkat ini: pesan muncul di obrolan ini hanya untukmu dan tidak dikirim ke Telegram.";
 "Ayu.ImportLocallyDone" = "Pesan yang diimpor: %@. Hanya terlihat di perangkat ini.";
+"Ayu.ViewDeleted" = "Pesan terhapus";
+"Ayu.ViewDeletedInfo" = "Obrolan dengan pesan terhapus yang disimpan di perangkat ini. Buka salah satu untuk membaca pesan terhapusnya atau seluruh obrolan.";
+"Ayu.ViewDeletedEmpty" = "Belum ada pesan terhapus.";

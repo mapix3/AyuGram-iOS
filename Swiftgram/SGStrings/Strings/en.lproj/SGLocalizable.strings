@@ -420,3 +420,6 @@
 "Ayu.ImportLocally" = "Import locally";
 "Ayu.ImportLocallyInfo" = "You can import the chat on this device only: the messages appear in this chat for you alone and are not sent to Telegram.";
 "Ayu.ImportLocallyDone" = "Imported messages: %@. They are visible only on this device.";
+"Ayu.ViewDeleted" = "View deleted messages";
+"Ayu.ViewDeletedInfo" = "Chats with deleted messages kept on this device. Open one to read its deleted messages or the whole chat.";
+"Ayu.ViewDeletedEmpty" = "No deleted messages yet.";

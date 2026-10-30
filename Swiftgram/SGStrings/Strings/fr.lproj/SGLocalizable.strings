@@ -278,3 +278,6 @@
 "Ayu.ImportLocally" = "Importer localement";
 "Ayu.ImportLocallyInfo" = "Vous pouvez importer la discussion sur cet appareil uniquement : les messages apparaissent dans cette discussion pour vous seul et ne sont pas envoyés à Telegram.";
 "Ayu.ImportLocallyDone" = "Messages importés : %@. Ils ne sont visibles que sur cet appareil.";
+"Ayu.ViewDeleted" = "Messages supprimés";
+"Ayu.ViewDeletedInfo" = "Discussions dont les messages supprimés sont conservés sur cet appareil. Ouvrez-en une pour lire ses messages supprimés ou toute la discussion.";
+"Ayu.ViewDeletedEmpty" = "Aucun message supprimé pour l'instant.";

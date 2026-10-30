@@ -139,7 +139,9 @@ def check_deleted_chats(source: Path):
     history = (core / 'AyuGramMessageHistory.swift').read_text()
     assert history.count('ayuGramDeletedChatPeers(transaction: transaction)') >= 2, 'Pruning and clearing keep deleted chats'
     controller = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramHistoryController.swift').read_text()
-    assert 'ayuGramDeletedChatsController(context: context)' in controller and 'ayuGramDeletedChats()' in controller
+    assert 'ayuGramDeletedChatsController(context: context, onlyPeers: Set(current.selectedChats))' in controller and 'ayuGramDeletedChats()' in controller, 'Message history lists only the selected deleted chats'
+    assert 'ayuGramDeletedChatsController(context: context, keptMessages: true)' in controller, 'Deleted messages of every chat can be viewed'
+    assert 'ayuGramNoteKeptPeers(transaction: transaction' in remote and 'ayuGramKeptMedia(mediaBox: mediaBox' in remote, 'Kept messages of every chat are indexed and keep their media'
     protection = (core / 'AyuGramContentProtection.swift').read_text()
     assert 'source.flags.contains(.AyuLocallyDeleted) || (ignoresProtection && ayuIsSourceCopyProtected(' in protection, 'Deleted messages are forwarded as new messages'
 

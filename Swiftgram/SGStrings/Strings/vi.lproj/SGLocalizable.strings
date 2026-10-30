@@ -293,3 +293,6 @@
 "Ayu.ImportLocally" = "Nhập cục bộ";
 "Ayu.ImportLocallyInfo" = "Bạn có thể nhập cuộc trò chuyện chỉ trên thiết bị này: tin nhắn chỉ hiện trong cuộc trò chuyện này với bạn và không được gửi lên Telegram.";
 "Ayu.ImportLocallyDone" = "Tin nhắn đã nhập: %@. Chúng chỉ hiển thị trên thiết bị này.";
+"Ayu.ViewDeleted" = "Tin nhắn đã xóa";
+"Ayu.ViewDeletedInfo" = "Các cuộc trò chuyện có tin nhắn đã xóa được giữ trên thiết bị này. Mở một cuộc để đọc tin nhắn đã xóa hoặc toàn bộ cuộc trò chuyện.";
+"Ayu.ViewDeletedEmpty" = "Chưa có tin nhắn đã xóa.";
