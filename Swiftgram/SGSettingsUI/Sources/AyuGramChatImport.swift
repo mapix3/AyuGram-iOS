@@ -381,9 +381,140 @@ private func ayuImportSelectPeer(context: AccountContext, parseInfo: TelegramEng
             case .notMutualContact:
                 errorText = presentationData.strings.ChatImport_UserErrorNotMutual
             }
-            ayuImportAlert(context: context, errorText)
+            if case .user = peer {
+                let locale = presentationData.strings.baseLanguageCode
+                ayuImportPresent(context: context, textAlertController(context: context, title: nil, text: errorText + "\n\n" + i18n("Ayu.ImportLocallyInfo", locale), actions: [
+                    TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}),
+                    TextAlertAction(type: .defaultAction, title: i18n("Ayu.ImportLocally", locale), action: { [weak controller] in
+                        ayuImportLocally(context: context, peer: peer, title: importTitle, source: source, completion: {
+                            if let controller, let navigationController = controller.navigationController as? NavigationController {
+                                navigationController.filterController(controller, animated: false)
+                            }
+                        })
+                    })
+                ]))
+            } else {
+                ayuImportAlert(context: context, errorText)
+            }
         })
     }
 
     navigationController.pushViewController(controller)
+}
+
+private let ayuImportLinePatterns: [NSRegularExpression] = [
+    try! NSRegularExpression(pattern: "^\\[(\\d{1,2})[./-](\\d{1,2})[./-](\\d{2,4}),? (\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?:\\s?([AaPp][Mm]))?\\] ([^:]+?): (.*)$"),
+    try! NSRegularExpression(pattern: "^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{2,4}),? (\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?:\\s?([AaPp][Mm]))? - ([^:]+?): (.*)$")
+]
+
+private func ayuImportParseLocal(text: String, peerNames: Set<String>) -> [AyuGramImportedMessage] {
+    var result: [(timestamp: Int32, author: String, text: String)] = []
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone.current
+    for rawLine in text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+        let line = rawLine.trimmingCharacters(in: CharacterSet(charactersIn: "\u{200E}\u{200F}\u{FEFF}"))
+        let range = NSRange(line.startIndex..., in: line)
+        var matched = false
+        for pattern in ayuImportLinePatterns {
+            guard let match = pattern.firstMatch(in: line, range: range) else {
+                continue
+            }
+            func group(_ index: Int) -> String? {
+                let groupRange = match.range(at: index)
+                guard groupRange.location != NSNotFound, let swiftRange = Range(groupRange, in: line) else {
+                    return nil
+                }
+                return String(line[swiftRange])
+            }
+            guard let day = group(1).flatMap(Int.init), let month = group(2).flatMap(Int.init), var year = group(3).flatMap(Int.init), var hour = group(4).flatMap(Int.init), let minute = group(5).flatMap(Int.init), let author = group(8), let body = group(9) else {
+                continue
+            }
+            if year < 100 {
+                year += 2000
+            }
+            if let meridiem = group(7)?.lowercased() {
+                if meridiem == "pm" && hour < 12 {
+                    hour += 12
+                } else if meridiem == "am" && hour == 12 {
+                    hour = 0
+                }
+            }
+            var components = DateComponents()
+            components.year = year
+            components.month = month
+            components.day = day
+            components.hour = hour
+            components.minute = minute
+            components.second = group(6).flatMap(Int.init) ?? 0
+            guard let date = calendar.date(from: components) else {
+                continue
+            }
+            var messageText = body.trimmingCharacters(in: CharacterSet(charactersIn: "\u{200E}\u{200F}"))
+            if messageText.hasPrefix("<attached: "), messageText.hasSuffix(">") {
+                messageText = "📎 " + String(messageText.dropFirst("<attached: ".count).dropLast())
+            }
+            result.append((Int32(date.timeIntervalSince1970), author.trimmingCharacters(in: .whitespaces), messageText))
+            matched = true
+            break
+        }
+        if !matched, !result.isEmpty, !line.isEmpty {
+            result[result.count - 1].text += "\n" + line
+        }
+    }
+    if let first = result.first, first.text.contains("end-to-end encrypted") {
+        result.removeFirst()
+    }
+    var authors: [String: Int] = [:]
+    for item in result {
+        authors[item.author, default: 0] += 1
+    }
+    var incomingNames = peerNames.filter { authors[$0] != nil }
+    if incomingNames.isEmpty, authors.count == 2, let least = authors.min(by: { $0.value < $1.value })?.key {
+        incomingNames = [least]
+    }
+    var lastTimestamp: Int32 = 0
+    return result.map { item -> AyuGramImportedMessage in
+        let timestamp = max(item.timestamp, lastTimestamp)
+        lastTimestamp = timestamp
+        return AyuGramImportedMessage(timestamp: timestamp, incoming: incomingNames.contains(item.author), text: item.text)
+    }
+}
+
+private func ayuImportLocally(context: AccountContext, peer: EnginePeer, title: String?, source: AyuImportSource, completion: @escaping () -> Void) {
+    let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+    let locale = presentationData.strings.baseLanguageCode
+    var peerNames = Set<String>()
+    peerNames.insert(peer.debugDisplayTitle)
+    if case let .user(user) = peer {
+        if let firstName = user.firstName {
+            peerNames.insert(firstName)
+        }
+        if let username = user.addressName {
+            peerNames.insert(username)
+        }
+    }
+    if let title {
+        peerNames.insert(title)
+    }
+    let progress = OverlayStatusController(theme: presentationData.theme, type: .loading(cancelled: nil))
+    ayuImportPresent(context: context, progress)
+    let path = source.mainFile.path
+    Queue.concurrentDefaultQueue().async {
+        let text = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+        let messages = ayuImportParseLocal(text: text, peerNames: peerNames)
+        Queue.mainQueue().async {
+            guard !messages.isEmpty else {
+                progress.dismiss()
+                ayuImportAlert(context: context, i18n("Ayu.ImportChatInvalid", locale))
+                return
+            }
+            let _ = (context.engine.ayuGramImportLocally(peerId: peer.id, messages: messages)
+            |> deliverOnMainQueue).startStandalone(next: { count in
+                progress.dismiss()
+                completion()
+                context.sharedContext.navigateToChat(accountId: context.account.id, peerId: peer.id, messageId: nil)
+                ayuImportAlert(context: context, i18n("Ayu.ImportLocallyDone", locale, "\(count)"))
+            })
+        }
+    }
 }

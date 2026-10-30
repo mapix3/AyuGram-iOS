@@ -294,3 +294,6 @@
 "Ayu.ConfirmSticker" = "Vols enviar aquest adhesiu?";
 "Ayu.ConfirmGif" = "Vols enviar aquest GIF?";
 "Ayu.Send" = "Envia";
+"Ayu.ImportLocally" = "Importa localment";
+"Ayu.ImportLocallyInfo" = "Pots importar el xat només en aquest dispositiu: els missatges apareixen en aquest xat només per a tu i no s'envien a Telegram.";
+"Ayu.ImportLocallyDone" = "Missatges importats: %@. Només es veuen en aquest dispositiu.";

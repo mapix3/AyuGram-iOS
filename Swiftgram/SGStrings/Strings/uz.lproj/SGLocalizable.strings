@@ -294,3 +294,6 @@
 "Ayu.ConfirmSticker" = "Bu stiker yuborilsinmi?";
 "Ayu.ConfirmGif" = "Bu GIF yuborilsinmi?";
 "Ayu.Send" = "Yuborish";
+"Ayu.ImportLocally" = "Mahalliy import qilish";
+"Ayu.ImportLocallyInfo" = "Chatni faqat shu qurilmaga import qilishingiz mumkin: xabarlar bu chatda faqat sizga ko'rinadi va Telegramga yuborilmaydi.";
+"Ayu.ImportLocallyDone" = "Import qilingan xabarlar: %@. Ular faqat shu qurilmada ko'rinadi.";

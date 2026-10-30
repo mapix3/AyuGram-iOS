@@ -294,3 +294,6 @@
 "Ayu.ConfirmSticker" = "Sende dette klistremerket?";
 "Ayu.ConfirmGif" = "Sende denne GIF-en?";
 "Ayu.Send" = "Send";
+"Ayu.ImportLocally" = "Importer lokalt";
+"Ayu.ImportLocallyInfo" = "Du kan bare importere chatten på denne enheten: meldingene vises i chatten bare for deg og sendes ikke til Telegram.";
+"Ayu.ImportLocallyDone" = "Importerte meldinger: %@. De vises bare på denne enheten.";

@@ -144,3 +144,6 @@
 "Ayu.ConfirmSticker" = "මෙම ස්ටිකරය යවන්නද?";
 "Ayu.ConfirmGif" = "මෙම GIF යවන්නද?";
 "Ayu.Send" = "යවන්න";
+"Ayu.ImportLocally" = "දේශීයව ආයාත කරන්න";
+"Ayu.ImportLocallyInfo" = "ඔබට මෙම උපාංගයේ පමණක් කතාබස ආයාත කළ හැක: පණිවිඩ මෙම කතාබසේ ඔබට පමණක් පෙන්වන අතර Telegram වෙත නොයවයි.";
+"Ayu.ImportLocallyDone" = "ආයාත කළ පණිවිඩ: %@. ඒවා මෙම උපාංගයේ පමණක් පෙනේ.";

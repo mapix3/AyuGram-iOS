@@ -146,3 +146,6 @@
 "Ayu.ConfirmSticker" = "Odoslať túto nálepku?";
 "Ayu.ConfirmGif" = "Odoslať tento GIF?";
 "Ayu.Send" = "Odoslať";
+"Ayu.ImportLocally" = "Importovať lokálne";
+"Ayu.ImportLocallyInfo" = "Čet môžete importovať len do tohto zariadenia: správy sa v tomto čete zobrazia len vám a neodošlú sa do Telegramu.";
+"Ayu.ImportLocallyDone" = "Importované správy: %@. Sú viditeľné len na tomto zariadení.";

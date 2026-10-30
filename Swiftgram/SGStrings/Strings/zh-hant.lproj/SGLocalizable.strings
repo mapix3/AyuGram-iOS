@@ -391,3 +391,6 @@
 "Ayu.ConfirmSticker" = "傳送這張貼圖？";
 "Ayu.ConfirmGif" = "傳送這個 GIF？";
 "Ayu.Send" = "傳送";
+"Ayu.ImportLocally" = "本機匯入";
+"Ayu.ImportLocallyInfo" = "你可以只在這台裝置上匯入聊天：訊息只會在此聊天中對你顯示，不會傳送到 Telegram。";
+"Ayu.ImportLocallyDone" = "已匯入訊息：%@。僅在這台裝置上可見。";

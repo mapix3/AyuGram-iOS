@@ -294,3 +294,6 @@
 "Ayu.ConfirmSticker" = "Bu çıkartma gönderilsin mi?";
 "Ayu.ConfirmGif" = "Bu GIF gönderilsin mi?";
 "Ayu.Send" = "Gönder";
+"Ayu.ImportLocally" = "Yerel olarak içe aktar";
+"Ayu.ImportLocallyInfo" = "Sohbeti yalnızca bu cihaza aktarabilirsin: mesajlar bu sohbette yalnızca sana görünür ve Telegram'a gönderilmez.";
+"Ayu.ImportLocallyDone" = "İçe aktarılan mesaj: %@. Yalnızca bu cihazda görünürler.";

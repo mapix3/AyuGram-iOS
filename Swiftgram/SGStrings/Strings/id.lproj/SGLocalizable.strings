@@ -294,3 +294,6 @@
 "Ayu.ConfirmSticker" = "Kirim stiker ini?";
 "Ayu.ConfirmGif" = "Kirim GIF ini?";
 "Ayu.Send" = "Kirim";
+"Ayu.ImportLocally" = "Impor secara lokal";
+"Ayu.ImportLocallyInfo" = "Kamu bisa mengimpor obrolan hanya di perangkat ini: pesan muncul di obrolan ini hanya untukmu dan tidak dikirim ke Telegram.";
+"Ayu.ImportLocallyDone" = "Pesan yang diimpor: %@. Hanya terlihat di perangkat ini.";

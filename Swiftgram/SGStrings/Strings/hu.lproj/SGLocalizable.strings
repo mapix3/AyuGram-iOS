@@ -294,3 +294,6 @@
 "Ayu.ConfirmSticker" = "Elküldöd ezt a matricát?";
 "Ayu.ConfirmGif" = "Elküldöd ezt a GIF-et?";
 "Ayu.Send" = "Küldés";
+"Ayu.ImportLocally" = "Importálás helyileg";
+"Ayu.ImportLocallyInfo" = "A csevegést csak erre az eszközre importálhatod: az üzenetek csak neked jelennek meg ebben a csevegésben, és nem kerülnek a Telegramra.";
+"Ayu.ImportLocallyDone" = "Importált üzenetek: %@. Csak ezen az eszközön láthatók.";

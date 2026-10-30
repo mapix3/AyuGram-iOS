@@ -294,3 +294,6 @@
 "Ayu.ConfirmSticker" = "לשלוח את המדבקה הזו?";
 "Ayu.ConfirmGif" = "לשלוח את ה-GIF הזה?";
 "Ayu.Send" = "שליחה";
+"Ayu.ImportLocally" = "ייבוא מקומי";
+"Ayu.ImportLocallyInfo" = "אפשר לייבא את הצ'אט רק במכשיר הזה: ההודעות יופיעו בצ'אט הזה רק אצלך ולא יישלחו לטלגרם.";
+"Ayu.ImportLocallyDone" = "הודעות שיובאו: %@. הן גלויות רק במכשיר הזה.";

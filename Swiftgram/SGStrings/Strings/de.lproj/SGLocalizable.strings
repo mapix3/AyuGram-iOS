@@ -294,3 +294,6 @@
 "Ayu.ConfirmSticker" = "Diesen Sticker senden?";
 "Ayu.ConfirmGif" = "Dieses GIF senden?";
 "Ayu.Send" = "Senden";
+"Ayu.ImportLocally" = "Lokal importieren";
+"Ayu.ImportLocallyInfo" = "Du kannst den Chat nur auf diesem Gerät importieren: Die Nachrichten erscheinen nur bei dir in diesem Chat und werden nicht an Telegram gesendet.";
+"Ayu.ImportLocallyDone" = "Importierte Nachrichten: %@. Sie sind nur auf diesem Gerät sichtbar.";

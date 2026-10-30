@@ -388,3 +388,6 @@
 "Ayu.ConfirmSticker" = "このステッカーを送信しますか？";
 "Ayu.ConfirmGif" = "このGIFを送信しますか？";
 "Ayu.Send" = "送信";
+"Ayu.ImportLocally" = "ローカルにインポート";
+"Ayu.ImportLocallyInfo" = "このデバイスだけにチャットをインポートできます。メッセージはこのチャットにあなたにだけ表示され、Telegramには送信されません。";
+"Ayu.ImportLocallyDone" = "インポートしたメッセージ: %@。このデバイスでのみ表示されます。";
