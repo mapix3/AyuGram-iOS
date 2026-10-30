@@ -15,8 +15,11 @@ const ICON = 'https://raw.githubusercontent.com/mapix3/AyuGram-iOS/standard/Swif
 
 const encoder = new TextEncoder();
 
+const NOTIFY_DELAY_MS = 10000;
+const SEEN_TTL = 120;
+
 export default {
-  async fetch(request) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     // Open /test/<Bark key> in a browser to send a test notification and see Bark's answer.
     if (request.method === 'GET' && url.pathname.startsWith('/test/')) {
@@ -42,14 +45,34 @@ export default {
       const plain = encoding === 'aesgcm'
         ? await decryptAesgcm(body, request.headers, route)
         : await decryptAes128gcm(body, route);
-      const notification = describe(JSON.parse(new TextDecoder().decode(plain)));
+      const data = JSON.parse(new TextDecoder().decode(plain));
+      const seen = seenUpdate(data);
+      if (seen) {
+        await rememberSeen(route.barkKey, seen);
+        return new Response(null, { status: 201 });
+      }
+      const notification = describe(data);
       if (!notification) {
         return new Response(null, { status: 201 });
       }
-      const { title, text, link, icon, id } = notification;
-      const result = await sendToBark(route.barkKey, title, text, { url: link, icon, id });
-      if (!result.ok) {
-        console.log('Bark refused the push: ' + result.status + ' ' + result.body);
+      const delay = Number(env && env.NOTIFY_DELAY_MS !== undefined ? env.NOTIFY_DELAY_MS : NOTIFY_DELAY_MS);
+      const deliver = async () => {
+        if (delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+        if (await alreadySeen(route.barkKey, data.custom)) {
+          return;
+        }
+        const { title, text, link, icon, id } = notification;
+        const result = await sendToBark(route.barkKey, title, text, { url: link, icon, id });
+        if (!result.ok) {
+          console.log('Bark refused the push: ' + result.status + ' ' + result.body);
+        }
+      };
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(deliver().catch((error) => console.log('push not delivered: ' + error)));
+      } else {
+        await deliver();
       }
     } catch (error) {
       console.log('push not delivered: ' + error);
@@ -134,6 +157,73 @@ export function chatTarget(custom, name) {
     target.id = kind + id + 'm' + custom.msg_id;
   }
   return target;
+}
+
+export function chatKey(custom) {
+  if (!custom || typeof custom !== 'object') {
+    return null;
+  }
+  for (const [field, value] of [['channel', custom.channel_id], ['chat', custom.chat_id], ['user', custom.from_id]]) {
+    if (value !== undefined && /^\d+$/.test(String(value))) {
+      return field + String(value);
+    }
+  }
+  return null;
+}
+
+export function seenUpdate(data) {
+  const key = typeof data.loc_key === 'string' ? data.loc_key : '';
+  const chat = chatKey(data.custom);
+  if (!chat) {
+    return null;
+  }
+  if (key.startsWith('READ_HISTORY') && /^\d+$/.test(String(data.custom.max_id))) {
+    return { chat, maxId: Number(data.custom.max_id) };
+  }
+  if (key.startsWith('MESSAGE_DELETED') && data.custom.messages !== undefined) {
+    const deleted = String(data.custom.messages).split(',').map((value) => value.trim()).filter((value) => /^\d+$/.test(value));
+    return deleted.length ? { chat, deleted } : null;
+  }
+  return null;
+}
+
+function seenCache() {
+  return typeof caches !== 'undefined' && caches.default ? caches.default : null;
+}
+
+async function seenRequest(barkKey, parts) {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode([barkKey, ...parts].join('|'))));
+  return new Request('https://seen.ayugram.invalid/' + base64urlEncode(digest));
+}
+
+async function rememberSeen(barkKey, seen) {
+  const cache = seenCache();
+  if (!cache) {
+    return;
+  }
+  const headers = { 'cache-control': 'max-age=' + SEEN_TTL };
+  if (seen.maxId !== undefined) {
+    const request = await seenRequest(barkKey, ['read', seen.chat]);
+    const previous = await cache.match(request);
+    const current = previous ? Number(await previous.text()) : 0;
+    await cache.put(request, new Response(String(Math.max(current, seen.maxId)), { headers }));
+  }
+  for (const id of seen.deleted || []) {
+    await cache.put(await seenRequest(barkKey, ['deleted', seen.chat, id]), new Response('1', { headers }));
+  }
+}
+
+export async function alreadySeen(barkKey, custom) {
+  const cache = seenCache();
+  const chat = chatKey(custom);
+  if (!cache || !chat || !/^\d+$/.test(String(custom.msg_id))) {
+    return false;
+  }
+  const read = await cache.match(await seenRequest(barkKey, ['read', chat]));
+  if (read && Number(await read.text()) >= Number(custom.msg_id)) {
+    return true;
+  }
+  return Boolean(await cache.match(await seenRequest(barkKey, ['deleted', chat, String(custom.msg_id)])));
 }
 
 // Title and text of a notification, or null for a push that shows nothing.
