@@ -1,7 +1,14 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
 import { webcrypto as crypto } from 'node:crypto';
-import worker, { base64urlEncode, describe, sendToBark, chatTarget } from './worker.js';
+import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen } from './worker.js';
+
+const cacheStore = new Map();
+globalThis.caches = { default: {
+  async match(request) { return cacheStore.has(request.url) ? new Response(cacheStore.get(request.url)) : undefined; },
+  async put(request, response) { cacheStore.set(request.url, await response.text()); },
+} };
+const env = { NOTIFY_DELAY_MS: '0' };
 
 const enc = new TextEncoder();
 const concat = (...p) => { const r = new Uint8Array(p.reduce((s, x) => s + x.length, 0)); let o = 0; for (const x of p) { r.set(x, o); o += x.length; } return r; };
@@ -69,7 +76,7 @@ for (const encrypt of [encryptAes128gcm, encryptAesgcm]) {
   const sub = await subscription('BARKKEY123');
   const payload = JSON.stringify({ loc_key: 'MESSAGE_TEXT', loc_args: ['Alice', 'привет'], custom: { msg_id: '5', from_id: '7' } });
   const { body, headers } = await encrypt(sub, payload);
-  const response = await worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body, headers }));
+  const response = await worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body, headers }), env);
   assert.equal(response.status, 201);
   assert.equal(sent.length, 1, encrypt.name);
   assert.equal(sent[0].body.device_key, 'BARKKEY123');
@@ -116,4 +123,34 @@ assert.equal(test.status, 200);
 assert.equal(sent[0].body.device_key, 'KEY1234567');
 const bad = await worker.fetch(new Request('https://relay.example/p/xx', { method: 'POST', body: 'x' }));
 assert.equal(bad.status, 400);
+assert.deepEqual(seenUpdate({ loc_key: 'READ_HISTORY', custom: { from_id: '7', max_id: '12' } }), { chat: 'user7', maxId: 12 });
+assert.deepEqual(seenUpdate({ loc_key: 'MESSAGE_DELETED', custom: { channel_id: '99', messages: '4, 5' } }), { chat: 'channel99', deleted: ['4', '5'] });
+assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_id: '3' } }), null);
+{
+  const sub = await subscription('SEENKEY123');
+  const post = async (payload) => {
+    const { body, headers } = await encryptAes128gcm(sub, JSON.stringify(payload));
+    return worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body, headers }), env);
+  };
+  sent.length = 0;
+  await post({ loc_key: 'READ_HISTORY', loc_args: [], custom: { from_id: '7', max_id: '20' } });
+  assert.equal(sent.length, 0, 'A read sync is not a notification');
+  await post({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'old'], custom: { from_id: '7', msg_id: '20' } });
+  assert.equal(sent.length, 0, 'A message already read in another client is not shown');
+  await post({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'new'], custom: { from_id: '7', msg_id: '21' } });
+  assert.equal(sent.length, 1, 'A newer message is shown');
+  await post({ loc_key: 'MESSAGE_DELETED', loc_args: [], custom: { from_id: '8', messages: '30' } });
+  await post({ loc_key: 'MESSAGE_TEXT', loc_args: ['Bob', 'gone'], custom: { from_id: '8', msg_id: '30' } });
+  assert.equal(sent.length, 1, 'A deleted message is not shown');
+  assert.equal(await alreadySeen('SEENKEY123', { from_id: '7', msg_id: '19' }), true);
+  assert.equal(await alreadySeen('OTHERKEY12', { from_id: '7', msg_id: '19' }), false, 'Read state is kept per Bark key');
+  let waited = null;
+  sent.length = 0;
+  const { body, headers } = await encryptAes128gcm(sub, JSON.stringify({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'later'], custom: { from_id: '7', msg_id: '40' } }));
+  const response = await worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body, headers }), { NOTIFY_DELAY_MS: '5' }, { waitUntil(promise) { waited = promise; } });
+  assert.equal(response.status, 201);
+  assert.equal(sent.length, 0, 'Telegram gets its answer before the delay');
+  await waited;
+  assert.equal(sent.length, 1, 'The notification goes out after the delay');
+}
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');
