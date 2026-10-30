@@ -97,6 +97,9 @@ assert.deepEqual(describe({ loc_key: 'CHAT_MESSAGE_POLL', loc_args: ['Bob', 'Tea
 assert.deepEqual(describe({ loc_key: 'PINNED_TEXT', loc_args: ['Bob', 'rules'] }), { title: 'Bob', text: '📌 rules' });
 assert.equal(describe({ loc_key: 'READ_HISTORY', loc_args: [] }), null);
 assert.equal(describe({ loc_key: '', custom: {} }), null);
+assert.equal(describe({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'нет'], custom: { from_id: '7', msg_id: '9', schedule: 1 } }), null);
+assert.equal(describe({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'нет'], custom: { from_id: '7', msg_id: '9', schedule: '1' } }), null);
+assert.equal(describe({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'да'], custom: { from_id: '7', msg_id: '9', schedule: 0 } }).text, 'да');
 sent.length = 0;
 refuseJson = true;
 const fallback = await sendToBark('KEY1234567', 'Ann', 'hi / there');

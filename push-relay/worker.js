@@ -143,6 +143,9 @@ export function describe(data) {
   if (key !== null && (key === '' || SILENT.test(key))) {
     return null;
   }
+  if (data.custom && typeof data.custom === 'object' && String(data.custom.schedule) === '1') {
+    return null;
+  }
   if (key !== null) {
     let title = args[0], author = null, rest = args.slice(1);
     if (key.startsWith('CHAT_')) {

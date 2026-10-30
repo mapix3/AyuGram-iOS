@@ -68,6 +68,7 @@ func _internal_deleteMessagesInteractively(account: Account, messageIds: [Messag
 }
     
 func deleteMessagesInteractively(transaction: Transaction, stateManager: AccountStateManager?, postbox: Postbox, messageIds initialMessageIds: [MessageId], type: InteractiveMessagesDeletionType, deleteAllInGroup: Bool = false, removeIfPossiblyDelivered: Bool) {
+    let initialMessageIds = ayuGhostMirrorDeletion(transaction: transaction, ids: initialMessageIds)
     var messageIds: [MessageAndThreadId] = []
     if deleteAllInGroup {
         var tempIds: [MessageId] = initialMessageIds
