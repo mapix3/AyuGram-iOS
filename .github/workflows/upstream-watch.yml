@@ -1,6 +1,6 @@
 name: Upstream watch
 
-# Hourly, without AI: compares Telegram-iOS and Swiftgram releases with ci/upstream.json.
+# Hourly, without AI: compares the Telegram-iOS release with ci/upstream.json.
 # When something new is out it comments once on the inbox PR, which wakes the
 # Claude session subscribed to it; that session merges the update and builds.
 on:
