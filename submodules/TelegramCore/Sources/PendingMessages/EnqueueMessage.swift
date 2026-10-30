@@ -764,6 +764,7 @@ public func enqueueMessages(account: Account, peerId: PeerId, messages: [Enqueue
                 for i in 0 ..< min(normalIds.count, normalMessageIndices.count) {
                     resultIds[normalMessageIndices[i]] = normalIds[i]
                 }
+                ayuCreateGhostMirrors(transaction: transaction, accountPeerId: account.peerId, ids: normalIds.compactMap { $0 })
             }
 
             return (resultIds, ephemeralMessageIds)

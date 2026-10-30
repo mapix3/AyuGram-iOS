@@ -6407,6 +6407,8 @@ func replayFinalState(
         })
     }
     
+    wasScheduledMessageIds = ayuConsumeGhostMirrors(transaction: transaction, publishedIds: wasScheduledMessageIds)
+
     return AccountReplayedFinalState(
         state: finalState,
         addedIncomingMessageIds: addedIncomingMessageIds,
