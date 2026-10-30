@@ -499,6 +499,9 @@ private final class VideoMessageCameraScreenComponent: CombinedComponent {
                         ))
                     )
                     controller.updateCameraState({ $0.updatedRecording(.none) }, transition: .spring(duration: 0.4))
+                } else if let self, let controller = self.getController(), case .failed = result {
+                    controller.updateCameraState({ $0.updatedRecording(.none) }, transition: .spring(duration: 0.4))
+                    controller.completion(nil, nil, nil, nil)
                 }
             }))
             
@@ -960,7 +963,7 @@ public class VideoMessageCameraScreen: ViewController {
             self.context = controller.context
             
             let experimentalSettings = self.context.sharedContext.immediateExperimentalUISettings
-            let useModernVideoMessagePipeline = experimentalSettings.useModernVideoMessagePipeline ?? (self.context.getAppConfigValue("ios_killswitch_disable_neo_round_camera_v2") == nil)
+            let useModernVideoMessagePipeline = experimentalSettings.useModernVideoMessagePipeline ?? false
             let mode: NeoCameraImpl.RoundVideoMode?
             switch useModernVideoMessagePipeline ? experimentalSettings.videoMessageCameraMode : .legacy {
             case .legacy:
