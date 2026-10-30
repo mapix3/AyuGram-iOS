@@ -191,6 +191,7 @@ public final class ChatMediaInputStickerGridItemNode: GridItemNode {
     
     private var isPanelVisible = false
     private var isPlaying = false
+    public var playsWithoutLooping = false
     
     public var interfaceInteraction: ChatControllerInteraction?
     public var inputNodeInteraction: ChatMediaInputNodeInteraction?
@@ -428,7 +429,8 @@ public final class ChatMediaInputStickerGridItemNode: GridItemNode {
         guard let item = self.item else {
             return
         }
-        let isPlaying = self.isPanelVisible && self.isVisibleInGrid && (item.context.sharedContext.energyUsageSettings.loopStickers)
+        let loopStickers = item.context.sharedContext.energyUsageSettings.loopStickers
+        let isPlaying = self.isPanelVisible && self.isVisibleInGrid && (loopStickers || self.playsWithoutLooping)
         if self.isPlaying != isPlaying {
             self.isPlaying = isPlaying
             self.animationNode?.visibility = isPlaying
@@ -440,7 +442,7 @@ public final class ChatMediaInputStickerGridItemNode: GridItemNode {
                     let dimensions = item.stickerItem.file.dimensions ?? PixelDimensions(width: 512, height: 512)
                     let fitSize = item.large ? CGSize(width: 384.0, height: 384.0) : CGSize(width: 160.0, height: 160.0)
                     let fittedDimensions = dimensions.cgSize.aspectFitted(fitSize)
-                    animationNode.setup(source: AnimatedStickerResourceSource(account: item.context.account, resource: item.stickerItem.file._parse().resource, isVideo: item.stickerItem.file.isVideoSticker), width: Int(fittedDimensions.width), height: Int(fittedDimensions.height), playbackMode: .loop, mode: .direct(cachePathPrefix: nil))
+                    animationNode.setup(source: AnimatedStickerResourceSource(account: item.context.account, resource: item.stickerItem.file._parse().resource, isVideo: item.stickerItem.file.isVideoSticker), width: Int(fittedDimensions.width), height: Int(fittedDimensions.height), playbackMode: loopStickers ? .loop : .once, mode: .direct(cachePathPrefix: nil))
                 }
             }
         }
