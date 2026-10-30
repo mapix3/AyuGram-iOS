@@ -264,6 +264,7 @@ public final class ChatEmptyNodeGreetingChatContent: ASDisplayNode, ChatEmptyNod
                     if isFirstTime {
                         
                     }
+                    strongSelf.stickerNode.playsWithoutLooping = true
                     strongSelf.stickerNode.updateLayout(item: item, size: stickerSize, isVisible: true, synchronousLoads: true)
                     strongSelf.stickerNode.isVisibleInGrid = true
                     strongSelf.stickerNode.updateIsPanelVisible(true)
