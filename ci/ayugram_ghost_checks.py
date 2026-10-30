@@ -75,7 +75,7 @@ def check_sources(source: Path, variant: str):
     assert 'strongSelf.queue.after(1.0' in manager, 'Read state retries back off'
     history = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramHistoryController.swift').read_text()
     cards = (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramHistoryCardItem.swift').read_text()
-    assert 'public func ayuGramHistoryController(context: AccountContext, messageId: MessageId? = nil)' in history, 'Message context menu keeps its entry point'
+    assert 'public func ayuGramHistoryController(context: AccountContext, messageId: MessageId? = nil, deletedIn: EnginePeer.Id? = nil)' in history, 'Message context menu keeps its entry point'
     assert 'AyuGramHistoryHeroItem(' in history and 'filter.set(value)' in history, 'History summary filters records'
     assert 'case let .day(' in history and 'AyuGramHistoryEmptyItem(' in history, 'Records are grouped by day with an empty state'
     for token in ['final class AyuGramHistoryHeroItem', 'final class AyuGramHistoryEmptyItem', 'final class AyuGramHistoryCardItem', 'ayuGramPreviewCache']:
