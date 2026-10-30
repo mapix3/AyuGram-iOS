@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Doar conversațiile selectate. Fotografii în cache și text: 30 de zile, până la 200 de înregistrări. Fără mesaje secrete sau temporare.";
 "Ayu.ReadWarning" = "Trimiți confirmarea de citire a conversației până la acest mesaj?";
 "Ayu.ViewWarning" = "Confirmi vizualizarea și pornești temporizatorul conținutului temporar?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Opacitatea rândurilor de conversații";
 "Ayu.MediaImportError" = "Fișierul nu poate fi importat. Maximum: 100 MB.";
-=======
 "Ayu.SilentSending" = "Trimite fără sunet";
 "Ayu.SilentNever" = "Niciodată";
 "Ayu.SilentInGhost" = "În modul fantomă";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Trimiți acest autocolant?";
 "Ayu.ConfirmGif" = "Trimiți acest GIF?";
 "Ayu.Send" = "Trimite";
->>>>>>> standard

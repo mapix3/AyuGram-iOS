@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Pouze vybrané chaty. Fotografie z mezipaměti a text: 30 dní, nejvýše 200 záznamů. Bez tajných a mizejících zpráv.";
 "Ayu.ReadWarning" = "Odeslat potvrzení o přečtení chatu až po tuto zprávu?";
 "Ayu.ViewWarning" = "Potvrdit zobrazení a spustit časovač mizejících médií?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Neprůhlednost řádků chatů";
 "Ayu.MediaImportError" = "Soubor nelze importovat. Nejvýše 100 MB.";
-=======
 "Ayu.SilentSending" = "Odesílat bez zvuku";
 "Ayu.SilentNever" = "Nikdy";
 "Ayu.SilentInGhost" = "V režimu ducha";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Odeslat tuto nálepku?";
 "Ayu.ConfirmGif" = "Odeslat tento GIF?";
 "Ayu.Send" = "Odeslat";
->>>>>>> standard

@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Solo chats seleccionados. Fotos en caché y texto: 30 días, hasta 200 registros. Sin mensajes secretos ni temporales.";
 "Ayu.ReadWarning" = "¿Confirmar la lectura de este chat hasta este mensaje?";
 "Ayu.ViewWarning" = "¿Confirmar la vista e iniciar el temporizador del contenido temporal?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Opacidad de las filas de chats";
 "Ayu.MediaImportError" = "No se pudo importar el archivo. Máximo: 100 MB.";
-=======
 "Ayu.SilentSending" = "Enviar sin sonido";
 "Ayu.SilentNever" = "Nunca";
 "Ayu.SilentInGhost" = "En modo fantasma";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "¿Enviar este sticker?";
 "Ayu.ConfirmGif" = "¿Enviar este GIF?";
 "Ayu.Send" = "Enviar";
->>>>>>> standard

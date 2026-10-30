@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Bare valgte chatter. Bufrede bilder og tekst: 30 dager, opptil 200 oppføringer. Ingen hemmelige eller forsvinnende meldinger.";
 "Ayu.ReadWarning" = "Sende lesebekreftelse for chatten frem til denne meldingen?";
 "Ayu.ViewWarning" = "Bekrefte visning og starte tidtakeren for forsvinnende medier?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Ugjennomsiktighet for chatrader";
 "Ayu.MediaImportError" = "Kan ikke importere filen. Maksimalt 100 MB.";
-=======
 "Ayu.SilentSending" = "Send uten lyd";
 "Ayu.SilentNever" = "Aldri";
 "Ayu.SilentInGhost" = "I spøkelsesmodus";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Sende dette klistremerket?";
 "Ayu.ConfirmGif" = "Sende denne GIF-en?";
 "Ayu.Send" = "Send";
->>>>>>> standard

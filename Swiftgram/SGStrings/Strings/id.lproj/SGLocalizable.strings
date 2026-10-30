@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Hanya obrolan terpilih. Foto dalam cache dan teks: 30 hari, hingga 200 entri. Tanpa pesan rahasia dan sementara.";
 "Ayu.ReadWarning" = "Kirim tanda dibaca untuk obrolan hingga pesan ini?";
 "Ayu.ViewWarning" = "Kirim tanda dilihat dan mulai penghitung media sementara?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Opasitas baris obrolan";
 "Ayu.MediaImportError" = "Tidak dapat mengimpor berkas. Maksimum: 100 MB.";
-=======
 "Ayu.SilentSending" = "Kirim tanpa suara";
 "Ayu.SilentNever" = "Tidak pernah";
 "Ayu.SilentInGhost" = "Dalam Mode Hantu";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Kirim stiker ini?";
 "Ayu.ConfirmGif" = "Kirim GIF ini?";
 "Ayu.Send" = "Kirim";
->>>>>>> standard

@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Nur ausgewählte Chats. Zwischengespeicherte Fotos und Text: 30 Tage, bis zu 200 Einträge. Keine geheimen oder selbstlöschenden Nachrichten.";
 "Ayu.ReadWarning" = "Lesebestätigung für diesen Chat bis zu dieser Nachricht senden?";
 "Ayu.ViewWarning" = "Ansicht bestätigen und den Timer für selbstlöschende Medien starten?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Deckkraft der Chatzeilen";
 "Ayu.MediaImportError" = "Medium konnte nicht importiert werden. Maximal 100 MB.";
-=======
 "Ayu.SilentSending" = "Ohne Ton senden";
 "Ayu.SilentNever" = "Nie";
 "Ayu.SilentInGhost" = "Im Geistmodus";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Diesen Sticker senden?";
 "Ayu.ConfirmGif" = "Dieses GIF senden?";
 "Ayu.Send" = "Senden";
->>>>>>> standard

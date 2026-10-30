@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Endast valda chattar. Cachade foton och text: 30 dagar, högst 200 poster. Inga hemliga eller försvinnande meddelanden.";
 "Ayu.ReadWarning" = "Skicka läskvitto för chatten fram till detta meddelande?";
 "Ayu.ViewWarning" = "Bekräfta visning och starta timern för försvinnande media?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Chattradernas opacitet";
 "Ayu.MediaImportError" = "Kan inte importera filen. Högst 100 MB.";
-=======
 "Ayu.SilentSending" = "Skicka utan ljud";
 "Ayu.SilentNever" = "Aldrig";
 "Ayu.SilentInGhost" = "I spökläge";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Skicka det här klistermärket?";
 "Ayu.ConfirmGif" = "Skicka den här GIF:en?";
 "Ayu.Send" = "Skicka";
->>>>>>> standard

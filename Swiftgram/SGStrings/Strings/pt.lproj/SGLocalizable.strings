@@ -395,11 +395,9 @@
 "Ayu.HistoryInfo" = "Apenas conversas selecionadas. Fotos em cache e texto: 30 dias, até 200 registos. Sem mensagens secretas ou temporárias.";
 "Ayu.ReadWarning" = "Confirmar a leitura da conversa até esta mensagem?";
 "Ayu.ViewWarning" = "Confirmar a visualização e iniciar o temporizador do conteúdo temporário?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Opacidade das linhas de conversa";
 "Ayu.MediaImportError" = "Não foi possível importar o ficheiro. Máximo: 100 MB.";
-=======
 "Ayu.SilentSending" = "Enviar sem som";
 "Ayu.SilentNever" = "Nunca";
 "Ayu.SilentInGhost" = "No modo fantasma";
@@ -418,4 +416,3 @@
 "Ayu.ConfirmSticker" = "Enviar esta figurinha?";
 "Ayu.ConfirmGif" = "Enviar este GIF?";
 "Ayu.Send" = "Enviar";
->>>>>>> standard

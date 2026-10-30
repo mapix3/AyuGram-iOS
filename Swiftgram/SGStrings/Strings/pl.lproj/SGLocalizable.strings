@@ -366,11 +366,9 @@
 "Ayu.HistoryInfo" = "Tylko wybrane czaty. Zdjęcia w pamięci i tekst: 30 dni, do 200 wpisów. Bez wiadomości tajnych i znikających.";
 "Ayu.ReadWarning" = "Wysłać potwierdzenie odczytu czatu do tej wiadomości?";
 "Ayu.ViewWarning" = "Potwierdzić wyświetlenie i uruchomić licznik znikających multimediów?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Nieprzezroczystość wierszy czatów";
 "Ayu.MediaImportError" = "Nie można zaimportować pliku. Maksimum: 100 MB.";
-=======
 "Ayu.SilentSending" = "Wysyłaj bez dźwięku";
 "Ayu.SilentNever" = "Nigdy";
 "Ayu.SilentInGhost" = "W trybie ducha";
@@ -389,4 +387,3 @@
 "Ayu.ConfirmSticker" = "Wysłać tę naklejkę?";
 "Ayu.ConfirmGif" = "Wysłać ten GIF?";
 "Ayu.Send" = "Wyślij";
->>>>>>> standard

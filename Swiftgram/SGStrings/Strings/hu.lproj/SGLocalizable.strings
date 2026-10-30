@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Csak a kijelölt csevegések. Gyorsítótárazott fotók és szöveg: 30 nap, legfeljebb 200 bejegyzés. Titkos és eltűnő üzenetek nélkül.";
 "Ayu.ReadWarning" = "Olvasási visszajelzés küldése erről a beszélgetésről eddig az üzenetig?";
 "Ayu.ViewWarning" = "Megtekintés visszajelzése és az eltűnő média időzítőjének indítása?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Csevegéssorok átlátszatlansága";
 "Ayu.MediaImportError" = "A fájl nem importálható. Legfeljebb 100 MB.";
-=======
 "Ayu.SilentSending" = "Küldés hang nélkül";
 "Ayu.SilentNever" = "Soha";
 "Ayu.SilentInGhost" = "Szellemmódban";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Elküldöd ezt a matricát?";
 "Ayu.ConfirmGif" = "Elküldöd ezt a GIF-et?";
 "Ayu.Send" = "Küldés";
->>>>>>> standard

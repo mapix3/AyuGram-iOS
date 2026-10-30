@@ -131,11 +131,9 @@
 "Ayu.HistoryInfo" = "Tenê sohbetên hilbijartî. Wêneyên di bîrê de û nivîs: 30 roj, heta 200 tomar. Peyamên veşartî û winda dibin nayên tomarkirin.";
 "Ayu.ReadWarning" = "Pejirandina xwendinê ji bo vê sohbetê heta vê peyamê bişîne?";
 "Ayu.ViewWarning" = "Dîtinê bipejirîne û demjimêra medyaya winda dibe dest pê bike?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Nezelaliya rêzên sohbetê";
 "Ayu.MediaImportError" = "Pel nayê derxistin. Herî zêde: 100 MB.";
-=======
 "Ayu.SilentSending" = "Bê deng bişîne";
 "Ayu.SilentNever" = "Qet";
 "Ayu.SilentInGhost" = "Di moda xeyalê de";
@@ -154,4 +152,3 @@
 "Ayu.ConfirmSticker" = "Ev stîker bê şandin?";
 "Ayu.ConfirmGif" = "Ev GIF bê şandin?";
 "Ayu.Send" = "Bişîne";
->>>>>>> standard

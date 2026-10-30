@@ -258,11 +258,9 @@
 "Ayu.HistoryInfo" = "Discussions sélectionnées uniquement. Photos en cache et texte : 30 jours, 200 entrées maximum. Sans messages secrets ou éphémères.";
 "Ayu.ReadWarning" = "Confirmer la lecture de cette discussion jusqu'à ce message ?";
 "Ayu.ViewWarning" = "Confirmer la vue et démarrer le minuteur du média éphémère ?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Opacité des lignes de discussion";
 "Ayu.MediaImportError" = "Impossible d’importer le fichier. Maximum : 100 Mo.";
-=======
 "Ayu.SilentSending" = "Envoyer sans son";
 "Ayu.SilentNever" = "Jamais";
 "Ayu.SilentInGhost" = "En mode fantôme";
@@ -281,4 +279,3 @@
 "Ayu.ConfirmSticker" = "Envoyer cet autocollant ?";
 "Ayu.ConfirmGif" = "Envoyer ce GIF ?";
 "Ayu.Send" = "Envoyer";
->>>>>>> standard

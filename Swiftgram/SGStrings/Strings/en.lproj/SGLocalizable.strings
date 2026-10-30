@@ -400,11 +400,9 @@
 "Ayu.HistoryInfo" = "Selected chats only. Cached photos and text, 30 days, up to 200 entries. Secret and disappearing messages are excluded.";
 "Ayu.ReadWarning" = "Send a read receipt for this chat up to this message?";
 "Ayu.ViewWarning" = "Send a view receipt and start the disappearing media timer?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Chat row opacity";
 "Ayu.MediaImportError" = "Unable to import media. Maximum size: 100 MB.";
-=======
 "Ayu.SilentSending" = "Send without sound";
 "Ayu.SilentNever" = "Never";
 "Ayu.SilentInGhost" = "In Ghost Mode";
@@ -423,4 +421,3 @@
 "Ayu.ConfirmSticker" = "Send this sticker?";
 "Ayu.ConfirmGif" = "Send this GIF?";
 "Ayu.Send" = "Send";
->>>>>>> standard

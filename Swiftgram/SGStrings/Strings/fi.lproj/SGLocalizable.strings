@@ -351,11 +351,9 @@
 "Ayu.HistoryInfo" = "Vain valitut keskustelut. Välimuistissa olevat kuvat ja teksti: 30 päivää, enintään 200 merkintää. Ei salaisia tai katoavia viestejä.";
 "Ayu.ReadWarning" = "Lähetetäänkö lukukuittaus tämän keskustelun viesteistä tähän asti?";
 "Ayu.ViewWarning" = "Vahvistetaanko katselu ja käynnistetäänkö katoavan median ajastin?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Keskustelurivien peittävyys";
 "Ayu.MediaImportError" = "Tiedostoa ei voi tuoda. Enintään 100 MB.";
-=======
 "Ayu.SilentSending" = "Lähetä ilman ääntä";
 "Ayu.SilentNever" = "Ei koskaan";
 "Ayu.SilentInGhost" = "Haamutilassa";
@@ -374,4 +372,3 @@
 "Ayu.ConfirmSticker" = "Lähetetäänkö tämä tarra?";
 "Ayu.ConfirmGif" = "Lähetetäänkö tämä GIF?";
 "Ayu.Send" = "Lähetä";
->>>>>>> standard

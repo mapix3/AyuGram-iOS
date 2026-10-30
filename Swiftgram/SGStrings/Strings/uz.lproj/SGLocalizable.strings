@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Faqat tanlangan chatlar. Keshdagi rasmlar va matn: 30 kun, 200 tagacha yozuv. Maxfiy va yo‘qoladigan xabarlar kiritilmaydi.";
 "Ayu.ReadWarning" = "Chatning shu xabargacha o‘qilgani haqida hisobot yuborilsinmi?";
 "Ayu.ViewWarning" = "Ko‘rish hisoboti yuborilib, yo‘qoladigan media taymeri boshlansinmi?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Chat qatorlari shaffofmasligi";
 "Ayu.MediaImportError" = "Faylni import qilib bo‘lmadi. Maksimum: 100 MB.";
-=======
 "Ayu.SilentSending" = "Ovozsiz yuborish";
 "Ayu.SilentNever" = "Hech qachon";
 "Ayu.SilentInGhost" = "Arvoh rejimida";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Bu stiker yuborilsinmi?";
 "Ayu.ConfirmGif" = "Bu GIF yuborilsinmi?";
 "Ayu.Send" = "Yuborish";
->>>>>>> standard

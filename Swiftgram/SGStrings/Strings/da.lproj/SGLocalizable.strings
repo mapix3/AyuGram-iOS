@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Kun valgte chats. Cachelagrede billeder og tekst: 30 dage, op til 200 poster. Ingen hemmelige eller forsvindende beskeder.";
 "Ayu.ReadWarning" = "Send læsekvittering for chatten frem til denne besked?";
 "Ayu.ViewWarning" = "Bekræft visning og start timeren for forsvindende medier?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Chatlinjernes opacitet";
 "Ayu.MediaImportError" = "Kan ikke importere filen. Højst 100 MB.";
-=======
 "Ayu.SilentSending" = "Send uden lyd";
 "Ayu.SilentNever" = "Aldrig";
 "Ayu.SilentInGhost" = "I spøgelsestilstand";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Send dette klistermærke?";
 "Ayu.ConfirmGif" = "Send denne GIF?";
 "Ayu.Send" = "Send";
->>>>>>> standard

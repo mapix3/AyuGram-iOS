@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "רק צ'אטים נבחרים. תמונות במטמון וטקסט: 30 ימים, עד 200 רשומות. ללא הודעות סודיות ונעלמות.";
 "Ayu.ReadWarning" = "לשלוח אישור קריאה לצ׳אט עד ההודעה הזו?";
 "Ayu.ViewWarning" = "לשלוח אישור צפייה ולהפעיל את טיימר המדיה הנעלמת?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "אטימות שורות הצ׳אט";
 "Ayu.MediaImportError" = "לא ניתן לייבא את הקובץ. עד 100 MB.";
-=======
 "Ayu.SilentSending" = "שליחה ללא צליל";
 "Ayu.SilentNever" = "אף פעם";
 "Ayu.SilentInGhost" = "במצב רוח רפאים";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "לשלוח את המדבקה הזו?";
 "Ayu.ConfirmGif" = "לשלוח את ה-GIF הזה?";
 "Ayu.Send" = "שליחה";
->>>>>>> standard

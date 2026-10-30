@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Alleen geselecteerde chats. Foto's in cache en tekst: 30 dagen, maximaal 200 items. Geen geheime of verdwijnende berichten.";
 "Ayu.ReadWarning" = "Leesbevestiging voor deze chat tot dit bericht versturen?";
 "Ayu.ViewWarning" = "Weergave bevestigen en de timer voor verdwijnende media starten?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Dekking van chatrijen";
 "Ayu.MediaImportError" = "Kan bestand niet importeren. Maximaal 100 MB.";
-=======
 "Ayu.SilentSending" = "Verzenden zonder geluid";
 "Ayu.SilentNever" = "Nooit";
 "Ayu.SilentInGhost" = "In spookmodus";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Deze sticker verzenden?";
 "Ayu.ConfirmGif" = "Deze GIF verzenden?";
 "Ayu.Send" = "Verzenden";
->>>>>>> standard

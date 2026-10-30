@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "Chỉ các cuộc trò chuyện đã chọn. Ảnh được lưu đệm và văn bản: 30 ngày, tối đa 200 mục. Không gồm tin nhắn bí mật và tự hủy.";
 "Ayu.ReadWarning" = "Gửi xác nhận đã đọc cuộc trò chuyện đến tin nhắn này?";
 "Ayu.ViewWarning" = "Gửi xác nhận đã xem và bắt đầu bộ đếm cho nội dung tự hủy?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "Độ mờ của hàng trò chuyện";
 "Ayu.MediaImportError" = "Không thể nhập tệp. Tối đa: 100 MB.";
-=======
 "Ayu.SilentSending" = "Gửi không âm thanh";
 "Ayu.SilentNever" = "Không bao giờ";
 "Ayu.SilentInGhost" = "Trong chế độ bóng ma";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "Gửi nhãn dán này?";
 "Ayu.ConfirmGif" = "Gửi GIF này?";
 "Ayu.Send" = "Gửi";
->>>>>>> standard

@@ -370,11 +370,9 @@
 "Ayu.HistoryInfo" = "僅限所選聊天。快取照片和文字保留30天，最多200筆。不包括秘密聊天和閱後即焚訊息。";
 "Ayu.ReadWarning" = "傳送此聊天截至這則訊息的已讀回條？";
 "Ayu.ViewWarning" = "傳送瀏覽回條並啟動閱後即焚媒體計時器？";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "聊天列不透明度";
 "Ayu.MediaImportError" = "無法匯入檔案。最大100 MB。";
-=======
 "Ayu.SilentSending" = "靜音傳送";
 "Ayu.SilentNever" = "從不";
 "Ayu.SilentInGhost" = "幽靈模式下";
@@ -393,4 +391,3 @@
 "Ayu.ConfirmSticker" = "傳送這張貼圖？";
 "Ayu.ConfirmGif" = "傳送這個 GIF？";
 "Ayu.Send" = "傳送";
->>>>>>> standard

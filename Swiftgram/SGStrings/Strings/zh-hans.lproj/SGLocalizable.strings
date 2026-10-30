@@ -370,11 +370,9 @@
 "Ayu.HistoryInfo" = "仅限所选聊天。缓存照片和文字保留30天，最多200条。不包括秘密聊天和阅后即焚消息。";
 "Ayu.ReadWarning" = "发送此聊天截至这条消息的已读回执？";
 "Ayu.ViewWarning" = "发送浏览回执并启动阅后即焚媒体计时器？";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "聊天行不透明度";
 "Ayu.MediaImportError" = "无法导入文件。最大100 MB。";
-=======
 "Ayu.SilentSending" = "静音发送";
 "Ayu.SilentNever" = "从不";
 "Ayu.SilentInGhost" = "幽灵模式下";
@@ -393,4 +391,3 @@
 "Ayu.ConfirmSticker" = "发送这个贴纸？";
 "Ayu.ConfirmGif" = "发送这个 GIF？";
 "Ayu.Send" = "发送";
->>>>>>> standard

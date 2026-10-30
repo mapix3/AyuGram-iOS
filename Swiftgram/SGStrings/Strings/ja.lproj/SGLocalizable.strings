@@ -367,11 +367,9 @@
 "Ayu.HistoryInfo" = "選択したチャットのみ。キャッシュされた写真とテキストを30日間、最大200件保存。秘密・消えるメッセージは対象外。";
 "Ayu.ReadWarning" = "このメッセージまでの既読通知を送信しますか？";
 "Ayu.ViewWarning" = "閲覧通知を送信し、消えるメディアのタイマーを開始しますか？";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "チャット行の不透明度";
 "Ayu.MediaImportError" = "ファイルを読み込めません。最大100 MBです。";
-=======
 "Ayu.SilentSending" = "サウンドなしで送信";
 "Ayu.SilentNever" = "しない";
 "Ayu.SilentInGhost" = "ゴーストモード中";
@@ -390,4 +388,3 @@
 "Ayu.ConfirmSticker" = "このステッカーを送信しますか？";
 "Ayu.ConfirmGif" = "このGIFを送信しますか？";
 "Ayu.Send" = "送信";
->>>>>>> standard

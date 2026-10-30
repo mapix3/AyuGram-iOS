@@ -273,11 +273,9 @@
 "Ayu.HistoryInfo" = "선택한 채팅만 저장합니다. 캐시된 사진과 텍스트: 30일, 최대 200개. 비밀 및 사라지는 메시지는 제외됩니다.";
 "Ayu.ReadWarning" = "이 메시지까지 채팅의 읽음 확인을 보낼까요?";
 "Ayu.ViewWarning" = "조회 확인을 보내고 사라지는 미디어 타이머를 시작할까요?";
-<<<<<<< custom
 
 "Ayu.RowOpacity" = "채팅 행 불투명도";
 "Ayu.MediaImportError" = "파일을 가져올 수 없습니다. 최대 100 MB.";
-=======
 "Ayu.SilentSending" = "소리 없이 보내기";
 "Ayu.SilentNever" = "안 함";
 "Ayu.SilentInGhost" = "고스트 모드에서";
@@ -296,4 +294,3 @@
 "Ayu.ConfirmSticker" = "이 스티커를 보낼까요?";
 "Ayu.ConfirmGif" = "이 GIF를 보낼까요?";
 "Ayu.Send" = "보내기";
->>>>>>> standard
