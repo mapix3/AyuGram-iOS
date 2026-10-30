@@ -36,25 +36,104 @@ public func ayuGramOwnerBadgeImage() -> UIImage {
     }
 }
 
-func ayuGramAppBadgeImage() -> UIImage {
-    let color: UIColor
-    switch AyuGramIconSettings.selectedName ?? UIApplication.shared.alternateIconName {
-    case "AyuRed": color = UIColor(red: 0.91, green: 0.15, blue: 0.17, alpha: 1)
-    case "AyuPurple": color = UIColor(red: 0.50, green: 0.25, blue: 0.96, alpha: 1)
-    default: color = UIColor(red: 0.19, green: 0.15, blue: 0.28, alpha: 1)
+private func ayuBadgeColor(_ red: CGFloat, _ green: CGFloat, _ blue: CGFloat, _ alpha: CGFloat = 1) -> UIColor {
+    return UIColor(red: red, green: green, blue: blue, alpha: alpha)
+}
+
+private struct AyuBadgeStyle {
+    var colors: [UIColor]
+    var foreground: UIColor
+    var secondary: UIColor
+    var text: UIColor
+    var watermark: CGFloat
+    var dots: [UIColor]
+    var dotRadius: ClosedRange<CGFloat>
+    var dotCount: Int
+    var glow: UIColor?
+}
+
+private func ayuBadgeStyle(_ name: String) -> AyuBadgeStyle {
+    switch name {
+    case "SkyAppBadge":
+        return AyuBadgeStyle(colors: [ayuBadgeColor(0.25, 0.42, 0.97), ayuBadgeColor(0.36, 0.62, 1.0)], foreground: .white, secondary: ayuBadgeColor(0.80, 0.88, 1), text: .white, watermark: 0.12, dots: [], dotRadius: 0 ... 0, dotCount: 0, glow: ayuBadgeColor(1, 1, 1, 0.22))
+    case "NightAppBadge":
+        return AyuBadgeStyle(colors: [ayuBadgeColor(0.04, 0.05, 0.18), ayuBadgeColor(0.10, 0.12, 0.32)], foreground: ayuBadgeColor(0.64, 0.52, 1), secondary: ayuBadgeColor(1, 0.56, 0.82), text: .white, watermark: 0, dots: [ayuBadgeColor(1, 1, 1, 0.75), ayuBadgeColor(1, 0.60, 0.85, 0.8), ayuBadgeColor(0.65, 0.60, 1, 0.8)], dotRadius: 0.3 ... 0.7, dotCount: 34, glow: nil)
+    case "TitaniumAppBadge":
+        return AyuBadgeStyle(colors: [ayuBadgeColor(0.03, 0.03, 0.04), ayuBadgeColor(0.20, 0.20, 0.22), ayuBadgeColor(0.07, 0.07, 0.08)], foreground: ayuBadgeColor(0.62, 0.62, 0.64), secondary: ayuBadgeColor(0.42, 0.42, 0.45), text: ayuBadgeColor(0.86, 0.86, 0.88), watermark: 0, dots: [], dotRadius: 0 ... 0, dotCount: 0, glow: ayuBadgeColor(1, 1, 1, 0.08))
+    case "ProAppBadge":
+        return AyuBadgeStyle(colors: [ayuBadgeColor(0.44, 0.24, 0.98), ayuBadgeColor(0.70, 0.30, 0.62), ayuBadgeColor(0.96, 0.42, 0.20)], foreground: .white, secondary: ayuBadgeColor(1, 0.86, 0.76), text: .white, watermark: 0.12, dots: [], dotRadius: 0 ... 0, dotCount: 0, glow: nil)
+    case "DayAppBadge":
+        return AyuBadgeStyle(colors: [ayuBadgeColor(1, 0.91, 0.95), ayuBadgeColor(0.89, 0.88, 1)], foreground: ayuBadgeColor(0.60, 0.40, 0.98), secondary: ayuBadgeColor(1, 0.45, 0.62), text: ayuBadgeColor(0.45, 0.30, 0.92), watermark: 0, dots: [], dotRadius: 0 ... 0, dotCount: 0, glow: ayuBadgeColor(1, 1, 1, 0.5))
+    case "DuckyAppBadge":
+        return AyuBadgeStyle(colors: [ayuBadgeColor(0.02, 0.02, 0.02), ayuBadgeColor(0.08, 0.05, 0.03)], foreground: ayuBadgeColor(1, 0.85, 0.22), secondary: ayuBadgeColor(1, 0.60, 0.10), text: .white, watermark: 0, dots: [ayuBadgeColor(0.62, 0.32, 0.10, 0.85), ayuBadgeColor(0.45, 0.22, 0.08, 0.85)], dotRadius: 0.5 ... 1.1, dotCount: 26, glow: nil)
+    case "SparklingAppBadge":
+        return AyuBadgeStyle(colors: [ayuBadgeColor(0.08, 0.08, 0.40), ayuBadgeColor(0.20, 0.18, 0.72), ayuBadgeColor(0.08, 0.08, 0.40)], foreground: ayuBadgeColor(0.56, 0.58, 1), secondary: ayuBadgeColor(0.82, 0.82, 1), text: .white, watermark: 0, dots: [ayuBadgeColor(1, 1, 1, 0.85), ayuBadgeColor(0.75, 0.80, 1, 0.8)], dotRadius: 0.3 ... 0.8, dotCount: 30, glow: ayuBadgeColor(0.55, 0.55, 1, 0.35))
+    default:
+        let color: UIColor
+        switch AyuGramIconSettings.selectedName ?? UIApplication.shared.alternateIconName {
+        case "AyuRed": color = ayuBadgeColor(0.91, 0.15, 0.17)
+        case "AyuPurple": color = ayuBadgeColor(0.50, 0.25, 0.96)
+        default: color = ayuBadgeColor(0.19, 0.15, 0.28)
+        }
+        return AyuBadgeStyle(colors: [color, color], foreground: .white, secondary: ayuBadgeColor(0.83, 0.73, 1), text: .white, watermark: 0.2, dots: [], dotRadius: 0 ... 0, dotCount: 0, glow: nil)
     }
-    let size = CGSize(width: 108, height: 23)
-    return UIGraphicsImageRenderer(size: size).image { renderer in
-        let capsule = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 11.5)
-        color.setFill()
-        capsule.fill()
-        renderer.cgContext.saveGState()
+}
+
+public let ayuGramAppBadgeStyles: [(name: String, title: String)] = [
+    ("Components/AppBadge", "Default"),
+    ("SkyAppBadge", "Sky"),
+    ("NightAppBadge", "Night"),
+    ("TitaniumAppBadge", "Titanium"),
+    ("ProAppBadge", "Pro"),
+    ("DayAppBadge", "Day"),
+    ("DuckyAppBadge", "Ducky"),
+    ("SparklingAppBadge", "Sparkling")
+]
+
+public func ayuGramAppBadgeImage(style: String, scale: CGFloat) -> UIImage {
+    let style = ayuBadgeStyle(style)
+    let base = CGSize(width: 108, height: 23)
+    let format = UIGraphicsImageRendererFormat.preferred()
+    if scale > 0 {
+        format.scale = scale
+    }
+    return UIGraphicsImageRenderer(size: base, format: format).image { renderer in
+        let context = renderer.cgContext
+        let capsule = UIBezierPath(roundedRect: CGRect(origin: .zero, size: base), cornerRadius: base.height / 2)
+        context.saveGState()
         capsule.addClip()
-        ayuPlane(CGRect(x: -3, y: -10, width: 116, height: 45), foreground: UIColor.black.withAlphaComponent(0.20), secondary: UIColor.black.withAlphaComponent(0.13))
-        renderer.cgContext.restoreGState()
-        ayuPlane(CGRect(x: 7, y: 3, width: 17, height: 17), foreground: .white, secondary: UIColor(red: 0.83, green: 0.73, blue: 1, alpha: 1))
-        ("AYUGRAM" as NSString).draw(at: CGPoint(x: 28, y: 4), withAttributes: [.font: UIFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: UIColor.white])
+        let cgColors = style.colors.map { $0.cgColor } as CFArray
+        if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: cgColors, locations: nil) {
+            context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: base.width, y: base.height), options: [])
+        }
+        if let glow = style.glow, let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: [glow.cgColor, glow.withAlphaComponent(0).cgColor] as CFArray, locations: nil) {
+            context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: 0, y: base.height * 0.6), options: [])
+        }
+        var seed: UInt32 = 0x41595547
+        func next() -> CGFloat {
+            seed = seed &* 1664525 &+ 1013904223
+            return CGFloat(seed >> 8) / CGFloat(1 << 24)
+        }
+        for index in 0 ..< style.dotCount {
+            let radius = style.dotRadius.lowerBound + (style.dotRadius.upperBound - style.dotRadius.lowerBound) * next()
+            let point = CGPoint(x: next() * base.width, y: next() * base.height)
+            style.dots[index % style.dots.count].setFill()
+            UIBezierPath(ovalIn: CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2)).fill()
+        }
+        if style.watermark > 0 {
+            ayuPlane(CGRect(x: -3, y: -10, width: 116, height: 45), foreground: UIColor.black.withAlphaComponent(style.watermark), secondary: UIColor.black.withAlphaComponent(style.watermark * 0.65))
+        }
+        context.restoreGState()
+        ayuPlane(CGRect(x: 7, y: 3, width: 17, height: 17), foreground: style.foreground, secondary: style.secondary)
+        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: style.text]
+        let text = "AYUGRAM" as NSString
+        let textSize = text.size(withAttributes: attributes)
+        text.draw(at: CGPoint(x: 28, y: (base.height - textSize.height) / 2), withAttributes: attributes)
     }
+}
+
+func ayuGramAppBadgeImage() -> UIImage {
+    return ayuGramAppBadgeImage(style: UserDefaults.standard.string(forKey: "customAppBadge") ?? "", scale: 0)
 }
 
 public func ayuGramSettingsIcon() -> UIImage {

@@ -16,23 +16,7 @@ struct AppBadge: Identifiable, Hashable {
 }
 
 func getAvailableAppBadges() -> [AppBadge] {
-    var appBadges: [AppBadge] = [
-        .init(displayName: "Default", assetName: "Components/AppBadge"),
-        .init(displayName: "Sky", assetName: "SkyAppBadge"),
-        .init(displayName: "Night", assetName: "NightAppBadge"),
-        .init(displayName: "Titanium", assetName: "TitaniumAppBadge"),
-        .init(displayName: "Pro", assetName: "ProAppBadge"),
-        .init(displayName: "Day", assetName: "DayAppBadge"),
-    ]
-
-    if SGSimpleSettings.shared.duckyAppIconAvailable {
-        appBadges.append(.init(displayName: "Ducky", assetName: "DuckyAppBadge"))
-    }
-    appBadges += [
-        .init(displayName: "Sparkling", assetName: "SparklingAppBadge"),
-    ]
-
-    return appBadges
+    return ayuGramAppBadgeStyles.filter { $0.name != "DuckyAppBadge" || SGSimpleSettings.shared.duckyAppIconAvailable }.map { AppBadge(displayName: $0.title, assetName: $0.name) }
 }
     
 @available(iOS 14.0, *)
@@ -73,11 +57,10 @@ struct AppBadgeSettingsView: View {
     
     private func onSelectBadge(_ badge: AppBadge) {
         self.selectedBadge = badge
-        let image = UIImage(bundleImageName: selectedBadge.assetName) ?? UIImage(bundleImageName: "Components/AppBadge")
         if self.context.sharedContext.immediateSGStatus.status > 1 {
             DispatchQueue.main.async {
-                SGSimpleSettings.shared.customAppBadge = selectedBadge.assetName
-                self.context.sharedContext.mainWindow?.badgeView.image = image
+                SGSimpleSettings.shared.customAppBadge = badge.assetName
+                self.context.sharedContext.mainWindow?.badgeView.image = ayuGramAppBadgeImage(style: badge.assetName, scale: 0)
             }
         }
     }
@@ -90,7 +73,7 @@ struct AppBadgeSettingsView: View {
                         onSelectBadge(badge)
                     } label: {
                         VStack(spacing: 8) {
-                            Image(badge.assetName)
+                            Image(uiImage: ayuGramAppBadgeImage(style: badge.assetName, scale: 3))
                                 .resizable()
                                 .scaledToFit()
                                 .frame(height: Layout.imageHeight)
