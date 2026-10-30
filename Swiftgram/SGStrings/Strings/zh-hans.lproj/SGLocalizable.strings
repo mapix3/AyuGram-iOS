@@ -394,3 +394,6 @@
 "Ayu.ImportLocally" = "本地导入";
 "Ayu.ImportLocallyInfo" = "你可以只在这台设备上导入聊天：消息只会在此聊天中对你显示，不会发送到 Telegram。";
 "Ayu.ImportLocallyDone" = "已导入消息：%@。仅在这台设备上可见。";
+"Ayu.ViewDeleted" = "已删除的消息";
+"Ayu.ViewDeletedInfo" = "在这台设备上保留了已删除消息的聊天。打开一个即可查看其已删除的消息或整个聊天。";
+"Ayu.ViewDeletedEmpty" = "还没有已删除的消息。";

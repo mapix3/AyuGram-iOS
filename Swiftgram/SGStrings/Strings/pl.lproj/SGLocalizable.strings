@@ -390,3 +390,6 @@
 "Ayu.ImportLocally" = "Importuj lokalnie";
 "Ayu.ImportLocallyInfo" = "Możesz zaimportować czat tylko na tym urządzeniu: wiadomości pojawią się w tym czacie tylko u ciebie i nie zostaną wysłane do Telegramu.";
 "Ayu.ImportLocallyDone" = "Zaimportowane wiadomości: %@. Są widoczne tylko na tym urządzeniu.";
+"Ayu.ViewDeleted" = "Usunięte wiadomości";
+"Ayu.ViewDeletedInfo" = "Czaty z usuniętymi wiadomościami zachowanymi na tym urządzeniu. Otwórz czat, aby przeczytać jego usunięte wiadomości lub cały czat.";
+"Ayu.ViewDeletedEmpty" = "Brak usuniętych wiadomości.";

@@ -15,7 +15,7 @@ import SGStrings
 import ConvertOpusToAAC
 
 private enum HistorySection: Int32, SGItemListSection { case summary, deletedChats, entries, options, chats, actions }
-private enum HistoryAction: Hashable { case clear, selectChats, deletedChats, chatOptions(Int64), media(String, String), author(Int64), chat(Int64, Int32), filter(Int), menu(Int64, Int32, String, Int32, String?, String) }
+private enum HistoryAction: Hashable { case clear, selectChats, deletedChats, keptChats, chatOptions(Int64), media(String, String), author(Int64), chat(Int64, Int32), filter(Int), menu(Int64, Int32, String, Int32, String?, String) }
 private typealias HistorySettingsEntry = SGItemListUIEntry<HistorySection, Int, Int, Int, Int, HistoryAction>
 private typealias HistoryArguments = SGItemListArguments<Int, Int, Int, Int, HistoryAction>
 
@@ -27,20 +27,21 @@ private enum HistoryEntry: ItemListNodeEntry {
     case record(Int, AyuGramHistoryEntry, EnginePeer?)
     case chat(Int, EnginePeer, Int)
     case deletedChats(Int, String, Int)
+    case keptChats(Int, String)
     var section: ItemListSectionId {
         switch self {
         case let .setting(value): return value.section
         case .summary: return HistorySection.summary.rawValue
         case .empty, .day, .record: return HistorySection.entries.rawValue
         case .chat: return HistorySection.chats.rawValue
-        case .deletedChats: return HistorySection.deletedChats.rawValue
+        case .deletedChats, .keptChats: return HistorySection.deletedChats.rawValue
         }
     }
     var stableId: Int {
         switch self {
         case let .setting(value): return value.stableId
         case .summary: return 0
-        case let .empty(id, _, _), let .day(id, _, _), let .record(id, _, _), let .chat(id, _, _), let .deletedChats(id, _, _): return id
+        case let .empty(id, _, _), let .day(id, _, _), let .record(id, _, _), let .chat(id, _, _), let .deletedChats(id, _, _), let .keptChats(id, _): return id
         }
     }
     static func < (lhs: HistoryEntry, rhs: HistoryEntry) -> Bool { lhs.stableId < rhs.stableId }
@@ -60,6 +61,8 @@ private enum HistoryEntry: ItemListNodeEntry {
             return ItemListDisclosureItem(presentationData: presentationData, context: args.context, iconPeer: peer, title: peer.debugDisplayTitle, label: count > 0 ? "\(count)" : "", sectionId: section, style: .blocks, action: { args.action(.chatOptions(peer.id.toInt64())) })
         case let .deletedChats(_, title, count):
             return ItemListDisclosureItem(presentationData: presentationData, icon: UIImage(systemName: "trash.circle.fill")?.withTintColor(presentationData.theme.list.itemDestructiveColor, renderingMode: .alwaysOriginal), title: title, label: "\(count)", sectionId: section, style: .blocks, action: { args.action(.deletedChats) })
+        case let .keptChats(_, title):
+            return ItemListDisclosureItem(presentationData: presentationData, icon: UIImage(systemName: "eye.circle.fill")?.withTintColor(presentationData.theme.list.itemAccentColor, renderingMode: .alwaysOriginal), title: title, label: "", sectionId: section, style: .blocks, action: { args.action(.keptChats) })
         }
     }
 }
@@ -73,12 +76,15 @@ private func historyDayTitle(_ timestamp: Int32, locale: String) -> String {
     return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
 }
 
-public func ayuGramHistoryController(context: AccountContext, messageId: MessageId? = nil) -> ViewController {
+public func ayuGramHistoryController(context: AccountContext, messageId: MessageId? = nil, deletedIn: EnginePeer.Id? = nil) -> ViewController {
     let records = Promise<[AyuGramHistoryEntry]>()
     let policy = Promise<(AyuGramHistoryPolicy, [EnginePeer])>()
     let filter = ValuePromise<Int>(0, ignoreRepeated: true)
+    let isMain = messageId == nil && deletedIn == nil
     if let messageId {
         records.set(context.engine.ayuGramMessageVersions(messageId: messageId))
+    } else if let deletedIn {
+        records.set(context.engine.ayuGramKeptDeletedEntries(peerId: deletedIn))
     } else {
         records.set(context.engine.ayuGramMessageHistory())
     }
@@ -106,18 +112,20 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
             return peers
         }
     }
-    let deletedChats: Signal<Int, NoError> = messageId == nil ? (context.engine.ayuGramDeletedChats() |> map { $0.count }) : .single(0)
+    let deletedChats: Signal<[Int64], NoError> = isMain ? (context.engine.ayuGramDeletedChats() |> map { $0.map { $0.chat.peerId } }) : .single([])
     let signal = combineLatest(context.sharedContext.presentationData, records.get(), policy.get(), filter.get(), peers, deletedChats)
     |> deliverOnMainQueue
-    |> map { presentationData, records, policyData, filterValue, peersById, deletedChatCount -> (ItemListControllerState, (ItemListNodeState, HistoryArguments)) in
+    |> map { presentationData, records, policyData, filterValue, peersById, deletedChatPeers -> (ItemListControllerState, (ItemListNodeState, HistoryArguments)) in
         let locale = presentationData.strings.baseLanguageCode
         let records = records.filter { messageId == nil || ($0.peerId == messageId?.peerId.toInt64() && $0.messageId == messageId?.id) }
         let (current, peers) = policyData
+        let deletedChatCount = deletedChatPeers.filter { current.selectedChats.contains($0) }.count
         var entries: [HistoryEntry] = []
         let visible: [AyuGramHistoryEntry]
-        if messageId == nil {
+        if isMain {
             let deleted = records.filter { $0.event != "edited" }.count
             entries.append(.summary(AyuGramHistorySummary(total: records.count, deleted: deleted, edited: records.count - deleted, filter: filterValue)))
+            entries.append(.keptChats(1, i18n("Ayu.ViewDeleted", locale)))
             if deletedChatCount > 0 {
                 entries.append(.deletedChats(2, i18n("Ayu.DeletedChats", locale), deletedChatCount))
             }
@@ -126,8 +134,8 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
             visible = records
         }
         if visible.isEmpty {
-            let noChats = messageId == nil && current.selectedChats.isEmpty
-            entries.append(.empty(1, i18n(noChats ? "Ayu.HistoryNoChats" : "Ayu.HistoryEmptyInfo", locale), noChats))
+            let noChats = isMain && current.selectedChats.isEmpty
+            entries.append(.empty(3, i18n(noChats ? "Ayu.HistoryNoChats" : deletedIn != nil ? "Ayu.ViewDeletedEmpty" : "Ayu.HistoryEmptyInfo", locale), noChats))
         }
         // Records arrive newest first; group them under one header per calendar day.
         let calendar = Calendar.current
@@ -142,7 +150,7 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
             }
             index = next
         }
-        if messageId == nil {
+        if isMain {
             let counts = Dictionary(grouping: records, by: { $0.peerId }).mapValues { $0.count }
             let settings: [HistorySettingsEntry] = [
                 .header(id: 100000, section: .options, text: presentationData.strings.Settings_Title, badge: nil),
@@ -162,7 +170,7 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
                 entries.append(.setting(.action(id: 200000, section: .actions, actionType: .clear, text: i18n("Ayu.ClearHistory", locale), kind: .destructive)))
             }
         }
-        let state = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text(i18n("Ayu.History", locale)), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
+        let state = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text(i18n(deletedIn != nil ? "Ayu.ViewDeleted" : "Ayu.History", locale)), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back))
         return (state, (ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks), arguments))
     }
     let controller = ItemListController(context: context, state: signal)
@@ -205,7 +213,11 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
             ])
             controller.present(sheet, in: .window(.root))
         case .deletedChats:
-            (controller.navigationController as? NavigationController)?.pushViewController(ayuGramDeletedChatsController(context: context))
+            let _ = (context.engine.ayuGramHistoryPolicy() |> take(1) |> deliverOnMainQueue).startStandalone(next: { [weak controller] current, _ in
+                (controller?.navigationController as? NavigationController)?.pushViewController(ayuGramDeletedChatsController(context: context, onlyPeers: Set(current.selectedChats)))
+            })
+        case .keptChats:
+            (controller.navigationController as? NavigationController)?.pushViewController(ayuGramDeletedChatsController(context: context, keptMessages: true))
         case let .filter(value):
             filter.set(value)
         case let .menu(peerId, messageId, event, timestamp, fileName, kind):
@@ -233,7 +245,11 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
             }
             items.append(ActionSheetButtonItem(title: i18n("Ayu.HistoryDeleteEntry", locale), color: .destructive, action: { [weak sheet] in
                 sheet?.dismissAnimated()
-                records.set(context.engine.ayuGramDeleteHistoryEntry(peerId: peerId, messageId: messageId, event: event, timestamp: timestamp) |> mapToSignal { context.engine.ayuGramMessageHistory() })
+                if let deletedIn {
+                    records.set(context.engine.ayuGramDeleteKeptMessage(peerId: deletedIn, messageId: messageId) |> mapToSignal { context.engine.ayuGramKeptDeletedEntries(peerId: deletedIn) })
+                } else {
+                    records.set(context.engine.ayuGramDeleteHistoryEntry(peerId: peerId, messageId: messageId, event: event, timestamp: timestamp) |> mapToSignal { context.engine.ayuGramMessageHistory() })
+                }
             }))
             sheet.setItemGroups([
                 ActionSheetItemGroup(items: items),

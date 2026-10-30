@@ -297,3 +297,6 @@
 "Ayu.ImportLocally" = "Mahalliy import qilish";
 "Ayu.ImportLocallyInfo" = "Chatni faqat shu qurilmaga import qilishingiz mumkin: xabarlar bu chatda faqat sizga ko'rinadi va Telegramga yuborilmaydi.";
 "Ayu.ImportLocallyDone" = "Import qilingan xabarlar: %@. Ular faqat shu qurilmada ko'rinadi.";
+"Ayu.ViewDeleted" = "O'chirilgan xabarlar";
+"Ayu.ViewDeletedInfo" = "O'chirilgan xabarlari shu qurilmada saqlangan chatlar. O'chirilgan xabarlarini yoki butun chatni o'qish uchun birini oching.";
+"Ayu.ViewDeletedEmpty" = "Hozircha o'chirilgan xabarlar yo'q.";

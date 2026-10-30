@@ -297,3 +297,6 @@
 "Ayu.ImportLocally" = "Importa in locale";
 "Ayu.ImportLocallyInfo" = "Puoi importare la chat solo su questo dispositivo: i messaggi compaiono in questa chat solo per te e non vengono inviati a Telegram.";
 "Ayu.ImportLocallyDone" = "Messaggi importati: %@. Sono visibili solo su questo dispositivo.";
+"Ayu.ViewDeleted" = "Messaggi eliminati";
+"Ayu.ViewDeletedInfo" = "Chat con messaggi eliminati salvati su questo dispositivo. Aprine una per leggere i messaggi eliminati o l'intera chat.";
+"Ayu.ViewDeletedEmpty" = "Ancora nessun messaggio eliminato.";

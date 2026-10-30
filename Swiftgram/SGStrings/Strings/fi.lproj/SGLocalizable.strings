@@ -375,3 +375,6 @@
 "Ayu.ImportLocally" = "Tuo paikallisesti";
 "Ayu.ImportLocallyInfo" = "Voit tuoda keskustelun vain tälle laitteelle: viestit näkyvät tässä keskustelussa vain sinulle eikä niitä lähetetä Telegramiin.";
 "Ayu.ImportLocallyDone" = "Tuotuja viestejä: %@. Ne näkyvät vain tällä laitteella.";
+"Ayu.ViewDeleted" = "Poistetut viestit";
+"Ayu.ViewDeletedInfo" = "Keskustelut, joiden poistetut viestit on säilytetty tällä laitteella. Avaa keskustelu lukeaksesi sen poistetut viestit tai koko keskustelun.";
+"Ayu.ViewDeletedEmpty" = "Ei vielä poistettuja viestejä.";

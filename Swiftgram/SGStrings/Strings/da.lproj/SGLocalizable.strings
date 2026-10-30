@@ -297,3 +297,6 @@
 "Ayu.ImportLocally" = "Importér lokalt";
 "Ayu.ImportLocallyInfo" = "Du kan kun importere chatten på denne enhed: beskederne vises i chatten kun for dig og sendes ikke til Telegram.";
 "Ayu.ImportLocallyDone" = "Importerede beskeder: %@. De ses kun på denne enhed.";
+"Ayu.ViewDeleted" = "Slettede beskeder";
+"Ayu.ViewDeletedInfo" = "Chats med slettede beskeder gemt på denne enhed. Åbn en for at læse dens slettede beskeder eller hele chatten.";
+"Ayu.ViewDeletedEmpty" = "Ingen slettede beskeder endnu.";

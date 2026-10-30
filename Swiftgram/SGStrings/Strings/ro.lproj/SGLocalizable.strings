@@ -297,3 +297,6 @@
 "Ayu.ImportLocally" = "Importă local";
 "Ayu.ImportLocallyInfo" = "Poți importa chatul doar pe acest dispozitiv: mesajele apar în acest chat doar pentru tine și nu sunt trimise la Telegram.";
 "Ayu.ImportLocallyDone" = "Mesaje importate: %@. Sunt vizibile doar pe acest dispozitiv.";
+"Ayu.ViewDeleted" = "Mesaje șterse";
+"Ayu.ViewDeletedInfo" = "Chaturi cu mesaje șterse păstrate pe acest dispozitiv. Deschide unul pentru a citi mesajele șterse sau tot chatul.";
+"Ayu.ViewDeletedEmpty" = "Încă nu există mesaje șterse.";

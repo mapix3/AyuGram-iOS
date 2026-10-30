@@ -297,3 +297,6 @@
 "Ayu.ImportLocally" = "Lokal importieren";
 "Ayu.ImportLocallyInfo" = "Du kannst den Chat nur auf diesem Gerät importieren: Die Nachrichten erscheinen nur bei dir in diesem Chat und werden nicht an Telegram gesendet.";
 "Ayu.ImportLocallyDone" = "Importierte Nachrichten: %@. Sie sind nur auf diesem Gerät sichtbar.";
+"Ayu.ViewDeleted" = "Gelöschte Nachrichten";
+"Ayu.ViewDeletedInfo" = "Chats mit gelöschten Nachrichten, die auf diesem Gerät gespeichert sind. Öffne einen, um seine gelöschten Nachrichten oder den ganzen Chat zu lesen.";
+"Ayu.ViewDeletedEmpty" = "Noch keine gelöschten Nachrichten.";

@@ -297,3 +297,6 @@
 "Ayu.ImportLocally" = "Importovat místně";
 "Ayu.ImportLocallyInfo" = "Chat můžete importovat jen do tohoto zařízení: zprávy se v tomto chatu zobrazí jen vám a neodešlou se do Telegramu.";
 "Ayu.ImportLocallyDone" = "Importované zprávy: %@. Jsou vidět jen na tomto zařízení.";
+"Ayu.ViewDeleted" = "Smazané zprávy";
+"Ayu.ViewDeletedInfo" = "Chaty se smazanými zprávami uloženými v tomto zařízení. Otevřete chat a přečtěte si jeho smazané zprávy nebo celý chat.";
+"Ayu.ViewDeletedEmpty" = "Zatím žádné smazané zprávy.";
