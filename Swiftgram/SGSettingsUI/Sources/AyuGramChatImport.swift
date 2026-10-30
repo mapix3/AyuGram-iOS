@@ -1,6 +1,8 @@
 import Foundation
 import UIKit
 import UniformTypeIdentifiers
+import AVFoundation
+import ImageIO
 import Display
 import SwiftSignalKit
 import Postbox
@@ -266,8 +268,8 @@ private func ayuImportSelectPeer(context: AccountContext, parseInfo: TelegramEng
     switch parseInfo {
     case let .privateChat(title):
         filter = [.onlyPrivateChats, .excludeDisabled, .doNotSearchMessages, .excludeSecretChats]
-        hasChatListSelector = false
-        hasContactSelector = true
+        hasChatListSelector = true
+        hasContactSelector = false
         importTitle = title
     case let .group(title):
         filter = [.onlyGroups, .onlyManageable, .excludeDisabled, .doNotSearchMessages]
@@ -277,7 +279,7 @@ private func ayuImportSelectPeer(context: AccountContext, parseInfo: TelegramEng
     case let .unknown(title):
         filter = [.excludeDisabled, .doNotSearchMessages]
         hasChatListSelector = true
-        hasContactSelector = true
+        hasContactSelector = false
         importTitle = title
     }
 
@@ -407,7 +409,27 @@ private let ayuImportLinePatterns: [NSRegularExpression] = [
     try! NSRegularExpression(pattern: "^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{2,4}),? (\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?:\\s?([AaPp][Mm]))? - ([^:]+?): (.*)$")
 ]
 
-private func ayuImportParseLocal(text: String, peerNames: Set<String>) -> [AyuGramImportedMessage] {
+private struct AyuImportParsedMessage {
+    let timestamp: Int32
+    let incoming: Bool
+    let text: String
+    let attachmentName: String?
+}
+
+private func ayuImportAttachmentName(_ text: String) -> (String, String)? {
+    let firstLine = text.components(separatedBy: "\n").first ?? text
+    let rest = text.count > firstLine.count ? String(text.dropFirst(firstLine.count + 1)) : ""
+    let trimmed = firstLine.trimmingCharacters(in: CharacterSet(charactersIn: "\u{200E}\u{200F} "))
+    if trimmed.hasPrefix("<attached: "), trimmed.hasSuffix(">") {
+        return (String(trimmed.dropFirst("<attached: ".count).dropLast()), rest)
+    }
+    for suffix in [" (file attached)", " (файл прикреплён)", " (файл прикреплен)"] where trimmed.hasSuffix(suffix) {
+        return (String(trimmed.dropLast(suffix.count)), rest)
+    }
+    return nil
+}
+
+private func ayuImportParseLocal(text: String, peerNames: Set<String>) -> [AyuImportParsedMessage] {
     var result: [(timestamp: Int32, author: String, text: String)] = []
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone.current
@@ -449,10 +471,7 @@ private func ayuImportParseLocal(text: String, peerNames: Set<String>) -> [AyuGr
             guard let date = calendar.date(from: components) else {
                 continue
             }
-            var messageText = body.trimmingCharacters(in: CharacterSet(charactersIn: "\u{200E}\u{200F}"))
-            if messageText.hasPrefix("<attached: "), messageText.hasSuffix(">") {
-                messageText = "📎 " + String(messageText.dropFirst("<attached: ".count).dropLast())
-            }
+            let messageText = body.trimmingCharacters(in: CharacterSet(charactersIn: "\u{200E}\u{200F}"))
             result.append((Int32(date.timeIntervalSince1970), author.trimmingCharacters(in: .whitespaces), messageText))
             matched = true
             break
@@ -473,10 +492,68 @@ private func ayuImportParseLocal(text: String, peerNames: Set<String>) -> [AyuGr
         incomingNames = [least]
     }
     var lastTimestamp: Int32 = 0
-    return result.map { item -> AyuGramImportedMessage in
+    return result.map { item -> AyuImportParsedMessage in
         let timestamp = max(item.timestamp, lastTimestamp)
         lastTimestamp = timestamp
-        return AyuGramImportedMessage(timestamp: timestamp, incoming: incomingNames.contains(item.author), text: item.text)
+        if let attachment = ayuImportAttachmentName(item.text) {
+            return AyuImportParsedMessage(timestamp: timestamp, incoming: incomingNames.contains(item.author), text: attachment.1.trimmingCharacters(in: .whitespacesAndNewlines), attachmentName: attachment.0)
+        }
+        return AyuImportParsedMessage(timestamp: timestamp, incoming: incomingNames.contains(item.author), text: item.text, attachmentName: nil)
+    }
+}
+
+private func ayuImportPixelSize(path: String) -> (Int32, Int32)? {
+    guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil), let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any], let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.int32Value, let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.int32Value else {
+        return nil
+    }
+    if let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue, orientation >= 5 {
+        return (height, width)
+    }
+    return (width, height)
+}
+
+private func ayuImportAttachment(name: String, source: AyuImportSource, entries: [String: SSZipEntry]) -> AyuGramImportedAttachment? {
+    guard let archivePath = source.archivePath, let entry = entries[name] else {
+        return nil
+    }
+    let fileExtension = (name as NSString).pathExtension.lowercased()
+    let file = EngineTempBox.shared.tempFile(fileName: "import." + (fileExtension.isEmpty ? "bin" : fileExtension))
+    guard SSZipArchive.extractFileFromArchive(atPath: archivePath, filePath: entry.path, toPath: file.path) else {
+        return nil
+    }
+    switch fileExtension {
+    case "jpg", "jpeg", "png", "heic":
+        let size = ayuImportPixelSize(path: file.path) ?? (1280, 1280)
+        let mimeType = fileExtension == "png" ? "image/png" : (fileExtension == "heic" ? "image/heic" : "image/jpeg")
+        return AyuGramImportedAttachment(kind: .photo, path: file.path, fileName: name, mimeType: mimeType, width: size.0, height: size.1, duration: 0, thumbnailPath: nil)
+    case "webp":
+        let size = ayuImportPixelSize(path: file.path) ?? (512, 512)
+        return AyuGramImportedAttachment(kind: .sticker, path: file.path, fileName: name, mimeType: "image/webp", width: size.0, height: size.1, duration: 0, thumbnailPath: nil)
+    case "mp4", "mov", "m4v", "3gp":
+        let asset = AVURLAsset(url: URL(fileURLWithPath: file.path))
+        var size = CGSize(width: 1280, height: 720)
+        if let track = asset.tracks(withMediaType: .video).first {
+            let transformed = track.naturalSize.applying(track.preferredTransform)
+            size = CGSize(width: abs(transformed.width), height: abs(transformed.height))
+        }
+        let duration = CMTimeGetSeconds(asset.duration)
+        var thumbnailPath: String?
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 1280, height: 1280)
+        if let image = try? generator.copyCGImage(at: .zero, actualTime: nil), let data = UIImage(cgImage: image).jpegData(compressionQuality: 0.7) {
+            let thumbnail = EngineTempBox.shared.tempFile(fileName: "thumbnail.jpg")
+            if (try? data.write(to: URL(fileURLWithPath: thumbnail.path))) != nil {
+                thumbnailPath = thumbnail.path
+            }
+        }
+        return AyuGramImportedAttachment(kind: .video, path: file.path, fileName: name, mimeType: fileExtension == "mov" ? "video/quicktime" : "video/mp4", width: Int32(size.width), height: Int32(size.height), duration: duration.isFinite ? duration : 0, thumbnailPath: thumbnailPath)
+    case "opus", "ogg":
+        let duration = CMTimeGetSeconds(AVURLAsset(url: URL(fileURLWithPath: file.path)).duration)
+        return AyuGramImportedAttachment(kind: .voice, path: file.path, fileName: name, mimeType: "audio/ogg", width: 0, height: 0, duration: duration.isFinite ? duration : 0, thumbnailPath: nil)
+    default:
+        let mimeTypes: [String: String] = ["pdf": "application/pdf", "mp3": "audio/mpeg", "m4a": "audio/mp4", "aac": "audio/aac", "gif": "image/gif", "txt": "text/plain", "vcf": "text/vcard", "zip": "application/zip"]
+        return AyuGramImportedAttachment(kind: .file, path: file.path, fileName: name, mimeType: mimeTypes[fileExtension] ?? "application/octet-stream", width: 0, height: 0, duration: 0, thumbnailPath: nil)
     }
 }
 
@@ -501,7 +578,18 @@ private func ayuImportLocally(context: AccountContext, peer: EnginePeer, title: 
     let path = source.mainFile.path
     Queue.concurrentDefaultQueue().async {
         let text = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
-        let messages = ayuImportParseLocal(text: text, peerNames: peerNames)
+        var entries: [String: SSZipEntry] = [:]
+        for (entry, fileName, _) in source.otherEntries {
+            entries[fileName] = entry
+        }
+        let messages = ayuImportParseLocal(text: text, peerNames: peerNames).map { item -> AyuGramImportedMessage in
+            let attachment = item.attachmentName.flatMap { ayuImportAttachment(name: $0, source: source, entries: entries) }
+            var text = item.text
+            if attachment == nil, let name = item.attachmentName {
+                text = text.isEmpty ? "📎 " + name : "📎 " + name + "\n" + text
+            }
+            return AyuGramImportedMessage(timestamp: item.timestamp, incoming: item.incoming, text: text, attachment: attachment)
+        }
         Queue.mainQueue().async {
             guard !messages.isEmpty else {
                 progress.dismiss()
