@@ -190,6 +190,8 @@ private func requestActivity(postbox: Postbox, network: Network, accountPeerId: 
             }
             
             if let inputPeer = apiInputPeer(peer) {
+                let currentPrivacy = AyuGramSettings.shared.snapshot
+                Logger.shared.log("AyuGhost", "setTyping \(String(describing: activity)) ghost=\(currentPrivacy.ghostMode) typing=\(currentPrivacy.suppressTyping) uploading=\(currentPrivacy.suppressUploading)")
                 var flags: Int32 = 0
                 let topMessageId = threadId.flatMap { Int32(clamping: $0) }
                 if topMessageId != nil {

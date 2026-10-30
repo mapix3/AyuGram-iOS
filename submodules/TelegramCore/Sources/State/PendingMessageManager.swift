@@ -2319,7 +2319,7 @@ public final class PendingMessageManager {
         return applyUpdateGroupMessages(postbox: postbox, stateManager: stateManager, messages: messages, result: result, pendingMessageEvents: { [weak self] pendingMessagesDelivered in
             queue.async {
                 if let strongSelf = self {
-                    if let delivered = pendingMessagesDelivered.filter({ $0.id.namespace == Namespaces.Message.Cloud }).max(by: { $0.id.id < $1.id.id }) {
+                    if let delivered = pendingMessagesDelivered.filter({ $0.id.namespace == Namespaces.Message.Cloud }).max(by: { $0.id.id < $1.id.id }) ?? pendingMessagesDelivered.filter({ $0.id.namespace == Namespaces.Message.ScheduledCloud }).max(by: { $0.id.id < $1.id.id }) {
                         let _ = _internal_ayuAfterSending(postbox: postbox, network: strongSelf.network, stateManager: stateManager, accountPeerId: strongSelf.accountPeerId, messageId: delivered.id).startStandalone()
                     }
                     if let message = messages.first, let context = strongSelf.peerSummaryContexts[message.id.peerId], !pendingMessagesDelivered.isEmpty {

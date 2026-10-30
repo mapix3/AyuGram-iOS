@@ -73,6 +73,8 @@ private final class AccountPresenceManagerImpl {
             }, queue: self.queue)
             self.onlineTimer = timer
             timer.start()
+            let privacy = AyuGramSettings.shared.snapshot
+            Logger.shared.log("AyuGhost", "updateStatus online ghost=\(privacy.ghostMode) online=\(privacy.suppressOnline)")
             request = self.network.request(Api.functions.account.updateStatus(offline: .boolFalse))
         } else {
             self.onlineTimer?.invalidate()
