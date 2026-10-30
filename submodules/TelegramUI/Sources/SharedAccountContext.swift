@@ -570,6 +570,9 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                 let _ = immediateSGStatusValue.swap(settings)
                 SGSimpleSettings.shared.ephemeralStatus = settings.status
                 SGSimpleSettings.shared.status = settings.status
+            } else {
+                SGSimpleSettings.shared.ephemeralStatus = SGStatus.default.status
+                SGSimpleSettings.shared.status = SGStatus.default.status
             }
         })
         self.initSGIAP(isMainApp: applicationBindings.isMainApp)
