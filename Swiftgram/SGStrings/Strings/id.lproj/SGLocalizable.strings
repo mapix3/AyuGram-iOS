@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "Pesan terhapus";
 "Ayu.ViewDeletedInfo" = "Obrolan dengan pesan terhapus yang disimpan di perangkat ini. Buka salah satu untuk membaca pesan terhapusnya atau seluruh obrolan.";
 "Ayu.ViewDeletedEmpty" = "Belum ada pesan terhapus.";
+"Ayu.ConfirmReadReceipt" = "Konfirmasi tanda dibaca";

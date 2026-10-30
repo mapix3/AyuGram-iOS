@@ -152,3 +152,4 @@
 "Ayu.ViewDeleted" = "Odstránené správy";
 "Ayu.ViewDeletedInfo" = "Čety s odstránenými správami uloženými v tomto zariadení. Otvorte čet a prečítajte si jeho odstránené správy alebo celý čet.";
 "Ayu.ViewDeletedEmpty" = "Zatiaľ žiadne odstránené správy.";
+"Ayu.ConfirmReadReceipt" = "Potvrdzovať odoslanie prečítania";

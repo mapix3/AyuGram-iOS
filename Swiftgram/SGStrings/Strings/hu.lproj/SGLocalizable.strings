@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "Törölt üzenetek";
 "Ayu.ViewDeletedInfo" = "Csevegések, amelyek törölt üzenetei ezen az eszközön megmaradtak. Nyiss meg egyet a törölt üzenetek vagy az egész csevegés olvasásához.";
 "Ayu.ViewDeletedEmpty" = "Még nincsenek törölt üzenetek.";
+"Ayu.ConfirmReadReceipt" = "Olvasási visszaigazolás megerősítése";

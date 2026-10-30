@@ -393,3 +393,4 @@
 "Ayu.ViewDeleted" = "Usunięte wiadomości";
 "Ayu.ViewDeletedInfo" = "Czaty z usuniętymi wiadomościami zachowanymi na tym urządzeniu. Otwórz czat, aby przeczytać jego usunięte wiadomości lub cały czat.";
 "Ayu.ViewDeletedEmpty" = "Brak usuniętych wiadomości.";
+"Ayu.ConfirmReadReceipt" = "Potwierdzaj wysyłanie odczytu";

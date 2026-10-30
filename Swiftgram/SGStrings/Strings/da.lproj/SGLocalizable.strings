@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "Slettede beskeder";
 "Ayu.ViewDeletedInfo" = "Chats med slettede beskeder gemt på denne enhed. Åbn en for at læse dens slettede beskeder eller hele chatten.";
 "Ayu.ViewDeletedEmpty" = "Ingen slettede beskeder endnu.";
+"Ayu.ConfirmReadReceipt" = "Bekræft læsekvitteringer";

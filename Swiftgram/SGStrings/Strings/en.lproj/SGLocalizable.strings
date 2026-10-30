@@ -427,3 +427,4 @@
 "Ayu.ViewDeleted" = "View deleted messages";
 "Ayu.ViewDeletedInfo" = "Chats with deleted messages kept on this device. Open one to read its deleted messages or the whole chat.";
 "Ayu.ViewDeletedEmpty" = "No deleted messages yet.";
+"Ayu.ConfirmReadReceipt" = "Confirm read receipts";

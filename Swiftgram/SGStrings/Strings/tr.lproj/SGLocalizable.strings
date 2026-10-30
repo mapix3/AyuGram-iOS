@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "Silinen mesajlar";
 "Ayu.ViewDeletedInfo" = "Silinen mesajları bu cihazda saklanan sohbetler. Silinen mesajlarını ya da tüm sohbeti okumak için birini aç.";
 "Ayu.ViewDeletedEmpty" = "Henüz silinen mesaj yok.";
+"Ayu.ConfirmReadReceipt" = "Okundu bilgisini onayla";

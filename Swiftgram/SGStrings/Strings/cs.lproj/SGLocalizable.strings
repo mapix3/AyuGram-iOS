@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "Smazané zprávy";
 "Ayu.ViewDeletedInfo" = "Chaty se smazanými zprávami uloženými v tomto zařízení. Otevřete chat a přečtěte si jeho smazané zprávy nebo celý chat.";
 "Ayu.ViewDeletedEmpty" = "Zatím žádné smazané zprávy.";
+"Ayu.ConfirmReadReceipt" = "Potvrzovat odeslání přečtení";

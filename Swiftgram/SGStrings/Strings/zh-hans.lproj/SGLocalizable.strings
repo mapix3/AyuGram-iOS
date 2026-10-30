@@ -397,3 +397,4 @@
 "Ayu.ViewDeleted" = "已删除的消息";
 "Ayu.ViewDeletedInfo" = "在这台设备上保留了已删除消息的聊天。打开一个即可查看其已删除的消息或整个聊天。";
 "Ayu.ViewDeletedEmpty" = "还没有已删除的消息。";
+"Ayu.ConfirmReadReceipt" = "发送已读回执前确认";

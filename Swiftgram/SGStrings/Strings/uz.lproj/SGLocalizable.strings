@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "O'chirilgan xabarlar";
 "Ayu.ViewDeletedInfo" = "O'chirilgan xabarlari shu qurilmada saqlangan chatlar. O'chirilgan xabarlarini yoki butun chatni o'qish uchun birini oching.";
 "Ayu.ViewDeletedEmpty" = "Hozircha o'chirilgan xabarlar yo'q.";
+"Ayu.ConfirmReadReceipt" = "O‘qilganlik xabarini tasdiqlash";

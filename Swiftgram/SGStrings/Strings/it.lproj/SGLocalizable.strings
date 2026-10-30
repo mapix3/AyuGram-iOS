@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "Messaggi eliminati";
 "Ayu.ViewDeletedInfo" = "Chat con messaggi eliminati salvati su questo dispositivo. Aprine una per leggere i messaggi eliminati o l'intera chat.";
 "Ayu.ViewDeletedEmpty" = "Ancora nessun messaggio eliminato.";
+"Ayu.ConfirmReadReceipt" = "Conferma le ricevute di lettura";

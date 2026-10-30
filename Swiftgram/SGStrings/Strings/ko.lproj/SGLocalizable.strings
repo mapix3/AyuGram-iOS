@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "삭제된 메시지";
 "Ayu.ViewDeletedInfo" = "삭제된 메시지가 이 기기에 보관된 채팅입니다. 채팅을 열어 삭제된 메시지나 전체 채팅을 보세요.";
 "Ayu.ViewDeletedEmpty" = "아직 삭제된 메시지가 없습니다.";
+"Ayu.ConfirmReadReceipt" = "읽음 확인 전송 전에 묻기";

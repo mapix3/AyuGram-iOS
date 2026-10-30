@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "Raderade meddelanden";
 "Ayu.ViewDeletedInfo" = "Chattar med raderade meddelanden som sparats på den här enheten. Öppna en för att läsa dess raderade meddelanden eller hela chatten.";
 "Ayu.ViewDeletedEmpty" = "Inga raderade meddelanden än.";
+"Ayu.ConfirmReadReceipt" = "Bekräfta läskvitton";

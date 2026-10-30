@@ -300,3 +300,4 @@
 "Ayu.ViewDeleted" = "Geskrapte boodskappe";
 "Ayu.ViewDeletedInfo" = "Kletse met geskrapte boodskappe wat op hierdie toestel bewaar is. Maak een oop om sy geskrapte boodskappe of die hele klets te lees.";
 "Ayu.ViewDeletedEmpty" = "Nog geen geskrapte boodskappe nie.";
+"Ayu.ConfirmReadReceipt" = "Bevestig leesbewyse";
