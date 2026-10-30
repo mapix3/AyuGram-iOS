@@ -77,6 +77,7 @@ for (const encrypt of [encryptAes128gcm, encryptAesgcm]) {
   assert.equal(sent[0].body.body, 'привет');
   assert.equal(sent[0].body.url, 'ayugram://chat?user=7');
   assert.equal(sent[0].body.ttl, 86400, 'Bark deletes relayed notifications after a day');
+  assert.equal(sent[0].body.id, 'user7m5', 'The same message from two sessions replaces one notification');
 }
 assert.deepEqual(describe({ title: 'Bob', description: 'hi' }), { title: 'Bob', text: 'hi' });
 assert.deepEqual(describe({}), { title: 'AyuGram', text: 'New message' });
@@ -87,6 +88,8 @@ assert.ok(target.icon.startsWith('https://ui-avatars.com/api/?name=%D0%94&') && 
 assert.equal(chatTarget({ chat_id: '12', from_id: '7' }, 'Team').link, 'ayugram://chat?chat=12');
 assert.equal(chatTarget({ channel_id: '99' }, 'News').link, 'ayugram://chat?channel=99');
 assert.deepEqual(chatTarget(undefined, 'x'), {});
+assert.equal(chatTarget({ channel_id: '99', msg_id: '42' }, 'News').id, 'channel99m42');
+assert.equal(chatTarget({ from_id: '7' }, 'x').id, undefined);
 assert.deepEqual(describe({ loc_key: 'CHANNEL_MESSAGE_PHOTO', loc_args: ['News'] }), { title: 'News', text: '📷 Photo' });
 assert.deepEqual(describe({ loc_key: 'MESSAGE_AUDIO', loc_args: ['Bob'] }), { title: 'Bob', text: '🎤 Voice message' });
 assert.deepEqual(describe({ loc_key: 'MESSAGE_STICKER', loc_args: ['Bob', '😀'] }), { title: 'Bob', text: '😀 Sticker' });
@@ -100,6 +103,9 @@ const fallback = await sendToBark('KEY1234567', 'Ann', 'hi / there');
 assert.ok(fallback.ok, 'The path API is tried when the JSON API refuses');
 assert.equal(sent.length, 2);
 assert.ok(sent[1].url.startsWith('https://api.day.app/KEY1234567/Ann/hi%20%2F%20there?'), sent[1].url);
+sent.length = 0;
+await sendToBark('KEY1234567', 'Ann', 'hi', { id: 'user7m5' });
+assert.ok(new URL(sent[1].url).searchParams.get('id') === 'user7m5', sent[1].url);
 refuseJson = false;
 sent.length = 0;
 const test = await worker.fetch(new Request('https://relay.example/test/KEY1234567'));

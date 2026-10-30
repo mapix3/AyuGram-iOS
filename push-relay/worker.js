@@ -46,8 +46,8 @@ export default {
       if (!notification) {
         return new Response(null, { status: 201 });
       }
-      const { title, text, link, icon } = notification;
-      const result = await sendToBark(route.barkKey, title, text, { url: link, icon });
+      const { title, text, link, icon, id } = notification;
+      const result = await sendToBark(route.barkKey, title, text, { url: link, icon, id });
       if (!result.ok) {
         console.log('Bark refused the push: ' + result.status + ' ' + result.body);
       }
@@ -71,12 +71,12 @@ export async function sendToBark(key, title, text, options = {}) {
   const json = await attempt(() => fetch(BARK_PUSH, {
     method: 'POST',
     headers: { 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ device_key: key, title, body: text, group: 'AyuGram', icon, url, isArchive: '1', ttl: ARCHIVE_TTL }),
+    body: JSON.stringify({ device_key: key, title, body: text, group: 'AyuGram', icon, url, isArchive: '1', ttl: ARCHIVE_TTL, ...(options.id ? { id: options.id } : {}) }),
   }));
   if (json.ok) {
     return json;
   }
-  const query = new URLSearchParams({ group: 'AyuGram', icon, url, isArchive: '1', ttl: String(ARCHIVE_TTL) });
+  const query = new URLSearchParams({ group: 'AyuGram', icon, url, isArchive: '1', ttl: String(ARCHIVE_TTL), ...(options.id ? { id: options.id } : {}) });
   const path = BARK_BASE + '/' + encodeURIComponent(key) + '/' + encodeURIComponent(title) + '/' + encodeURIComponent(text) + '?' + query;
   const legacy = await attempt(() => fetch(path));
   return legacy.ok ? legacy : { ok: false, status: legacy.status, body: 'json ' + json.status + ' ' + json.body + ' | path ' + legacy.status + ' ' + legacy.body };
@@ -129,7 +129,11 @@ export function chatTarget(custom, name) {
   const color = AVATAR_COLORS[Number(BigInt(id) % 7n)];
   const letter = (Array.from(name.trim())[0] || '?').toUpperCase();
   const icon = 'https://ui-avatars.com/api/?' + new URLSearchParams({ name: letter, size: '128', background: color, color: 'ffffff', bold: 'true', format: 'png', length: '1' });
-  return { link: 'ayugram://chat?' + kind + '=' + id, icon };
+  const target = { link: 'ayugram://chat?' + kind + '=' + id, icon };
+  if (custom.msg_id !== undefined && /^\d+$/.test(String(custom.msg_id))) {
+    target.id = kind + id + 'm' + custom.msg_id;
+  }
+  return target;
 }
 
 // Title and text of a notification, or null for a push that shows nothing.
