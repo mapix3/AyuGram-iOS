@@ -1308,6 +1308,9 @@ public class Account {
             self.ayuLogoutCheckActive = true
             AyuGramSessionLog.log("account \(self.id.int64) logout signal, last auth error: \(AyuGramSessionLog.lastAuthError())")
         }
+        let retry: (Int) -> Void = { [weak self] next in
+            self?.ayuConfirmLogout(attempt: next)
+        }
         let finishLogout: (String) -> Void = { [weak self] reason in
             guard let self else {
                 return
@@ -1335,8 +1338,8 @@ public class Account {
                 finishLogout("no answer in 90 s")
             } else if attempt < 4 {
                 AyuGramSessionLog.log("account \(self.id.int64) check failed \(error.errorCode) \(error.errorDescription), retrying")
-                Queue.mainQueue().after(Double(5 * (attempt + 1)), { [weak self] in
-                    self?.ayuConfirmLogout(attempt: attempt + 1)
+                Queue.mainQueue().after(Double(5 * (attempt + 1)), {
+                    retry(attempt + 1)
                 })
             } else {
                 AyuGramSessionLog.log("account \(self.id.int64) check failed \(error.errorCode) \(error.errorDescription), logout signal ignored")
