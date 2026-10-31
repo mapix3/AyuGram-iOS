@@ -15,7 +15,7 @@ const ICON = 'https://raw.githubusercontent.com/mapix3/AyuGram-iOS/standard/Swif
 
 const encoder = new TextEncoder();
 
-const NOTIFY_DELAY_MS = 10000;
+const NOTIFY_DELAY_MS = 0;
 const SEEN_TTL = 120;
 const ACTIVE_MAX_SECONDS = 300;
 const SENT_TTL_MS = 10 * 60 * 1000;
