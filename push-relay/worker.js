@@ -17,6 +17,44 @@ const encoder = new TextEncoder();
 
 const NOTIFY_DELAY_MS = 10000;
 const SEEN_TTL = 120;
+const ACTIVE_MAX_SECONDS = 300;
+
+export class Presence {
+  constructor(state) {
+    this.state = state;
+  }
+
+  async fetch(request) {
+    if (request.method === 'POST') {
+      const seconds = Math.min(Math.max(Number(await request.text()) || 0, 0), ACTIVE_MAX_SECONDS);
+      await this.state.storage.put('until', seconds ? Date.now() + seconds * 1000 : 0);
+      return new Response('ok\n');
+    }
+    return new Response(String((await this.state.storage.get('until')) || 0));
+  }
+}
+
+export async function activityId(barkKey) {
+  return base64urlEncode(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode('ayugram-active|' + barkKey))));
+}
+
+function presence(env, id) {
+  return env && env.PRESENCE ? env.PRESENCE.get(env.PRESENCE.idFromName(id)) : null;
+}
+
+export async function appActive(env, barkKey) {
+  const stub = presence(env, await activityId(barkKey));
+  if (!stub) {
+    return false;
+  }
+  try {
+    const response = await stub.fetch('https://presence.ayugram.invalid/');
+    return Number(await response.text()) > Date.now();
+  } catch (error) {
+    console.log('presence unavailable: ' + error);
+    return false;
+  }
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -29,6 +67,15 @@ export default {
         status: result.ok ? 200 : 502,
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       });
+    }
+    if (request.method === 'POST' && url.pathname.startsWith('/active/')) {
+      const id = url.pathname.slice(8);
+      const stub = /^[A-Za-z0-9_-]{43}$/.test(id) ? presence(env, id) : null;
+      if (!stub) {
+        return new Response('bad id\n', { status: 400 });
+      }
+      await stub.fetch('https://presence.ayugram.invalid/', { method: 'POST', body: await request.text() });
+      return new Response('ok\n');
     }
     if (request.method !== 'POST' || !url.pathname.startsWith('/p/')) {
       return new Response('AyuGram push relay\n');
@@ -60,7 +107,7 @@ export default {
         if (delay > 0) {
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
-        if (await alreadySeen(route.barkKey, data.custom)) {
+        if (await alreadySeen(route.barkKey, data.custom) || await appActive(env, route.barkKey)) {
           return;
         }
         const { title, text, link, icon, id } = notification;

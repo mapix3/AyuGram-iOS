@@ -1,7 +1,7 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
 import { webcrypto as crypto } from 'node:crypto';
-import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen } from './worker.js';
+import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId } from './worker.js';
 
 const cacheStore = new Map();
 globalThis.caches = { default: {
@@ -152,5 +152,34 @@ assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_i
   assert.equal(sent.length, 0, 'Telegram gets its answer before the delay');
   await waited;
   assert.equal(sent.length, 1, 'The notification goes out after the delay');
+}
+{
+  const objects = new Map();
+  const PRESENCE = {
+    idFromName(name) { return name; },
+    get(id) {
+      if (!objects.has(id)) {
+        const data = new Map();
+        objects.set(id, new Presence({ storage: { async get(k) { return data.get(k); }, async put(k, v) { data.set(k, v); } } }));
+      }
+      const object = objects.get(id);
+      return { fetch: (url, init) => object.fetch(new Request(url, init)) };
+    },
+  };
+  const activeEnv = { NOTIFY_DELAY_MS: '0', PRESENCE };
+  const sub = await subscription('ACTIVEKEY1');
+  const id = await activityId('ACTIVEKEY1');
+  const push = async (msgId) => {
+    const { body, headers } = await encryptAes128gcm(sub, JSON.stringify({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'hi'], custom: { from_id: '70', msg_id: msgId } }));
+    return worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body, headers }), activeEnv);
+  };
+  sent.length = 0;
+  assert.equal((await worker.fetch(new Request('https://relay.example/active/' + id, { method: 'POST', body: '90' }), activeEnv)).status, 200);
+  await push('1');
+  assert.equal(sent.length, 0, 'Nothing is relayed while AyuGram is open');
+  await worker.fetch(new Request('https://relay.example/active/' + id, { method: 'POST', body: '0' }), activeEnv);
+  await push('2');
+  assert.equal(sent.length, 1, 'Relaying resumes once AyuGram is closed');
+  assert.equal((await worker.fetch(new Request('https://relay.example/active/bad', { method: 'POST', body: '90' }), activeEnv)).status, 400);
 }
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');

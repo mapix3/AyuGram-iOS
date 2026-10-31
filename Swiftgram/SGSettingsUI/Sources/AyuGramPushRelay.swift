@@ -163,9 +163,8 @@ enum AyuGramPushRelay {
         }
         |> take(1)
         |> deliverOnMainQueue).startStandalone(next: { error in
-            deliveryApplied = barkKey.isEmpty ? nil : true
             completion(error)
-            reconcileDelivery()
+            updateActivity()
         })
     }
 
@@ -173,75 +172,87 @@ enum AyuGramPushRelay {
         var id: UIBackgroundTaskIdentifier = .invalid
     }
 
-    private static weak var deliveryContext: AccountContext?
-    private static var deliveryObservers: [NSObjectProtocol] = []
-    private static var deliveryDesired = false
-    private static var deliveryApplied: Bool?
-    private static var deliveryRunning = false
+    private static var activityObservers: [NSObjectProtocol] = []
+    private static var activityTimer: Timer?
+    private static let activitySeconds = 90
+    private static let activityInterval: TimeInterval = 45.0
 
     static func renew(context: AccountContext) {
-        deliveryContext = context
-        deliveryApplied = nil
-        for observer in deliveryObservers {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        deliveryObservers = [
-            NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main, using: { _ in
-                deliveryDesired = false
-                reconcileDelivery()
-            }),
-            NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main, using: { _ in
-                deliveryDesired = true
-                reconcileDelivery()
-            })
-        ]
-        deliveryDesired = UIApplication.shared.applicationState == .background
-        reconcileDelivery()
-    }
-
-    private static func reconcileDelivery() {
-        guard !deliveryRunning, let context = deliveryContext, let barkKey, !barkKey.isEmpty, deliveryApplied != deliveryDesired else {
-            return
-        }
-        let current = subscription(barkKey: barkKey)
-        let enable = deliveryDesired
-        deliveryRunning = true
-        let task = BackgroundTask()
-        task.id = UIApplication.shared.beginBackgroundTask(withName: "AyuGramPushRelay", expirationHandler: {
-            UIApplication.shared.endBackgroundTask(task.id)
-            task.id = .invalid
-        })
-        let _ = (engines(context: context)
-        |> mapToSignal { engines -> Signal<Void, NoError> in
-            if engines.isEmpty {
-                return .single(Void())
-            }
-            return combineLatest(engines.map { engine -> Signal<Void, NoError> in
-                if enable {
+        if let barkKey, !barkKey.isEmpty {
+            let current = subscription(barkKey: barkKey)
+            let _ = (engines(context: context)
+            |> mapToSignal { engines -> Signal<Void, NoError> in
+                if engines.isEmpty {
+                    return .single(Void())
+                }
+                return combineLatest(engines.map { engine -> Signal<Void, NoError> in
                     return engine.accountData.ayuRegisterWebPush(subscription: current)
                     |> map { _ -> Void in
                         return Void()
                     }
                     |> take(1)
-                } else {
-                    return engine.accountData.ayuUnregisterWebPush(subscription: current)
-                    |> take(1)
+                })
+                |> map { _ -> Void in
+                    return Void()
                 }
-            })
-            |> map { _ -> Void in
-                return Void()
             }
+            |> take(1)).startStandalone()
         }
-        |> take(1)
-        |> deliverOnMainQueue).startStandalone(next: { _ in
-            deliveryApplied = enable
-            deliveryRunning = false
+        for observer in activityObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        activityObservers = [
+            NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main, using: { _ in
+                updateActivity()
+            }),
+            NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main, using: { _ in
+                updateActivity()
+            })
+        ]
+        updateActivity()
+    }
+
+    private static func updateActivity() {
+        activityTimer?.invalidate()
+        activityTimer = nil
+        guard let barkKey, !barkKey.isEmpty else {
+            return
+        }
+        if UIApplication.shared.applicationState == .background {
+            sendActivity(barkKey: barkKey, seconds: 0)
+            return
+        }
+        sendActivity(barkKey: barkKey, seconds: activitySeconds)
+        let timer = Timer(timeInterval: activityInterval, repeats: true, block: { _ in
+            guard let barkKey = AyuGramPushRelay.barkKey, !barkKey.isEmpty, UIApplication.shared.applicationState != .background else {
+                return
+            }
+            sendActivity(barkKey: barkKey, seconds: activitySeconds)
+        })
+        RunLoop.main.add(timer, forMode: .common)
+        activityTimer = timer
+    }
+
+    private static func sendActivity(barkKey: String, seconds: Int) {
+        let id = base64url(Data(SHA256.hash(data: Data(("ayugram-active|" + barkKey).utf8))))
+        guard let url = URL(string: baseURL + "/active/" + id) else {
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = Data(String(seconds).utf8)
+        request.timeoutInterval = 15.0
+        let task = BackgroundTask()
+        let finish: () -> Void = {
             if task.id != .invalid {
                 UIApplication.shared.endBackgroundTask(task.id)
                 task.id = .invalid
             }
-            reconcileDelivery()
-        })
+        }
+        task.id = UIApplication.shared.beginBackgroundTask(withName: "AyuGramPushRelay", expirationHandler: finish)
+        URLSession.shared.dataTask(with: request, completionHandler: { _, _, _ in
+            DispatchQueue.main.async(execute: finish)
+        }).resume()
     }
 }
 
