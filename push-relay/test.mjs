@@ -186,6 +186,20 @@ assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_i
   assert.equal(sent.length, 1, 'The same message from a second subscription is not shown twice');
   await push('3');
   assert.equal(sent.length, 2, 'The next message is shown');
+  sent.length = 0;
+  assert.equal((await worker.fetch(new Request('https://relay.example/seen/' + id, { method: 'POST', body: JSON.stringify({ barkKey: 'ACTIVEKEY1', chat: 'user70' }) }), activeEnv)).status, 200);
+  assert.deepEqual(sent.map((s) => s.body.id).sort(), ['user70m2', 'user70m3'], 'Opening the chat removes its notifications from Bark');
+  assert.ok(sent.every((s) => s.body.delete === '1' && s.body.device_key === 'ACTIVEKEY1'));
+  sent.length = 0;
+  await worker.fetch(new Request('https://relay.example/seen/' + id, { method: 'POST', body: JSON.stringify({ barkKey: 'ACTIVEKEY1', chat: 'user70' }) }), activeEnv);
+  assert.equal(sent.length, 0, 'Removed notifications are forgotten');
+  assert.equal((await worker.fetch(new Request('https://relay.example/seen/' + id, { method: 'POST', body: JSON.stringify({ barkKey: 'WRONGKEY12', chat: 'user70' }) }), activeEnv)).status, 400);
+  await push('4');
+  await push('5');
+  sent.length = 0;
+  const read = await encryptAes128gcm(sub, JSON.stringify({ loc_key: 'READ_HISTORY', loc_args: [], custom: { from_id: '70', max_id: '4' } }));
+  await worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body: read.body, headers: read.headers }), activeEnv);
+  assert.deepEqual(sent.map((s) => s.body.id), ['user70m4'], 'A read in Telegram removes the read notifications');
   assert.equal((await worker.fetch(new Request('https://relay.example/active/bad', { method: 'POST', body: '90' }), activeEnv)).status, 400);
 }
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');

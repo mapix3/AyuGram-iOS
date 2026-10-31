@@ -7962,6 +7962,10 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
         
         self.didAppear = true
         
+        if let peerId = self.chatLocation.peerId {
+            NotificationCenter.default.post(name: Notification.Name("AyuGramChatOpened"), object: nil, userInfo: ["peerId": peerId])
+        }
+        
         self.chatDisplayNode.historyNode.experimentalSnapScrollToItem = false
         self.chatDisplayNode.historyNode.canReadHistory.set(self.computedCanReadHistoryPromise.get())
         self.chatDisplayNode.historyNode.areContentAnimationsEnabled = true
