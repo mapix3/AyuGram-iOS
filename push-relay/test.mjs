@@ -180,6 +180,12 @@ assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_i
   await worker.fetch(new Request('https://relay.example/active/' + id, { method: 'POST', body: '0' }), activeEnv);
   await push('2');
   assert.equal(sent.length, 1, 'Relaying resumes once AyuGram is closed');
+  const other = await subscription('ACTIVEKEY1');
+  const { body, headers } = await encryptAes128gcm(other, JSON.stringify({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'hi'], custom: { from_id: '70', msg_id: '2' } }));
+  await worker.fetch(new Request('https://relay.example/p/' + other.token, { method: 'POST', body, headers }), activeEnv);
+  assert.equal(sent.length, 1, 'The same message from a second subscription is not shown twice');
+  await push('3');
+  assert.equal(sent.length, 2, 'The next message is shown');
   assert.equal((await worker.fetch(new Request('https://relay.example/active/bad', { method: 'POST', body: '90' }), activeEnv)).status, 400);
 }
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');
