@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Suporte";
 "Ayu.SupportChannel" = "Canal de atualizações";
 "Ayu.SupportDeveloper" = "Falar com o desenvolvedor";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "Verificar atualizações";
 "Ayu.UpToDate" = "Você tem a versão mais recente.";
 "Ayu.UpdateAvailable" = "Atualização disponível";

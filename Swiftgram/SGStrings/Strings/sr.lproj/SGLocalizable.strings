@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Подршка";
 "Ayu.SupportChannel" = "Канал са ажурирањима";
 "Ayu.SupportDeveloper" = "Контактирај програмера";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "Провери ажурирања";
 "Ayu.UpToDate" = "Имате најновију верзију.";
 "Ayu.UpdateAvailable" = "Доступно ажурирање";

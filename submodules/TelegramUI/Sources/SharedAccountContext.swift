@@ -797,6 +797,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                             hadUpdates = true
                         }
                     } else {
+                        AyuGramSessionLog.log("account \(accountRecord.0.int64) has no authorization in its database, record removed")
                         let _ = accountManager.transaction({ transaction in
                             transaction.updateRecord(accountRecord.0, { _ in
                                 return nil

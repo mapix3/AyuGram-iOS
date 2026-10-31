@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Piştgirî";
 "Ayu.SupportChannel" = "Kanala nûkirinan";
 "Ayu.SupportDeveloper" = "Bi pêşdebir re têkilî dayne";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "Nûkirinan kontrol bike";
 "Ayu.UpToDate" = "Guhertoya herî dawî li cem te ye.";
 "Ayu.UpdateAvailable" = "Nûkirin heye";

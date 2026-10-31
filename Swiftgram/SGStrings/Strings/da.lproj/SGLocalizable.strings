@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Support";
 "Ayu.SupportChannel" = "Opdateringskanal";
 "Ayu.SupportDeveloper" = "Kontakt udvikleren";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "Søg efter opdateringer";
 "Ayu.UpToDate" = "Du har den nyeste version.";
 "Ayu.UpdateAvailable" = "Opdatering tilgængelig";

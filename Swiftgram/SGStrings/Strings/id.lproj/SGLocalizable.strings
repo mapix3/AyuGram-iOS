@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Dukungan";
 "Ayu.SupportChannel" = "Kanal pembaruan";
 "Ayu.SupportDeveloper" = "Hubungi pengembang";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "Periksa pembaruan";
 "Ayu.UpToDate" = "Anda memakai versi terbaru.";
 "Ayu.UpdateAvailable" = "Pembaruan tersedia";

@@ -1071,6 +1071,7 @@ public final class Network: NSObject {
             _contextProxyId.set(value)
         }, contextLoggedOutUpdated: { [weak self] in
             Logger.shared.log("Network", "contextLoggedOut")
+            AyuGramSessionLog.log("network: logout check says the server does not know the permanent key")
             self?.loggedOut?()
         }, contextPermanentKeyUnknown: { [weak self] datacenterId, authKeyId in
             self?.permanentKeyUnknown?(datacenterId, authKeyId)
@@ -1285,6 +1286,7 @@ public final class Network: NSObject {
 
     fileprivate func mainSessionAuthorizationRequired() {
         Logger.shared.log("Network", "requestMessageServiceAuthorizationRequired")
+        AyuGramSessionLog.log("network: authorization required, \(AyuGramSessionLog.lastAuthError())")
         self.loggedOut?()
     }
     

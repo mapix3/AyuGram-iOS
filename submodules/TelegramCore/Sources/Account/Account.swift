@@ -1297,6 +1297,53 @@ public class Account {
     private var networkTypeDisposable: Disposable?
     
     private let _loggedOut = ValuePromise<Bool>(false, ignoreRepeated: true)
+    private var ayuLogoutCheckActive = false
+    private let ayuLogoutCheckDisposable = MetaDisposable()
+
+    private func ayuConfirmLogout(attempt: Int) {
+        if attempt == 0 {
+            if self.ayuLogoutCheckActive {
+                return
+            }
+            self.ayuLogoutCheckActive = true
+            AyuGramSessionLog.log("account \(self.id.int64) logout signal, last auth error: \(AyuGramSessionLog.lastAuthError())")
+        }
+        let finishLogout: (String) -> Void = { [weak self] reason in
+            guard let self else {
+                return
+            }
+            AyuGramSessionLog.log("account \(self.id.int64) logging out: \(reason)")
+            self.ayuLogoutCheckActive = false
+            self._loggedOut.set(true)
+            self.callSessionManager.dropAll()
+        }
+        self.ayuLogoutCheckDisposable.set((self.network.request(Api.functions.updates.getState(), automaticFloodWait: false)
+        |> timeout(90.0, queue: Queue.mainQueue(), alternate: .fail(MTRpcError(errorCode: -1, errorDescription: "TIMEOUT")))
+        |> deliverOnMainQueue).start(next: { [weak self] _ in
+            guard let self else {
+                return
+            }
+            AyuGramSessionLog.log("account \(self.id.int64) server answered, logout signal ignored")
+            self.ayuLogoutCheckActive = false
+        }, error: { [weak self] error in
+            guard let self else {
+                return
+            }
+            if error.errorCode == 401 && !error.errorDescription.contains("SESSION_PASSWORD_NEEDED") {
+                finishLogout("server confirmed \(error.errorDescription)")
+            } else if error.errorCode == -1 {
+                finishLogout("no answer in 90 s")
+            } else if attempt < 4 {
+                AyuGramSessionLog.log("account \(self.id.int64) check failed \(error.errorCode) \(error.errorDescription), retrying")
+                Queue.mainQueue().after(Double(5 * (attempt + 1)), { [weak self] in
+                    self?.ayuConfirmLogout(attempt: attempt + 1)
+                })
+            } else {
+                AyuGramSessionLog.log("account \(self.id.int64) check failed \(error.errorCode) \(error.errorDescription), logout signal ignored")
+                self.ayuLogoutCheckActive = false
+            }
+        }))
+    }
     public var loggedOut: Signal<Bool, NoError> {
         return self._loggedOut.get()
     }
@@ -1402,9 +1449,8 @@ public class Account {
         
         self.network.loggedOut = { [weak self] in
             Logger.shared.log("Account", "network logged out")
-            if let strongSelf = self {
-                strongSelf._loggedOut.set(true)
-                strongSelf.callSessionManager.dropAll()
+            Queue.mainQueue().async {
+                self?.ayuConfirmLogout(attempt: 0)
             }
         }
         self.network.didReceiveSoftAuthResetError = { [weak self] in

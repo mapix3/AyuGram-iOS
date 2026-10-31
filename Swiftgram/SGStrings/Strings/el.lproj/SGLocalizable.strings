@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Υποστήριξη";
 "Ayu.SupportChannel" = "Κανάλι ενημερώσεων";
 "Ayu.SupportDeveloper" = "Επικοινωνία με τον προγραμματιστή";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "Έλεγχος για ενημερώσεις";
 "Ayu.UpToDate" = "Έχετε την τελευταία έκδοση.";
 "Ayu.UpdateAvailable" = "Διαθέσιμη ενημέρωση";

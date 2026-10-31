@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Hỗ trợ";
 "Ayu.SupportChannel" = "Kênh cập nhật";
 "Ayu.SupportDeveloper" = "Liên hệ nhà phát triển";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "Kiểm tra cập nhật";
 "Ayu.UpToDate" = "Bạn đang dùng phiên bản mới nhất.";
 "Ayu.UpdateAvailable" = "Có bản cập nhật";
