@@ -19,6 +19,7 @@ const NOTIFY_DELAY_MS = 0;
 const SEEN_TTL = 120;
 const ACTIVE_MAX_SECONDS = 300;
 const SENT_TTL_MS = 10 * 60 * 1000;
+const SHOWN_TTL_MS = ARCHIVE_TTL * 1000;
 
 export class Presence {
   constructor(state) {
@@ -48,7 +49,37 @@ export class Presence {
       }
       sent[id] = now;
       await storage.put('sent', sent);
+      const shown = (await storage.get('shown')) || {};
+      for (const [key, time] of Object.entries(shown)) {
+        if (now - time > SHOWN_TTL_MS) {
+          delete shown[key];
+        }
+      }
+      shown[id] = now;
+      await storage.put('shown', shown);
       return new Response('send');
+    }
+    if (request.method === 'POST' && url.pathname === '/seen') {
+      const seen = await request.json();
+      const shown = (await storage.get('shown')) || {};
+      const deleted = new Set((seen.deleted || []).map(String));
+      const cleared = Object.keys(shown).filter((id) => {
+        const match = /^(user|chat|channel)(\d+)m(\d+)$/.exec(id);
+        if (!match || match[1] + match[2] !== seen.chat) {
+          return false;
+        }
+        if (seen.deleted) {
+          return deleted.has(match[3]);
+        }
+        return seen.maxId === undefined || Number(match[3]) <= seen.maxId;
+      });
+      for (const id of cleared) {
+        delete shown[id];
+      }
+      if (cleared.length) {
+        await storage.put('shown', shown);
+      }
+      return Response.json(cleared);
     }
     if (request.method === 'POST') {
       const seconds = Math.min(Math.max(Number(await request.text()) || 0, 0), ACTIVE_MAX_SECONDS);
@@ -65,6 +96,23 @@ export async function activityId(barkKey) {
 
 function presence(env, id) {
   return env && env.PRESENCE ? env.PRESENCE.get(env.PRESENCE.idFromName(id)) : null;
+}
+
+export async function clearShown(env, stub, barkKey, seen) {
+  if (!stub) {
+    return [];
+  }
+  try {
+    const response = await stub.fetch('https://presence.ayugram.invalid/seen', { method: 'POST', body: JSON.stringify(seen) });
+    const ids = await response.json();
+    for (const id of ids) {
+      await deleteFromBark(barkKey, id);
+    }
+    return ids;
+  } catch (error) {
+    console.log('notifications not cleared: ' + error);
+    return [];
+  }
 }
 
 export async function claimDelivery(env, barkKey, id) {
@@ -102,6 +150,21 @@ export default {
       await stub.fetch('https://presence.ayugram.invalid/', { method: 'POST', body: await request.text() });
       return new Response('ok\n');
     }
+    if (request.method === 'POST' && url.pathname.startsWith('/seen/')) {
+      const id = url.pathname.slice(6);
+      const stub = /^[A-Za-z0-9_-]{43}$/.test(id) ? presence(env, id) : null;
+      const body = stub ? await request.json().catch(() => null) : null;
+      if (!stub || !body || typeof body.barkKey !== 'string' || await activityId(body.barkKey) !== id || !/^(user|chat|channel)\d+$/.test(String(body.chat))) {
+        return new Response('bad request\n', { status: 400 });
+      }
+      const work = clearShown(env, stub, body.barkKey, { chat: String(body.chat) });
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(work);
+      } else {
+        await work;
+      }
+      return new Response('ok\n');
+    }
     if (request.method !== 'POST' || !url.pathname.startsWith('/p/')) {
       return new Response('AyuGram push relay\n');
     }
@@ -121,6 +184,12 @@ export default {
       const seen = seenUpdate(data);
       if (seen) {
         await rememberSeen(route.barkKey, seen);
+        const work = clearShown(env, presence(env, await activityId(route.barkKey)), route.barkKey, seen);
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(work);
+        } else {
+          await work;
+        }
         return new Response(null, { status: 201 });
       }
       const notification = describe(data);
@@ -175,6 +244,15 @@ export async function sendToBark(key, title, text, options = {}) {
   const path = BARK_BASE + '/' + encodeURIComponent(key) + '/' + encodeURIComponent(title) + '/' + encodeURIComponent(text) + '?' + query;
   const legacy = await attempt(() => fetch(path));
   return legacy.ok ? legacy : { ok: false, status: legacy.status, body: 'json ' + json.status + ' ' + json.body + ' | path ' + legacy.status + ' ' + legacy.body };
+}
+
+export async function deleteFromBark(key, id) {
+  const response = await fetch(BARK_PUSH, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ device_key: key, id, delete: '1' }),
+  });
+  return response.ok;
 }
 
 // Path layout (base64url): private key d (32) | public key (65, uncompressed) | auth (16) | Bark key.

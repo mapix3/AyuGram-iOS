@@ -3,6 +3,7 @@ import UIKit
 import CryptoKit
 import Display
 import SwiftSignalKit
+import Postbox
 import TelegramCore
 import AccountContext
 import TelegramPresentationData
@@ -207,6 +208,11 @@ enum AyuGramPushRelay {
             }),
             NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main, using: { _ in
                 updateActivity()
+            }),
+            NotificationCenter.default.addObserver(forName: Notification.Name("AyuGramChatOpened"), object: nil, queue: .main, using: { notification in
+                if let peerId = notification.userInfo?["peerId"] as? EnginePeer.Id {
+                    chatOpened(peerId: peerId)
+                }
             })
         ]
         updateActivity()
@@ -233,14 +239,43 @@ enum AyuGramPushRelay {
         activityTimer = timer
     }
 
+    private static func activityId(barkKey: String) -> String {
+        return base64url(Data(SHA256.hash(data: Data(("ayugram-active|" + barkKey).utf8))))
+    }
+
     private static func sendActivity(barkKey: String, seconds: Int) {
-        let id = base64url(Data(SHA256.hash(data: Data(("ayugram-active|" + barkKey).utf8))))
-        guard let url = URL(string: baseURL + "/active/" + id) else {
+        post(path: "/active/" + activityId(barkKey: barkKey), body: Data(String(seconds).utf8))
+    }
+
+    static func chatOpened(peerId: EnginePeer.Id) {
+        guard let barkKey, !barkKey.isEmpty else {
+            return
+        }
+        let kind: String
+        switch peerId.namespace {
+        case Namespaces.Peer.CloudUser:
+            kind = "user"
+        case Namespaces.Peer.CloudGroup:
+            kind = "chat"
+        case Namespaces.Peer.CloudChannel:
+            kind = "channel"
+        default:
+            return
+        }
+        let json: [String: Any] = ["barkKey": barkKey, "chat": kind + String(peerId.id._internalGetInt64Value())]
+        guard let body = try? JSONSerialization.data(withJSONObject: json) else {
+            return
+        }
+        post(path: "/seen/" + activityId(barkKey: barkKey), body: body)
+    }
+
+    private static func post(path: String, body: Data) {
+        guard let url = URL(string: baseURL + path) else {
             return
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.httpBody = Data(String(seconds).utf8)
+        request.httpBody = body
         request.timeoutInterval = 15.0
         let task = BackgroundTask()
         let finish: () -> Void = {
