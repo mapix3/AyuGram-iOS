@@ -24,7 +24,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, bark, importChat, silentSending
+    case history, appearance, update, checkUpdates, channel, developer, bark, importChat, silentSending, sessionLog
 }
 
 private enum AyuScreenTint: Equatable {
@@ -197,6 +197,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.header(id: 700, section: .support, text: s("Ayu.SupportSection")))
     entries.append(.link(id: 710, section: .support, link: .channel, symbol: "paperplane.fill", tint: .blue, title: s("Ayu.SupportChannel"), label: ""))
     entries.append(.link(id: 720, section: .support, link: .developer, symbol: "person.crop.circle.fill", tint: .purple, title: s("Ayu.SupportDeveloper"), label: ""))
+    entries.append(.link(id: 730, section: .support, link: .sessionLog, symbol: "doc.text.fill", tint: .gray, title: s("Ayu.SessionLog"), label: ""))
     entries.append(.link(id: 730, section: .support, link: .checkUpdates, symbol: "arrow.triangle.2.circlepath", tint: .gray, title: s("Ayu.CheckUpdates"), label: ""))
     return entries
 }
@@ -273,6 +274,18 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             ayuGramOpenLink(context: context, url: AyuGramUpdates.channelURL)
         case .developer:
             ayuGramOpenDeveloper(context: context)
+        case .sessionLog:
+            guard let path = AyuGramSessionLog.path, !AyuGramSessionLog.read().isEmpty, let window = context.sharedContext.mainWindow else {
+                let data = context.sharedContext.currentPresentationData.with { $0 }
+                presentController?(textAlertController(context: context, title: nil, text: i18n("Ayu.SessionLogEmpty", data.strings.baseLanguageCode), actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]))
+                return
+            }
+            let activity = UIActivityViewController(activityItems: [URL(fileURLWithPath: path)], applicationActivities: nil)
+            if let view = window.viewController?.view {
+                activity.popoverPresentationController?.sourceView = view
+                activity.popoverPresentationController?.sourceRect = CGRect(origin: CGPoint(x: view.bounds.midX, y: view.bounds.midY), size: CGSize(width: 1.0, height: 1.0))
+            }
+            window.presentNative(activity)
         case .bark:
             ayuGramSetUpBark(context: context, present: { controller in
                 presentController?(controller)

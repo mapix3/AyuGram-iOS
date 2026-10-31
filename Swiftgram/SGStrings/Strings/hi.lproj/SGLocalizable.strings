@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "सहायता";
 "Ayu.SupportChannel" = "अपडेट चैनल";
 "Ayu.SupportDeveloper" = "डेवलपर से संपर्क करें";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "अपडेट जांचें";
 "Ayu.UpToDate" = "आपके पास नवीनतम संस्करण है।";
 "Ayu.UpdateAvailable" = "अपडेट उपलब्ध है";

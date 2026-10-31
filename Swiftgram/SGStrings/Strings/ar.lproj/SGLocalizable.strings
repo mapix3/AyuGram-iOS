@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "الدعم";
 "Ayu.SupportChannel" = "قناة التحديثات";
 "Ayu.SupportDeveloper" = "تواصل مع المطور";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "التحقق من التحديثات";
 "Ayu.UpToDate" = "لديك أحدث إصدار.";
 "Ayu.UpdateAvailable" = "يتوفر تحديث";

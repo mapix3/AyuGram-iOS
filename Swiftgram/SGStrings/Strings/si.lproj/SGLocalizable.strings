@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "සහාය";
 "Ayu.SupportChannel" = "යාවත්කාලීන නාලිකාව";
 "Ayu.SupportDeveloper" = "සංවර්ධකයා අමතන්න";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "යාවත්කාලීන පරීක්ෂා කරන්න";
 "Ayu.UpToDate" = "ඔබ සතුව නවතම අනුවාදය ඇත.";
 "Ayu.UpdateAvailable" = "යාවත්කාලීනයක් ඇත";

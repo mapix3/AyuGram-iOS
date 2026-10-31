@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Podpora";
 "Ayu.SupportChannel" = "Kanál s aktualizáciami";
 "Ayu.SupportDeveloper" = "Kontaktovať vývojára";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "Skontrolovať aktualizácie";
 "Ayu.UpToDate" = "Máte najnovšiu verziu.";
 "Ayu.UpdateAvailable" = "Dostupná aktualizácia";

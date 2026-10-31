@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "지원";
 "Ayu.SupportChannel" = "업데이트 채널";
 "Ayu.SupportDeveloper" = "개발자에게 연락";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "업데이트 확인";
 "Ayu.UpToDate" = "최신 버전입니다.";
 "Ayu.UpdateAvailable" = "업데이트 가능";

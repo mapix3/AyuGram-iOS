@@ -871,6 +871,8 @@
                                     [_context updatePasswordInputRequiredForDatacenterWithId:mtProto.datacenterId required:true];
                                 }
                             } else {
+                                NSString *ayuMethod = [[request.metadata description] componentsSeparatedByString:@"("].firstObject ?: @"";
+                                [[NSUserDefaults standardUserDefaults] setObject:[NSString stringWithFormat:@"%d %@ dc%d %@", (int)rpcError.errorCode, rpcError.errorDescription, (int)mtProto.datacenterId, ayuMethod.length > 80 ? [ayuMethod substringToIndex:80] : ayuMethod] forKey:@"ayu.lastAuthError"];
                                 id<MTRequestMessageServiceDelegate> delegate = _delegate;
                                 if ([delegate respondsToSelector:@selector(requestMessageServiceAuthorizationRequired:)])
                                 {

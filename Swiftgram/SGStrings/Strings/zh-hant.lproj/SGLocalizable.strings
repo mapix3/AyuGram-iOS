@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "支援";
 "Ayu.SupportChannel" = "更新頻道";
 "Ayu.SupportDeveloper" = "聯絡開發者";
+"Ayu.SessionLog" = "Sign-in log";
+"Ayu.SessionLogEmpty" = "The sign-in log is empty so far.";
 "Ayu.CheckUpdates" = "檢查更新";
 "Ayu.UpToDate" = "已是最新版本。";
 "Ayu.UpdateAvailable" = "有可用更新";

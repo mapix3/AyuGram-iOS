@@ -751,6 +751,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         }
         if !isUITest {
         performAppGroupUpgrades(appGroupPath: appGroupUrl.path, rootPath: rootPath)
+        AyuGramSessionLog.log("launch bundle=\(baseAppBundleId) storage=\(FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName) != nil ? "group" : "fallback") metadata=\(FileManager.default.fileExists(atPath: rootPath + "/accounts-metadata")) key=\(FileManager.default.fileExists(atPath: rootPath + "/.tempkey"))")
         }
         
         let deviceSpecificEncryptionParameters = BuildConfig.deviceSpecificEncryptionParameters(rootPath, baseAppBundleId: baseAppBundleId)

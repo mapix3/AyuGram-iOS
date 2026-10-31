@@ -2,6 +2,8 @@
 "Ayu.SupportSection" = "Поддержка";
 "Ayu.SupportChannel" = "Канал с обновлениями";
 "Ayu.SupportDeveloper" = "Связаться с разработчиком";
+"Ayu.SessionLog" = "Журнал входа";
+"Ayu.SessionLogEmpty" = "Журнал входа пока пуст.";
 "Ayu.CheckUpdates" = "Проверить обновления";
 "Ayu.UpToDate" = "У вас последняя версия.";
 "Ayu.UpdateAvailable" = "Доступно обновление";
