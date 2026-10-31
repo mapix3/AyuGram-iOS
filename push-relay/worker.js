@@ -18,6 +18,7 @@ const encoder = new TextEncoder();
 const NOTIFY_DELAY_MS = 10000;
 const SEEN_TTL = 120;
 const ACTIVE_MAX_SECONDS = 300;
+const SENT_TTL_MS = 10 * 60 * 1000;
 
 export class Presence {
   constructor(state) {
@@ -25,12 +26,36 @@ export class Presence {
   }
 
   async fetch(request) {
+    const url = new URL(request.url);
+    const storage = this.state.storage;
+    if (request.method === 'POST' && url.pathname === '/deliver') {
+      const now = Date.now();
+      if (((await storage.get('until')) || 0) > now) {
+        return new Response('active');
+      }
+      const id = (await request.text()).slice(0, 200);
+      if (!id) {
+        return new Response('send');
+      }
+      const sent = (await storage.get('sent')) || {};
+      for (const [key, time] of Object.entries(sent)) {
+        if (now - time > SENT_TTL_MS) {
+          delete sent[key];
+        }
+      }
+      if (sent[id]) {
+        return new Response('duplicate');
+      }
+      sent[id] = now;
+      await storage.put('sent', sent);
+      return new Response('send');
+    }
     if (request.method === 'POST') {
       const seconds = Math.min(Math.max(Number(await request.text()) || 0, 0), ACTIVE_MAX_SECONDS);
-      await this.state.storage.put('until', seconds ? Date.now() + seconds * 1000 : 0);
+      await storage.put('until', seconds ? Date.now() + seconds * 1000 : 0);
       return new Response('ok\n');
     }
-    return new Response(String((await this.state.storage.get('until')) || 0));
+    return new Response(String((await storage.get('until')) || 0));
   }
 }
 
@@ -42,17 +67,17 @@ function presence(env, id) {
   return env && env.PRESENCE ? env.PRESENCE.get(env.PRESENCE.idFromName(id)) : null;
 }
 
-export async function appActive(env, barkKey) {
+export async function claimDelivery(env, barkKey, id) {
   const stub = presence(env, await activityId(barkKey));
   if (!stub) {
-    return false;
+    return true;
   }
   try {
-    const response = await stub.fetch('https://presence.ayugram.invalid/');
-    return Number(await response.text()) > Date.now();
+    const response = await stub.fetch('https://presence.ayugram.invalid/deliver', { method: 'POST', body: id || '' });
+    return (await response.text()) === 'send';
   } catch (error) {
     console.log('presence unavailable: ' + error);
-    return false;
+    return true;
   }
 }
 
@@ -107,10 +132,10 @@ export default {
         if (delay > 0) {
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
-        if (await alreadySeen(route.barkKey, data.custom) || await appActive(env, route.barkKey)) {
+        const { title, text, link, icon, id } = notification;
+        if (await alreadySeen(route.barkKey, data.custom) || !await claimDelivery(env, route.barkKey, id)) {
           return;
         }
-        const { title, text, link, icon, id } = notification;
         const result = await sendToBark(route.barkKey, title, text, { url: link, icon, id });
         if (!result.ok) {
           console.log('Bark refused the push: ' + result.status + ' ' + result.body);
