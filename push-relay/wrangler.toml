@@ -4,3 +4,11 @@ compatibility_date = "2026-01-01"
 
 [observability]
 enabled = false
+
+[[durable_objects.bindings]]
+name = "PRESENCE"
+class_name = "Presence"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Presence"]
