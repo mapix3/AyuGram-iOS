@@ -27,16 +27,12 @@ public enum AyuGramSessionLog {
             guard let data = line.data(using: .utf8) else {
                 return
             }
-            if let handle = FileHandle(forWritingAtPath: path) {
-                let size = handle.seekToEndOfFile()
-                handle.write(data)
-                handle.closeFile()
-                if size > UInt64(self.maxSize), let current = try? Data(contentsOf: URL(fileURLWithPath: path)) {
-                    try? current.suffix(self.maxSize / 2).write(to: URL(fileURLWithPath: path), options: .atomic)
-                }
-            } else {
-                try? data.write(to: URL(fileURLWithPath: path), options: .atomic)
+            var current = (try? Data(contentsOf: URL(fileURLWithPath: path))) ?? Data()
+            current.append(data)
+            if current.count > self.maxSize {
+                current = current.suffix(self.maxSize / 2)
             }
+            try? current.write(to: URL(fileURLWithPath: path), options: .atomic)
         }
     }
 
