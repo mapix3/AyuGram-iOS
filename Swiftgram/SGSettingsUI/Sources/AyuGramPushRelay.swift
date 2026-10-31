@@ -173,7 +173,7 @@ enum AyuGramPushRelay {
     }
 
     private static var activityObservers: [NSObjectProtocol] = []
-    private static var activityTimer: Timer?
+    private static var activityTimer: Foundation.Timer?
     private static let activitySeconds = 90
     private static let activityInterval: TimeInterval = 45.0
 
@@ -223,7 +223,7 @@ enum AyuGramPushRelay {
             return
         }
         sendActivity(barkKey: barkKey, seconds: activitySeconds)
-        let timer = Timer(timeInterval: activityInterval, repeats: true, block: { _ in
+        let timer = Foundation.Timer(timeInterval: activityInterval, repeats: true, block: { _ in
             guard let barkKey = AyuGramPushRelay.barkKey, !barkKey.isEmpty, UIApplication.shared.applicationState != .background else {
                 return
             }
