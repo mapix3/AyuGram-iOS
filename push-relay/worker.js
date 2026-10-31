@@ -201,11 +201,11 @@ export default {
         if (delay > 0) {
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
-        const { title, text, link, icon, id } = notification;
+        const { title, text, link, icon, id, group } = notification;
         if (await alreadySeen(route.barkKey, data.custom) || !await claimDelivery(env, route.barkKey, id)) {
           return;
         }
-        const result = await sendToBark(route.barkKey, title, text, { url: link, icon, id });
+        const result = await sendToBark(route.barkKey, title, text, { url: link, icon, id, group });
         if (!result.ok) {
           console.log('Bark refused the push: ' + result.status + ' ' + result.body);
         }
@@ -228,6 +228,7 @@ export default {
 export async function sendToBark(key, title, text, options = {}) {
   const url = options.url || 'ayugram://';
   const icon = options.icon || ICON;
+  const group = options.group || 'AyuGram';
   const attempt = async (request) => {
     const response = await request();
     return { ok: response.ok, status: response.status, body: (await response.text()).slice(0, 300) };
@@ -235,12 +236,12 @@ export async function sendToBark(key, title, text, options = {}) {
   const json = await attempt(() => fetch(BARK_PUSH, {
     method: 'POST',
     headers: { 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ device_key: key, title, body: text, group: 'AyuGram', icon, url, isArchive: '1', ttl: ARCHIVE_TTL, ...(options.id ? { id: options.id } : {}) }),
+    body: JSON.stringify({ device_key: key, title, body: text, group, icon, url, isArchive: '1', ttl: ARCHIVE_TTL, ...(options.id ? { id: options.id } : {}) }),
   }));
   if (json.ok) {
     return json;
   }
-  const query = new URLSearchParams({ group: 'AyuGram', icon, url, isArchive: '1', ttl: String(ARCHIVE_TTL), ...(options.id ? { id: options.id } : {}) });
+  const query = new URLSearchParams({ group, icon, url, isArchive: '1', ttl: String(ARCHIVE_TTL), ...(options.id ? { id: options.id } : {}) });
   const path = BARK_BASE + '/' + encodeURIComponent(key) + '/' + encodeURIComponent(title) + '/' + encodeURIComponent(text) + '?' + query;
   const legacy = await attempt(() => fetch(path));
   return legacy.ok ? legacy : { ok: false, status: legacy.status, body: 'json ' + json.status + ' ' + json.body + ' | path ' + legacy.status + ' ' + legacy.body };
@@ -302,7 +303,7 @@ export function chatTarget(custom, name) {
   const color = AVATAR_COLORS[Number(BigInt(id) % 7n)];
   const letter = (Array.from(name.trim())[0] || '?').toUpperCase();
   const icon = 'https://ui-avatars.com/api/?' + new URLSearchParams({ name: letter, size: '128', background: color, color: 'ffffff', bold: 'true', format: 'png', length: '1' });
-  const target = { link: 'ayugram://chat?' + kind + '=' + id, icon };
+  const target = { link: 'ayugram://chat?' + kind + '=' + id, icon, group: name.trim() || kind + id };
   if (custom.msg_id !== undefined && /^\d+$/.test(String(custom.msg_id))) {
     target.id = kind + id + 'm' + custom.msg_id;
   }
