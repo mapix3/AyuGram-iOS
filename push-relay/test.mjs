@@ -1,7 +1,7 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
 import { webcrypto as crypto } from 'node:crypto';
-import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId } from './worker.js';
+import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats } from './worker.js';
 
 const cacheStore = new Map();
 globalThis.caches = { default: {
@@ -208,5 +208,48 @@ assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_i
   await worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body: read.body, headers: read.headers }), activeEnv);
   assert.deepEqual(sent.map((s) => s.body.id), ['user70m4'], 'A read in Telegram removes the read notifications');
   assert.equal((await worker.fetch(new Request('https://relay.example/active/bad', { method: 'POST', body: '90' }), activeEnv)).status, 400);
+}
+{
+  const data = new Map();
+  const storage = {
+    async get(k) { return data.get(k); },
+    async put(k, v) { data.set(k, v); },
+    async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
+    async list({ prefix }) { return new Map([...data].filter(([k]) => k.startsWith(prefix)).sort()); },
+  };
+  const object = new Stats({ storage });
+  const STATS = { idFromName(name) { return name; }, get() { return { fetch: (url, init) => object.fetch(new Request(url, init)) }; } };
+  const statsEnv = { STATS, STATS_TOKEN: 'secret-token' };
+  const ping = (body, country) => {
+    const request = new Request('https://relay.example/stats/ping', { method: 'POST', body: JSON.stringify(body) });
+    Object.defineProperty(request, 'cf', { value: { country } });
+    return worker.fetch(request, statsEnv);
+  };
+  const base = { build: 207601, variant: 'standard', source: 'sideload', status: 'official', team: 'OWN1234567', teamName: 'Me', bundle: 'ph.telegra.Telegraph.OWN1234567', os: '26.1', device: 'iPhone17,1' };
+  assert.equal((await ping({ ...base, id: 'install-0001' }, 'UA')).status, 200);
+  for (let i = 0; i < 3; i += 1) {
+    assert.equal((await ping({ ...base, id: 'scam-000' + i, source: 'testflight', status: 'modified', team: 'SCAM123456', teamName: 'Evil LLC', cert: 'Apple Distribution: Evil LLC (SCAM123456)\u0000' }, 'KZ')).status, 200);
+  }
+  assert.equal((await ping({ ...base, id: 'install-0001' }, 'UA')).status, 200, 'A repeated ping updates the same install');
+  assert.equal((await ping({ ...base, id: 'bad id!' }, 'UA')).status, 400);
+  assert.equal((await worker.fetch(new Request('https://relay.example/stats/ping', { method: 'POST', body: 'x'.repeat(5000) }), statsEnv)).status, 400, 'Oversized bodies are refused');
+  const report = (text) => worker.fetch(new Request('https://relay.example/stats/report', { method: 'POST', body: JSON.stringify({ ...base, id: 'scam-0000', team: 'SCAM123456', text }) }), statsEnv);
+  assert.equal((await report('@scammer gave me an Apple ID')).status, 200);
+  for (let i = 0; i < 4; i += 1) await report('again ' + i);
+  assert.equal((await report('too many')).status, 429, 'Reports are limited per install and day');
+  assert.equal((await worker.fetch(new Request('https://relay.example/stats/summary'), statsEnv)).status, 403);
+  assert.equal((await worker.fetch(new Request('https://relay.example/stats/summary', { headers: { authorization: 'Bearer wrong-token1' } }), statsEnv)).status, 403);
+  const summary = await (await worker.fetch(new Request('https://relay.example/stats/summary', { headers: { authorization: 'Bearer secret-token' } }), statsEnv)).json();
+  assert.equal(summary.total, 4);
+  assert.equal(summary.teams[0].team, 'SCAM123456', 'The team with most installs comes first');
+  assert.equal(summary.teams[0].installs, 3);
+  assert.deepEqual(summary.teams[0].countries, { KZ: 3 });
+  assert.deepEqual(summary.teams[0].sources, { testflight: 3 });
+  assert.equal(summary.teams[0].certs[0], 'Apple Distribution: Evil LLC (SCAM123456)', 'Control characters are stripped');
+  assert.equal(summary.reports.length, 5);
+  assert.ok(summary.reports.some((r) => r.text === '@scammer gave me an Apple ID' && r.team === 'SCAM123456'));
+  assert.equal(summary.byCountry.UA, 1);
+  assert.ok(!JSON.stringify(summary).includes('install-0001'), 'Install ids never leave the worker');
+  assert.equal((await worker.fetch(new Request('https://relay.example/stats/ping', { method: 'POST', body: '{}' }), {})).status, 503);
 }
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');

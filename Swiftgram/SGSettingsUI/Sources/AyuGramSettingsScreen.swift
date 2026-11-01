@@ -12,7 +12,7 @@ import SGSimpleSettings
 import SGStrings
 
 private enum AyuScreenSection: Int32 {
-    case hero, ghost, hide, behavior, content, chats, history, transfer, client, update, notifications, support
+    case hero, ghost, hide, behavior, content, chats, history, transfer, client, update, notifications, security, support
 }
 
 private enum AyuScreenToggle: Equatable {
@@ -21,10 +21,11 @@ private enum AyuScreenToggle: Equatable {
     case ignoreProtection, screenshots
     case history, premium
     case scheduleInGhost, disableAds, disableLinkWarning, disableGreeting, dimDeleted, repeatMessage, confirmStickers, confirmGifs, confirmRead
+    case anonymousStats
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, bark, importChat, silentSending, sessionLog
+    case history, appearance, update, checkUpdates, channel, developer, bark, importChat, silentSending, sessionLog, buildInfo, reportScam
 }
 
 private enum AyuScreenTint: Equatable {
@@ -194,11 +195,18 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 670, section: .notifications, link: .bark, symbol: "bell.badge.fill", tint: .red, title: s(barkOn ? "Ayu.BarkConnected" : "Ayu.BarkSetUp"), label: ""))
     entries.append(.footer(id: 680, section: .notifications, text: s("Ayu.BarkFooter")))
 
+    let security = AyuGramSecurity.shared
+    entries.append(.header(id: 690, section: .security, text: s("Ayu.SecuritySection")))
+    entries.append(.link(id: 691, section: .security, link: .buildInfo, symbol: security.status == .official ? "checkmark.shield.fill" : "exclamationmark.shield.fill", tint: security.status == .official ? .green : (security.status == .modified ? .red : .gray), title: s("Ayu.BuildStatus"), label: ayuGramBuildStatusTitle(security.status, locale: data.strings.baseLanguageCode)))
+    entries.append(.link(id: 692, section: .security, link: .reportScam, symbol: "exclamationmark.bubble.fill", tint: .orange, title: s("Ayu.ReportScam"), label: ""))
+    entries.append(.toggle(id: 693, section: .security, key: .anonymousStats, symbol: "chart.bar.fill", tint: .indigo, title: s("Ayu.AnonymousStats"), subtitle: nil, value: extra.anonymousStats, enabled: true))
+    entries.append(.footer(id: 694, section: .security, text: s("Ayu.AnonymousStatsInfo")))
+
     entries.append(.header(id: 700, section: .support, text: s("Ayu.SupportSection")))
     entries.append(.link(id: 710, section: .support, link: .channel, symbol: "paperplane.fill", tint: .blue, title: s("Ayu.SupportChannel"), label: ""))
     entries.append(.link(id: 720, section: .support, link: .developer, symbol: "person.crop.circle.fill", tint: .purple, title: s("Ayu.SupportDeveloper"), label: ""))
     entries.append(.link(id: 730, section: .support, link: .sessionLog, symbol: "doc.text.fill", tint: .gray, title: s("Ayu.SessionLog"), label: ""))
-    entries.append(.link(id: 730, section: .support, link: .checkUpdates, symbol: "arrow.triangle.2.circlepath", tint: .gray, title: s("Ayu.CheckUpdates"), label: ""))
+    entries.append(.link(id: 740, section: .support, link: .checkUpdates, symbol: "arrow.triangle.2.circlepath", tint: .gray, title: s("Ayu.CheckUpdates"), label: ""))
     return entries
 }
 
@@ -215,9 +223,13 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         let updateObserver = NotificationCenter.default.addObserver(forName: AyuGramUpdates.didChange, object: nil, queue: .main) { _ in
             subscriber.putNext(0)
         }
+        let securityObserver = NotificationCenter.default.addObserver(forName: AyuGramSecurity.didChange, object: nil, queue: .main) { _ in
+            subscriber.putNext(0)
+        }
         return ActionDisposable {
             NotificationCenter.default.removeObserver(observer)
             NotificationCenter.default.removeObserver(updateObserver)
+            NotificationCenter.default.removeObserver(securityObserver)
         }
     }
     let arguments = AyuScreenArguments(toggle: { key, value in
@@ -246,6 +258,7 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .confirmStickers: settings.updateExtra { $0.confirmStickers = value }
         case .confirmGifs: settings.updateExtra { $0.confirmGifs = value }
         case .confirmRead: settings.updateExtra { $0.confirmReadReceipt = value }
+        case .anonymousStats: settings.updateExtra { $0.anonymousStats = value }
         }
     }, updatePins: { value in
         AyuGramSettings.shared.updateClient { $0.maxPinnedChats = value }
@@ -286,6 +299,10 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
                 activity.popoverPresentationController?.sourceRect = CGRect(origin: CGPoint(x: view.bounds.midX, y: view.bounds.midY), size: CGSize(width: 1.0, height: 1.0))
             }
             window.presentNative(activity)
+        case .buildInfo:
+            presentController?(ayuGramBuildInfoAlert(context: context))
+        case .reportScam:
+            presentController?(ayuGramScamReportPrompt(context: context, completion: {}))
         case .bark:
             ayuGramSetUpBark(context: context, present: { controller in
                 presentController?(controller)

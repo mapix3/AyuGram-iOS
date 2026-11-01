@@ -182,7 +182,9 @@ jobs:
           # The build number in the name keeps downloads of different builds apart; Safari
           # turns a second "AyuGram-standard.ipa" into "AyuGram-standard.ipa 2".
           cp "artifacts/AyuGram-$VARIANT-unsigned.ipa" "AyuGram-$VARIANT-$BUILD.ipa"
-          gh release upload "$TAG" "AyuGram-$VARIANT-$BUILD.ipa" --repo "$GITHUB_REPOSITORY" --clobber
+          # The app compares its loaded code with this fingerprint to tell an official build from a modified one.
+          python ci/ayugram_integrity.py "AyuGram-$VARIANT-$BUILD.ipa" "$BUILD" > "AyuGram-$VARIANT-$BUILD.integrity.json"
+          gh release upload "$TAG" "AyuGram-$VARIANT-$BUILD.ipa" "AyuGram-$VARIANT-$BUILD.integrity.json" --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Remove generated credential files
         if: ${{ always() }}

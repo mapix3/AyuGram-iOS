@@ -179,6 +179,8 @@ public struct AyuGramExtraSettings: Codable, Equatable {
     public var confirmStickers = false
     public var confirmGifs = false
     public var confirmReadReceipt = true
+    /// Daily anonymous ping with the build, install source and signing certificate.
+    public var anonymousStats = true
 
     public var sendsSilently: Bool {
         return silentSending == 2 || (silentSending == 1 && AyuGramSettings.shared.snapshot.ghostMode)
@@ -204,6 +206,7 @@ public struct AyuGramExtraSettings: Codable, Equatable {
         self.confirmStickers = try container.decodeIfPresent(Bool.self, forKey: .confirmStickers) ?? defaults.confirmStickers
         self.confirmGifs = try container.decodeIfPresent(Bool.self, forKey: .confirmGifs) ?? defaults.confirmGifs
         self.confirmReadReceipt = try container.decodeIfPresent(Bool.self, forKey: .confirmReadReceipt) ?? defaults.confirmReadReceipt
+        self.anonymousStats = try container.decodeIfPresent(Bool.self, forKey: .anonymousStats) ?? defaults.anonymousStats
     }
 }
 

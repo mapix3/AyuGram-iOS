@@ -1,9 +1,9 @@
 {
-  "build": 207201,
-  "version": "13.1.2 (207201)",
+  "build": 207501,
+  "version": "13.1.2 (207501)",
   "url": "https://t.me/ayugramiosupdates",
   "ipa": {
-    "standard": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-207201/AyuGram-standard-207201.ipa",
-    "custom": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-207201/AyuGram-custom-207201.ipa"
+    "standard": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-207501/AyuGram-standard-207501.ipa",
+    "custom": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-207501/AyuGram-custom-207501.ipa"
   }
 }

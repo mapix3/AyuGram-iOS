@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [standard]
-    paths: ['push-relay/**']
+    paths: ['push-relay/**', '.github/workflows/push-relay.yml']
 
 permissions:
   contents: read
@@ -32,3 +32,7 @@ jobs:
             exit 1
           fi
           npx --yes wrangler@4.26.0 deploy
+          # The scam report workflow derives the same token from the same secret.
+          STATS_TOKEN="$(printf 'ayugram-stats\n%s' "$CLOUDFLARE_API_TOKEN" | sha256sum | cut -d' ' -f1)"
+          echo "::add-mask::$STATS_TOKEN"
+          printf '%s' "$STATS_TOKEN" | npx --yes wrangler@4.26.0 secret put STATS_TOKEN
