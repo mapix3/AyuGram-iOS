@@ -27,3 +27,11 @@ def check_shared_profiles(source: Path, ci: Path):
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-warnings-as-errors', '-target', 'arm64-apple-ios' + minimum, '-sdk', sdk,
                     '-parse-as-library', '-typecheck', updates], check=True)
     print('Update manifest parsing checked', flush=True)
+    security = source / 'Swiftgram/SGSimpleSettings/Sources/AyuGramSecurity.swift'
+    security_tests = ci / 'tests/AyuGramSecurityTests.swift'
+    security_binary = output / 'security-tests'
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-warnings-as-errors', '-target', 'arm64-apple-macosx13.0', security, security_tests, '-o', security_binary], check=True)
+    subprocess.run([security_binary], check=True, timeout=40)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-warnings-as-errors', '-target', 'arm64-apple-ios' + minimum, '-sdk', sdk,
+                    '-parse-as-library', '-typecheck', security], check=True)
+    print('Security checks verified', flush=True)

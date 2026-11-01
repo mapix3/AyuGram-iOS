@@ -1,0 +1,80 @@
+name: Block scam copy
+
+on:
+  workflow_dispatch:
+    inputs:
+      team:
+        description: 'Team ID of the scammer certificate (10 characters, from the scam report)'
+        required: false
+        type: string
+      build:
+        description: 'Build number to block'
+        required: false
+        type: string
+      remove:
+        description: 'Unblock instead of block'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-update
+  cancel-in-progress: false
+
+jobs:
+  block:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: standard
+          fetch-depth: 1
+
+      - name: Update the block list
+        env:
+          TEAM: ${{ inputs.team }}
+          BUILD: ${{ inputs.build }}
+          REMOVE: ${{ inputs.remove }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, sys
+          team = os.environ['TEAM'].strip().upper()
+          build = os.environ['BUILD'].strip()
+          remove = os.environ['REMOVE'] == 'true'
+          if not team and not build:
+              sys.exit('::error::Give a Team ID or a build number')
+          if team and not re.fullmatch(r'[A-Z0-9]{10}', team):
+              sys.exit('::error::A Team ID has 10 letters and digits')
+          if build and not build.isdigit():
+              sys.exit('::error::A build is a number')
+          manifest = json.load(open('update.json'))
+          block = manifest.setdefault('block', {})
+          teams = set(block.get('teams', []))
+          builds = set(int(b) for b in block.get('builds', []))
+          if team:
+              (teams.discard if remove else teams.add)(team)
+          if build:
+              (builds.discard if remove else builds.add)(int(build))
+          block['teams'] = sorted(teams)
+          block['builds'] = sorted(builds)
+          open('update.json', 'w').write(json.dumps(manifest, indent=2) + '\n')
+          print(json.dumps(block, indent=2))
+          PY
+
+      - name: Commit update.json
+        run: |
+          set -euo pipefail
+          if git diff --quiet update.json; then
+            echo "Nothing changed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git commit -m "Initial commit"
+          git push origin HEAD:standard

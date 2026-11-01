@@ -6,6 +6,10 @@
 // Bark device key, so the worker stores nothing: it decrypts the push (RFC 8291) and forwards
 // the title and text to Bark, which shows the notification.
 
+import { handleStats } from './stats.js';
+
+export { Stats } from './stats.js';
+
 const BARK_BASE = 'https://api.day.app';
 const BARK_PUSH = BARK_BASE + '/push';
 // Bark keeps relayed notifications in its history for a day, then deletes them itself.
@@ -132,6 +136,9 @@ export async function claimDelivery(env, barkKey, id) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith('/stats/')) {
+      return handleStats(request, env, url);
+    }
     // Open /test/<Bark key> in a browser to send a test notification and see Bark's answer.
     if (request.method === 'GET' && url.pathname.startsWith('/test/')) {
       const key = decodeURIComponent(url.pathname.slice(6)).replace(/\/+$/, '');

@@ -69,6 +69,11 @@ jobs:
               'url': 'https://t.me/ayugramiosupdates',
               'ipa': {variant: base + 'AyuGram-%s-%s.ipa' % (variant, os.environ['BUILD']) for variant in ('standard', 'custom')},
           }
+          # The block list for scam copies is edited by hand and survives publishing.
+          if os.path.exists('update.json'):
+              block = json.load(open('update.json')).get('block')
+              if block:
+                  manifest['block'] = block
           open('update.json', 'w').write(json.dumps(manifest, indent=2) + '\n')
           PY
           cat update.json

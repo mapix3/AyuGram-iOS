@@ -148,6 +148,7 @@ func ayuGramUpdateAlert(context: AccountContext, info: AyuGramUpdateInfo) -> Vie
 /// Called once the main interface is ready: checks for a newer build, which the chat
 /// list then announces; tapping the notice opens the update dialog.
 public func ayuGramPresentUpdateIfNeeded(context: AccountContext) {
+    ayuGramStartSecurity(context: context)
     AyuGramUpdates.presentUpdate = { [weak context] in
         guard let context, let info = AyuGramUpdates.shared.availableUpdate else {
             return

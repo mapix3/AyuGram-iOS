@@ -9,7 +9,7 @@ public struct AyuGramUpdateInfo: Equatable {
 }
 
 /// Checks the published update manifest. Only the manifest is downloaded; nothing
-/// about the user or the device is sent.
+/// about the user or the device is sent. The manifest also carries the block list.
 public final class AyuGramUpdates {
     public static let shared = AyuGramUpdates()
     public static let didChange = Notification.Name("AyuGram.Updates.didChange")
@@ -20,6 +20,7 @@ public final class AyuGramUpdates {
     public static let noticeId = "ayugram-update"
     /// Shows the update dialog; installed by the settings module once the app is ready.
     public static var presentUpdate: (() -> Void)?
+    public static var manifestObserver: ((Data) -> Void)?
 
     private let lock = NSLock()
     private var available: AyuGramUpdateInfo?
@@ -68,6 +69,7 @@ public final class AyuGramUpdates {
             var info: AyuGramUpdateInfo?
             if let data, data.count <= 16384, (response as? HTTPURLResponse)?.statusCode == 200 {
                 info = Self.parse(data, currentBuild: current)
+                Self.manifestObserver?(data)
             }
             session.finishTasksAndInvalidate()
             DispatchQueue.main.async {

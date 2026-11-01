@@ -9,6 +9,14 @@ enabled = false
 name = "PRESENCE"
 class_name = "Presence"
 
+[[durable_objects.bindings]]
+name = "STATS"
+class_name = "Stats"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Presence"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Stats"]
