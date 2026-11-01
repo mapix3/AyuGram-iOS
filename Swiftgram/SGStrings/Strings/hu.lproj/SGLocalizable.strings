@@ -321,6 +321,11 @@
 "Ayu.ImportLocallyInfo" = "A csevegést csak erre az eszközre importálhatod: az üzenetek csak neked jelennek meg ebben a csevegésben, és nem kerülnek a Telegramra.";
 "Ayu.ImportLocallyDone" = "Importált üzenetek: %@. Csak ezen az eszközön láthatók.";
 "Ayu.ViewDeleted" = "Törölt üzenetek";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "Csevegések, amelyek törölt üzenetei ezen az eszközön megmaradtak. Nyiss meg egyet a törölt üzenetek vagy az egész csevegés olvasásához.";
 "Ayu.ViewDeletedEmpty" = "Még nincsenek törölt üzenetek.";
 "Ayu.ConfirmReadReceipt" = "Olvasási visszaigazolás megerősítése";

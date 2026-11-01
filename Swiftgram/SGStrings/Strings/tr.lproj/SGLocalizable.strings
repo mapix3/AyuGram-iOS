@@ -321,6 +321,11 @@
 "Ayu.ImportLocallyInfo" = "Sohbeti yalnızca bu cihaza aktarabilirsin: mesajlar bu sohbette yalnızca sana görünür ve Telegram'a gönderilmez.";
 "Ayu.ImportLocallyDone" = "İçe aktarılan mesaj: %@. Yalnızca bu cihazda görünürler.";
 "Ayu.ViewDeleted" = "Silinen mesajlar";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "Silinen mesajları bu cihazda saklanan sohbetler. Silinen mesajlarını ya da tüm sohbeti okumak için birini aç.";
 "Ayu.ViewDeletedEmpty" = "Henüz silinen mesaj yok.";
 "Ayu.ConfirmReadReceipt" = "Okundu bilgisini onayla";

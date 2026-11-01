@@ -1,5 +1,6 @@
 import Foundation
 import Postbox
+import SwiftSignalKit
 import SGSimpleSettings
 
 /// What a message notification showed. A message deleted before the app or the
@@ -94,4 +95,66 @@ func ayuGramRestoreNotifiedMessages(transaction: Transaction, globalIds: [Int32]
 public func _internal_ayuGramDeleteNotifiedMessages(transaction: Transaction, mediaBox: MediaBox, ids: [MessageId]) {
     ayuGramRestoreNotifiedMessages(transaction: transaction, ids: ids)
     ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids)
+}
+
+/// A message the push relay saw in a notification and then saw deleted.
+public struct AyuGramRelayedDeletedMessage: Equatable {
+    public let peerId: EnginePeer.Id
+    public let messageId: Int32
+    public let authorId: EnginePeer.Id?
+    public let text: String
+    public let timestamp: Int32
+    public let deletedAt: Int32
+
+    public init(peerId: EnginePeer.Id, messageId: Int32, authorId: EnginePeer.Id?, text: String, timestamp: Int32, deletedAt: Int32) {
+        self.peerId = peerId
+        self.messageId = messageId
+        self.authorId = authorId
+        self.text = text
+        self.timestamp = timestamp
+        self.deletedAt = deletedAt
+    }
+}
+
+/// Keeps messages deleted while AyuGram was closed: with notifications relayed through
+/// Bark the app never synced them, so the relay's copy is the only one. Returns the
+/// messages of chats this account does not know.
+func _internal_ayuGramKeepRelayedDeletedMessages(transaction: Transaction, mediaBox: MediaBox, messages: [AyuGramRelayedDeletedMessage]) -> [AyuGramRelayedDeletedMessage] {
+    guard AyuGramSettings.shared.snapshot.messageHistory else { return [] }
+    var unknown: [AyuGramRelayedDeletedMessage] = []
+    var ids: [MessageId] = []
+    var added: [StoreMessage] = []
+    for item in messages {
+        guard item.peerId.namespace != Namespaces.Peer.SecretChat, transaction.getPeer(item.peerId) != nil else {
+            unknown.append(item)
+            continue
+        }
+        let id = MessageId(peerId: item.peerId, namespace: Namespaces.Message.Cloud, id: item.messageId)
+        if let existing = transaction.getMessage(id) {
+            if existing.ayuHistory?.deletedAt == nil {
+                ids.append(id)
+            }
+            continue
+        }
+        guard !item.text.isEmpty else { continue }
+        let authorId = item.authorId ?? (item.peerId.namespace == Namespaces.Peer.CloudUser ? item.peerId : nil)
+        added.append(StoreMessage(id: .Id(id), customStableId: nil, globallyUniqueId: nil, groupingKey: nil, threadId: nil, timestamp: item.timestamp, flags: [.Incoming], tags: [], globalTags: [], localTags: [], forwardInfo: nil, authorId: authorId, text: String(item.text.prefix(4096)), attributes: [], media: []))
+        ids.append(id)
+    }
+    if !added.isEmpty {
+        let _ = transaction.addMessages(added, location: .Random)
+    }
+    if !ids.isEmpty {
+        ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids)
+    }
+    return unknown
+}
+
+public extension TelegramEngine {
+    func ayuGramKeepRelayedDeletedMessages(_ messages: [AyuGramRelayedDeletedMessage]) -> Signal<[AyuGramRelayedDeletedMessage], NoError> {
+        let mediaBox = self.account.postbox.mediaBox
+        return self.account.postbox.transaction { transaction -> [AyuGramRelayedDeletedMessage] in
+            return _internal_ayuGramKeepRelayedDeletedMessages(transaction: transaction, mediaBox: mediaBox, messages: messages)
+        }
+    }
 }

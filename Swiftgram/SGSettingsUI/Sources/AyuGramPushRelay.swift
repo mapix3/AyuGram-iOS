@@ -179,6 +179,7 @@ enum AyuGramPushRelay {
     private static let activityInterval: TimeInterval = 45.0
 
     static func renew(context: AccountContext) {
+        collectContext = context
         if let barkKey, !barkKey.isEmpty {
             let current = subscription(barkKey: barkKey)
             let _ = (engines(context: context)
@@ -205,6 +206,9 @@ enum AyuGramPushRelay {
         activityObservers = [
             NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main, using: { _ in
                 updateActivity()
+                Queue.mainQueue().after(8.0, {
+                    collectDeleted()
+                })
             }),
             NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main, using: { _ in
                 updateActivity()
@@ -216,6 +220,114 @@ enum AyuGramPushRelay {
             })
         ]
         updateActivity()
+        Queue.mainQueue().after(10.0, {
+            collectDeleted()
+        })
+    }
+
+    private static weak var collectContext: AccountContext?
+    private static var collecting = false
+    private static let ackDefaultsKey = "ayuGram.pushRelay.ack"
+
+    /// Fetches messages the relay saw deleted while AyuGram was closed and keeps them.
+    static func collectDeleted() {
+        guard let context = collectContext, let barkKey, !barkKey.isEmpty, AyuGramSettings.shared.snapshot.messageHistory, !collecting else {
+            return
+        }
+        let ack = UserDefaults.standard.stringArray(forKey: ackDefaultsKey) ?? []
+        let json: [String: Any] = ["barkKey": barkKey, "ack": ack]
+        guard let url = URL(string: baseURL + "/deleted/" + activityId(barkKey: barkKey)), let body = try? JSONSerialization.data(withJSONObject: json) else {
+            return
+        }
+        collecting = true
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.timeoutInterval = 20.0
+        URLSession.shared.dataTask(with: request, completionHandler: { data, response, _ in
+            DispatchQueue.main.async {
+                guard (response as? HTTPURLResponse)?.statusCode == 200, let data, let entries = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else {
+                    collecting = false
+                    return
+                }
+                UserDefaults.standard.removeObject(forKey: ackDefaultsKey)
+                let ids = entries.compactMap { $0["id"] as? String }
+                if ids.isEmpty {
+                    collecting = false
+                    return
+                }
+                keepDeleted(context: context, messages: decodeDeleted(entries), completion: {
+                    UserDefaults.standard.set(ids, forKey: ackDefaultsKey)
+                    collecting = false
+                    if ids.count >= 300 {
+                        collectDeleted()
+                    }
+                })
+            }
+        }).resume()
+    }
+
+    private static func base64urlDecode(_ text: String) -> Data? {
+        var value = text.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        while value.count % 4 != 0 {
+            value += "="
+        }
+        return Data(base64Encoded: value)
+    }
+
+    private static func relayPeerId(chat: String) -> EnginePeer.Id? {
+        let kinds: [(String, EnginePeer.Id.Namespace)] = [("user", Namespaces.Peer.CloudUser), ("chat", Namespaces.Peer.CloudGroup), ("channel", Namespaces.Peer.CloudChannel)]
+        for (prefix, namespace) in kinds where chat.hasPrefix(prefix) {
+            if let value = Int64(chat.dropFirst(prefix.count)) {
+                return EnginePeer.Id(namespace: namespace, id: EnginePeer.Id.Id._internalFromInt64Value(value))
+            }
+        }
+        return nil
+    }
+
+    private static func decodeDeleted(_ entries: [[String: Any]]) -> [AyuGramRelayedDeletedMessage] {
+        let auth = subscriptionKeys().subdata(in: 97 ..< 113)
+        let key = SymmetricKey(data: Data(SHA256.hash(data: Data("ayugram-stash|".utf8) + auth)))
+        let now = Int32(Date().timeIntervalSince1970)
+        var result: [AyuGramRelayedDeletedMessage] = []
+        for entry in entries {
+            guard let ivText = entry["iv"] as? String, let sealedText = entry["data"] as? String, let iv = base64urlDecode(ivText), let sealed = base64urlDecode(sealedText), iv.count == 12, sealed.count > 16,
+                  let box = try? AES.GCM.SealedBox(combined: iv + sealed), let plain = try? AES.GCM.open(box, using: key),
+                  let record = (try? JSONSerialization.jsonObject(with: plain)) as? [String: Any],
+                  let chat = record["chat"] as? String, let message = (record["msg"] as? NSNumber)?.int32Value, let peerId = relayPeerId(chat: chat) else {
+                continue
+            }
+            let authorId = (record["from"] as? String).flatMap { Int64($0) }.map { EnginePeer.Id(namespace: Namespaces.Peer.CloudUser, id: EnginePeer.Id.Id._internalFromInt64Value($0)) }
+            let text = (record["text"] as? String) ?? ""
+            let date = (record["date"] as? NSNumber)?.int32Value ?? now
+            let deletedAt = (entry["deletedAt"] as? NSNumber)?.int32Value ?? now
+            result.append(AyuGramRelayedDeletedMessage(peerId: peerId, messageId: message, authorId: authorId, text: text, timestamp: date, deletedAt: deletedAt))
+        }
+        return result
+    }
+
+    private static func keepDeleted(context: AccountContext, messages: [AyuGramRelayedDeletedMessage], completion: @escaping () -> Void) {
+        let _ = (engines(context: context)
+        |> mapToSignal { engines -> Signal<Void, NoError> in
+            var signal: Signal<[AyuGramRelayedDeletedMessage], NoError> = .single(messages)
+            for engine in engines {
+                signal = signal
+                |> mapToSignal { remaining -> Signal<[AyuGramRelayedDeletedMessage], NoError> in
+                    if remaining.isEmpty {
+                        return .single([])
+                    }
+                    return engine.ayuGramKeepRelayedDeletedMessages(remaining)
+                }
+            }
+            return signal
+            |> map { _ -> Void in
+                return Void()
+            }
+        }
+        |> take(1)
+        |> deliverOnMainQueue).startStandalone(next: { _ in
+            completion()
+        })
     }
 
     private static func updateActivity() {

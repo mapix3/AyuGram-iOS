@@ -443,6 +443,11 @@
 "Ayu.ImportLocallyInfo" = "Можно импортировать чат только на этом устройстве: сообщения появятся в этом чате только у тебя и не отправятся в Telegram.";
 "Ayu.ImportLocallyDone" = "Импортировано сообщений: %@. Они видны только на этом устройстве.";
 "Ayu.ViewDeleted" = "Удалённые сообщения";
+"Ayu.DeletedSectionUsers" = "Личные сообщения";
+"Ayu.DeletedSectionGroups" = "Чаты";
+"Ayu.DeletedSectionChannels" = "Каналы";
+"Ayu.DeletedSearch" = "Поиск по чату, нику или тексту";
+"Ayu.DeletedSearchEmpty" = "Ничего не найдено.";
 "Ayu.ViewDeletedInfo" = "Чаты, где на этом устройстве сохранены удалённые сообщения. Открой чат, чтобы посмотреть его удалённые сообщения или весь чат.";
 "Ayu.ViewDeletedEmpty" = "Удалённых сообщений пока нет.";
 "Ayu.ConfirmReadReceipt" = "Подтверждать отправку прочтения";

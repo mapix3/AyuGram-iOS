@@ -177,6 +177,11 @@
 "Ayu.ImportLocallyInfo" = "អ្នកអាចនាំចូលការជជែកតែលើឧបករណ៍នេះប៉ុណ្ណោះ៖ សារនឹងបង្ហាញក្នុងការជជែកនេះសម្រាប់តែអ្នក ហើយមិនត្រូវបានផ្ញើទៅ Telegram ទេ។";
 "Ayu.ImportLocallyDone" = "សារដែលបាននាំចូល៖ %@។ ពួកវាមើលឃើញតែលើឧបករណ៍នេះប៉ុណ្ណោះ។";
 "Ayu.ViewDeleted" = "សារដែលបានលុប";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "ការជជែកដែលមានសារបានលុបរក្សាទុកលើឧបករណ៍នេះ។ បើកមួយដើម្បីអានសារដែលបានលុប ឬការជជែកទាំងមូល។";
 "Ayu.ViewDeletedEmpty" = "មិនទាន់មានសារដែលបានលុបនៅឡើយទេ។";
 "Ayu.ConfirmReadReceipt" = "បញ្ជាក់មុនផ្ញើការអាន";

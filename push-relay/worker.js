@@ -24,6 +24,10 @@ const SEEN_TTL = 120;
 const ACTIVE_MAX_SECONDS = 300;
 const SENT_TTL_MS = 10 * 60 * 1000;
 const SHOWN_TTL_MS = ARCHIVE_TTL * 1000;
+// Messages are stashed encrypted so a deletion before AyuGram syncs can still be kept.
+const STASH_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+const DELETED_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const COLLECT_LIMIT = 300;
 
 export class Presence {
   constructor(state) {
@@ -63,8 +67,34 @@ export class Presence {
       await storage.put('shown', shown);
       return new Response('send');
     }
+    if (request.method === 'POST' && url.pathname === '/stash') {
+      const entry = await request.json();
+      if (typeof entry.id === 'string' && /^(user|chat|channel)\d+m\d+$/.test(entry.id) && typeof entry.iv === 'string' && typeof entry.data === 'string' && entry.data.length <= 8192) {
+        await storage.put('m:' + entry.id, { iv: entry.iv, data: entry.data, t: Date.now() });
+        if (Math.random() < 0.02) {
+          await purgeStash(storage, Date.now());
+        }
+      }
+      return new Response('ok');
+    }
+    if (request.method === 'POST' && url.pathname === '/collect') {
+      const body = await request.json().catch(() => ({}));
+      const ack = Array.isArray(body.ack) ? body.ack.filter((id) => typeof id === 'string').slice(0, 1000) : [];
+      if (ack.length) {
+        await storage.delete(ack.map((id) => 'x:' + id));
+      }
+      await purgeStash(storage, Date.now());
+      const entries = [];
+      for (const [key, value] of await storage.list({ prefix: 'x:', limit: COLLECT_LIMIT })) {
+        entries.push({ id: key.slice(2), iv: value.iv, data: value.data, deletedAt: Math.floor(value.deletedAt / 1000) });
+      }
+      return Response.json(entries);
+    }
     if (request.method === 'POST' && url.pathname === '/seen') {
       const seen = await request.json();
+      if (Array.isArray(seen.deleted) && seen.deleted.length) {
+        await stashDeleted(storage, seen.chat, seen.deleted, Date.now());
+      }
       const shown = (await storage.get('shown')) || {};
       const deleted = new Set((seen.deleted || []).map(String));
       const cleared = Object.keys(shown).filter((id) => {
@@ -92,6 +122,67 @@ export class Presence {
     }
     return new Response(String((await storage.get('until')) || 0));
   }
+}
+
+async function purgeStash(storage, now) {
+  const stale = [];
+  for (const [key, value] of await storage.list({ prefix: 'm:' })) {
+    if (now - value.t > STASH_TTL_MS) {
+      stale.push(key);
+    }
+  }
+  for (const [key, value] of await storage.list({ prefix: 'x:' })) {
+    if (now - value.deletedAt > DELETED_TTL_MS) {
+      stale.push(key);
+    }
+  }
+  for (let index = 0; index < stale.length; index += 128) {
+    await storage.delete(stale.slice(index, index + 128));
+  }
+}
+
+async function stashDeleted(storage, chat, ids, now) {
+  for (const id of ids.map(String).slice(0, 500)) {
+    const key = chat + 'm' + id;
+    const entry = await storage.get('m:' + key);
+    if (entry) {
+      await storage.put('x:' + key, { ...entry, deletedAt: now });
+      await storage.delete('m:' + key);
+    }
+  }
+}
+
+// The stash key comes from the subscription's auth secret, which only the device keeps;
+// the relay sees it with each push and never stores it.
+export async function stashKey(auth) {
+  const digest = await crypto.subtle.digest('SHA-256', concat(encoder.encode('ayugram-stash|'), auth));
+  return crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['encrypt']);
+}
+
+export function stashRecord(data, notification) {
+  const key = typeof data.loc_key === 'string' ? data.loc_key : '';
+  const custom = data.custom && typeof data.custom === 'object' ? data.custom : null;
+  const chat = chatKey(custom);
+  if (!chat || !key || key.includes('PINNED') || key.startsWith('PHONE_CALL') || !/^\d+$/.test(String(custom.msg_id))) {
+    return null;
+  }
+  const args = Array.isArray(data.loc_args) ? data.loc_args.map(String) : [];
+  let text = notification.text;
+  if (key.startsWith('CHAT_') && args[0] && text.startsWith(args[0] + ': ')) {
+    text = text.slice(args[0].length + 2);
+  }
+  const from = /^\d+$/.test(String(custom.from_id)) ? String(custom.from_id) : null;
+  return { id: chat + 'm' + custom.msg_id, chat, msg: Number(custom.msg_id), from, author: key.startsWith('CHAT_') ? args[0] || null : null, text: text.slice(0, 4096), date: Math.floor(Date.now() / 1000) };
+}
+
+async function stashMessage(env, route, record) {
+  const stub = presence(env, await activityId(route.barkKey));
+  if (!stub || !record) {
+    return;
+  }
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await stashKey(route.auth), encoder.encode(JSON.stringify(record))));
+  await stub.fetch('https://presence.ayugram.invalid/stash', { method: 'POST', body: JSON.stringify({ id: record.id, iv: base64urlEncode(iv), data: base64urlEncode(sealed) }) });
 }
 
 export async function activityId(barkKey) {
@@ -157,6 +248,15 @@ export default {
       await stub.fetch('https://presence.ayugram.invalid/', { method: 'POST', body: await request.text() });
       return new Response('ok\n');
     }
+    if (request.method === 'POST' && url.pathname.startsWith('/deleted/')) {
+      const id = url.pathname.slice(9);
+      const stub = /^[A-Za-z0-9_-]{43}$/.test(id) ? presence(env, id) : null;
+      const body = stub ? await request.json().catch(() => null) : null;
+      if (!stub || !body || typeof body.barkKey !== 'string' || await activityId(body.barkKey) !== id) {
+        return new Response('bad request\n', { status: 400 });
+      }
+      return stub.fetch('https://presence.ayugram.invalid/collect', { method: 'POST', body: JSON.stringify({ ack: body.ack || [] }) });
+    }
     if (request.method === 'POST' && url.pathname.startsWith('/seen/')) {
       const id = url.pathname.slice(6);
       const stub = /^[A-Za-z0-9_-]{43}$/.test(id) ? presence(env, id) : null;
@@ -202,6 +302,12 @@ export default {
       const notification = describe(data);
       if (!notification) {
         return new Response(null, { status: 201 });
+      }
+      const stash = stashMessage(env, route, stashRecord(data, notification)).catch((error) => console.log('message not stashed: ' + error));
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(stash);
+      } else {
+        await stash;
       }
       const delay = Number(env && env.NOTIFY_DELAY_MS !== undefined ? env.NOTIFY_DELAY_MS : NOTIFY_DELAY_MS);
       const deliver = async () => {
