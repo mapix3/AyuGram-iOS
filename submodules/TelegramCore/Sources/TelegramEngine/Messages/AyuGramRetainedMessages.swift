@@ -2,6 +2,49 @@ import Foundation
 import Postbox
 import SGSimpleSettings
 
+private func ayuGramPeerLabel(_ peerId: PeerId) -> String {
+    switch peerId.namespace {
+    case Namespaces.Peer.CloudUser:
+        return "user\(peerId.id._internalGetInt64Value())"
+    case Namespaces.Peer.CloudGroup:
+        return "group\(peerId.id._internalGetInt64Value())"
+    case Namespaces.Peer.CloudChannel:
+        return "channel\(peerId.id._internalGetInt64Value())"
+    default:
+        return "peer\(peerId.toInt64())"
+    }
+}
+
+private func ayuGramDeletionOutcome(transaction: Transaction, id: MessageId) -> String {
+    guard AyuGramSettings.shared.snapshot.messageHistory else { return "saving is off" }
+    guard let message = transaction.getMessage(id) else { return "not in database" }
+    if message.ayuHistory?.deletedAt != nil { return "already kept" }
+    if id.namespace != Namespaces.Message.Cloud { return "not a cloud message" }
+    if id.peerId.namespace == Namespaces.Peer.SecretChat { return "secret chat" }
+    if message.isCopyProtected() { return "protected" }
+    if message.containsSecretMedia { return "one-time media" }
+    if message.attributes.contains(where: { $0 is AutoremoveTimeoutMessageAttribute || $0 is AutoclearTimeoutMessageAttribute }) { return "auto-delete timer" }
+    if message.text.isEmpty && message.media.isEmpty { return "empty" }
+    return "kept"
+}
+
+/// Writes what happens to each remote deletion to the AyuGram log.
+func ayuGramLogDeletion(transaction: Transaction, source: String, ids: [MessageId], unresolved: Int = 0) {
+    var parts: [String] = []
+    for id in ids.prefix(20) {
+        parts.append("\(ayuGramPeerLabel(id.peerId)):\(id.id) \(ayuGramDeletionOutcome(transaction: transaction, id: id))")
+    }
+    if ids.count > 20 {
+        parts.append("+\(ids.count - 20) more")
+    }
+    if unresolved > 0 {
+        parts.append("\(unresolved) ids not found in any private chat or group")
+    }
+    if !parts.isEmpty {
+        AyuGramSessionLog.log("delete \(source): " + parts.joined(separator: ", "))
+    }
+}
+
 func ayuGramDeleteRemoteMessages(transaction: Transaction, mediaBox: MediaBox, ids: [MessageId], manualAddMessageThreadStatsDifference: ((MessageThreadKey, Int, Int) -> Void)? = nil) {
     let ids = ids.filter { transaction.getMessage($0)?.ayuHistory?.deletedAt == nil }
     guard !ids.isEmpty else { return }

@@ -2,8 +2,8 @@
 "Ayu.SupportSection" = "Поддержка";
 "Ayu.SupportChannel" = "Канал с обновлениями";
 "Ayu.SupportDeveloper" = "Связаться с разработчиком";
-"Ayu.SessionLog" = "Журнал входа";
-"Ayu.SessionLogEmpty" = "Журнал входа пока пуст.";
+"Ayu.SessionLog" = "Журнал AyuGram";
+"Ayu.SessionLogEmpty" = "Журнал пока пуст.";
 "Ayu.SecuritySection" = "Безопасность";
 "Ayu.BuildStatus" = "Сборка";
 "Ayu.BuildOfficial" = "Официальная";

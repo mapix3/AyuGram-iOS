@@ -145,7 +145,11 @@ func _internal_ayuGramKeepRelayedDeletedMessages(transaction: Transaction, media
         let _ = transaction.addMessages(added, location: .Random)
     }
     if !ids.isEmpty {
+        ayuGramLogDeletion(transaction: transaction, source: "relay", ids: ids)
         ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids)
+    }
+    if !unknown.isEmpty {
+        AyuGramSessionLog.log("delete relay: \(unknown.count) messages from chats this account does not know")
     }
     return unknown
 }
