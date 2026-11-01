@@ -1,0 +1,34 @@
+name: Rename build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: 'Build number (from the build-NNNNNN release)'
+        required: true
+        type: string
+      label:
+        description: 'Label shown after the build number, for example hotfix'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  rename:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Rename the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD: ${{ inputs.build }}
+          LABEL: ${{ inputs.label }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD" =~ ^[0-9]+$ ]] || { echo "::error::Build must be a number"; exit 1; }
+          [[ -z "$LABEL" || "$LABEL" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "::error::Label may hold letters, digits, dots, dashes and underscores"; exit 1; }
+          TITLE="AyuGram build $BUILD${LABEL:+-$LABEL}"
+          gh release edit "build-$BUILD" --repo "$GITHUB_REPOSITORY" --title "$TITLE"
+          echo "$TITLE"
