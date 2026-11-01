@@ -84,7 +84,7 @@ private func ayuGramDeletedChatKind(peerId: Int64, peer: EnginePeer?) -> Deleted
         switch peer {
         case .user, .secretChat:
             return .user
-        case .legacyGroup:
+        case .legacyGroup, .community:
             return .group
         case let .channel(channel):
             if case .broadcast = channel.info {
