@@ -16,6 +16,8 @@ private final class AccountPresenceManagerImpl {
     private var shouldKeepOnlinePresenceDisposable: Disposable?
     private let currentRequestDisposable = MetaDisposable()
     private var onlineTimer: SignalKitTimer?
+    private var ghostOfflineTimer: SignalKitTimer?
+    private let ghostOfflineDisposable = MetaDisposable()
     
     private var wasOnline: Bool = false
     private var requestedOnline: Bool = false
@@ -50,14 +52,42 @@ private final class AccountPresenceManagerImpl {
         self.shouldKeepOnlinePresenceDisposable?.dispose()
         self.currentRequestDisposable.dispose()
         self.onlineTimer?.invalidate()
+        self.ghostOfflineTimer?.invalidate()
+        self.ghostOfflineDisposable.dispose()
     }
     
     private func applyRequestedPresence() {
-        let value = self.requestedOnline && !AyuGramSettings.shared.snapshot.suppressOnline
+        let suppressed = AyuGramSettings.shared.snapshot.suppressOnline
+        let value = self.requestedOnline && !suppressed
         if self.wasOnline != value {
             self.wasOnline = value
             self.updatePresence(value)
         }
+        let keepOffline = self.requestedOnline && suppressed
+        if keepOffline {
+            if self.ghostOfflineTimer == nil {
+                let timer = SignalKitTimer(timeout: 15.0, repeat: true, completion: { [weak self] in
+                    self?.sendGhostOffline()
+                }, queue: self.queue)
+                self.ghostOfflineTimer = timer
+                timer.start()
+                self.sendGhostOffline()
+            }
+        } else if let timer = self.ghostOfflineTimer {
+            timer.invalidate()
+            self.ghostOfflineTimer = nil
+            self.ghostOfflineDisposable.set(nil)
+        }
+    }
+
+    private func sendGhostOffline() {
+        guard AyuGramSettings.shared.snapshot.suppressOnline else {
+            return
+        }
+        self.ghostOfflineDisposable.set((self.network.request(Api.functions.account.updateStatus(offline: .boolTrue))
+        |> `catch` { _ -> Signal<Api.Bool, NoError> in
+            return .single(.boolFalse)
+        }).start())
     }
 
     private func updatePresence(_ requestedOnline: Bool) {
