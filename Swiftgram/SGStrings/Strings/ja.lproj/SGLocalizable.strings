@@ -411,6 +411,11 @@
 "Ayu.ImportLocallyInfo" = "このデバイスだけにチャットをインポートできます。メッセージはこのチャットにあなたにだけ表示され、Telegramには送信されません。";
 "Ayu.ImportLocallyDone" = "インポートしたメッセージ: %@。このデバイスでのみ表示されます。";
 "Ayu.ViewDeleted" = "削除されたメッセージ";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "削除されたメッセージがこのデバイスに保存されているチャットです。開くと削除されたメッセージやチャット全体を読めます。";
 "Ayu.ViewDeletedEmpty" = "削除されたメッセージはまだありません。";
 "Ayu.ConfirmReadReceipt" = "既読の送信前に確認";

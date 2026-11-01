@@ -1,7 +1,7 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
 import { webcrypto as crypto } from 'node:crypto';
-import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats } from './worker.js';
+import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
 
 const cacheStore = new Map();
 globalThis.caches = { default: {
@@ -167,7 +167,12 @@ assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_i
     get(id) {
       if (!objects.has(id)) {
         const data = new Map();
-        objects.set(id, new Presence({ storage: { async get(k) { return data.get(k); }, async put(k, v) { data.set(k, v); } } }));
+        objects.set(id, new Presence({ storage: {
+          async get(k) { return data.get(k); },
+          async put(k, v) { data.set(k, v); },
+          async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
+          async list({ prefix, limit }) { return new Map([...data].filter(([k]) => k.startsWith(prefix)).sort().slice(0, limit || Infinity)); },
+        } }));
       }
       const object = objects.get(id);
       return { fetch: (url, init) => object.fetch(new Request(url, init)) };
@@ -208,7 +213,37 @@ assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_i
   await worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body: read.body, headers: read.headers }), activeEnv);
   assert.deepEqual(sent.map((s) => s.body.id), ['user70m4'], 'A read in Telegram removes the read notifications');
   assert.equal((await worker.fetch(new Request('https://relay.example/active/bad', { method: 'POST', body: '90' }), activeEnv)).status, 400);
+  await worker.fetch(new Request('https://relay.example/active/' + id, { method: 'POST', body: '0' }), activeEnv);
+  const collect = async (ack) => (await worker.fetch(new Request('https://relay.example/deleted/' + id, { method: 'POST', body: JSON.stringify({ barkKey: 'ACTIVEKEY1', ack }) }), activeEnv)).json();
+  const sendPush = async (payload) => {
+    const encrypted = await encryptAes128gcm(sub, JSON.stringify(payload));
+    await worker.fetch(new Request('https://relay.example/p/' + sub.token, { method: 'POST', body: encrypted.body, headers: encrypted.headers }), activeEnv);
+  };
+  await sendPush({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'secret plan'], custom: { from_id: '71', msg_id: '9' } });
+  await sendPush({ loc_key: 'CHAT_MESSAGE_PHOTO', loc_args: ['Bob', 'Team'], custom: { chat_id: '12', from_id: '72', msg_id: '30' } });
+  await sendPush({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'stays'], custom: { from_id: '71', msg_id: '10' } });
+  assert.deepEqual(await collect([]), [], 'Nothing is offered before a deletion');
+  await sendPush({ loc_key: 'MESSAGE_DELETED', loc_args: [], custom: { from_id: '71', messages: '9' } });
+  await sendPush({ loc_key: 'MESSAGE_DELETED', loc_args: [], custom: { chat_id: '12', messages: '30,31' } });
+  const deleted = await collect([]);
+  assert.deepEqual(deleted.map((e) => e.id).sort(), ['chat12m30', 'user71m9'], 'Deleted stashed messages are offered, others are not');
+  const auth = Buffer.from(sub.token, 'base64url').subarray(97, 113);
+  const key = await crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', Buffer.concat([Buffer.from('ayugram-stash|'), auth])), 'AES-GCM', false, ['decrypt']);
+  const open = async (entry) => JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Buffer.from(entry.iv, 'base64url') }, key, Buffer.from(entry.data, 'base64url'))));
+  const dm = await open(deleted.find((e) => e.id === 'user71m9'));
+  assert.equal(dm.text, 'secret plan');
+  assert.equal(dm.chat, 'user71');
+  assert.equal(dm.msg, 9);
+  assert.equal(dm.from, '71');
+  const group = await open(deleted.find((e) => e.id === 'chat12m30'));
+  assert.equal(group.text, '📷 Photo', 'The author prefix is not part of the kept text');
+  assert.equal(group.author, 'Bob');
+  assert.ok(deleted.every((e) => !e.data.includes('secret')), 'Stashed text is encrypted');
+  assert.deepEqual((await collect(['user71m9', 'chat12m30'])), [], 'Acknowledged messages are not offered again');
+  assert.equal((await worker.fetch(new Request('https://relay.example/deleted/' + id, { method: 'POST', body: JSON.stringify({ barkKey: 'WRONGKEY12' }) }), activeEnv)).status, 400);
 }
+assert.equal(stashRecord({ loc_key: 'PINNED_MESSAGE_TEXT', loc_args: ['A', 'x'], custom: { from_id: '1', msg_id: '2' } }, { text: 'x' }), null, 'Pin notices are not stashed');
+assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom: { from_id: '1' } }, { text: 'x' }), null, 'A push without a message id is not stashed');
 {
   const data = new Map();
   const storage = {

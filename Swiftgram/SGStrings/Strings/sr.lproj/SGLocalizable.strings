@@ -317,6 +317,11 @@
 "Ayu.ImportLocallyInfo" = "Ћаскање можеш да увезеш само на овом уређају: поруке се појављују у овом ћаскању само теби и не шаљу се на Telegram.";
 "Ayu.ImportLocallyDone" = "Увезене поруке: %@. Видљиве су само на овом уређају.";
 "Ayu.ViewDeleted" = "Обрисане поруке";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "Ћаскања са обрисаним порукама сачуваним на овом уређају. Отвори једно да прочиташ обрисане поруке или цело ћаскање.";
 "Ayu.ViewDeletedEmpty" = "Још нема обрисаних порука.";
 "Ayu.ConfirmReadReceipt" = "Потврђуј слање потврде о читању";

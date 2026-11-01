@@ -439,6 +439,11 @@
 "Ayu.ImportLocallyInfo" = "Você pode importar a conversa só neste aparelho: as mensagens aparecem nesta conversa apenas para você e não são enviadas ao Telegram.";
 "Ayu.ImportLocallyDone" = "Mensagens importadas: %@. Elas aparecem só neste aparelho.";
 "Ayu.ViewDeleted" = "Mensagens apagadas";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "Conversas com mensagens apagadas guardadas neste aparelho. Abra uma para ler as mensagens apagadas ou a conversa inteira.";
 "Ayu.ViewDeletedEmpty" = "Ainda não há mensagens apagadas.";
 "Ayu.ConfirmReadReceipt" = "Confirmar recibos de leitura";

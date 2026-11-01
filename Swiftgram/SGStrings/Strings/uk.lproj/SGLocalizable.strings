@@ -410,6 +410,11 @@
 "Ayu.ImportLocallyInfo" = "Можна імпортувати чат лише на цьому пристрої: повідомлення з'являться в цьому чаті тільки в тебе й не надсилатимуться в Telegram.";
 "Ayu.ImportLocallyDone" = "Імпортовано повідомлень: %@. Їх видно лише на цьому пристрої.";
 "Ayu.ViewDeleted" = "Видалені повідомлення";
+"Ayu.DeletedSectionUsers" = "Особисті повідомлення";
+"Ayu.DeletedSectionGroups" = "Чати";
+"Ayu.DeletedSectionChannels" = "Канали";
+"Ayu.DeletedSearch" = "Пошук за чатом, ніком або текстом";
+"Ayu.DeletedSearchEmpty" = "Нічого не знайдено.";
 "Ayu.ViewDeletedInfo" = "Чати, де на цьому пристрої збережено видалені повідомлення. Відкрий чат, щоб переглянути його видалені повідомлення або весь чат.";
 "Ayu.ViewDeletedEmpty" = "Видалених повідомлень поки немає.";
 "Ayu.ConfirmReadReceipt" = "Підтверджувати надсилання прочитання";

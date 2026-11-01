@@ -317,6 +317,11 @@
 "Ayu.ImportLocallyInfo" = "אפשר לייבא את הצ'אט רק במכשיר הזה: ההודעות יופיעו בצ'אט הזה רק אצלך ולא יישלחו לטלגרם.";
 "Ayu.ImportLocallyDone" = "הודעות שיובאו: %@. הן גלויות רק במכשיר הזה.";
 "Ayu.ViewDeleted" = "הודעות שנמחקו";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "צ'אטים עם הודעות שנמחקו שנשמרו במכשיר הזה. פתח צ'אט כדי לקרוא את ההודעות שנמחקו או את כל הצ'אט.";
 "Ayu.ViewDeletedEmpty" = "עדיין אין הודעות שנמחקו.";
 "Ayu.ConfirmReadReceipt" = "אישור שליחת אישורי קריאה";

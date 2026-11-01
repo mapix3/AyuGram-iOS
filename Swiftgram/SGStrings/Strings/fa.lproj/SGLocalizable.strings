@@ -174,6 +174,11 @@
 "Ayu.ImportLocallyInfo" = "می‌توانید گفتگو را فقط روی این دستگاه وارد کنید: پیام‌ها فقط برای شما در این گفتگو نمایش داده می‌شوند و به تلگرام ارسال نمی‌شوند.";
 "Ayu.ImportLocallyDone" = "پیام‌های واردشده: %@. فقط روی این دستگاه دیده می‌شوند.";
 "Ayu.ViewDeleted" = "پیام‌های حذف‌شده";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "گفتگوهایی که پیام‌های حذف‌شده آن‌ها روی این دستگاه نگه داشته شده است. یکی را باز کنید تا پیام‌های حذف‌شده یا کل گفتگو را ببینید.";
 "Ayu.ViewDeletedEmpty" = "هنوز پیام حذف‌شده‌ای نیست.";
 "Ayu.ConfirmReadReceipt" = "تأیید ارسال رسید خواندن";

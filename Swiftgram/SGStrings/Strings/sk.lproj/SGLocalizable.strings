@@ -169,6 +169,11 @@
 "Ayu.ImportLocallyInfo" = "Čet môžete importovať len do tohto zariadenia: správy sa v tomto čete zobrazia len vám a neodošlú sa do Telegramu.";
 "Ayu.ImportLocallyDone" = "Importované správy: %@. Sú viditeľné len na tomto zariadení.";
 "Ayu.ViewDeleted" = "Odstránené správy";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "Čety s odstránenými správami uloženými v tomto zariadení. Otvorte čet a prečítajte si jeho odstránené správy alebo celý čet.";
 "Ayu.ViewDeletedEmpty" = "Zatiaľ žiadne odstránené správy.";
 "Ayu.ConfirmReadReceipt" = "Potvrdzovať odoslanie prečítania";

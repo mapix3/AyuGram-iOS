@@ -317,6 +317,11 @@
 "Ayu.ImportLocallyInfo" = "Je kunt de chat alleen op dit apparaat importeren: de berichten verschijnen alleen voor jou in deze chat en worden niet naar Telegram verzonden.";
 "Ayu.ImportLocallyDone" = "Geïmporteerde berichten: %@. Ze zijn alleen op dit apparaat zichtbaar.";
 "Ayu.ViewDeleted" = "Verwijderde berichten";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "Chats met verwijderde berichten die op dit apparaat bewaard zijn. Open er een om de verwijderde berichten of de hele chat te lezen.";
 "Ayu.ViewDeletedEmpty" = "Nog geen verwijderde berichten.";
 "Ayu.ConfirmReadReceipt" = "Leesbevestigingen bevestigen";

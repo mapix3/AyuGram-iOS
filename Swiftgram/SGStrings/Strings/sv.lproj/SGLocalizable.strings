@@ -317,6 +317,11 @@
 "Ayu.ImportLocallyInfo" = "Du kan importera chatten bara på den här enheten: meddelandena visas i chatten bara för dig och skickas inte till Telegram.";
 "Ayu.ImportLocallyDone" = "Importerade meddelanden: %@. De syns bara på den här enheten.";
 "Ayu.ViewDeleted" = "Raderade meddelanden";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "Chattar med raderade meddelanden som sparats på den här enheten. Öppna en för att läsa dess raderade meddelanden eller hela chatten.";
 "Ayu.ViewDeletedEmpty" = "Inga raderade meddelanden än.";
 "Ayu.ConfirmReadReceipt" = "Bekräfta läskvitton";

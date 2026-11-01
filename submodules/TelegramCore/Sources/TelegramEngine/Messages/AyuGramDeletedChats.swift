@@ -113,14 +113,15 @@ public extension TelegramEngine {
         }
     }
 
-    /// Chats that hold kept deleted messages, most recently deleted first.
-    func ayuGramKeptDeletedChats() -> Signal<[(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32)], NoError> {
-        return self.account.postbox.transaction { transaction -> [(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32)] in
+    /// Chats that hold kept deleted messages, most recently deleted first, with the texts
+    /// of their kept messages ("Author: text") and a lowercased search key per message.
+    func ayuGramKeptDeletedChats() -> Signal<[(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32, texts: [(text: String, key: String)])], NoError> {
+        return self.account.postbox.transaction { transaction -> [(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32, texts: [(text: String, key: String)])] in
             var ids = ayuGramLoadKeptPeers(transaction: transaction)
             for chat in ayuGramLoadDeletedChats(transaction: transaction).chats where !ids.contains(chat.peerId) {
                 ids.append(chat.peerId)
             }
-            var result: [(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32)] = []
+            var result: [(peerId: EnginePeer.Id, peer: EnginePeer?, count: Int, deletedAt: Int32, texts: [(text: String, key: String)])] = []
             var remaining: [Int64] = []
             for id in ids {
                 let peerId = PeerId(id)
@@ -128,7 +129,14 @@ public extension TelegramEngine {
                 guard !copies.isEmpty else { continue }
                 remaining.append(id)
                 let deletedAt = copies.compactMap { $0.ayuHistory?.deletedAt }.max() ?? copies.last?.timestamp ?? 0
-                result.append((peerId, transaction.getPeer(peerId).map(EnginePeer.init), copies.count, deletedAt))
+                let texts = copies.reversed().map { message -> (text: String, key: String) in
+                    let author = message.author?.debugDisplayTitle ?? ""
+                    let username = message.author?.addressName ?? ""
+                    let body = String(message.text.prefix(300))
+                    let text = author.isEmpty ? body : author + ": " + body
+                    return (text, (author + " @" + username + " " + body).lowercased())
+                }
+                result.append((peerId, transaction.getPeer(peerId).map(EnginePeer.init), copies.count, deletedAt, texts))
             }
             if remaining.count != ayuGramLoadKeptPeers(transaction: transaction).count {
                 transaction.setPreferencesEntry(key: ayuGramKeptPeersKey, value: remaining.isEmpty ? nil : PreferencesEntry(AyuGramKeptPeers(peers: remaining)))

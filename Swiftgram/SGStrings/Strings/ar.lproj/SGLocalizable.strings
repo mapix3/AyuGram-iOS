@@ -317,6 +317,11 @@
 "Ayu.ImportLocallyInfo" = "يمكنك استيراد المحادثة على هذا الجهاز فقط: تظهر الرسائل في هذه المحادثة لك وحدك ولا تُرسل إلى تيليجرام.";
 "Ayu.ImportLocallyDone" = "الرسائل المستوردة: %@. تظهر على هذا الجهاز فقط.";
 "Ayu.ViewDeleted" = "الرسائل المحذوفة";
+"Ayu.DeletedSectionUsers" = "Private chats";
+"Ayu.DeletedSectionGroups" = "Groups";
+"Ayu.DeletedSectionChannels" = "Channels";
+"Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "محادثات بها رسائل محذوفة محفوظة على هذا الجهاز. افتح واحدة لقراءة رسائلها المحذوفة أو المحادثة كاملة.";
 "Ayu.ViewDeletedEmpty" = "لا توجد رسائل محذوفة بعد.";
 "Ayu.ConfirmReadReceipt" = "تأكيد إرسال إشعار القراءة";
