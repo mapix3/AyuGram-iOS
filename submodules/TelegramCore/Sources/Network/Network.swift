@@ -928,6 +928,7 @@ public final class Network: NSObject {
     private let useRequestTimeoutTimers: Bool
     private let baseTcpConnectionInterfaceFactory: ((MTTcpConnectionInterfaceDelegate, DispatchQueue) -> MTTcpConnectionInterface)?
     private let isAppExtension: Bool
+    let ayuOfflineGuard = AyuOfflineGuard()
     private let webProxyLeaseToken = UUID()
     private let webProxyActive: ValuePromise<Bool>
     private let webProxyCarrierDemandDisposable = MetaDisposable()
