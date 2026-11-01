@@ -76,7 +76,7 @@ private final class AccountPresenceManagerImpl {
         } else if let timer = self.ghostOfflineTimer {
             timer.invalidate()
             self.ghostOfflineTimer = nil
-            self.ghostOfflineDisposable.set(nil)
+            self.sendGhostOffline()
         }
     }
 

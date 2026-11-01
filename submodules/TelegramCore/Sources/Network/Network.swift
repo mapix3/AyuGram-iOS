@@ -1027,6 +1027,7 @@ public final class Network: NSObject {
         super.init()
         
         mainSessionDelegate.network = self
+        self.ayuOfflineGuard.network = self
         
         let _contextProxyId = self._contextProxyId
         let networkHelper = NetworkHelper(requestPublicKeys: { [weak self] id in
@@ -1378,6 +1379,8 @@ public final class Network: NSObject {
     
     func requestWithAdditionalInfo<T>(_ data: (FunctionDescription, Buffer, DeserializeFunctionResponse<T>), info: NetworkRequestAdditionalInfo, tag: NetworkRequestDependencyTag? = nil, automaticFloodWait: Bool = true, onFloodWaitError: ((String) -> Void)? = nil) -> Signal<NetworkRequestResult<T>, MTRpcError> {
         let requestService = self.requestService
+        let ayuOfflineGuard = self.ayuOfflineGuard
+        let ayuMethodName = data.0.name
         return Signal { [requestService] subscriber in
             let request = NetworkEngineRequest(
                 payload: data.1.makeData(),
@@ -1405,6 +1408,7 @@ public final class Network: NSObject {
                 completed: { result in
                     switch result {
                     case let .success(response):
+                        ayuOfflineGuard.noteRequest(ayuMethodName)
                         if let result = (response.result as! BoxedMessage).body as? T {
                             subscriber.putNext(.result(result))
                             subscriber.putCompletion()
@@ -1424,6 +1428,8 @@ public final class Network: NSObject {
     
     func request<T>(_ data: (FunctionDescription, Buffer, DeserializeFunctionResponse<T>), tag: NetworkRequestDependencyTag? = nil, automaticFloodWait: Bool = true, onFloodWaitError: ((String) -> Void)? = nil) -> Signal<T, MTRpcError> {
         let requestService = self.requestService
+        let ayuOfflineGuard = self.ayuOfflineGuard
+        let ayuMethodName = data.0.name
         return Signal { [requestService] subscriber in
             let request = NetworkEngineRequest(
                 payload: data.1.makeData(),
@@ -1443,6 +1449,7 @@ public final class Network: NSObject {
                 completed: { result in
                     switch result {
                     case let .success(response):
+                        ayuOfflineGuard.noteRequest(ayuMethodName)
                         if let result = (response.result as! BoxedMessage).body as? T {
                             subscriber.putNext(result)
                             subscriber.putCompletion()
