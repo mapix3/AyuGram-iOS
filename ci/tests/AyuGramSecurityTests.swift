@@ -49,6 +49,24 @@ struct SecurityTests {
         expect(store.identifiesDistributor(status: .official), "TestFlight installs report their certificate")
         expect(AyuGramSecurity.accountHash(555) == "14889594e3540dc6d0be9892f83f3d98", "Account hashes match the push relay")
         expect(AyuGramSecurity.accountHash(555) != AyuGramSecurity.accountHash(556), "Accounts hash apart")
+
+        let sealed: [UInt8] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 109, 10, 241, 195, 64, 182, 31, 148, 33, 104, 191, 35, 8, 197, 90, 170, 30, 169, 186, 224, 136, 194, 176, 164, 215, 168, 0, 214, 224, 97, 61, 142, 68, 160, 68, 206, 25, 109, 154, 199, 129, 240, 16, 18, 158, 159, 32, 24, 24, 55, 75, 254, 69, 73, 154, 27, 255, 199, 92, 86, 216, 198, 226, 215, 215, 46, 172, 188, 164, 76, 135, 123, 93, 30, 58, 231, 79, 76, 137, 160, 101, 93, 172, 200, 35, 2, 70, 159, 201, 120, 120, 56, 254, 151, 100, 221, 71, 234, 31, 170, 8, 140, 114, 50, 1, 100, 161, 96, 36, 51, 60, 12, 188, 49, 187, 170, 89, 228, 233, 138, 8, 197, 223, 199, 242, 1]
+        let origin = AyuGramOrigin.open(sealed)
+        expect(origin == AyuGramOrigin(repository: "mapix3/AyuGram-iOS", build: 208301, variant: "custom", commit: "d2abe71e6863", run: "41384897111", bundle: "7196821efee31af21d991a4edfb58722"), "The CI seal opens")
+        var broken = sealed
+        broken[20] ^= 0xff
+        expect(AyuGramOrigin.open(broken) == nil, "A damaged seal is refused")
+        expect(AyuGramOrigin.open([]) == nil, "No seal is no origin")
+        expect(AyuGramSecurity.signature("org.example.app") == "7196821efee31af21d991a4edfb58722", "Signatures match the CI seal")
+        expect(AyuGramSecurity.signature("") == "", "Nothing has no signature")
+        expect(AyuGramSecurity.copyKind(origin: nil, status: .official, signing: own) == "fork", "A build without our seal is a fork")
+        var foreign = origin!
+        foreign.repository = "scammer/AyuGram-iOS"
+        expect(AyuGramSecurity.copyKind(origin: foreign, status: .official, signing: own) == "fork", "Another repository is a fork")
+        expect(AyuGramSecurity.copyKind(origin: origin, status: .modified, signing: own) == "modified", "Changed code is a copy")
+        expect(AyuGramSecurity.copyKind(origin: origin, status: .official, signing: own) == nil, "Our build signed for yourself is fine")
+        expect(AyuGramSecurity.copyKind(origin: origin, status: .unknown, signing: AyuGramSigningInfo(teamId: "EVIL123456", teamName: "", certificate: "", profileName: "", source: .enterprise, devices: 0)) == "distributor", "Enterprise signing is a distributor")
+        expect(AyuGramSecurity.copyKind(origin: origin, status: .official, signing: paid) == "distributor", "Many devices is a distributor")
         print("Security: block list, code fingerprints and anonymous signing info")
     }
 }

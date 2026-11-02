@@ -84,15 +84,66 @@ public struct AyuGramReportTicket {
     public let token: String
 }
 
+private let ayuGramSeal: [UInt8] = []
+
+public struct AyuGramOrigin: Equatable {
+    public var repository: String
+    public var build: Int
+    public var variant: String
+    public var commit: String
+    public var run: String
+    public var bundle: String
+
+    public static func open(_ sealed: [UInt8]) -> AyuGramOrigin? {
+        guard sealed.count > 16 else {
+            return nil
+        }
+        let nonce = Array(sealed[0 ..< 16])
+        let salt = Array("ayugram-origin".utf8)
+        var plain: [UInt8] = []
+        plain.reserveCapacity(sealed.count - 16)
+        var block: [UInt8] = []
+        for (index, byte) in sealed[16...].enumerated() {
+            if index % 32 == 0 {
+                let counter = UInt32(index / 32)
+                var input: [UInt8] = salt
+                input.append(contentsOf: nonce)
+                input.append(UInt8(truncatingIfNeeded: counter >> 24))
+                input.append(UInt8(truncatingIfNeeded: counter >> 16))
+                input.append(UInt8(truncatingIfNeeded: counter >> 8))
+                input.append(UInt8(truncatingIfNeeded: counter))
+                block = Array(SHA256.hash(data: input))
+            }
+            plain.append(byte ^ block[index % 32])
+        }
+        guard let object = try? JSONSerialization.jsonObject(with: Data(plain)) as? [String: Any], let build = object["b"] as? Int, build > 0 else {
+            return nil
+        }
+        return AyuGramOrigin(
+            repository: (object["r"] as? String) ?? "",
+            build: build,
+            variant: (object["v"] as? String) ?? "",
+            commit: (object["c"] as? String) ?? "",
+            run: (object["u"] as? String) ?? "",
+            bundle: (object["i"] as? String) ?? ""
+        )
+    }
+}
+
 public final class AyuGramSecurity {
     public static let shared = AyuGramSecurity()
     public static let didChange = Notification.Name("AyuGram.Security.didChange")
     public static let relayURL = "https://ayugram-push.ayugram-status.workers.dev"
     public static let releaseURL = "https://github.com/mapix3/AyuGram-iOS/releases/download/build-"
 
+    public static let officialRepository = "mapix3/AyuGram-iOS"
+
     public let signing: AyuGramSigningInfo
+    public let origin: AyuGramOrigin?
 
     private let lock = NSLock()
+    private var currentVariant = "standard"
+    private let flagsKey = "ayugram.stats.flags"
     private var currentStatus: AyuGramBuildStatus = .checking
     private var rules = AyuGramBlockRules()
     private var started = false
@@ -106,10 +157,44 @@ public final class AyuGramSecurity {
 
     private init() {
         self.signing = AyuGramSecurity.readSigning()
+        self.origin = AyuGramOrigin.open(ayuGramSeal)
+    }
+
+    public var plistBuild: Int {
+        return Int((Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "") ?? 0
     }
 
     public var build: Int {
-        return Int((Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "") ?? 0
+        return self.origin?.build ?? self.plistBuild
+    }
+
+    public static func signature(_ value: String) -> String {
+        guard !value.isEmpty else {
+            return ""
+        }
+        let digest = SHA256.hash(data: Data("ayugram-sig|\(value)".utf8))
+        return String(digest.map { String(format: "%02x", $0) }.joined().prefix(32))
+    }
+
+    public static func copyKind(origin: AyuGramOrigin?, status: AyuGramBuildStatus, signing: AyuGramSigningInfo) -> String? {
+        if origin?.repository != AyuGramSecurity.officialRepository {
+            return "fork"
+        }
+        if status == .modified {
+            return "modified"
+        }
+        let distributing: Set<AyuGramInstallSource> = [.enterprise, .testflight, .appstore]
+        if distributing.contains(signing.source) || signing.devices > 3 {
+            return "distributor"
+        }
+        return nil
+    }
+
+    public var isOfficialBundle: Bool {
+        guard let expected = self.origin?.bundle, !expected.isEmpty else {
+            return false
+        }
+        return AyuGramSecurity.signature(Bundle.main.bundleIdentifier ?? "") == expected
     }
 
     public var status: AyuGramBuildStatus {
@@ -121,7 +206,7 @@ public final class AyuGramSecurity {
     public var isBlocked: Bool {
         self.lock.lock()
         defer { self.lock.unlock() }
-        return self.rules.matches(teamId: self.signing.teamId, build: self.build, status: self.currentStatus) || UserDefaults.standard.bool(forKey: self.banKey)
+        return self.rules.matches(teamId: self.signing.teamId, build: self.build, status: self.currentStatus) || UserDefaults.standard.bool(forKey: self.banKey) || UserDefaults.standard.bool(forKey: self.flagsKey)
     }
 
     public var isBanned: Bool {
@@ -166,16 +251,51 @@ public final class AyuGramSecurity {
         }
     }
 
-    public func refreshModeration() {
+    private func checkPayload() -> [String: Any] {
+        let status = self.status
+        var body: [String: Any] = ["id": self.installId, "accounts": self.accountHashes]
+        guard status != .checking else {
+            return body
+        }
         self.lock.lock()
-        if let last = self.lastModerationCheck, Date().timeIntervalSince(last) < 600.0 {
+        let variant = self.currentVariant
+        self.lock.unlock()
+        let bundle = Bundle.main.bundleIdentifier ?? ""
+        body["check"] = true
+        body["build"] = self.build
+        body["variant"] = variant
+        body["status"] = status.rawValue
+        body["source"] = self.signing.source.rawValue
+        body["devices"] = self.signing.devices
+        body["tsig"] = AyuGramSecurity.signature(self.signing.teamId.uppercased())
+        body["bsig"] = AyuGramSecurity.signature(bundle)
+        body["official"] = self.isOfficialBundle
+        body["repo"] = self.origin?.repository ?? ""
+        if AyuGramSecurity.copyKind(origin: self.origin, status: status, signing: self.signing) != nil {
+            let version = ProcessInfo.processInfo.operatingSystemVersion
+            body["commit"] = self.origin?.commit ?? ""
+            body["run"] = self.origin?.run ?? ""
+            body["plistBuild"] = self.plistBuild
+            body["team"] = self.signing.teamId
+            body["teamName"] = self.signing.teamName
+            body["cert"] = self.signing.certificate
+            body["profile"] = self.signing.profileName
+            body["bundle"] = bundle
+            body["os"] = "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
+            body["device"] = AyuGramSecurity.deviceModel
+        }
+        return body
+    }
+
+    public func refreshModeration(force: Bool = false) {
+        self.lock.lock()
+        if !force, let last = self.lastModerationCheck, Date().timeIntervalSince(last) < 600.0 {
             self.lock.unlock()
             return
         }
         self.lastModerationCheck = Date()
         self.lock.unlock()
-        let hashes = self.accountHashes
-        guard !hashes.isEmpty, let url = URL(string: AyuGramSecurity.relayURL + "/stats/status"), let body = try? JSONSerialization.data(withJSONObject: ["id": self.installId, "accounts": hashes] as [String: Any]) else {
+        guard let url = URL(string: AyuGramSecurity.relayURL + "/stats/status"), let body = try? JSONSerialization.data(withJSONObject: self.checkPayload()) else {
             return
         }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20.0)
@@ -191,6 +311,12 @@ public final class AyuGramSecurity {
             let banned = (object["banned"] as? Bool) ?? false
             var changed = UserDefaults.standard.bool(forKey: self.banKey) != banned
             UserDefaults.standard.set(banned, forKey: self.banKey)
+            if let blocked = object["blocked"] as? Bool {
+                if UserDefaults.standard.bool(forKey: self.flagsKey) != blocked {
+                    changed = true
+                }
+                UserDefaults.standard.set(blocked, forKey: self.flagsKey)
+            }
             if let warning = object["warning"] as? String, !warning.isEmpty, warning != UserDefaults.standard.string(forKey: self.warningSeenKey) {
                 self.lock.lock()
                 if self.currentWarning != warning {
@@ -238,12 +364,14 @@ public final class AyuGramSecurity {
             return
         }
         self.started = true
+        self.currentVariant = variant
         self.lock.unlock()
         let variants = variant == "custom" ? ["custom", "standard"] : ["standard", "custom"]
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 3.0, execute: {
             let local = AyuGramSecurity.localFingerprint()
             self.verify(local: local, variants: variants, completion: { status in
                 self.setStatus(status)
+                self.refreshModeration(force: true)
                 if statsEnabled() {
                     self.sendStats(variant: variant)
                 }
@@ -374,6 +502,10 @@ public final class AyuGramSecurity {
             return
         }
         let build = self.build
+        if let origin = self.origin, origin.build != self.plistBuild {
+            completion(.modified)
+            return
+        }
         guard build > 0, let url = URL(string: "\(AyuGramSecurity.releaseURL)\(build)/AyuGram-\(variant)-\(build).integrity.json") else {
             completion(.modified)
             return

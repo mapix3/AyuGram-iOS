@@ -49,7 +49,7 @@ def render(summary):
     else:
         lines.append('None so far.')
     lines.append('')
-    lines.append('To block a certificate, run the "Block scam copy" workflow with its Team ID.')
+    lines.append('Copies and forks reach the bot with a block button.')
     lines.append('')
     lines.append('## Reports from users (%d)' % len(summary['reports']))
     lines.append('')
