@@ -328,7 +328,7 @@ public final class NavigationExpansionRendererImpl: NavigationExpansionRenderer 
             originContent.isUserInteractionEnabled = false
             self.view.addSubview(originContent)
         }
-        for (index, label) in sourceLoan.labels.enumerated() {
+        for (index, label) in sourceLoan.labels.enumerated() where index < destinationLoan.labels.count {
             let destinationLabel = index < destinationLoan.labels.count ? destinationLoan.labels[index] : nil
             let destinationColor = index < destinationLoan.labelColors.count ? destinationLoan.labelColors[index] : .white
             let host = LabelHost(source: label, destination: destinationLabel, destinationColor: destinationColor)
@@ -341,7 +341,7 @@ public final class NavigationExpansionRendererImpl: NavigationExpansionRenderer 
             self.labelHosts.append(host)
         }
         // The upper screen's labels the lower screen does not show, on the places measured for them above.
-        for index in sourceLoan.labels.count ..< destinationLoan.labels.count {
+        for index in min(sourceLoan.labels.count, destinationLoan.labels.count) ..< destinationLoan.labels.count {
             let destinationLabel = destinationLoan.labels[index]
             let destinationColor = index < destinationLoan.labelColors.count ? destinationLoan.labelColors[index] : .white
             let host = LabelHost(source: nil, destination: destinationLabel, destinationColor: destinationColor)
@@ -752,7 +752,7 @@ public final class NavigationExpansionRendererImpl: NavigationExpansionRenderer 
         }
 
         // The labels.
-        for (index, host) in self.labelHosts.enumerated() {
+        for (index, host) in self.labelHosts.enumerated() where frames.allSatisfy({ index < $0.labels.count }) {
             let labels = frames.map { $0.labels[index] }
             add(host.sourceHost.layer, "position", labels.map { point($0.center) })
             add(host.sourceHost.layer, "transform", labels.map { NSValue(caTransform3D: CATransform3DMakeScale($0.sourceScale, $0.sourceScale, 1.0)) })
