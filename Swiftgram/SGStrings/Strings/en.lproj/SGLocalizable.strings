@@ -461,3 +461,11 @@
 "Ayu.ReportAttach" = "Add photos or videos";
 "Ayu.ReportSendNow" = "Send without attachments";
 "Ayu.ReportAttachFailed" = "The report was sent, but some attachments did not upload.";
+"Ayu.Reason" = "Reason: %@";
+"Ayu.BannedTextReason" = "AyuGram is blocked for your account. If this is a mistake, write to @ayugramiosupdates.";
+"Ayu.Reason.scam" = "scamming people";
+"Ayu.Reason.resale" = "selling AyuGram";
+"Ayu.Reason.abuse" = "spam and abuse";
+"Ayu.Reason.testflight" = "distributing AyuGram through TestFlight or the App Store";
+"Ayu.Reason.modified" = "a modified build of AyuGram";
+"Ayu.Reason.fork" = "an unofficial fork of AyuGram";

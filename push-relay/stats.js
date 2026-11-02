@@ -59,6 +59,22 @@ export function cleanInstall(body, country, now) {
 }
 
 export const OFFICIAL_REPO = 'mapix3/AyuGram-iOS';
+
+export const BAN_REASONS = [['scam', 'Мошенничество'], ['resale', 'Продажа AyuGram'], ['abuse', 'Спам и злоупотребления'], ['other', 'Без причины']];
+export const COPY_REASONS = [['testflight', 'Раздача через TestFlight / App Store'], ['resale', 'Продажа AyuGram'], ['modified', 'Изменённая сборка'], ['fork', 'Неофициальный форк'], ['other', 'Без причины']];
+
+export function banReasonCode(value) {
+  return BAN_REASONS.some(([code]) => code === value) ? value : 'other';
+}
+
+export function copyReasonCode(value) {
+  return COPY_REASONS.some(([code]) => code === value) ? value : 'other';
+}
+
+export function reasonLabel(code) {
+  const found = [...BAN_REASONS, ...COPY_REASONS].find(([value]) => value === code);
+  return found ? found[1] : 'Без причины';
+}
 const COPIES_PER_DAY = 20;
 const COPY_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -236,21 +252,36 @@ export class Stats {
           warning = warn;
         }
       }
+      let banReason = null;
+      for (const hash of cleanAccounts(body.accounts)) {
+        const ban = await storage.get('ban:' + hash);
+        if (ban && ban.reason && ban.reason !== 'other') {
+          banReason = ban.reason;
+        }
+      }
       const check = body.check || null;
       let blocked = false;
+      let blockReason = null;
       let notify = null;
       if (check) {
         const keys = copyBlockKeys(check).map(([key]) => key);
         if (keys.length) {
           const found = await storage.get(keys);
-          blocked = [...found.values()].some(Boolean);
+          for (const value of found.values()) {
+            if (value) {
+              blocked = true;
+              if (value.reason && value.reason !== 'other') {
+                blockReason = value.reason;
+              }
+            }
+          }
         }
         const kind = copyKind(check);
         if (kind) {
           notify = await this.noteCopy(check, kind, now);
         }
       }
-      return Response.json({ banned, warning: warning ? warning.id : null, blocked, notify });
+      return Response.json({ banned, warning: warning ? warning.id : null, blocked, banReason: banned ? banReason : null, blockReason: blocked ? blockReason : null, notify });
     }
     if (request.method === 'GET' && url.pathname === '/bans') {
       return Response.json(await this.bans());
@@ -262,7 +293,7 @@ export class Stats {
       }
       const hash = await accountHash(id);
       if (action === 'ban') {
-        await storage.put('ban:' + hash, { time: now, id });
+        await storage.put('ban:' + hash, { time: now, id, reason: banReasonCode(url.searchParams.get('reason')) });
       } else if (action === 'unban') {
         await storage.delete('ban:' + hash);
       } else {
@@ -292,8 +323,9 @@ export class Stats {
       }
       if (action === 'block') {
         const entries = {};
+        const reason = copyReasonCode(url.searchParams.get('reason'));
         for (const key of keys) {
-          entries[key] = { time: now, cid };
+          entries[key] = { time: now, cid, reason };
         }
         await storage.put(entries);
       } else if (action === 'unblock') {
@@ -320,7 +352,7 @@ export class Stats {
       if (action === 'warn') {
         await storage.put('warn:' + hash, { id: rid + '-' + now, time: now, rid });
       } else if (action === 'ban') {
-        await storage.put('ban:' + hash, { time: now, rid });
+        await storage.put('ban:' + hash, { time: now, rid, reason: banReasonCode(url.searchParams.get('reason')) });
       } else if (action === 'unban') {
         await storage.delete('ban:' + hash);
       } else {
@@ -449,19 +481,19 @@ export class Stats {
       const key = value && value.rid ? await storage.get('q:' + value.rid) : null;
       const report = key ? await storage.get(key) : null;
       const id = (value && value.id) || (report ? report.target : '');
-      accounts.push({ rid: (value && value.rid) || '', id, name: report && report.targetName ? report.targetName : (id ? 'ID ' + id : ''), time: value ? value.time : 0 });
+      accounts.push({ rid: (value && value.rid) || '', id, name: report && report.targetName ? report.targetName : (id ? 'ID ' + id : ''), time: value ? value.time : 0, reason: (value && value.reason) || 'other' });
     }
     accounts.sort((a, b) => b.time - a.time);
     const seen = new Map();
     for (const [, value] of await storage.list({ prefix: 'blk:' })) {
       if (value && value.cid && !seen.has(value.cid)) {
-        seen.set(value.cid, value.time);
+        seen.set(value.cid, { time: value.time, reason: value.reason || 'other' });
       }
     }
     const copies = [];
-    for (const [cid, time] of seen) {
+    for (const [cid, { time, reason }] of seen) {
       const record = await storage.get('c:' + cid);
-      copies.push({ cid, kind: record ? record.kind : '', repo: record ? record.repo : '', team: record && record.details ? record.details.team : '', time });
+      copies.push({ cid, kind: record ? record.kind : '', repo: record ? record.repo : '', team: record && record.details ? record.details.team : '', time, reason });
     }
     copies.sort((a, b) => b.time - a.time);
     return { accounts, copies };
@@ -479,8 +511,9 @@ export class Stats {
     const keys = copyBlockKeys(record);
     const found = keys.length ? await storage.get(keys.map(([key]) => key)) : new Map();
     const blockedBy = keys.filter(([key]) => found.get(key)).map(([, label]) => label);
+    const firstBlock = keys.map(([key]) => found.get(key)).find(Boolean);
     const { installs, ...rest } = record;
-    return { record: rest, installs: installs.length, blockable: keys.map(([, label]) => label), blockedBy };
+    return { record: rest, installs: installs.length, blockable: keys.map(([, label]) => label), blockedBy, blockReason: firstBlock ? firstBlock.reason || 'other' : null };
   }
 
   async review(rid) {
@@ -604,6 +637,7 @@ export function copyMessage(copy) {
   lines.push('');
   if (copy.blockedBy && copy.blockedBy.length) {
     lines.push('Статус: ⛔ заблокирована по ' + copy.blockedBy.join(', '));
+    lines.push('Причина: ' + reasonLabel(copy.blockReason));
   } else if (copy.blockable && copy.blockable.length) {
     lines.push('Статус: работает. Блок сработает по ' + copy.blockable.join(', '));
   } else {

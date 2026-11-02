@@ -427,3 +427,11 @@
 "Ayu.ReportAttach" = "Прикріпити фото або відео";
 "Ayu.ReportSendNow" = "Надіслати без вкладень";
 "Ayu.ReportAttachFailed" = "Скаргу надіслано, але частина вкладень не завантажилася.";
+"Ayu.Reason" = "Причина: %@";
+"Ayu.BannedTextReason" = "AyuGram для твого акаунта заблоковано. Якщо це помилка, напиши в @ayugramiosupdates.";
+"Ayu.Reason.scam" = "шахрайство";
+"Ayu.Reason.resale" = "продаж AyuGram";
+"Ayu.Reason.abuse" = "спам і зловживання";
+"Ayu.Reason.testflight" = "поширення AyuGram через TestFlight або App Store";
+"Ayu.Reason.modified" = "змінена збірка AyuGram";
+"Ayu.Reason.fork" = "неофіційний форк AyuGram";
