@@ -228,7 +228,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/stats/')) {
-      return handleStats(request, env, url);
+      return handleStats(request, env, url, ctx);
     }
     // Open /test/<Bark key> in a browser to send a test notification and see Bark's answer.
     if (request.method === 'GET' && url.pathname.startsWith('/test/')) {

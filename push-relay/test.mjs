@@ -269,9 +269,24 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
   assert.equal((await ping({ ...base, id: 'bad id!' }, 'UA')).status, 400);
   assert.equal((await worker.fetch(new Request('https://relay.example/stats/ping', { method: 'POST', body: 'x'.repeat(5000) }), statsEnv)).status, 400, 'Oversized bodies are refused');
   const report = (text) => worker.fetch(new Request('https://relay.example/stats/report', { method: 'POST', body: JSON.stringify({ ...base, id: 'scam-0000', team: 'SCAM123456', text }) }), statsEnv);
-  assert.equal((await report('@scammer gave me an Apple ID')).status, 200);
-  for (let i = 0; i < 4; i += 1) await report('again ' + i);
-  assert.equal((await report('too many')).status, 429, 'Reports are limited per install and day');
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { sent.push({ url: String(url), body: JSON.parse(init.body) }); return new Response('{"ok":true}'); };
+  try {
+    assert.equal((await report('@scammer gave me an Apple ID')).status, 200);
+    assert.equal(sent.length, 0, 'Without a bot token nothing is sent to Telegram');
+    statsEnv.REPORT_BOT_TOKEN = '123:abc';
+    statsEnv.REPORT_CHAT_ID = '42';
+    for (let i = 0; i < 4; i += 1) await report('again ' + i);
+    assert.equal(sent.length, 4, 'Every accepted report reaches the owner in Telegram');
+    assert.equal(sent[0].url, 'https://api.telegram.org/bot123:abc/sendMessage');
+    assert.equal(sent[0].body.chat_id, '42');
+    assert.ok(sent[0].body.text.includes('again 0') && sent[0].body.text.includes('SCAM123456') && sent[0].body.text.includes('Сборка 207601'));
+    assert.equal((await report('too many')).status, 429, 'Reports are limited per install and day');
+    assert.equal(sent.length, 4, 'Refused reports are not sent');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
   assert.equal((await worker.fetch(new Request('https://relay.example/stats/summary'), statsEnv)).status, 403);
   assert.equal((await worker.fetch(new Request('https://relay.example/stats/summary', { headers: { authorization: 'Bearer wrong-token1' } }), statsEnv)).status, 403);
   const summary = await (await worker.fetch(new Request('https://relay.example/stats/summary', { headers: { authorization: 'Bearer secret-token' } }), statsEnv)).json();

@@ -205,7 +205,31 @@ function sameToken(a, b) {
   return diff === 0;
 }
 
-export async function handleStats(request, env, url) {
+export function reportMessage(report) {
+  const lines = ['🚨 Жалоба на скам', '', report.text, ''];
+  lines.push(['Сборка ' + (report.build || '?'), report.status, report.source, report.country].join(' · '));
+  if (report.team) {
+    lines.push('Сертификат: ' + report.team + (report.teamName ? ' (' + report.teamName + ')' : ''));
+  }
+  return lines.join('\n');
+}
+
+export async function notifyReport(report, env) {
+  if (!env || !env.REPORT_BOT_TOKEN || !env.REPORT_CHAT_ID) {
+    return false;
+  }
+  const response = await fetch('https://api.telegram.org/bot' + env.REPORT_BOT_TOKEN + '/sendMessage', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ chat_id: env.REPORT_CHAT_ID, text: reportMessage(report), link_preview_options: { is_disabled: true } }),
+  });
+  if (!response.ok) {
+    console.log('report not sent to Telegram: ' + response.status);
+  }
+  return response.ok;
+}
+
+export async function handleStats(request, env, url, ctx) {
   const stub = statsStub(env);
   if (!stub) {
     return new Response('stats unavailable\n', { status: 503 });
@@ -224,7 +248,16 @@ export async function handleStats(request, env, url) {
     if (!report) {
       return new Response('bad request\n', { status: 400 });
     }
-    return stub.fetch('https://stats.ayugram.invalid/report', { method: 'POST', body: JSON.stringify(report) });
+    const response = await stub.fetch('https://stats.ayugram.invalid/report', { method: 'POST', body: JSON.stringify(report) });
+    if (response.ok) {
+      const notify = notifyReport(report, env).catch((error) => console.log('report not sent to Telegram: ' + error));
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(notify);
+      } else {
+        await notify;
+      }
+    }
+    return response;
   }
   if (request.method === 'GET' && url.pathname === '/stats/summary') {
     const header = request.headers.get('authorization') || '';
