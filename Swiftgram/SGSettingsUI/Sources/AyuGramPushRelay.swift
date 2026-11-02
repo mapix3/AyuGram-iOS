@@ -174,6 +174,7 @@ enum AyuGramPushRelay {
     }
 
     private static var activityObservers: [NSObjectProtocol] = []
+    private static var openChat: EnginePeer.Id?
     private static var activityTimer: Foundation.Timer?
     private static let activitySeconds = 90
     private static let activityInterval: TimeInterval = 45.0
@@ -206,6 +207,12 @@ enum AyuGramPushRelay {
         activityObservers = [
             NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main, using: { _ in
                 updateActivity()
+                if let openChat {
+                    chatOpened(peerId: openChat)
+                }
+                Queue.mainQueue().after(2.0, {
+                    clearReadChats()
+                })
                 Queue.mainQueue().after(8.0, {
                     collectDeleted()
                 })
@@ -215,10 +222,20 @@ enum AyuGramPushRelay {
             }),
             NotificationCenter.default.addObserver(forName: Notification.Name("AyuGramChatOpened"), object: nil, queue: .main, using: { notification in
                 if let peerId = notification.userInfo?["peerId"] as? EnginePeer.Id {
+                    openChat = peerId
+                    chatOpened(peerId: peerId)
+                }
+            }),
+            NotificationCenter.default.addObserver(forName: Notification.Name("AyuGramChatClosed"), object: nil, queue: .main, using: { notification in
+                if let peerId = notification.userInfo?["peerId"] as? EnginePeer.Id, openChat == peerId {
+                    openChat = nil
                     chatOpened(peerId: peerId)
                 }
             })
         ]
+        Queue.mainQueue().after(4.0, {
+            clearReadChats()
+        })
         updateActivity()
         Queue.mainQueue().after(10.0, {
             collectDeleted()
@@ -273,6 +290,42 @@ enum AyuGramPushRelay {
             value += "="
         }
         return Data(base64Encoded: value)
+    }
+
+    /// Removes the notifications of chats that are read by now, or where the last message is
+    /// the user's own: read on another device, or answered from anywhere.
+    static func clearReadChats() {
+        guard let context = collectContext, let barkKey, !barkKey.isEmpty, let url = URL(string: baseURL + "/shown/" + activityId(barkKey: barkKey)), let body = try? JSONSerialization.data(withJSONObject: ["barkKey": barkKey]) else {
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.timeoutInterval = 15.0
+        URLSession.shared.dataTask(with: request, completionHandler: { data, response, _ in
+            guard (response as? HTTPURLResponse)?.statusCode == 200, let data, let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                return
+            }
+            for entry in entries {
+                guard let chat = entry["chat"] as? String, let peerId = relayPeerId(chat: chat) else {
+                    continue
+                }
+                let maxId = (entry["maxId"] as? NSNumber)?.int32Value ?? 0
+                let _ = (context.engine.data.get(
+                    TelegramEngine.EngineData.Item.Messages.PeerReadCounters(id: peerId),
+                    TelegramEngine.EngineData.Item.Messages.TopMessage(id: peerId)
+                )
+                |> deliverOnMainQueue).startStandalone(next: { counters, topMessage in
+                    var answered = false
+                    if let topMessage, !topMessage.flags.contains(.Incoming), topMessage.id.id >= maxId {
+                        answered = true
+                    }
+                    if !counters.isUnread || answered {
+                        chatOpened(peerId: peerId)
+                    }
+                })
+            }
+        }).resume()
     }
 
     private static func relayPeerId(chat: String) -> EnginePeer.Id? {

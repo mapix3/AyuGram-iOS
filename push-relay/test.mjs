@@ -83,7 +83,7 @@ for (const encrypt of [encryptAes128gcm, encryptAesgcm]) {
   assert.equal(sent[0].body.device_key, 'BARKKEY123');
   assert.equal(sent[0].body.title, 'Alice');
   assert.equal(sent[0].body.body, 'привет');
-  assert.equal(sent[0].body.url, 'ayugram://chat?user=7');
+  assert.equal(sent[0].body.url, 'ayugram://chat?user=7&msg=5', 'A tap opens the message itself');
   assert.equal(sent[0].body.ttl, 86400, 'Bark deletes relayed notifications after a day');
   assert.equal(sent[0].body.id, 'user7m5', 'The same message from two sessions replaces one notification');
 }
@@ -97,6 +97,7 @@ assert.equal(chatTarget({ chat_id: '12', from_id: '7' }, 'Team').link, 'ayugram:
 assert.equal(chatTarget({ channel_id: '99' }, 'News').link, 'ayugram://chat?channel=99');
 assert.deepEqual(chatTarget(undefined, 'x'), {});
 assert.equal(chatTarget({ channel_id: '99', msg_id: '42' }, 'News').id, 'channel99m42');
+assert.equal(chatTarget({ channel_id: '99', msg_id: '42' }, 'News').link, 'ayugram://chat?channel=99&msg=42');
 assert.equal(chatTarget({ chat_id: '12', from_id: '7' }, 'Team').group, 'Team');
 assert.equal(chatTarget({ chat_id: '12' }, ' ').group, 'chat12');
 assert.equal(chatTarget({ from_id: '7' }, 'x').id, undefined);
@@ -200,12 +201,16 @@ assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_i
   await push('3');
   assert.equal(sent.length, 2, 'The next message is shown');
   sent.length = 0;
+  const shown = (key) => worker.fetch(new Request('https://relay.example/shown/' + id, { method: 'POST', body: JSON.stringify({ barkKey: key }) }), activeEnv);
+  assert.deepEqual(await (await shown('ACTIVEKEY1')).json(), [{ chat: 'user70', maxId: 3 }], 'The app learns which chats still have notifications');
+  assert.equal((await shown('WRONGKEY12')).status, 400);
   assert.equal((await worker.fetch(new Request('https://relay.example/seen/' + id, { method: 'POST', body: JSON.stringify({ barkKey: 'ACTIVEKEY1', chat: 'user70' }) }), activeEnv)).status, 200);
   assert.deepEqual(sent.map((s) => s.body.id).sort(), ['user70m2', 'user70m3'], 'Opening the chat removes its notifications from Bark');
   assert.ok(sent.every((s) => s.body.delete === '1' && s.body.device_key === 'ACTIVEKEY1'));
   sent.length = 0;
   await worker.fetch(new Request('https://relay.example/seen/' + id, { method: 'POST', body: JSON.stringify({ barkKey: 'ACTIVEKEY1', chat: 'user70' }) }), activeEnv);
   assert.equal(sent.length, 0, 'Removed notifications are forgotten');
+  assert.deepEqual(await (await shown('ACTIVEKEY1')).json(), [], 'Cleared chats are no longer listed');
   assert.equal((await worker.fetch(new Request('https://relay.example/seen/' + id, { method: 'POST', body: JSON.stringify({ barkKey: 'WRONGKEY12', chat: 'user70' }) }), activeEnv)).status, 400);
   await push('4');
   await push('5');
