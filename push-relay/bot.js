@@ -1,4 +1,4 @@
-import { copyMenu, copyMessage, reportMessage, statsStub } from './stats.js';
+import { OFFICIAL_REPO, copyMenu, copyMessage, reportMessage, statsStub } from './stats.js';
 
 const kyiv = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -160,10 +160,77 @@ async function handleCopyCallback(env, query, action, cid, answer) {
   await answer(action === 'K' ? '⛔ Заблокирована, AyuGram в ней закроется при следующем запуске' : '✅ Разблокирована', true);
 }
 
+function copyLabel(copy) {
+  return copy.repo && copy.repo !== OFFICIAL_REPO ? copy.repo : (copy.team || copy.kind || copy.cid);
+}
+
+function bansText(data) {
+  const lines = ['🔐 Активные блокировки', ''];
+  lines.push('Забаненные аккаунты (' + data.accounts.length + '):');
+  if (data.accounts.length) {
+    data.accounts.forEach((ban) => lines.push('• ' + (ban.name || 'без имени') + ' · ' + when(ban.time)));
+  } else {
+    lines.push('нет');
+  }
+  lines.push('');
+  lines.push('Заблокированные копии (' + data.copies.length + '):');
+  if (data.copies.length) {
+    data.copies.forEach((copy) => lines.push('• ' + copyLabel(copy) + ' · ' + when(copy.time)));
+  } else {
+    lines.push('нет');
+  }
+  return lines.join('\n').slice(0, 4000);
+}
+
+function bansMenu(data) {
+  const rows = [];
+  for (const ban of data.accounts) {
+    if (ban.rid) {
+      rows.push([{ text: '✅ Разбанить ' + (ban.name || ban.rid), callback_data: 'U:' + ban.rid }]);
+    }
+  }
+  for (const copy of data.copies) {
+    rows.push([{ text: '✅ Разблокировать ' + copyLabel(copy), callback_data: 'X:' + copy.cid }]);
+  }
+  rows.push([{ text: '🔄 Обновить', callback_data: 'L:x' }]);
+  return { inline_keyboard: rows.map((row) => row.map((button) => ({ ...button, text: button.text.slice(0, 60) }))) };
+}
+
+async function sendBans(env, chatId) {
+  const response = await stats(env, '/bans');
+  const data = response && response.ok ? await response.json() : { accounts: [], copies: [] };
+  await telegram(env, 'sendMessage', { chat_id: chatId, text: bansText(data), link_preview_options: { is_disabled: true }, reply_markup: bansMenu(data) });
+}
+
+async function handleBansCallback(env, query, action, id, answer) {
+  const message = query.message;
+  if (action === 'U') {
+    const review = await stats(env, '/review/' + id);
+    if (!review || !review.ok) {
+      await answer('Жалоба устарела, разбан отсюда недоступен', true);
+      return;
+    }
+    const done = await stats(env, '/moderate/unban/' + id, 'POST');
+    await answer(done && done.ok ? '✅ Разбанен' : 'Не получилось', true);
+  } else if (action === 'X') {
+    const done = await stats(env, '/copy-moderate/unblock/' + id, 'POST');
+    await answer(done && done.ok ? '✅ Разблокирована' : 'Не получилось', true);
+  }
+  const response = await stats(env, '/bans');
+  const data = response && response.ok ? await response.json() : { accounts: [], copies: [] };
+  if (message) {
+    await telegram(env, 'editMessageText', { chat_id: message.chat.id, message_id: message.message_id, text: bansText(data), link_preview_options: { is_disabled: true }, reply_markup: bansMenu(data) });
+  }
+}
+
 async function handleCallback(env, query) {
   const message = query.message;
   const [action, rid] = String(query.data || '').split(':');
   const answer = (text, alert) => telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: text || undefined, show_alert: Boolean(alert) });
+  if (['U', 'X', 'L'].includes(action)) {
+    await handleBansCallback(env, query, action, rid, answer);
+    return;
+  }
   if (['k', 'K', 'x', 'y'].includes(action)) {
     await handleCopyCallback(env, query, action, rid, answer);
     return;
@@ -254,8 +321,12 @@ export async function handleBot(request, env, ctx) {
   const work = (async () => {
     if (query) {
       await handleCallback(env, query);
-    } else if (message && message.chat && String(message.chat.id) === owner && typeof message.text === 'string' && message.text.startsWith('/start')) {
-      await telegram(env, 'sendMessage', { chat_id: owner, text: 'Готов. Жалобы на скам будут приходить сюда, кнопка «Рассмотреть жалобу» под каждой.' });
+    } else if (message && message.chat && String(message.chat.id) === owner && typeof message.text === 'string') {
+      if (message.text.startsWith('/bans') || message.text.startsWith('/blocks')) {
+        await sendBans(env, owner);
+      } else if (message.text.startsWith('/start')) {
+        await telegram(env, 'sendMessage', { chat_id: owner, text: 'Готов. Жалобы на скам приходят сюда. /bans — список банов и блокировок с кнопками снятия.' });
+      }
     }
   })().catch((error) => console.log('bot update failed: ' + error));
   if (ctx && typeof ctx.waitUntil === 'function') {
