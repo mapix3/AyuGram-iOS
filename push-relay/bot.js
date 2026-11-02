@@ -87,7 +87,7 @@ function menu(review) {
 
 export function detailsText(review) {
   const report = review.report;
-  const lines = ['📋 Жалоба ' + report.rid, 'Время: ' + when(report.time), 'Текст: ' + report.text, ''];
+  const lines = ['📋 Жалоба ' + report.rid, 'Время: ' + when(report.time), 'Текст: ' + report.text, 'Вложений: ' + (report.received || 0) + ' из ' + (report.attachments || 0), ''];
   const target = review.target;
   lines.push('👤 Скамер');
   if (target) {
