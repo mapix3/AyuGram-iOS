@@ -255,6 +255,27 @@ export class Stats {
     if (request.method === 'GET' && url.pathname === '/bans') {
       return Response.json(await this.bans());
     }
+    if (request.method === 'POST' && url.pathname.startsWith('/ban-id/')) {
+      const [, , action, id] = url.pathname.split('/');
+      if (!/^[1-9][0-9]{0,19}$/.test(id || '')) {
+        return new Response('bad request\n', { status: 400 });
+      }
+      const hash = await accountHash(id);
+      if (action === 'ban') {
+        await storage.put('ban:' + hash, { time: now, id });
+      } else if (action === 'unban') {
+        await storage.delete('ban:' + hash);
+      } else {
+        return new Response('not found\n', { status: 404 });
+      }
+      let installs = 0;
+      for (const [, value] of await storage.list({ prefix: 'i:' })) {
+        if ((value.accounts || []).includes(hash)) {
+          installs += 1;
+        }
+      }
+      return Response.json({ ok: true, installs });
+    }
     if (request.method === 'GET' && url.pathname.startsWith('/copy/')) {
       const copy = await this.copy(url.pathname.slice(6));
       return copy ? Response.json(copy) : new Response('not found\n', { status: 404 });
@@ -427,7 +448,8 @@ export class Stats {
     for (const [, value] of await storage.list({ prefix: 'ban:' })) {
       const key = value && value.rid ? await storage.get('q:' + value.rid) : null;
       const report = key ? await storage.get(key) : null;
-      accounts.push({ rid: (value && value.rid) || '', name: report ? (report.targetName || ('ID ' + report.target)) : '', time: value ? value.time : 0 });
+      const id = (value && value.id) || (report ? report.target : '');
+      accounts.push({ rid: (value && value.rid) || '', id, name: report && report.targetName ? report.targetName : (id ? 'ID ' + id : ''), time: value ? value.time : 0 });
     }
     accounts.sort((a, b) => b.time - a.time);
     const seen = new Map();
