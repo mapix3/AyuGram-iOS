@@ -5,5 +5,11 @@
   "ipa": {
     "standard": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-207501/AyuGram-standard-207501.ipa",
     "custom": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-207501/AyuGram-custom-207501.ipa"
+  },
+  "block": {
+    "teams": [],
+    "builds": [
+      207801
+    ]
   }
 }
