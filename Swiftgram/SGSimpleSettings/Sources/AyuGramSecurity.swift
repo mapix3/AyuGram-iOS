@@ -93,6 +93,11 @@ public final class AyuGramSecurity {
     private var started = false
     private let statsMarkerKey = "ayugram.stats.last"
     private let installIdKey = "ayugram.stats.id"
+    private let accountsKey = "ayugram.stats.accounts"
+    private let banKey = "ayugram.moderation.banned"
+    private let warningSeenKey = "ayugram.moderation.warning"
+    private var lastModerationCheck: Date?
+    private var currentWarning: String?
 
     private init() {
         self.signing = AyuGramSecurity.readSigning()
@@ -111,7 +116,88 @@ public final class AyuGramSecurity {
     public var isBlocked: Bool {
         self.lock.lock()
         defer { self.lock.unlock() }
-        return self.rules.matches(teamId: self.signing.teamId, build: self.build, status: self.currentStatus)
+        return self.rules.matches(teamId: self.signing.teamId, build: self.build, status: self.currentStatus) || UserDefaults.standard.bool(forKey: self.banKey)
+    }
+
+    public var isBanned: Bool {
+        return UserDefaults.standard.bool(forKey: self.banKey)
+    }
+
+    public var pendingWarning: String? {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.currentWarning
+    }
+
+    public static func accountHash(_ id: Int64) -> String {
+        let digest = SHA256.hash(data: Data("ayugram-account|\(id)".utf8))
+        return String(digest.map { String(format: "%02x", $0) }.joined().prefix(32))
+    }
+
+    public var accountHashes: [String] {
+        return UserDefaults.standard.stringArray(forKey: self.accountsKey) ?? []
+    }
+
+    public func noteAccount(_ id: Int64) {
+        guard id != 0 else {
+            return
+        }
+        let hash = AyuGramSecurity.accountHash(id)
+        var hashes = self.accountHashes
+        if hashes.contains(hash) {
+            return
+        }
+        hashes.append(hash)
+        UserDefaults.standard.set(Array(hashes.suffix(8)), forKey: self.accountsKey)
+    }
+
+    public func acknowledgeWarning() {
+        self.lock.lock()
+        let warning = self.currentWarning
+        self.currentWarning = nil
+        self.lock.unlock()
+        if let warning {
+            UserDefaults.standard.set(warning, forKey: self.warningSeenKey)
+        }
+    }
+
+    public func refreshModeration() {
+        self.lock.lock()
+        if let last = self.lastModerationCheck, Date().timeIntervalSince(last) < 600.0 {
+            self.lock.unlock()
+            return
+        }
+        self.lastModerationCheck = Date()
+        self.lock.unlock()
+        let hashes = self.accountHashes
+        guard !hashes.isEmpty, let url = URL(string: AyuGramSecurity.relayURL + "/stats/status"), let body = try? JSONSerialization.data(withJSONObject: ["id": self.installId, "accounts": hashes] as [String: Any]) else {
+            return
+        }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20.0)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        let session = URLSession(configuration: .ephemeral)
+        session.dataTask(with: request, completionHandler: { data, response, error in
+            session.finishTasksAndInvalidate()
+            guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return
+            }
+            let banned = (object["banned"] as? Bool) ?? false
+            var changed = UserDefaults.standard.bool(forKey: self.banKey) != banned
+            UserDefaults.standard.set(banned, forKey: self.banKey)
+            if let warning = object["warning"] as? String, !warning.isEmpty, warning != UserDefaults.standard.string(forKey: self.warningSeenKey) {
+                self.lock.lock()
+                if self.currentWarning != warning {
+                    self.currentWarning = warning
+                    changed = true
+                }
+                self.lock.unlock()
+            }
+            if changed {
+                self.notify()
+            }
+        }).resume()
     }
 
     public var blockMessage: String? {
@@ -162,7 +248,7 @@ public final class AyuGramSecurity {
 
     public func sendStats(variant: String) {
         let day = Int(Date().timeIntervalSince1970 / 86400.0)
-        let marker = "\(self.build)|\(day)|\(self.status.rawValue)"
+        let marker = "\(self.build)|\(day)|\(self.status.rawValue)|\(self.accountHashes.joined(separator: ","))"
         if UserDefaults.standard.string(forKey: self.statsMarkerKey) == marker {
             return
         }
@@ -173,9 +259,15 @@ public final class AyuGramSecurity {
         })
     }
 
-    public func report(text: String, variant: String, completion: @escaping (Bool) -> Void) {
+    public func report(text: String, target: Int64, targetName: String, variant: String, completion: @escaping (Bool) -> Void) {
         var body = self.payload(variant: variant)
         body["text"] = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(600))
+        if target != 0 {
+            body["target"] = String(target)
+        }
+        if !targetName.isEmpty {
+            body["targetName"] = String(targetName.prefix(160))
+        }
         self.post(path: "/stats/report", body: body, completion: { ok in
             DispatchQueue.main.async {
                 completion(ok)
@@ -214,6 +306,7 @@ public final class AyuGramSecurity {
             "profile": reveal ? self.signing.profileName : "",
             "bundle": reveal ? (Bundle.main.bundleIdentifier ?? "") : "",
             "devices": self.signing.devices,
+            "accounts": self.accountHashes,
             "os": "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
             "device": AyuGramSecurity.deviceModel
         ]

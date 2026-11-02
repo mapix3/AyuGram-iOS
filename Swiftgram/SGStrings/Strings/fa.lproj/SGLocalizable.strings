@@ -21,7 +21,7 @@
 "Ayu.ReportScamSent" = "Thanks! The report has been sent.";
 "Ayu.ReportScamFailed" = "Could not send the report. Try again later.";
 "Ayu.AnonymousStats" = "Anonymous statistics";
-"Ayu.AnonymousStatsInfo" = "Once a day AyuGram sends its build number, how it was installed and the country, plus the signing certificate for modified or third-party copies. Your account, phone number and chats are never sent. This helps find scam copies of AyuGram.";
+"Ayu.AnonymousStatsInfo" = "Once a day AyuGram sends its build number, how it was installed and the country, plus the signing certificate for modified or third-party copies. Your account ID is sent only as a one-way hash, so it can be matched only against a scammer someone reported. Your phone number and chats are never sent. This helps find scam copies of AyuGram and scammers.";
 "Ayu.ScamTitle" = "Scam copy of AyuGram";
 "Ayu.ScamText" = "This copy of AyuGram is spread by scammers, for example through someone else's Apple ID. Sign out of that Apple ID in iPhone Settings, delete this app and download AyuGram only from @ayugramiosupdates.";
 "Ayu.ScamChannel" = "Official channel";
@@ -186,3 +186,8 @@
 "Ayu.ViewDeletedInfo" = "گفتگوهایی که پیام‌های حذف‌شده آن‌ها روی این دستگاه نگه داشته شده است. یکی را باز کنید تا پیام‌های حذف‌شده یا کل گفتگو را ببینید.";
 "Ayu.ViewDeletedEmpty" = "هنوز پیام حذف‌شده‌ای نیست.";
 "Ayu.ConfirmReadReceipt" = "تأیید ارسال رسید خواندن";
+"Ayu.BannedTitle" = "AyuGram is blocked";
+"Ayu.BannedText" = "Users reported that you scam people using AyuGram, so AyuGram is blocked on this device. If this is a mistake, write to @ayugramiosupdates.";
+"Ayu.WarnTitle" = "Warning";
+"Ayu.WarnText" = "Users reported that you scam people using AyuGram. If this goes on, AyuGram will be blocked for you.";
+"Ayu.WarnOk" = "Got it";

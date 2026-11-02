@@ -13,6 +13,18 @@ function text(value, max) {
   return String(value).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
 }
 
+export function cleanAccounts(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return [...new Set(value.filter((item) => typeof item === 'string' && /^[0-9a-f]{32}$/.test(item)))].slice(0, 8);
+}
+
+export async function accountHash(id) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('ayugram-account|' + id));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
 export function cleanInstall(body, country, now) {
   if (!body || typeof body !== 'object') {
     return null;
@@ -37,6 +49,7 @@ export function cleanInstall(body, country, now) {
     os: text(body.os, 40),
     device: text(body.device, 40),
     devices: Math.min(Math.max(Number.parseInt(text(body.devices, 6), 10) || 0, 0), 100000),
+    accounts: cleanAccounts(body.accounts),
     country: text(country, 4) || '??',
     seen: now,
   };
@@ -52,9 +65,12 @@ export function cleanReport(body, country, now) {
     return null;
   }
   const install = cleanInstall(body, country, now);
+  const target = text(body.target, 20);
   return {
     id,
     text: message,
+    target: /^[1-9][0-9]{0,19}$/.test(target) ? target : '',
+    targetName: text(body.targetName, 160),
     build: install ? install.build : 0,
     source: install ? install.source : 'unknown',
     status: install ? install.status : 'unknown',
@@ -116,6 +132,7 @@ export function summarize(installs, reports, now) {
     status: report.status,
     build: report.build,
     country: report.country,
+    targetName: report.targetName || '',
   }));
   return summary;
 }
@@ -131,8 +148,50 @@ export class Stats {
     const now = Date.now();
     if (request.method === 'POST' && url.pathname === '/ping') {
       const install = await request.json();
+      const previous = await storage.get('i:' + install.id);
+      install.first = previous && previous.first ? previous.first : install.seen;
       await storage.put('i:' + install.id, install);
       return new Response('ok\n');
+    }
+    if (request.method === 'POST' && url.pathname === '/status') {
+      const body = await request.json();
+      let banned = false;
+      let warning = null;
+      for (const hash of cleanAccounts(body.accounts)) {
+        if (await storage.get('ban:' + hash)) {
+          banned = true;
+        }
+        const warn = await storage.get('warn:' + hash);
+        if (warn && (!warning || warn.time > warning.time)) {
+          warning = warn;
+        }
+      }
+      return Response.json({ banned, warning: warning ? warning.id : null });
+    }
+    if (request.method === 'GET' && url.pathname.startsWith('/review/')) {
+      const review = await this.review(url.pathname.slice(8));
+      return review ? Response.json(review) : new Response('not found\n', { status: 404 });
+    }
+    if (request.method === 'POST' && url.pathname.startsWith('/moderate/')) {
+      const [, , action, rid] = url.pathname.split('/');
+      const review = await this.review(rid);
+      if (!review) {
+        return new Response('not found\n', { status: 404 });
+      }
+      if (!review.target) {
+        return new Response('no target\n', { status: 409 });
+      }
+      const hash = review.target.hash;
+      if (action === 'warn') {
+        await storage.put('warn:' + hash, { id: rid + '-' + now, time: now, rid });
+      } else if (action === 'ban') {
+        await storage.put('ban:' + hash, { time: now, rid });
+      } else if (action === 'unban') {
+        await storage.delete('ban:' + hash);
+      } else {
+        return new Response('not found\n', { status: 404 });
+      }
+      return Response.json(await this.review(rid));
     }
     if (request.method === 'POST' && url.pathname === '/report') {
       const report = await request.json();
@@ -143,8 +202,11 @@ export class Stats {
         return new Response('limit\n', { status: 429 });
       }
       await storage.put(limitKey, count + 1);
-      await storage.put('r:' + String(now).padStart(15, '0') + ':' + report.id + ':' + crypto.randomUUID(), report);
-      return new Response('ok\n');
+      report.rid = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+      const key = 'r:' + String(now).padStart(15, '0') + ':' + report.id + ':' + report.rid;
+      await storage.put(key, report);
+      await storage.put('q:' + report.rid, key);
+      return Response.json({ ok: true, rid: report.rid });
     }
     if (request.method === 'GET' && url.pathname === '/summary') {
       const installs = [];
@@ -160,6 +222,9 @@ export class Stats {
       for (const [key, value] of await storage.list({ prefix: 'r:' })) {
         if (now - value.time > REPORT_TTL_MS) {
           stale.push(key);
+          if (value.rid) {
+            stale.push('q:' + value.rid);
+          }
         } else {
           reports.push(value);
         }
@@ -176,9 +241,48 @@ export class Stats {
     }
     return new Response('not found\n', { status: 404 });
   }
+
+  async review(rid) {
+    if (!/^[0-9a-f]{12}$/.test(rid || '')) {
+      return null;
+    }
+    const storage = this.state.storage;
+    const key = await storage.get('q:' + rid);
+    const report = key ? await storage.get(key) : null;
+    if (!report) {
+      return null;
+    }
+    const reporter = (await storage.get('i:' + report.id)) || null;
+    let target = null;
+    if (report.target) {
+      const hash = await accountHash(report.target);
+      const installs = [];
+      for (const [, value] of await storage.list({ prefix: 'i:' })) {
+        if ((value.accounts || []).includes(hash)) {
+          installs.push(value);
+        }
+      }
+      installs.sort((a, b) => b.seen - a.seen);
+      target = {
+        id: report.target,
+        name: report.targetName || '',
+        hash,
+        installs: installs.map(({ id, accounts, ...rest }) => rest),
+        ban: (await storage.get('ban:' + hash)) || null,
+        warning: (await storage.get('warn:' + hash)) || null,
+      };
+    }
+    let reporterInstall = null;
+    if (reporter) {
+      const { id, accounts, ...rest } = reporter;
+      reporterInstall = rest;
+    }
+    const { id, ...publicReport } = report;
+    return { report: publicReport, reporter: reporterInstall, target };
+  }
 }
 
-function statsStub(env) {
+export function statsStub(env) {
   return env && env.STATS ? env.STATS.get(env.STATS.idFromName('global')) : null;
 }
 
@@ -207,6 +311,9 @@ function sameToken(a, b) {
 
 export function reportMessage(report) {
   const lines = ['🚨 Жалоба на скам', '', report.text, ''];
+  if (report.target || report.targetName) {
+    lines.push('На кого: ' + (report.targetName || '-') + (report.target ? ' (ID ' + report.target + ')' : ''));
+  }
   lines.push(['Сборка ' + (report.build || '?'), report.status, report.source, report.country].join(' · '));
   if (report.team) {
     lines.push('Сертификат: ' + report.team + (report.teamName ? ' (' + report.teamName + ')' : ''));
@@ -221,7 +328,12 @@ export async function notifyReport(report, env) {
   const response = await fetch('https://api.telegram.org/bot' + env.REPORT_BOT_TOKEN + '/sendMessage', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: env.REPORT_CHAT_ID, text: reportMessage(report), link_preview_options: { is_disabled: true } }),
+    body: JSON.stringify({
+      chat_id: env.REPORT_CHAT_ID,
+      text: reportMessage(report),
+      link_preview_options: { is_disabled: true },
+      reply_markup: report.rid ? { inline_keyboard: [[{ text: '🔎 Рассмотреть жалобу', callback_data: 'v:' + report.rid }]] } : undefined,
+    }),
   });
   if (!response.ok) {
     console.log('report not sent to Telegram: ' + response.status);
@@ -250,6 +362,8 @@ export async function handleStats(request, env, url, ctx) {
     }
     const response = await stub.fetch('https://stats.ayugram.invalid/report', { method: 'POST', body: JSON.stringify(report) });
     if (response.ok) {
+      const stored = await response.clone().json().catch(() => ({}));
+      report.rid = stored.rid || '';
       const notify = notifyReport(report, env).catch((error) => console.log('report not sent to Telegram: ' + error));
       if (ctx && typeof ctx.waitUntil === 'function') {
         ctx.waitUntil(notify);
@@ -258,6 +372,13 @@ export async function handleStats(request, env, url, ctx) {
       }
     }
     return response;
+  }
+  if (request.method === 'POST' && url.pathname === '/stats/status') {
+    const body = await readBody(request);
+    if (!body || !/^[A-Za-z0-9-]{8,64}$/.test(text(body.id, 64))) {
+      return new Response('bad request\n', { status: 400 });
+    }
+    return stub.fetch('https://stats.ayugram.invalid/status', { method: 'POST', body: JSON.stringify({ accounts: cleanAccounts(body.accounts) }) });
   }
   if (request.method === 'GET' && url.pathname === '/stats/summary') {
     const header = request.headers.get('authorization') || '';

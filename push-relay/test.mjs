@@ -1,6 +1,7 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
 import { webcrypto as crypto } from 'node:crypto';
+import { accountHash } from './stats.js';
 import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
 
 const cacheStore = new Map();
@@ -301,5 +302,77 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
   assert.equal(summary.byCountry.UA, 1);
   assert.ok(!JSON.stringify(summary).includes('install-0001'), 'Install ids never leave the worker');
   assert.equal((await worker.fetch(new Request('https://relay.example/stats/ping', { method: 'POST', body: '{}' }), {})).status, 503);
+
+  const scammerHash = await accountHash('555');
+  assert.equal(scammerHash, (await import('node:crypto')).createHash('sha256').update('ayugram-account|555').digest('hex').slice(0, 32), 'The app and the worker hash account ids the same way');
+  assert.equal((await ping({ ...base, id: 'scammer-001', accounts: [scammerHash, 'not-a-hash'] }, 'RU')).status, 200);
+  const botEnv = { STATS, STATS_TOKEN: 'secret-token', REPORT_BOT_TOKEN: '123:abc', REPORT_CHAT_ID: '1272887902', REPORT_WEBHOOK_SECRET: 'hook-secret' };
+  const calls = [];
+  const realFetch2 = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { calls.push({ method: String(url).split('/').pop(), body: JSON.parse(init.body) }); return new Response('{"ok":true}'); };
+  const status = async (accounts) => (await worker.fetch(new Request('https://relay.example/stats/status', { method: 'POST', body: JSON.stringify({ id: 'install-0001', accounts }) }), botEnv)).json();
+  const hook = (update, secret = 'hook-secret') => worker.fetch(new Request('https://relay.example/tg/hook', { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': secret }, body: JSON.stringify(update) }), botEnv);
+  const press = (data, from = 1272887902) => hook({ callback_query: { id: 'q1', from: { id: from }, data, message: { message_id: 7, chat: { id: from } } } });
+  try {
+    const sendReport = (body) => worker.fetch(new Request('https://relay.example/stats/report', { method: 'POST', body: JSON.stringify({ ...base, id: 'victim-0001', ...body }) }), botEnv);
+    assert.equal((await sendReport({ text: '@scam sold me AyuGram', target: '555', targetName: '@scam Scam' })).status, 200);
+    const notice = calls.pop();
+    assert.equal(notice.method, 'sendMessage');
+    assert.equal(notice.body.chat_id, '1272887902');
+    assert.ok(notice.body.text.includes('На кого: @scam Scam (ID 555)'));
+    const rid = notice.body.reply_markup.inline_keyboard[0][0].callback_data.slice(2);
+    assert.match(rid, /^[0-9a-f]{12}$/);
+    assert.equal((await hook({ message: { from: { id: 1272887902 }, chat: { id: 1272887902 }, text: '/start' } }, 'wrong-secret')).status, 403, 'Updates without the webhook secret are refused');
+    assert.equal((await press('v:' + rid, 999)).status, 200);
+    assert.equal((await hook({ message: { from: { id: 999 }, chat: { id: 999 }, text: '/start' } })).status, 200);
+    assert.equal(calls.length, 0, 'The bot ignores everyone but the owner');
+    await press('v:' + rid);
+    let edit = calls.find((call) => call.method === 'editMessageText');
+    assert.ok(edit.body.text.includes('AyuGram: ✅ установлен (1 устр.)'), 'The review checks whether the scammer has AyuGram');
+    assert.deepEqual(edit.body.reply_markup.inline_keyboard.flat().map((b) => b.callback_data), ['w:' + rid, 'b:' + rid, 'd:' + rid, 'm:' + rid]);
+    assert.deepEqual(await status([scammerHash]), { banned: false, warning: null });
+    calls.length = 0;
+    await press('w:' + rid);
+    const warned = await status([scammerHash]);
+    assert.equal(warned.banned, false);
+    assert.ok(warned.warning.startsWith(rid), 'A warning reaches the scammer install');
+    assert.deepEqual(await status([await accountHash('556')]), { banned: false, warning: null }, 'Other accounts are not affected');
+    calls.length = 0;
+    await press('b:' + rid);
+    edit = calls.find((call) => call.method === 'editMessageText');
+    assert.equal(edit.body.reply_markup.inline_keyboard[0][0].callback_data, 'B:' + rid, 'A ban asks for confirmation');
+    assert.equal((await status([scammerHash])).banned, false);
+    calls.length = 0;
+    await press('B:' + rid);
+    assert.equal((await status(['0'.repeat(32), scammerHash])).banned, true, 'The ban reaches the scammer install');
+    edit = calls.find((call) => call.method === 'editMessageText');
+    assert.ok(edit.body.text.includes('⛔ забанен'));
+    assert.equal(edit.body.reply_markup.inline_keyboard[0][1].callback_data, 'u:' + rid);
+    calls.length = 0;
+    await press('d:' + rid);
+    const details = calls.find((call) => call.method === 'sendMessage');
+    assert.ok(details.body.text.includes('ID: 555') && details.body.text.includes('установлен на 1 устр.') && details.body.text.includes('Установка: ✅ найдена') === false);
+    assert.ok(details.body.text.includes('Установка: ❌ не найдена'), 'A report from an install that never pinged is marked');
+    assert.ok(!details.body.text.includes('scammer-001') && !details.body.text.includes(scammerHash), 'Install ids and hashes stay inside the worker');
+    calls.length = 0;
+    await press('u:' + rid);
+    assert.equal((await status([scammerHash])).banned, false, 'Unban lifts it');
+    calls.length = 0;
+    const other = await worker.fetch(new Request('https://relay.example/stats/report', { method: 'POST', body: JSON.stringify({ ...base, id: 'install-0001', text: 'no username here' }) }), botEnv);
+    assert.equal(other.status, 200);
+    const plainRid = calls.pop().body.reply_markup.inline_keyboard[0][0].callback_data.slice(2);
+    calls.length = 0;
+    await press('w:' + plainRid);
+    const refused = calls.find((call) => call.method === 'answerCallbackQuery');
+    assert.ok(refused.body.show_alert && refused.body.text.startsWith('Не на кого'), 'Without a scammer there is nobody to warn');
+    calls.length = 0;
+    await press('d:' + plainRid);
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('Установка: ✅ найдена'), 'A report from a real install is marked');
+    calls.length = 0;
+    await press('v:ffffffffffff');
+    assert.ok(calls.find((call) => call.method === 'answerCallbackQuery').body.text === 'Жалоба не найдена');
+  } finally {
+    globalThis.fetch = realFetch2;
+  }
 }
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');
