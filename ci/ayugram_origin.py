@@ -37,13 +37,34 @@ def open_seal(data):
     return json.loads(bytes(plain))
 
 
+def detect_ci(env):
+    if env.get('GITHUB_ACTIONS') == 'true' or env.get('GITHUB_REPOSITORY'):
+        return 'github', env.get('GITHUB_SERVER_URL') or 'https://github.com', env.get('GITHUB_REPOSITORY', ''), env.get('GITHUB_SHA', ''), env.get('GITHUB_RUN_ID', '')
+    if env.get('GITLAB_CI'):
+        return 'gitlab', env.get('CI_SERVER_URL', ''), env.get('CI_PROJECT_PATH', ''), env.get('CI_COMMIT_SHA', ''), env.get('CI_PIPELINE_ID', '')
+    if env.get('BITRISE_IO') or env.get('BITRISE_BUILD_NUMBER'):
+        return 'bitrise', '', '', env.get('BITRISE_GIT_COMMIT', ''), env.get('BITRISE_BUILD_NUMBER', '')
+    if env.get('CM_BUILD_ID'):
+        return 'codemagic', '', '', env.get('CM_COMMIT', ''), ''
+    if env.get('CIRCLECI'):
+        slug = '/'.join(part for part in [env.get('CIRCLE_PROJECT_USERNAME', ''), env.get('CIRCLE_PROJECT_REPONAME', '')] if part)
+        return 'circleci', '', slug, env.get('CIRCLE_SHA1', ''), env.get('CIRCLE_BUILD_NUM', '')
+    if env.get('CI_XCODE_CLOUD') or env.get('CI_XCODEBUILD_ACTION'):
+        return 'xcode-cloud', '', '', env.get('CI_COMMIT', ''), env.get('CI_BUILD_NUMBER', '')
+    if env.get('CI'):
+        return 'ci', '', '', '', ''
+    return 'local', '', '', '', ''
+
+
 def origin_payload(number, variant, bundle_id, env):
-    repository = env.get('GITHUB_REPOSITORY', '')
-    if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
+    platform, server, repository, commit, run = detect_ci(env)
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+', repository) or len(repository) > 120:
         repository = ''
-    commit = env.get('GITHUB_SHA', '')
-    run = env.get('GITHUB_RUN_ID', '')
+    if not re.fullmatch(r'https://[A-Za-z0-9.-]+(:[0-9]{1,5})?', server):
+        server = ''
     return {
+        'p': platform,
+        'h': server,
         'r': repository,
         'b': int(number),
         'v': variant,

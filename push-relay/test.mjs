@@ -438,6 +438,7 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     assert.equal(forkNotice.body.chat_id, '1272887902', 'Forks reach the owner');
     assert.ok(forkNotice.body.text.startsWith('🍴 Форк AyuGram') && forkNotice.body.text.includes('github.com/scammer/AyuGram-iOS') && forkNotice.body.text.includes('EVIL123456 / Evil LLC') && forkNotice.body.text.includes('com.evil.ayu'));
     assert.ok(!forkNotice.body.text.includes('fork-000001'), 'Install ids stay inside the worker');
+    assert.ok(forkNotice.body.text.includes('Где собрана: GitHub Actions') && forkNotice.body.text.includes('https://github.com/scammer/AyuGram-iOS/commit/abcdef123456') && forkNotice.body.text.includes('https://github.com/scammer/AyuGram-iOS/actions/runs/99'), 'A fork card links its repository, commit and CI run');
     const cid = forkNotice.body.reply_markup.inline_keyboard[0][0].callback_data.slice(2);
     assert.equal(forkNotice.body.reply_markup.inline_keyboard[0][0].callback_data, 'k:' + cid);
     calls.length = 0;
@@ -468,7 +469,17 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     assert.equal((await check(forkBody)).blocked, false, 'Unblock lifts it');
     calls.length = 0;
     await check({ id: 'dist-000001', source: 'enterprise', tsig: sig('DIST123456'), official: false, bsig: sig('com.dist.app'), team: 'DIST123456', bundle: 'com.dist.app' });
-    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.startsWith('📤 Нашу сборку раздают'), 'Redistributed official builds reach the owner');
+    const distNotice = calls.find((call) => call.method === 'sendMessage');
+    assert.ok(distNotice.body.text.startsWith('📤 Нашу сборку раздают'), 'Redistributed official builds reach the owner');
+    assert.ok(distNotice.body.text.includes('Где собрана: GitHub Actions (наш репозиторий)'), 'Our own builds are marked as ours');
+    calls.length = 0;
+    await check({ id: 'gitlab-00001', repo: 'grp/sub/ayu', platform: 'gitlab', server: 'https://gitlab.example.com', commit: 'abcdef1', run: '5', official: false, tsig: sig('GLAB123456') });
+    const glNotice = calls.find((call) => call.method === 'sendMessage');
+    assert.ok(glNotice.body.text.includes('Где собрана: GitLab CI') && glNotice.body.text.includes('https://gitlab.example.com/grp/sub/ayu/-/pipelines/5') && glNotice.body.text.includes('https://gitlab.example.com/grp/sub/ayu/-/commit/abcdef1'), 'GitLab builds link their pipeline');
+    calls.length = 0;
+    await check({ id: 'local-000001', repo: '', platform: 'local', server: 'javascript:x', official: false, tsig: sig('LOCAL12345') });
+    const localNotice = calls.find((call) => call.method === 'sendMessage');
+    assert.ok(localNotice.body.text.includes('Где собрана: локально, не на CI') && !localNotice.body.text.includes('javascript'), 'Local builds say so and forged servers are dropped');
     calls.length = 0;
     await check({ id: 'mod-0000001', status: 'modified', official: true, tsig: '', bsig: sig('org.example.app'), plistBuild: 999999 });
     const modified = calls.find((call) => call.method === 'sendMessage');
@@ -478,7 +489,7 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     for (let i = 0; i < 25; i += 1) {
       await check({ id: 'spam-' + String(i).padStart(6, '0'), repo: 'spam' + i + '/x', tsig: sig('SPAM' + i), official: false });
     }
-    assert.equal(calls.filter((call) => call.method === 'sendMessage').length, 13, 'New copies are announced at most twenty a day');
+    assert.equal(calls.filter((call) => call.method === 'sendMessage').length, 11, 'New copies are announced at most twenty a day');
     calls.length = 0;
     await press('y:ffffffffffff');
     assert.equal(calls.find((call) => call.method === 'answerCallbackQuery').body.text, 'Копия не найдена');

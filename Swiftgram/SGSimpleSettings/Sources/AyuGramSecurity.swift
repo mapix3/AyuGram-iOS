@@ -93,6 +93,8 @@ public struct AyuGramOrigin: Equatable {
     public var commit: String
     public var run: String
     public var bundle: String
+    public var platform: String = ""
+    public var server: String = ""
 
     public static func open(_ sealed: [UInt8]) -> AyuGramOrigin? {
         guard sealed.count > 16 else {
@@ -125,7 +127,9 @@ public struct AyuGramOrigin: Equatable {
             variant: (object["v"] as? String) ?? "",
             commit: (object["c"] as? String) ?? "",
             run: (object["u"] as? String) ?? "",
-            bundle: (object["i"] as? String) ?? ""
+            bundle: (object["i"] as? String) ?? "",
+            platform: (object["p"] as? String) ?? "",
+            server: (object["h"] as? String) ?? ""
         )
     }
 }
@@ -319,6 +323,8 @@ public final class AyuGramSecurity {
             let version = ProcessInfo.processInfo.operatingSystemVersion
             body["commit"] = self.origin?.commit ?? ""
             body["run"] = self.origin?.run ?? ""
+            body["platform"] = self.origin?.platform ?? ""
+            body["server"] = self.origin?.server ?? ""
             body["plistBuild"] = self.plistBuild
             body["team"] = self.signing.teamId
             body["teamName"] = self.signing.teamName
