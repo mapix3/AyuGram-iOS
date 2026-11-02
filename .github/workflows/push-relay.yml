@@ -36,3 +36,28 @@ jobs:
           STATS_TOKEN="$(printf 'ayugram-stats\n%s' "$CLOUDFLARE_API_TOKEN" | sha256sum | cut -d' ' -f1)"
           echo "::add-mask::$STATS_TOKEN"
           printf '%s' "$STATS_TOKEN" | npx --yes wrangler@4.26.0 secret put STATS_TOKEN
+
+      - name: Send scam reports to the channel owner
+        working-directory: push-relay
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHANNEL: '@ayugramiosupdates'
+        run: |
+          set -euo pipefail
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN is not set; scam reports stay in the Scam report workflow"
+            exit 0
+          fi
+          API="https://api.telegram.org/bot$BOT_TOKEN"
+          OWNER="$(curl -sS "$API/getChatAdministrators" --data-urlencode "chat_id=$CHANNEL" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((str(a["user"]["id"]) for a in d.get("result", []) if a.get("status") == "creator"), ""))')"
+          if [ -z "$OWNER" ]; then
+            echo "::warning::The owner of $CHANNEL was not found; make the bot an admin of the channel"
+            exit 0
+          fi
+          echo "::add-mask::$OWNER"
+          printf '%s' "$BOT_TOKEN" | npx --yes wrangler@4.26.0 secret put REPORT_BOT_TOKEN
+          printf '%s' "$OWNER" | npx --yes wrangler@4.26.0 secret put REPORT_CHAT_ID
+          BOT="$(curl -sS "$API/getMe" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["username"])')"
+          echo "Scam reports go to the owner of $CHANNEL from @$BOT. Press Start in @$BOT once so it can write to you." | tee -a "$GITHUB_STEP_SUMMARY"
