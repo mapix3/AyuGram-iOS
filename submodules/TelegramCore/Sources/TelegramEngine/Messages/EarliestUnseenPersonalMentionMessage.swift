@@ -86,7 +86,7 @@ private func ayuEarliestUnseenWithRefetch(account: Account, peerId: PeerId, thre
     let lookup: (Bool) -> Signal<AyuEarliestUnseen, NoError> = { refetched in
         return ayuEarliestUnseen(account: account, peerId: peerId, threadId: threadId, tag: tag, refetched: refetched, isDeferred: isDeferred, readLocally: readLocally, clear: clear)
     }
-    return lookup(false)
+    let resolved: Signal<EarliestUnseenPersonalMentionMessageResult, NoError> = lookup(false)
     |> mapToSignal { value -> Signal<AyuEarliestUnseen, NoError> in
         guard case .refetch = value else {
             return .single(value)
@@ -101,7 +101,7 @@ private func ayuEarliestUnseenWithRefetch(account: Account, peerId: PeerId, thre
     |> mapToSignal { value -> Signal<EarliestUnseenPersonalMentionMessageResult, NoError> in
         switch value {
         case .loading:
-            return .single(.loading)
+            return .complete()
         case let .result(id):
             return .single(.result(id))
         case .refetch:
@@ -109,6 +109,28 @@ private func ayuEarliestUnseenWithRefetch(account: Account, peerId: PeerId, thre
             return .single(.result(nil))
         }
     }
+    |> take(1)
+    // A server lookup that never settles (a failed or looping hole fill) would leave the
+    // button dead; the messages on this device answer instead, and with none left the
+    // counter is cleared here only.
+    let local: Signal<EarliestUnseenPersonalMentionMessageResult, NoError> = account.postbox.transaction { transaction -> EarliestUnseenPersonalMentionMessageResult in
+        let ids = transaction.getMessageIndicesWithTag(peerId: peerId, threadId: threadId, namespace: Namespaces.Message.Cloud, tag: tag).map({ $0.id }).sorted()
+        for id in ids {
+            if isDeferred(transaction, id) {
+                readLocally(transaction, id)
+            } else {
+                return .result(id)
+            }
+        }
+        transaction.removeHole(peerId: peerId, threadId: threadId, namespace: Namespaces.Message.Cloud, space: .tag(tag), range: 1 ... (Int32.max - 1))
+        let topId = transaction.getTopPeerMessageId(peerId: peerId, namespace: Namespaces.Message.Cloud)?.id ?? 1
+        transaction.replaceMessageTagSummary(peerId: peerId, threadId: threadId, tagMask: tag, namespace: Namespaces.Message.Cloud, customTag: nil, count: 0, maxId: topId)
+        for id in ids {
+            clear(transaction, id)
+        }
+        return .result(nil)
+    }
+    return (.single(.loading) |> then(resolved |> timeout(8.0, queue: Queue.concurrentDefaultQueue(), alternate: local)))
     |> distinctUntilChanged
 }
 
