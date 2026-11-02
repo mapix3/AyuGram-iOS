@@ -8410,6 +8410,10 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
     override public func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
 
+        if let peerId = self.chatLocation.peerId {
+            NotificationCenter.default.post(name: Notification.Name("AyuGramChatClosed"), object: nil, userInfo: ["peerId": peerId])
+        }
+
         self.walletTransferAnimationsVisible = false
         
         if #available(iOS 18.0, *) {

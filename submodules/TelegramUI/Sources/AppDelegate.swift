@@ -2751,7 +2751,12 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             if url.scheme?.lowercased() == "ayugram" {
                 if url.host == "chat", let context, let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems {
                     var peerId: PeerId?
+                    var messageNumber: Int32?
                     for item in items {
+                        if item.name == "msg", let value = item.value.flatMap({ Int32($0) }), value > 0 {
+                            messageNumber = value
+                            continue
+                        }
                         guard let value = item.value.flatMap({ Int64($0) }) else {
                             continue
                         }
@@ -2767,7 +2772,8 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                         }
                     }
                     if let peerId {
-                        context.context.sharedContext.navigateToChat(accountId: context.context.account.id, peerId: peerId, messageId: nil)
+                        let messageId = messageNumber.flatMap { MessageId(peerId: peerId, namespace: Namespaces.Message.Cloud, id: $0) }
+                        context.context.sharedContext.navigateToChat(accountId: context.context.account.id, peerId: peerId, messageId: messageId)
                     }
                 }
                 return

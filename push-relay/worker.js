@@ -91,6 +91,20 @@ export class Presence {
       }
       return Response.json(entries);
     }
+    if (request.method === 'POST' && url.pathname === '/shown') {
+      const now = Date.now();
+      const shown = (await storage.get('shown')) || {};
+      const chats = {};
+      for (const [id, time] of Object.entries(shown)) {
+        const match = /^(user|chat|channel)(\d+)m(\d+)$/.exec(id);
+        if (!match || now - time > SHOWN_TTL_MS) {
+          continue;
+        }
+        const chat = match[1] + match[2];
+        chats[chat] = Math.max(chats[chat] || 0, Number(match[3]));
+      }
+      return Response.json(Object.entries(chats).map(([chat, maxId]) => ({ chat, maxId })));
+    }
     if (request.method === 'POST' && url.pathname === '/seen') {
       const seen = await request.json();
       if (Array.isArray(seen.deleted) && seen.deleted.length) {
@@ -261,6 +275,15 @@ export default {
       }
       return stub.fetch('https://presence.ayugram.invalid/collect', { method: 'POST', body: JSON.stringify({ ack: body.ack || [] }) });
     }
+    if (request.method === 'POST' && url.pathname.startsWith('/shown/')) {
+      const id = url.pathname.slice(7);
+      const stub = /^[A-Za-z0-9_-]{43}$/.test(id) ? presence(env, id) : null;
+      const body = stub ? await request.json().catch(() => null) : null;
+      if (!stub || !body || typeof body.barkKey !== 'string' || await activityId(body.barkKey) !== id) {
+        return new Response('bad request\n', { status: 400 });
+      }
+      return stub.fetch('https://presence.ayugram.invalid/shown', { method: 'POST' });
+    }
     if (request.method === 'POST' && url.pathname.startsWith('/seen/')) {
       const id = url.pathname.slice(6);
       const stub = /^[A-Za-z0-9_-]{43}$/.test(id) ? presence(env, id) : null;
@@ -423,6 +446,7 @@ export function chatTarget(custom, name) {
   const target = { link: 'ayugram://chat?' + kind + '=' + id, icon, group: name.trim() || kind + id };
   if (custom.msg_id !== undefined && /^\d+$/.test(String(custom.msg_id))) {
     target.id = kind + id + 'm' + custom.msg_id;
+    target.link += '&msg=' + custom.msg_id;
   }
   return target;
 }
