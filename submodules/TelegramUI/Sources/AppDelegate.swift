@@ -1494,6 +1494,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                     print("Launch to ready took \((CFAbsoluteTimeGetCurrent() - launchStartTime) * 1000.0) ms")
                     // AyuGram: offer a newer build once the interface is up.
                     ayuGramPresentUpdateIfNeeded(context: context.context)
+                    ayuGramArmTamperWatchdog()
 
                     self.mainWindow.debugAction = nil
                     self.mainWindow.viewController = context.rootController
