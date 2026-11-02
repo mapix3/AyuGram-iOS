@@ -1,4 +1,4 @@
-import { OFFICIAL_REPO, copyMenu, copyMessage, reportMessage, statsStub } from './stats.js';
+import { BAN_REASONS, COPY_REASONS, OFFICIAL_REPO, copyMenu, copyMessage, reasonLabel, reportMessage, statsStub } from './stats.js';
 
 const kyiv = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -60,7 +60,7 @@ function statusLines(review) {
     lines.push('AyuGram: ❌ не установлен или выключена статистика');
   }
   if (target.ban) {
-    lines.push('Статус: ⛔ забанен ' + when(target.ban.time));
+    lines.push('Статус: ⛔ забанен ' + when(target.ban.time) + ' · причина: ' + reasonLabel(target.ban.reason));
   } else if (target.warning) {
     lines.push('Статус: ⚠️ предупреждён ' + when(target.warning.time));
   } else {
@@ -94,7 +94,7 @@ export function detailsText(review) {
     lines.push('ID: ' + target.id);
     lines.push('Юзернейм и имя: ' + (target.name || '-'));
     lines.push('AyuGram: ' + (target.installs.length ? 'установлен на ' + target.installs.length + ' устр.' : 'не установлен или выключена статистика'));
-    lines.push('Бан: ' + (target.ban ? 'да, ' + when(target.ban.time) : 'нет'));
+    lines.push('Бан: ' + (target.ban ? 'да, ' + when(target.ban.time) + ', причина: ' + reasonLabel(target.ban.reason) : 'нет'));
     lines.push('Предупреждение: ' + (target.warning ? 'да, ' + when(target.warning.time) : 'нет'));
     target.installs.forEach((install, index) => lines.push((index + 1) + '. ' + installLine(install)));
   } else {
@@ -121,7 +121,11 @@ async function stats(env, path, method) {
   return response;
 }
 
-async function handleCopyCallback(env, query, action, cid, answer) {
+function reasonMenu(reasons, prefix, cancel) {
+  return { inline_keyboard: [...reasons.map(([code, label]) => [{ text: '⛔ ' + label, callback_data: prefix + ':' + code }]), [{ text: 'Отмена', callback_data: cancel }]] };
+}
+
+async function handleCopyCallback(env, query, action, cid, answer, reason) {
   const message = query.message;
   const response = await stats(env, '/copy/' + cid);
   if (!response || !response.ok || !message) {
@@ -146,11 +150,11 @@ async function handleCopyCallback(env, query, action, cid, answer) {
       await answer('Заблокировать нечем', true);
       return;
     }
-    await edit({ inline_keyboard: [[{ text: '⛔ Да, заблокировать', callback_data: 'K:' + cid }], [{ text: 'Отмена', callback_data: 'y:' + cid }]] });
-    await answer('Блок по ' + copy.blockable.join(', ') + '. Подтверди', true);
+    await edit(reasonMenu(COPY_REASONS, 'K:' + cid, 'y:' + cid));
+    await answer('Блок по ' + copy.blockable.join(', ') + '. Выбери причину', true);
     return;
   }
-  const moderated = await stats(env, '/copy-moderate/' + (action === 'K' ? 'block' : 'unblock') + '/' + cid, 'POST');
+  const moderated = await stats(env, '/copy-moderate/' + (action === 'K' ? 'block/' + cid + '?reason=' + encodeURIComponent(reason || 'other') : 'unblock/' + cid), 'POST');
   if (!moderated || !moderated.ok) {
     await answer('Не получилось, попробуй ещё раз', true);
     return;
@@ -168,14 +172,14 @@ function bansText(data) {
   const lines = ['🔐 Активные блокировки', ''];
   lines.push('Забаненные аккаунты (' + data.accounts.length + '):');
   if (data.accounts.length) {
-    data.accounts.forEach((ban) => lines.push('• ' + (ban.name || 'без имени') + ' · ' + when(ban.time)));
+    data.accounts.forEach((ban) => lines.push('• ' + (ban.name || 'без имени') + ' · ' + when(ban.time) + ' · ' + reasonLabel(ban.reason)));
   } else {
     lines.push('нет');
   }
   lines.push('');
   lines.push('Заблокированные копии (' + data.copies.length + '):');
   if (data.copies.length) {
-    data.copies.forEach((copy) => lines.push('• ' + copyLabel(copy) + ' · ' + when(copy.time)));
+    data.copies.forEach((copy) => lines.push('• ' + copyLabel(copy) + ' · ' + when(copy.time) + ' · ' + reasonLabel(copy.reason)));
   } else {
     lines.push('нет');
   }
@@ -206,15 +210,36 @@ async function banById(env, chatId, text) {
     await telegram(env, 'sendMessage', { chat_id: chatId, text: 'Напиши числовой ID: /' + action + ' 123456789' });
     return;
   }
-  const response = await stats(env, '/ban-id/' + action + '/' + id, 'POST');
+  if (action === 'ban') {
+    await telegram(env, 'sendMessage', { chat_id: chatId, text: 'Бан ID ' + id + '. Выбери причину:', reply_markup: reasonMenu(BAN_REASONS, 'Z:' + id, 'L:x') });
+    return;
+  }
+  const response = await stats(env, '/ban-id/unban/' + id, 'POST');
   if (!response || !response.ok) {
     await telegram(env, 'sendMessage', { chat_id: chatId, text: 'Не получилось, попробуй ещё раз' });
     return;
   }
+  await telegram(env, 'sendMessage', { chat_id: chatId, text: '✅ Разбанен ID ' + id + '.' });
+}
+
+async function banByIdWithReason(env, query, id, reason, answer) {
+  const message = query.message;
+  if (!/^[1-9][0-9]{0,19}$/.test(id || '')) {
+    await answer('Неверный ID', true);
+    return;
+  }
+  const response = await stats(env, '/ban-id/ban/' + id + '?reason=' + encodeURIComponent(reason || 'other'), 'POST');
+  if (!response || !response.ok) {
+    await answer('Не получилось, попробуй ещё раз', true);
+    return;
+  }
   const result = await response.json();
   const installed = result.installs ? 'AyuGram у него: ✅ найден (' + result.installs + ' устр.)' : 'AyuGram у него: ❌ не найден или выключена статистика';
-  const head = action === 'ban' ? '⛔ Забанен ID ' + id + '. Сработает при следующем запуске AyuGram.' : '✅ Разбанен ID ' + id + '.';
-  await telegram(env, 'sendMessage', { chat_id: chatId, text: head + '\n' + installed });
+  const text = '⛔ Забанен ID ' + id + '. Причина: ' + reasonLabel(reason) + '. Сработает при следующем запуске AyuGram.\n' + installed;
+  if (message) {
+    await telegram(env, 'editMessageText', { chat_id: message.chat.id, message_id: message.message_id, text, reply_markup: { inline_keyboard: [[{ text: '✅ Разбанить', callback_data: 'V:' + id }]] } });
+  }
+  await answer('⛔ Забанен', false);
 }
 
 async function sendBans(env, chatId) {
@@ -249,14 +274,18 @@ async function handleBansCallback(env, query, action, id, answer) {
 
 async function handleCallback(env, query) {
   const message = query.message;
-  const [action, rid] = String(query.data || '').split(':');
+  const [action, rid, reason] = String(query.data || '').split(':');
   const answer = (text, alert) => telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: text || undefined, show_alert: Boolean(alert) });
   if (['U', 'V', 'X', 'L'].includes(action)) {
     await handleBansCallback(env, query, action, rid, answer);
     return;
   }
+  if (action === 'Z') {
+    await banByIdWithReason(env, query, rid, reason, answer);
+    return;
+  }
   if (['k', 'K', 'x', 'y'].includes(action)) {
-    await handleCopyCallback(env, query, action, rid, answer);
+    await handleCopyCallback(env, query, action, rid, answer, reason);
     return;
   }
   const response = await stats(env, '/review/' + rid);
@@ -297,8 +326,8 @@ async function handleCallback(env, query) {
     return;
   }
   if (action === 'b') {
-    await edit({ inline_keyboard: [[{ text: '⛔ Да, забанить', callback_data: 'B:' + rid }], [{ text: 'Отмена', callback_data: 'v:' + rid }]] });
-    await answer(review.target.installs.length ? 'Подтверди бан' : 'AyuGram у него не найден. Бан сработает, если он его установит', !review.target.installs.length);
+    await edit(reasonMenu(BAN_REASONS, 'B:' + rid, 'v:' + rid));
+    await answer(review.target.installs.length ? 'Выбери причину бана' : 'AyuGram у него не найден. Бан сработает, если он его установит. Выбери причину', !review.target.installs.length);
     return;
   }
   const actions = { w: 'warn', B: 'ban', u: 'unban' };
@@ -306,7 +335,7 @@ async function handleCallback(env, query) {
     await answer();
     return;
   }
-  const moderated = await stats(env, '/moderate/' + actions[action] + '/' + rid, 'POST');
+  const moderated = await stats(env, '/moderate/' + actions[action] + '/' + rid + (action === 'B' ? '?reason=' + encodeURIComponent(reason || 'other') : ''), 'POST');
   if (!moderated || !moderated.ok) {
     await answer('Не получилось, попробуй ещё раз', true);
     return;

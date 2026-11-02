@@ -144,6 +144,8 @@ public final class AyuGramSecurity {
     private let lock = NSLock()
     private var currentVariant = "standard"
     private let flagsKey = "ayugram.stats.flags"
+    private let banReasonKey = "ayugram.moderation.reason"
+    private let blockReasonKey = "ayugram.stats.note"
     private var currentStatus: AyuGramBuildStatus = .checking
     private var rules = AyuGramBlockRules()
     private var started = false
@@ -237,6 +239,22 @@ public final class AyuGramSecurity {
 
     public var isBanned: Bool {
         return UserDefaults.standard.bool(forKey: self.banKey)
+    }
+
+    public static let reasonCodes: Set<String> = ["scam", "resale", "abuse", "testflight", "modified", "fork"]
+
+    public var banReason: String? {
+        guard self.isBanned, let reason = UserDefaults.standard.string(forKey: self.banReasonKey), AyuGramSecurity.reasonCodes.contains(reason) else {
+            return nil
+        }
+        return reason
+    }
+
+    public var blockReason: String? {
+        guard UserDefaults.standard.bool(forKey: self.flagsKey), let reason = UserDefaults.standard.string(forKey: self.blockReasonKey), AyuGramSecurity.reasonCodes.contains(reason) else {
+            return nil
+        }
+        return reason
     }
 
     public var pendingWarning: String? {
@@ -342,6 +360,13 @@ public final class AyuGramSecurity {
                     changed = true
                 }
                 UserDefaults.standard.set(blocked, forKey: self.flagsKey)
+            }
+            for (field, key) in [("banReason", self.banReasonKey), ("blockReason", self.blockReasonKey)] {
+                let reason = object[field] as? String
+                if UserDefaults.standard.string(forKey: key) != reason {
+                    changed = true
+                    UserDefaults.standard.set(reason, forKey: key)
+                }
             }
             if let warning = object["warning"] as? String, !warning.isEmpty, warning != UserDefaults.standard.string(forKey: self.warningSeenKey) {
                 self.lock.lock()

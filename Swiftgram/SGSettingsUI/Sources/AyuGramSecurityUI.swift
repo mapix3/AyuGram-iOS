@@ -232,7 +232,11 @@ func ayuGramPresentBlockIfNeeded(context: AccountContext) {
         })
     }
     if AyuGramSecurity.shared.isBanned {
-        let alert = textAlertController(context: context, title: i18n("Ayu.BannedTitle", locale), text: i18n("Ayu.BannedText", locale), actions: [
+        var bannedText = i18n("Ayu.BannedText", locale)
+        if let reason = AyuGramSecurity.shared.banReason {
+            bannedText = i18n("Ayu.BannedTextReason", locale) + "\n\n" + i18n("Ayu.Reason", locale, i18n("Ayu.Reason." + reason, locale))
+        }
+        let alert = textAlertController(context: context, title: i18n("Ayu.BannedTitle", locale), text: bannedText, actions: [
             TextAlertAction(type: .defaultAction, title: i18n("Ayu.ScamChannel", locale), action: {
                 ayuGramOpenLink(context: context, url: AyuGramUpdates.channelURL)
                 reshow()
@@ -241,7 +245,10 @@ func ayuGramPresentBlockIfNeeded(context: AccountContext) {
         context.sharedContext.mainWindow?.present(alert, on: .root)
         return
     }
-    let text = AyuGramSecurity.shared.blockMessage ?? i18n("Ayu.ScamText", locale)
+    var text = AyuGramSecurity.shared.blockMessage ?? i18n("Ayu.ScamText", locale)
+    if let reason = AyuGramSecurity.shared.blockReason {
+        text += "\n\n" + i18n("Ayu.Reason", locale, i18n("Ayu.Reason." + reason, locale))
+    }
     let alert = textAlertController(context: context, title: i18n("Ayu.ScamTitle", locale), text: text, actions: [
         TextAlertAction(type: .defaultAction, title: i18n("Ayu.ScamChannel", locale), action: {
             ayuGramOpenLink(context: context, url: AyuGramUpdates.channelURL)
