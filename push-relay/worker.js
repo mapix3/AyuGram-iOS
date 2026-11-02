@@ -7,6 +7,7 @@
 // the title and text to Bark, which shows the notification.
 
 import { handleStats } from './stats.js';
+import { handleBot } from './bot.js';
 
 export { Stats } from './stats.js';
 
@@ -227,6 +228,9 @@ export async function claimDelivery(env, barkKey, id) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname === '/tg/hook') {
+      return handleBot(request, env, ctx);
+    }
     if (url.pathname.startsWith('/stats/')) {
       return handleStats(request, env, url, ctx);
     }

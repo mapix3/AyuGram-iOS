@@ -37,13 +37,14 @@ jobs:
           echo "::add-mask::$STATS_TOKEN"
           printf '%s' "$STATS_TOKEN" | npx --yes wrangler@4.26.0 secret put STATS_TOKEN
 
-      - name: Send scam reports to the channel owner
+      - name: Connect the scam report bot
         working-directory: push-relay
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHANNEL: '@ayugramiosupdates'
+          OWNER_ID: '1272887902'
+          HOOK_URL: https://ayugram-push.ayugram-status.workers.dev/tg/hook
         run: |
           set -euo pipefail
           if [ -z "$BOT_TOKEN" ]; then
@@ -51,13 +52,13 @@ jobs:
             exit 0
           fi
           API="https://api.telegram.org/bot$BOT_TOKEN"
-          OWNER="$(curl -sS "$API/getChatAdministrators" --data-urlencode "chat_id=$CHANNEL" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((str(a["user"]["id"]) for a in d.get("result", []) if a.get("status") == "creator"), ""))')"
-          if [ -z "$OWNER" ]; then
-            echo "::warning::The owner of $CHANNEL was not found; make the bot an admin of the channel"
-            exit 0
-          fi
-          echo "::add-mask::$OWNER"
+          HOOK_SECRET="$(printf 'ayugram-bot\n%s' "$BOT_TOKEN" | sha256sum | cut -d' ' -f1)"
+          echo "::add-mask::$HOOK_SECRET"
           printf '%s' "$BOT_TOKEN" | npx --yes wrangler@4.26.0 secret put REPORT_BOT_TOKEN
-          printf '%s' "$OWNER" | npx --yes wrangler@4.26.0 secret put REPORT_CHAT_ID
+          printf '%s' "$OWNER_ID" | npx --yes wrangler@4.26.0 secret put REPORT_CHAT_ID
+          printf '%s' "$HOOK_SECRET" | npx --yes wrangler@4.26.0 secret put REPORT_WEBHOOK_SECRET
+          RESULT="$(curl -sS "$API/setWebhook" --data-urlencode "url=$HOOK_URL" --data-urlencode "secret_token=$HOOK_SECRET" \
+            --data-urlencode 'allowed_updates=["message","callback_query"]' --data-urlencode "drop_pending_updates=true")"
+          python3 -c 'import json,sys; d=json.loads(sys.argv[1]); sys.exit(0 if d.get("ok") else "setWebhook failed: " + str(d.get("description")))' "$RESULT"
           BOT="$(curl -sS "$API/getMe" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["username"])')"
-          echo "Scam reports go to the owner of $CHANNEL from @$BOT. Press Start in @$BOT once so it can write to you." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Scam reports go to the owner from @$BOT; the bot answers nobody else." | tee -a "$GITHUB_STEP_SUMMARY"

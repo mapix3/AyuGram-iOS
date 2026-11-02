@@ -47,6 +47,8 @@ struct SecurityTests {
         var store = own
         store.source = .testflight
         expect(store.identifiesDistributor(status: .official), "TestFlight installs report their certificate")
+        expect(AyuGramSecurity.accountHash(555) == "14889594e3540dc6d0be9892f83f3d98", "Account hashes match the push relay")
+        expect(AyuGramSecurity.accountHash(555) != AyuGramSecurity.accountHash(556), "Accounts hash apart")
         print("Security: block list, code fingerprints and anonymous signing info")
     }
 }
