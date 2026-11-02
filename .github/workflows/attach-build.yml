@@ -1,0 +1,80 @@
+name: Attach build to release
+
+# Publishes a release from the IPAs a finished "AyuGram iOS" run already produced,
+# without rebuilding. Use it when the build succeeded but attaching the release failed
+# (for example the Actions token was read-only during that run).
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run ID of the finished AyuGram iOS build whose artifacts to publish'
+        required: true
+        type: string
+      label:
+        description: 'Label shown after the build number in the release title'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-update
+  cancel-in-progress: false
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: standard
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.10'
+
+      - name: Download the build artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::run_id must be a number"; exit 1; }
+          mkdir -p incoming
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir incoming
+          find incoming -maxdepth 2 -name '*.ipa' -o -name 'build-manifest.json' | sort
+
+      - name: Create the release and upload the IPAs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ inputs.label }}
+        run: |
+          set -euo pipefail
+          [[ -z "$LABEL" || "$LABEL" =~ ^[A-Za-z0-9._-]+$ ]] || LABEL=""
+          BUILD=""
+          for manifest in incoming/*/build-manifest.json; do
+            [ -f "$manifest" ] || continue
+            BUILD="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["build_number"])' "$manifest")"
+            break
+          done
+          [[ "$BUILD" =~ ^[0-9]+$ ]] || { echo "::error::no build number in the artifacts"; exit 1; }
+          TAG="build-$BUILD"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --prerelease \
+              --title "AyuGram build $BUILD${LABEL:+-$LABEL}" \
+              --notes "Unsigned IPAs; re-sign them with your installer. Published to users with the Publish update workflow."
+          fi
+          for variant in standard custom; do
+            src="$(find incoming -maxdepth 2 -name "AyuGram-$variant-unsigned.ipa" | head -1)"
+            [ -n "$src" ] || { echo "No $variant IPA in the run, skipping"; continue; }
+            cp "$src" "AyuGram-$variant-$BUILD.ipa"
+            python ci/ayugram_integrity.py "AyuGram-$variant-$BUILD.ipa" "$BUILD" > "AyuGram-$variant-$BUILD.integrity.json"
+            gh release upload "$TAG" "AyuGram-$variant-$BUILD.ipa" "AyuGram-$variant-$BUILD.integrity.json" --repo "$GITHUB_REPOSITORY" --clobber
+          done
+          echo "Published $TAG" | tee -a "$GITHUB_STEP_SUMMARY"
