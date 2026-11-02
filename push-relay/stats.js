@@ -82,6 +82,32 @@ function signature(value) {
   return typeof value === 'string' && /^[0-9a-f]{32}$/.test(value) ? value : '';
 }
 
+export const PLATFORMS = { github: 'GitHub Actions', gitlab: 'GitLab CI', bitrise: 'Bitrise', codemagic: 'Codemagic', circleci: 'CircleCI', 'xcode-cloud': 'Xcode Cloud', ci: 'неизвестный CI', local: 'локально, не на CI' };
+
+export function originLines(record, details) {
+  const platform = details.platform || (record.repo ? 'github' : '');
+  if (!platform) {
+    return ['Где собрана: неизвестно (старая сборка или печать вырезана)'];
+  }
+  const own = record.repo === OFFICIAL_REPO;
+  const lines = ['Где собрана: ' + (PLATFORMS[platform] || platform) + (own ? ' (наш репозиторий)' : '')];
+  const server = details.server || (platform === 'github' ? 'https://github.com' : '');
+  if (record.repo && server) {
+    const base = server + '/' + record.repo;
+    const gitlab = platform === 'gitlab';
+    lines.push('Репозиторий: ' + base);
+    if (details.commit) {
+      lines.push('Коммит: ' + base + (gitlab ? '/-/commit/' : '/commit/') + details.commit);
+    }
+    if (details.run) {
+      lines.push('Сборка на CI: ' + base + (gitlab ? '/-/pipelines/' : '/actions/runs/') + details.run);
+    }
+  } else if (record.repo) {
+    lines.push('Репозиторий: ' + record.repo);
+  }
+  return lines;
+}
+
 export function cleanCheck(body, country, now) {
   if (!body || body.check !== true) {
     return null;
@@ -95,7 +121,9 @@ export function cleanCheck(body, country, now) {
   const run = text(body.run, 24);
   return {
     ...install,
-    repo: /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) ? repo : '',
+    repo: /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)+$/.test(repo) ? repo : '',
+    platform: PLATFORMS[text(body.platform, 16)] ? text(body.platform, 16) : '',
+    server: /^https:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/.test(text(body.server, 120)) ? text(body.server, 120) : '',
     commit: /^[0-9a-f]{7,40}$/.test(commit) ? commit : '',
     run: /^[0-9]{1,20}$/.test(run) ? run : '',
     plistBuild: Number.parseInt(text(body.plistBuild, 12), 10) || 0,
@@ -612,12 +640,7 @@ export function copyMessage(copy) {
   const record = copy.record;
   const details = record.details || {};
   const lines = [COPY_TITLES[record.kind] || '📦 Копия AyuGram', ''];
-  if (record.kind === 'fork') {
-    lines.push(record.repo ? 'Репозиторий: github.com/' + record.repo : 'Репозиторий: собрано не в GitHub Actions или печать вырезана');
-    if (details.commit || details.run) {
-      lines.push('Коммит: ' + (details.commit || '-') + (details.run ? ' · запуск ' + details.run : ''));
-    }
-  }
+  lines.push(...originLines(record, details));
   const build = details.build || '?';
   const plist = details.plistBuild && details.plistBuild !== details.build ? ' (в Info.plist ' + details.plistBuild + ')' : '';
   lines.push(['Сборка ' + build + plist + (details.variant ? ' ' + details.variant : ''), details.status, details.source, details.country].filter(Boolean).join(' · '));

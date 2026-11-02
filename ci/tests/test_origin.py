@@ -31,6 +31,19 @@ class OriginTests(unittest.TestCase):
         payload = origin_payload(1, 'standard', '', {'GITHUB_REPOSITORY': 'a b', 'GITHUB_SHA': 'zz', 'GITHUB_RUN_ID': '1x'})
         self.assertEqual((payload['r'], payload['c'], payload['u'], payload['i']), ('', '', '', ''))
 
+    def test_where_it_was_built(self):
+        github = origin_payload(1, 'standard', '', ENV)
+        self.assertEqual((github['p'], github['h']), ('github', 'https://github.com'))
+        gitlab = origin_payload(1, 'standard', '', {'GITLAB_CI': 'true', 'CI_SERVER_URL': 'https://gitlab.com', 'CI_PROJECT_PATH': 'group/sub/ayu', 'CI_COMMIT_SHA': 'abcdef1234567', 'CI_PIPELINE_ID': '77'})
+        self.assertEqual((gitlab['p'], gitlab['h'], gitlab['r'], gitlab['c'], gitlab['u']), ('gitlab', 'https://gitlab.com', 'group/sub/ayu', 'abcdef123456', '77'))
+        self.assertEqual(origin_payload(1, 'standard', '', {'CM_BUILD_ID': 'x', 'CM_COMMIT': 'abcdef1'})['p'], 'codemagic')
+        self.assertEqual(origin_payload(1, 'standard', '', {'BITRISE_IO': 'true'})['p'], 'bitrise')
+        self.assertEqual(origin_payload(1, 'standard', '', {'CI': 'true'})['p'], 'ci')
+        local = origin_payload(1, 'standard', '', {})
+        self.assertEqual((local['p'], local['h'], local['r']), ('local', '', ''))
+        forged = origin_payload(1, 'standard', '', {'GITHUB_REPOSITORY': 'a/b', 'GITHUB_SERVER_URL': 'javascript:alert(1)'})
+        self.assertEqual(forged['h'], '', 'Only https servers are kept')
+
     def test_prepare_replaces_the_committed_seal(self):
         original = (ROOT / SEAL_PATH).read_text(encoding='utf-8')
         self.assertIn('private let ayuGramSeal: [UInt8] = []\n', original)
