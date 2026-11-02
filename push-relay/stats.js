@@ -2,6 +2,9 @@ const INSTALL_TTL_MS = 60 * 24 * 60 * 60 * 1000;
 const REPORT_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 const REPORTS_PER_DAY = 5;
 const MAX_BODY = 4096;
+const MAX_ATTACHMENTS = 5;
+const ATTACH_TTL_MS = 2 * 60 * 60 * 1000;
+const ATTACH_TYPES = { 'image/jpeg': ['photo', 'jpg', 8 * 1024 * 1024], 'image/png': ['photo', 'png', 8 * 1024 * 1024], 'video/mp4': ['video', 'mp4', 21 * 1024 * 1024], 'video/quicktime': ['video', 'mov', 21 * 1024 * 1024] };
 
 const SOURCES = new Set(['sideload', 'enterprise', 'testflight', 'appstore', 'unknown']);
 const STATUSES = new Set(['official', 'modified', 'unknown', 'checking']);
@@ -71,6 +74,7 @@ export function cleanReport(body, country, now) {
     text: message,
     target: /^[1-9][0-9]{0,19}$/.test(target) ? target : '',
     targetName: text(body.targetName, 160),
+    attachments: Math.min(Math.max(Number.parseInt(text(body.attachments, 2), 10) || 0, 0), MAX_ATTACHMENTS),
     build: install ? install.build : 0,
     source: install ? install.source : 'unknown',
     status: install ? install.status : 'unknown',
@@ -206,7 +210,35 @@ export class Stats {
       const key = 'r:' + String(now).padStart(15, '0') + ':' + report.id + ':' + report.rid;
       await storage.put(key, report);
       await storage.put('q:' + report.rid, key);
-      return Response.json({ ok: true, rid: report.rid });
+      const token = crypto.randomUUID().replace(/-/g, '');
+      await storage.put('t:' + report.rid, { token, used: 0, time: now });
+      return Response.json({ ok: true, rid: report.rid, token });
+    }
+    if (request.method === 'POST' && url.pathname.startsWith('/notice/')) {
+      const rid = url.pathname.slice(8);
+      const body = await request.json();
+      const ticket = await storage.get('t:' + rid);
+      if (ticket) {
+        ticket.notice = body.messageId;
+        await storage.put('t:' + rid, ticket);
+      }
+      return new Response('ok\n');
+    }
+    if (request.method === 'POST' && url.pathname.startsWith('/attach/')) {
+      const rid = url.pathname.slice(8);
+      const ticket = await storage.get('t:' + rid);
+      const token = request.headers.get('x-ayugram-token') || '';
+      if (!ticket || !token || ticket.token !== token || now - ticket.time > ATTACH_TTL_MS) {
+        return new Response('forbidden\n', { status: 403 });
+      }
+      if (ticket.used >= MAX_ATTACHMENTS) {
+        return new Response('limit\n', { status: 429 });
+      }
+      ticket.used += 1;
+      await storage.put('t:' + rid, ticket);
+      const key = await storage.get('q:' + rid);
+      const report = key ? await storage.get(key) : null;
+      return Response.json({ notice: ticket.notice || 0, index: ticket.used, targetName: report ? report.targetName || '' : '' });
     }
     if (request.method === 'GET' && url.pathname === '/summary') {
       const installs = [];
@@ -223,7 +255,7 @@ export class Stats {
         if (now - value.time > REPORT_TTL_MS) {
           stale.push(key);
           if (value.rid) {
-            stale.push('q:' + value.rid);
+            stale.push('q:' + value.rid, 't:' + value.rid);
           }
         } else {
           reports.push(value);
@@ -253,6 +285,8 @@ export class Stats {
       return null;
     }
     const reporter = (await storage.get('i:' + report.id)) || null;
+    const ticket = await storage.get('t:' + rid);
+    report.received = ticket ? ticket.used : 0;
     let target = null;
     if (report.target) {
       const hash = await accountHash(report.target);
@@ -311,6 +345,9 @@ function sameToken(a, b) {
 
 export function reportMessage(report) {
   const lines = ['🚨 Жалоба на скам', '', report.text, ''];
+  if (report.attachments) {
+    lines.push('Вложений: ' + report.attachments + ' (придут ответом на это сообщение)');
+  }
   if (report.target || report.targetName) {
     lines.push('На кого: ' + (report.targetName || '-') + (report.target ? ' (ID ' + report.target + ')' : ''));
   }
@@ -337,8 +374,33 @@ export async function notifyReport(report, env) {
   });
   if (!response.ok) {
     console.log('report not sent to Telegram: ' + response.status);
+    return false;
   }
-  return response.ok;
+  const sent = await response.json().catch(() => null);
+  const stub = statsStub(env);
+  if (stub && report.rid && sent && sent.result && sent.result.message_id) {
+    await stub.fetch('https://stats.ayugram.invalid/notice/' + report.rid, { method: 'POST', body: JSON.stringify({ messageId: sent.result.message_id }) });
+  }
+  return true;
+}
+
+async function forwardAttachment(env, kind, extension, type, bytes, info) {
+  const caption = '📎 Вложение ' + info.index + ' к жалобе' + (info.targetName ? ' на ' + info.targetName : '');
+  const send = async (method, field) => {
+    const form = new FormData();
+    form.append('chat_id', String(env.REPORT_CHAT_ID));
+    form.append('caption', caption);
+    if (info.notice) {
+      form.append('reply_parameters', JSON.stringify({ message_id: info.notice, allow_sending_without_reply: true }));
+    }
+    form.append(field, new Blob([bytes], { type }), 'attachment-' + info.index + '.' + extension);
+    const response = await fetch('https://api.telegram.org/bot' + env.REPORT_BOT_TOKEN + '/' + method, { method: 'POST', body: form });
+    if (!response.ok) {
+      console.log('attachment not sent with ' + method + ': ' + response.status);
+    }
+    return response.ok;
+  };
+  return (await send(kind === 'photo' ? 'sendPhoto' : 'sendVideo', kind)) || send('sendDocument', 'document');
 }
 
 export async function handleStats(request, env, url, ctx) {
@@ -372,6 +434,32 @@ export async function handleStats(request, env, url, ctx) {
       }
     }
     return response;
+  }
+  if (request.method === 'POST' && url.pathname.startsWith('/stats/attach/')) {
+    const rid = url.pathname.slice(14);
+    const type = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    const spec = ATTACH_TYPES[type];
+    if (!/^[0-9a-f]{12}$/.test(rid) || !spec) {
+      return new Response('bad request\n', { status: 400 });
+    }
+    if (!env.REPORT_BOT_TOKEN || !env.REPORT_CHAT_ID) {
+      return new Response('attachments unavailable\n', { status: 503 });
+    }
+    const declared = Number(request.headers.get('content-length') || 0);
+    if (declared > spec[2]) {
+      return new Response('too large\n', { status: 413 });
+    }
+    const bytes = await request.arrayBuffer();
+    if (!bytes.byteLength || bytes.byteLength > spec[2]) {
+      return new Response('too large\n', { status: 413 });
+    }
+    const checked = await stub.fetch('https://stats.ayugram.invalid/attach/' + rid, { method: 'POST', headers: { 'x-ayugram-token': request.headers.get('x-ayugram-token') || '' } });
+    if (!checked.ok) {
+      return new Response(await checked.text(), { status: checked.status });
+    }
+    const info = await checked.json();
+    const sent = await forwardAttachment(env, spec[0], spec[1], type, bytes, info);
+    return sent ? new Response('ok\n') : new Response('not delivered\n', { status: 502 });
   }
   if (request.method === 'POST' && url.pathname === '/stats/status') {
     const body = await readBody(request);

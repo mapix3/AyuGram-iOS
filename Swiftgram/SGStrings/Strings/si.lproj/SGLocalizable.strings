@@ -180,3 +180,7 @@
 "Ayu.WarnTitle" = "Warning";
 "Ayu.WarnText" = "Users reported that you scam people using AyuGram. If this goes on, AyuGram will be blocked for you.";
 "Ayu.WarnOk" = "Got it";
+"Ayu.ReportAttachInfo" = "Add screenshots or videos as proof? Up to 5 files, videos up to 20 MB.";
+"Ayu.ReportAttach" = "Add photos or videos";
+"Ayu.ReportSendNow" = "Send without attachments";
+"Ayu.ReportAttachFailed" = "The report was sent, but some attachments did not upload.";

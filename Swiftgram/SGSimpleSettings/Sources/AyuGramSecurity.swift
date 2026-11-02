@@ -79,6 +79,11 @@ public struct AyuGramBlockRules: Equatable {
     }
 }
 
+public struct AyuGramReportTicket {
+    public let rid: String
+    public let token: String
+}
+
 public final class AyuGramSecurity {
     public static let shared = AyuGramSecurity()
     public static let didChange = Notification.Name("AyuGram.Security.didChange")
@@ -259,7 +264,7 @@ public final class AyuGramSecurity {
         })
     }
 
-    public func report(text: String, target: Int64, targetName: String, variant: String, completion: @escaping (Bool) -> Void) {
+    public func report(text: String, target: Int64, targetName: String, attachments: Int, variant: String, completion: @escaping (Bool, AyuGramReportTicket?) -> Void) {
         var body = self.payload(variant: variant)
         body["text"] = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(600))
         if target != 0 {
@@ -268,11 +273,46 @@ public final class AyuGramSecurity {
         if !targetName.isEmpty {
             body["targetName"] = String(targetName.prefix(160))
         }
-        self.post(path: "/stats/report", body: body, completion: { ok in
+        body["attachments"] = attachments
+        guard let url = URL(string: AyuGramSecurity.relayURL + "/stats/report"), let data = try? JSONSerialization.data(withJSONObject: body) else {
+            completion(false, nil)
+            return
+        }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20.0)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = data
+        let session = URLSession(configuration: .ephemeral)
+        session.dataTask(with: request, completionHandler: { data, response, error in
+            session.finishTasksAndInvalidate()
+            let ok = error == nil && (response as? HTTPURLResponse)?.statusCode == 200
+            var ticket: AyuGramReportTicket?
+            if ok, let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let rid = object["rid"] as? String, let token = object["token"] as? String {
+                ticket = AyuGramReportTicket(rid: rid, token: token)
+            }
+            DispatchQueue.main.async {
+                completion(ok, ticket)
+            }
+        }).resume()
+    }
+
+    public func attach(ticket: AyuGramReportTicket, data: Data, contentType: String, completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: AyuGramSecurity.relayURL + "/stats/attach/" + ticket.rid) else {
+            completion(false)
+            return
+        }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 120.0)
+        request.httpMethod = "POST"
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        request.setValue(ticket.token, forHTTPHeaderField: "X-AyuGram-Token")
+        let session = URLSession(configuration: .ephemeral)
+        session.uploadTask(with: request, from: data, completionHandler: { _, response, error in
+            session.finishTasksAndInvalidate()
+            let ok = error == nil && (response as? HTTPURLResponse)?.statusCode == 200
             DispatchQueue.main.async {
                 completion(ok)
             }
-        })
+        }).resume()
     }
 
     private func setStatus(_ status: AyuGramBuildStatus) {

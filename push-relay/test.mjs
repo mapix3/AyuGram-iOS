@@ -309,7 +309,18 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
   const botEnv = { STATS, STATS_TOKEN: 'secret-token', REPORT_BOT_TOKEN: '123:abc', REPORT_CHAT_ID: '1272887902', REPORT_WEBHOOK_SECRET: 'hook-secret' };
   const calls = [];
   const realFetch2 = globalThis.fetch;
-  globalThis.fetch = async (url, init) => { calls.push({ method: String(url).split('/').pop(), body: JSON.parse(init.body) }); return new Response('{"ok":true}'); };
+  let failMethod = '';
+  globalThis.fetch = async (url, init) => {
+    const method = String(url).split('/').pop();
+    const body = init.body instanceof FormData
+      ? Object.fromEntries([...init.body].map(([k, v]) => [k, typeof v === 'string' ? v : { size: v.size, type: v.type, name: v.name }]))
+      : JSON.parse(init.body);
+    calls.push({ method, body });
+    if (method === failMethod) {
+      return new Response('{"ok":false}', { status: 400 });
+    }
+    return Response.json({ ok: true, result: { message_id: 77 } });
+  };
   const status = async (accounts) => (await worker.fetch(new Request('https://relay.example/stats/status', { method: 'POST', body: JSON.stringify({ id: 'install-0001', accounts }) }), botEnv)).json();
   const hook = (update, secret = 'hook-secret') => worker.fetch(new Request('https://relay.example/tg/hook', { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': secret }, body: JSON.stringify(update) }), botEnv);
   const press = (data, from = 1272887902) => hook({ callback_query: { id: 'q1', from: { id: from }, data, message: { message_id: 7, chat: { id: from } } } });
@@ -368,6 +379,37 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     calls.length = 0;
     await press('d:' + plainRid);
     assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('Установка: ✅ найдена'), 'A report from a real install is marked');
+    calls.length = 0;
+    const withMedia = await worker.fetch(new Request('https://relay.example/stats/report', { method: 'POST', body: JSON.stringify({ ...base, id: 'media-00001', text: '@scam screenshots', target: '555', targetName: '@scam Scam', attachments: 9 }) }), botEnv);
+    const ticket = await withMedia.json();
+    assert.match(ticket.token, /^[0-9a-f]{32}$/);
+    assert.ok(calls.pop().body.text.includes('Вложений: 5'), 'The notice says attachments follow, capped at five');
+    const attach = (body, type, token = ticket.token, rid = ticket.rid) => worker.fetch(new Request('https://relay.example/stats/attach/' + rid, { method: 'POST', headers: { 'content-type': type, 'x-ayugram-token': token }, body }), botEnv);
+    assert.equal((await attach(new Uint8Array([1, 2, 3]), 'image/jpeg', 'f'.repeat(32))).status, 403, 'Attachments need the ticket token');
+    assert.equal((await attach(new Uint8Array([1, 2, 3]), 'application/zip')).status, 400, 'Only photos and videos are taken');
+    assert.equal((await attach(new Uint8Array(0), 'image/jpeg')).status, 413);
+    assert.equal(calls.length, 0);
+    assert.equal((await attach(new Uint8Array([1, 2, 3]), 'image/jpeg')).status, 200);
+    let sentMedia = calls.pop();
+    assert.equal(sentMedia.method, 'sendPhoto');
+    assert.equal(sentMedia.body.chat_id, '1272887902');
+    assert.equal(JSON.parse(sentMedia.body.reply_parameters).message_id, 77, 'Attachments reply to the report message');
+    assert.ok(sentMedia.body.caption.includes('@scam Scam'));
+    assert.deepEqual(sentMedia.body.photo, { size: 3, type: 'image/jpeg', name: 'attachment-1.jpg' });
+    assert.equal((await attach(new Uint8Array([4, 5]), 'video/quicktime')).status, 200);
+    assert.equal(calls.pop().method, 'sendVideo');
+    failMethod = 'sendPhoto';
+    assert.equal((await attach(new Uint8Array([6]), 'image/png')).status, 200);
+    assert.deepEqual(calls.splice(0).map((call) => call.method), ['sendPhoto', 'sendDocument'], 'A photo Telegram refuses goes as a file');
+    failMethod = '';
+    await attach(new Uint8Array([7]), 'image/jpeg');
+    await attach(new Uint8Array([8]), 'image/jpeg');
+    assert.equal((await attach(new Uint8Array([9]), 'image/jpeg')).status, 429, 'At most five attachments per report');
+    calls.length = 0;
+    await press('d:' + ticket.rid);
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('Вложений: 5 из 5'));
+    const noBot = await worker.fetch(new Request('https://relay.example/stats/attach/' + ticket.rid, { method: 'POST', headers: { 'content-type': 'image/jpeg', 'x-ayugram-token': ticket.token }, body: new Uint8Array([1]) }), { STATS });
+    assert.equal(noBot.status, 503, 'Without the bot attachments are refused rather than lost');
     calls.length = 0;
     await press('v:ffffffffffff');
     assert.ok(calls.find((call) => call.method === 'answerCallbackQuery').body.text === 'Жалоба не найдена');

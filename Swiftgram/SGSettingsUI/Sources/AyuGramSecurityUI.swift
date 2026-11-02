@@ -1,5 +1,7 @@
 import Foundation
 import UIKit
+import PhotosUI
+import UniformTypeIdentifiers
 import Display
 import SwiftSignalKit
 import TelegramCore
@@ -7,6 +9,7 @@ import AccountContext
 import TelegramPresentationData
 import PresentationDataUtils
 import PromptUI
+import OverlayStatusController
 import SGSimpleSettings
 import SGStrings
 
@@ -153,14 +156,18 @@ func ayuGramScamReportPrompt(context: AccountContext, completion: @escaping () -
                 target = peer.id.id._internalGetInt64Value()
                 targetName = targetName + " " + peer.debugDisplayTitle
             }
-            AyuGramSecurity.shared.report(text: value, target: target, targetName: targetName, variant: ayuGramVariant, completion: { ok in
-                let result = textAlertController(context: context, title: nil, text: i18n(ok ? "Ayu.ReportScamSent" : "Ayu.ReportScamFailed", locale), actions: [
-                    TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {
-                        completion()
-                    })
-                ], dismissOnOutsideTap: false)
-                context.sharedContext.mainWindow?.present(result, on: .root)
-            })
+            let send: ([AyuGramAttachment]) -> Void = { attachments in
+                ayuGramSubmitScamReport(context: context, text: value, target: target, targetName: targetName, attachments: attachments, completion: completion)
+            }
+            let ask = textAlertController(context: context, title: nil, text: i18n("Ayu.ReportAttachInfo", locale), actions: [
+                TextAlertAction(type: .defaultAction, title: i18n("Ayu.ReportAttach", locale), action: {
+                    ayuGramPickAttachments(context: context, completion: send)
+                }),
+                TextAlertAction(type: .genericAction, title: i18n("Ayu.ReportSendNow", locale), action: {
+                    send([])
+                })
+            ], actionLayout: .vertical, dismissOnOutsideTap: false)
+            context.sharedContext.mainWindow?.present(ask, on: .root)
         })
     }, dismissed: {
         finish()
@@ -220,4 +227,135 @@ func ayuGramPresentWarningIfNeeded(context: AccountContext) {
         })
     ], actionLayout: .vertical, dismissOnOutsideTap: false)
     context.sharedContext.mainWindow?.present(alert, on: .root)
+}
+
+struct AyuGramAttachment {
+    let data: Data
+    let contentType: String
+}
+
+private final class AyuGramAttachmentPicker: NSObject, PHPickerViewControllerDelegate {
+    var picked: (([PHPickerResult]) -> Void)?
+
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        let picked = self.picked
+        self.picked = nil
+        ayuGramAttachmentPicker = nil
+        picked?(results)
+    }
+}
+
+private var ayuGramAttachmentPicker: AyuGramAttachmentPicker?
+private let ayuGramMaxAttachments = 5
+private let ayuGramMaxVideoBytes = 20 * 1024 * 1024
+
+private func ayuGramCompressAttachment(_ image: UIImage) -> Data? {
+    let size = image.size
+    guard size.width > 0, size.height > 0 else {
+        return nil
+    }
+    let scale = min(1.0, 2048.0 / max(size.width, size.height))
+    let target = CGSize(width: max(1.0, floor(size.width * scale)), height: max(1.0, floor(size.height * scale)))
+    let format = UIGraphicsImageRendererFormat.default()
+    format.scale = 1.0
+    let rendered = UIGraphicsImageRenderer(size: target, format: format).image { _ in
+        image.draw(in: CGRect(origin: .zero, size: target))
+    }
+    return rendered.jpegData(compressionQuality: 0.8)
+}
+
+private func ayuGramLoadAttachments(_ results: [PHPickerResult], completion: @escaping ([AyuGramAttachment]) -> Void) {
+    let group = DispatchGroup()
+    let lock = NSLock()
+    var items: [(Int, AyuGramAttachment)] = []
+    let add: (Int, AyuGramAttachment) -> Void = { index, item in
+        lock.lock()
+        items.append((index, item))
+        lock.unlock()
+    }
+    for (index, result) in results.prefix(ayuGramMaxAttachments).enumerated() {
+        let provider = result.itemProvider
+        if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+            let isMP4 = provider.hasItemConformingToTypeIdentifier(UTType.mpeg4Movie.identifier)
+            group.enter()
+            provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier, completionHandler: { url, _ in
+                if let url, let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, size > 0, size <= ayuGramMaxVideoBytes, let data = try? Data(contentsOf: url) {
+                    add(index, AyuGramAttachment(data: data, contentType: isMP4 ? "video/mp4" : "video/quicktime"))
+                }
+                group.leave()
+            })
+        } else if provider.canLoadObject(ofClass: UIImage.self) {
+            group.enter()
+            provider.loadObject(ofClass: UIImage.self, completionHandler: { object, _ in
+                if let image = object as? UIImage, let data = ayuGramCompressAttachment(image) {
+                    add(index, AyuGramAttachment(data: data, contentType: "image/jpeg"))
+                }
+                group.leave()
+            })
+        }
+    }
+    group.notify(queue: .main, execute: {
+        completion(items.sorted(by: { $0.0 < $1.0 }).map { $0.1 })
+    })
+}
+
+func ayuGramPickAttachments(context: AccountContext, completion: @escaping ([AyuGramAttachment]) -> Void) {
+    var configuration = PHPickerConfiguration()
+    configuration.selectionLimit = ayuGramMaxAttachments
+    configuration.filter = .any(of: [.images, .videos])
+    let picker = PHPickerViewController(configuration: configuration)
+    let delegate = AyuGramAttachmentPicker()
+    delegate.picked = { results in
+        if results.isEmpty {
+            completion([])
+            return
+        }
+        ayuGramLoadAttachments(results, completion: completion)
+    }
+    ayuGramAttachmentPicker = delegate
+    picker.delegate = delegate
+    if context.sharedContext.currentPresentationData.with({ $0 }).theme.overallDarkAppearance {
+        picker.overrideUserInterfaceStyle = .dark
+    }
+    context.sharedContext.mainWindow?.presentNative(picker)
+}
+
+private func ayuGramUploadAttachments(_ attachments: [AyuGramAttachment], ticket: AyuGramReportTicket, failed: Int, completion: @escaping (Int) -> Void) {
+    guard let first = attachments.first else {
+        completion(failed)
+        return
+    }
+    AyuGramSecurity.shared.attach(ticket: ticket, data: first.data, contentType: first.contentType, completion: { ok in
+        ayuGramUploadAttachments(Array(attachments.dropFirst()), ticket: ticket, failed: failed + (ok ? 0 : 1), completion: completion)
+    })
+}
+
+func ayuGramSubmitScamReport(context: AccountContext, text: String, target: Int64, targetName: String, attachments: [AyuGramAttachment], completion: @escaping () -> Void) {
+    let data = context.sharedContext.currentPresentationData.with { $0 }
+    let locale = data.strings.baseLanguageCode
+    let progress = OverlayStatusController(theme: data.theme, type: .loading(cancelled: nil))
+    context.sharedContext.mainWindow?.present(progress, on: .root)
+    let finish: (String) -> Void = { key in
+        progress.dismiss()
+        let result = textAlertController(context: context, title: nil, text: i18n(key, locale), actions: [
+            TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {
+                completion()
+            })
+        ], dismissOnOutsideTap: false)
+        context.sharedContext.mainWindow?.present(result, on: .root)
+    }
+    AyuGramSecurity.shared.report(text: text, target: target, targetName: targetName, attachments: attachments.count, variant: ayuGramVariant, completion: { ok, ticket in
+        guard ok else {
+            finish("Ayu.ReportScamFailed")
+            return
+        }
+        guard let ticket, !attachments.isEmpty else {
+            finish(attachments.isEmpty ? "Ayu.ReportScamSent" : "Ayu.ReportAttachFailed")
+            return
+        }
+        ayuGramUploadAttachments(attachments, ticket: ticket, failed: 0, completion: { failed in
+            finish(failed == 0 ? "Ayu.ReportScamSent" : "Ayu.ReportAttachFailed")
+        })
+    })
 }
