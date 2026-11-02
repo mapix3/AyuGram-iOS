@@ -60,5 +60,6 @@ jobs:
           RESULT="$(curl -sS "$API/setWebhook" --data-urlencode "url=$HOOK_URL" --data-urlencode "secret_token=$HOOK_SECRET" \
             --data-urlencode 'allowed_updates=["message","callback_query"]' --data-urlencode "drop_pending_updates=true")"
           python3 -c 'import json,sys; d=json.loads(sys.argv[1]); sys.exit(0 if d.get("ok") else "setWebhook failed: " + str(d.get("description")))' "$RESULT"
+          curl -sS "$API/setMyCommands" --data-urlencode 'commands=[{"command":"bans","description":"Баны и блокировки со снятием"}]' >/dev/null
           BOT="$(curl -sS "$API/getMe" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["username"])')"
           echo "Scam reports go to the owner from @$BOT; the bot answers nobody else." | tee -a "$GITHUB_STEP_SUMMARY"

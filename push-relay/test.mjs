@@ -329,6 +329,7 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
   const status = async (accounts) => (await worker.fetch(new Request('https://relay.example/stats/status', { method: 'POST', body: JSON.stringify({ id: 'install-0001', accounts }) }), botEnv)).json();
   const hook = (update, secret = 'hook-secret') => worker.fetch(new Request('https://relay.example/tg/hook', { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': secret }, body: JSON.stringify(update) }), botEnv);
   const press = (data, from = 1272887902) => hook({ callback_query: { id: 'q1', from: { id: from }, data, message: { message_id: 7, chat: { id: from } } } });
+  const sendText = (text, from = 1272887902) => hook({ message: { from: { id: from }, chat: { id: from }, text } });
   try {
     const sendReport = (body) => worker.fetch(new Request('https://relay.example/stats/report', { method: 'POST', body: JSON.stringify({ ...base, id: 'victim-0001', ...body }) }), botEnv);
     assert.equal((await sendReport({ text: '@scam sold me AyuGram', target: '555', targetName: '@scam Scam' })).status, 200);
@@ -475,6 +476,30 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     calls.length = 0;
     await press('y:ffffffffffff');
     assert.equal(calls.find((call) => call.method === 'answerCallbackQuery').body.text, 'Копия не найдена');
+
+    await press('b:' + rid);
+    await press('B:' + rid);
+    await press('k:' + cid);
+    await press('K:' + cid);
+    assert.equal((await status([scammerHash])).banned, true);
+    assert.equal((await check(forkBody)).blocked, true);
+    calls.length = 0;
+    await sendText('/bans');
+    const list = calls.find((call) => call.method === 'sendMessage');
+    assert.ok(list.body.text.includes('Забаненные аккаунты (1)') && list.body.text.includes('@scam Scam'), 'The ban list names the banned account');
+    assert.ok(list.body.text.includes('Заблокированные копии (1)') && list.body.text.includes('scammer/AyuGram-iOS'), 'The ban list names the blocked copy');
+    const buttons = list.body.reply_markup.inline_keyboard.flat().map((b) => b.callback_data);
+    assert.ok(buttons.includes('U:' + rid) && buttons.includes('X:' + cid) && buttons.includes('L:x'));
+    assert.equal((await sendText('/bans', 999)).status, 200);
+    assert.equal(calls.filter((call) => call.method === 'sendMessage').length, 1, 'Only the owner lists bans');
+    calls.length = 0;
+    await press('U:' + rid);
+    assert.equal((await status([scammerHash])).banned, false, 'Unban from the list lifts the ban');
+    assert.ok(calls.find((call) => call.method === 'editMessageText').body.text.includes('Забаненные аккаунты (0)'), 'The list refreshes in place');
+    calls.length = 0;
+    await press('X:' + cid);
+    assert.equal((await check(forkBody)).blocked, false, 'Unblock from the list lifts the block');
+    assert.ok(calls.find((call) => call.method === 'editMessageText').body.text.includes('Заблокированные копии (0)'));
   } finally {
     globalThis.fetch = realFetch2;
   }

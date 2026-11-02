@@ -252,6 +252,9 @@ export class Stats {
       }
       return Response.json({ banned, warning: warning ? warning.id : null, blocked, notify });
     }
+    if (request.method === 'GET' && url.pathname === '/bans') {
+      return Response.json(await this.bans());
+    }
     if (request.method === 'GET' && url.pathname.startsWith('/copy/')) {
       const copy = await this.copy(url.pathname.slice(6));
       return copy ? Response.json(copy) : new Response('not found\n', { status: 404 });
@@ -416,6 +419,30 @@ export class Stats {
     }
     await storage.put('c:' + cid, record);
     return fresh ? await this.copy(cid) : null;
+  }
+
+  async bans() {
+    const storage = this.state.storage;
+    const accounts = [];
+    for (const [, value] of await storage.list({ prefix: 'ban:' })) {
+      const key = value && value.rid ? await storage.get('q:' + value.rid) : null;
+      const report = key ? await storage.get(key) : null;
+      accounts.push({ rid: (value && value.rid) || '', name: report ? (report.targetName || ('ID ' + report.target)) : '', time: value ? value.time : 0 });
+    }
+    accounts.sort((a, b) => b.time - a.time);
+    const seen = new Map();
+    for (const [, value] of await storage.list({ prefix: 'blk:' })) {
+      if (value && value.cid && !seen.has(value.cid)) {
+        seen.set(value.cid, value.time);
+      }
+    }
+    const copies = [];
+    for (const [cid, time] of seen) {
+      const record = await storage.get('c:' + cid);
+      copies.push({ cid, kind: record ? record.kind : '', repo: record ? record.repo : '', team: record && record.details ? record.details.team : '', time });
+    }
+    copies.sort((a, b) => b.time - a.time);
+    return { accounts, copies };
   }
 
   async copy(cid) {
