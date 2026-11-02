@@ -58,6 +58,72 @@ export function cleanInstall(body, country, now) {
   };
 }
 
+export const OFFICIAL_REPO = 'mapix3/AyuGram-iOS';
+const COPIES_PER_DAY = 20;
+const COPY_TTL_MS = 365 * 24 * 60 * 60 * 1000;
+
+function signature(value) {
+  return typeof value === 'string' && /^[0-9a-f]{32}$/.test(value) ? value : '';
+}
+
+export function cleanCheck(body, country, now) {
+  if (!body || body.check !== true) {
+    return null;
+  }
+  const install = cleanInstall(body, country, now);
+  if (!install) {
+    return null;
+  }
+  const repo = text(body.repo, 120);
+  const commit = text(body.commit, 40);
+  const run = text(body.run, 24);
+  return {
+    ...install,
+    repo: /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) ? repo : '',
+    commit: /^[0-9a-f]{7,40}$/.test(commit) ? commit : '',
+    run: /^[0-9]{1,20}$/.test(run) ? run : '',
+    plistBuild: Number.parseInt(text(body.plistBuild, 12), 10) || 0,
+    tsig: signature(body.tsig),
+    bsig: signature(body.bsig),
+    official: body.official === true,
+  };
+}
+
+export function copyKind(check) {
+  if (!check) {
+    return null;
+  }
+  if (check.repo !== OFFICIAL_REPO) {
+    return 'fork';
+  }
+  if (check.status === 'modified') {
+    return 'modified';
+  }
+  if (['enterprise', 'testflight', 'appstore'].includes(check.source) || check.devices > 3) {
+    return 'distributor';
+  }
+  return null;
+}
+
+export function copyBlockKeys(copy) {
+  const keys = [];
+  if (copy.tsig) {
+    keys.push(['blk:t:' + copy.tsig, 'сертификату']);
+  }
+  if (copy.bsig && !copy.official) {
+    keys.push(['blk:b:' + copy.bsig, 'bundle id']);
+  }
+  if (copy.repo && copy.repo !== OFFICIAL_REPO) {
+    keys.push(['blk:r:' + copy.repo.toLowerCase(), 'репозиторию']);
+  }
+  return keys;
+}
+
+async function shortHash(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 12);
+}
+
 export function cleanReport(body, country, now) {
   if (!body || typeof body !== 'object') {
     return null;
@@ -170,7 +236,48 @@ export class Stats {
           warning = warn;
         }
       }
-      return Response.json({ banned, warning: warning ? warning.id : null });
+      const check = body.check || null;
+      let blocked = false;
+      let notify = null;
+      if (check) {
+        const keys = copyBlockKeys(check).map(([key]) => key);
+        if (keys.length) {
+          const found = await storage.get(keys);
+          blocked = [...found.values()].some(Boolean);
+        }
+        const kind = copyKind(check);
+        if (kind) {
+          notify = await this.noteCopy(check, kind, now);
+        }
+      }
+      return Response.json({ banned, warning: warning ? warning.id : null, blocked, notify });
+    }
+    if (request.method === 'GET' && url.pathname.startsWith('/copy/')) {
+      const copy = await this.copy(url.pathname.slice(6));
+      return copy ? Response.json(copy) : new Response('not found\n', { status: 404 });
+    }
+    if (request.method === 'POST' && url.pathname.startsWith('/copy-moderate/')) {
+      const [, , action, cid] = url.pathname.split('/');
+      const copy = await this.copy(cid);
+      if (!copy) {
+        return new Response('not found\n', { status: 404 });
+      }
+      const keys = copyBlockKeys(copy.record).map(([key]) => key);
+      if (!keys.length) {
+        return new Response('nothing to block\n', { status: 409 });
+      }
+      if (action === 'block') {
+        const entries = {};
+        for (const key of keys) {
+          entries[key] = { time: now, cid };
+        }
+        await storage.put(entries);
+      } else if (action === 'unblock') {
+        await storage.delete(keys);
+      } else {
+        return new Response('not found\n', { status: 404 });
+      }
+      return Response.json(await this.copy(cid));
     }
     if (request.method === 'GET' && url.pathname.startsWith('/review/')) {
       const review = await this.review(url.pathname.slice(8));
@@ -261,8 +368,15 @@ export class Stats {
           reports.push(value);
         }
       }
-      for (const [key] of await storage.list({ prefix: 'l:' })) {
-        if (Number(key.split(':').pop()) < Math.floor(now / 86400000) - 1) {
+      for (const prefix of ['l:', 'lc:']) {
+        for (const [key] of await storage.list({ prefix })) {
+          if (Number(key.split(':').pop()) < Math.floor(now / 86400000) - 1) {
+            stale.push(key);
+          }
+        }
+      }
+      for (const [key, value] of await storage.list({ prefix: 'c:' })) {
+        if (now - value.seen > COPY_TTL_MS) {
           stale.push(key);
         }
       }
@@ -272,6 +386,52 @@ export class Stats {
       return Response.json(summarize(installs, reports, now));
     }
     return new Response('not found\n', { status: 404 });
+  }
+
+  async noteCopy(check, kind, now) {
+    const storage = this.state.storage;
+    const cid = await shortHash([kind, check.tsig, check.official ? '' : check.bsig, check.repo.toLowerCase(), check.team].join('|'));
+    const existing = await storage.get('c:' + cid);
+    const { id, accounts, ...details } = check;
+    const record = existing || { cid, kind, first: now, installs: [], notified: false };
+    record.seen = now;
+    record.details = details;
+    record.tsig = check.tsig;
+    record.bsig = check.bsig;
+    record.official = check.official;
+    record.repo = check.repo;
+    if (!record.installs.includes(id)) {
+      record.installs = [...record.installs, id].slice(-200);
+    }
+    let fresh = false;
+    if (!record.notified) {
+      const day = Math.floor(now / 86400000);
+      const limitKey = 'lc:' + day;
+      const count = (await storage.get(limitKey)) || 0;
+      if (count < COPIES_PER_DAY) {
+        await storage.put(limitKey, count + 1);
+        record.notified = true;
+        fresh = true;
+      }
+    }
+    await storage.put('c:' + cid, record);
+    return fresh ? await this.copy(cid) : null;
+  }
+
+  async copy(cid) {
+    if (!/^[0-9a-f]{12}$/.test(cid || '')) {
+      return null;
+    }
+    const storage = this.state.storage;
+    const record = await storage.get('c:' + cid);
+    if (!record) {
+      return null;
+    }
+    const keys = copyBlockKeys(record);
+    const found = keys.length ? await storage.get(keys.map(([key]) => key)) : new Map();
+    const blockedBy = keys.filter(([key]) => found.get(key)).map(([, label]) => label);
+    const { installs, ...rest } = record;
+    return { record: rest, installs: installs.length, blockable: keys.map(([, label]) => label), blockedBy };
   }
 
   async review(rid) {
@@ -356,6 +516,83 @@ export function reportMessage(report) {
     lines.push('Сертификат: ' + report.team + (report.teamName ? ' (' + report.teamName + ')' : ''));
   }
   return lines.join('\n');
+}
+
+const kyivTime = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+function kyiv(time) {
+  return time ? kyivTime.format(new Date(time)) : '-';
+}
+
+const COPY_TITLES = { fork: '🍴 Форк AyuGram', modified: '✂️ Изменённая сборка AyuGram', distributor: '📤 Нашу сборку раздают' };
+
+export function copyMessage(copy) {
+  const record = copy.record;
+  const details = record.details || {};
+  const lines = [COPY_TITLES[record.kind] || '📦 Копия AyuGram', ''];
+  if (record.kind === 'fork') {
+    lines.push(record.repo ? 'Репозиторий: github.com/' + record.repo : 'Репозиторий: собрано не в GitHub Actions или печать вырезана');
+    if (details.commit || details.run) {
+      lines.push('Коммит: ' + (details.commit || '-') + (details.run ? ' · запуск ' + details.run : ''));
+    }
+  }
+  const build = details.build || '?';
+  const plist = details.plistBuild && details.plistBuild !== details.build ? ' (в Info.plist ' + details.plistBuild + ')' : '';
+  lines.push(['Сборка ' + build + plist + (details.variant ? ' ' + details.variant : ''), details.status, details.source, details.country].filter(Boolean).join(' · '));
+  if (details.team || details.teamName || details.cert) {
+    lines.push('Сертификат: ' + [details.team, details.teamName, details.cert].filter(Boolean).join(' / '));
+  }
+  if (details.profile || details.bundle) {
+    lines.push('Профиль: ' + [details.profile, details.bundle].filter(Boolean).join(' / ') + (record.official ? ' (bundle id наш)' : ''));
+  }
+  if (details.devices) {
+    lines.push('Устройств в профиле: ' + details.devices);
+  }
+  if (details.device || details.os) {
+    lines.push('Устройство: ' + [details.device, details.os ? 'iOS ' + details.os : ''].filter(Boolean).join(' '));
+  }
+  lines.push('Установок: ' + (copy.installs || 0) + ', первая ' + kyiv(record.first) + ', последняя ' + kyiv(record.seen));
+  lines.push('');
+  if (copy.blockedBy && copy.blockedBy.length) {
+    lines.push('Статус: ⛔ заблокирована по ' + copy.blockedBy.join(', '));
+  } else if (copy.blockable && copy.blockable.length) {
+    lines.push('Статус: работает. Блок сработает по ' + copy.blockable.join(', '));
+  } else {
+    lines.push('Статус: работает. Заблокировать нечем: нет ни сертификата, ни чужого bundle id, ни репозитория');
+  }
+  return lines.join('\n').slice(0, 4000);
+}
+
+export function copyMenu(copy) {
+  const cid = copy.record.cid;
+  const rows = [];
+  if (copy.blockedBy && copy.blockedBy.length) {
+    rows.push([{ text: '✅ Разблокировать', callback_data: 'x:' + cid }]);
+  } else if (copy.blockable && copy.blockable.length) {
+    rows.push([{ text: '⛔ Заблокировать', callback_data: 'k:' + cid }]);
+  }
+  rows.push([{ text: '🔄 Обновить', callback_data: 'y:' + cid }]);
+  return { inline_keyboard: rows };
+}
+
+export async function notifyCopy(copy, env) {
+  if (!env || !env.REPORT_BOT_TOKEN || !env.REPORT_CHAT_ID || !copy || !copy.record) {
+    return false;
+  }
+  const response = await fetch('https://api.telegram.org/bot' + env.REPORT_BOT_TOKEN + '/sendMessage', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: env.REPORT_CHAT_ID,
+      text: copyMessage(copy),
+      link_preview_options: { is_disabled: true },
+      reply_markup: copyMenu(copy),
+    }),
+  });
+  if (!response.ok) {
+    console.log('copy not sent to Telegram: ' + response.status);
+  }
+  return response.ok;
 }
 
 export async function notifyReport(report, env) {
@@ -466,7 +703,21 @@ export async function handleStats(request, env, url, ctx) {
     if (!body || !/^[A-Za-z0-9-]{8,64}$/.test(text(body.id, 64))) {
       return new Response('bad request\n', { status: 400 });
     }
-    return stub.fetch('https://stats.ayugram.invalid/status', { method: 'POST', body: JSON.stringify({ accounts: cleanAccounts(body.accounts) }) });
+    const check = cleanCheck(body, country, now);
+    const response = await stub.fetch('https://stats.ayugram.invalid/status', { method: 'POST', body: JSON.stringify({ accounts: cleanAccounts(body.accounts), check }) });
+    if (!response.ok) {
+      return response;
+    }
+    const { notify, ...result } = await response.json();
+    if (notify) {
+      const sent = notifyCopy(notify, env).catch((error) => console.log('copy not sent to Telegram: ' + error));
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(sent);
+      } else {
+        await sent;
+      }
+    }
+    return Response.json(result);
   }
   if (request.method === 'GET' && url.pathname === '/stats/summary') {
     const header = request.headers.get('authorization') || '';

@@ -1,6 +1,6 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
-import { webcrypto as crypto } from 'node:crypto';
+import { webcrypto as crypto, createHash } from 'node:crypto';
 import { accountHash } from './stats.js';
 import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
 
@@ -253,8 +253,8 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
 {
   const data = new Map();
   const storage = {
-    async get(k) { return data.get(k); },
-    async put(k, v) { data.set(k, v); },
+    async get(k) { return Array.isArray(k) ? new Map(k.filter((key) => data.has(key)).map((key) => [key, data.get(key)])) : data.get(k); },
+    async put(k, v) { if (typeof k === 'object') { for (const [key, value] of Object.entries(k)) data.set(key, value); } else { data.set(k, v); } },
     async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
     async list({ prefix }) { return new Map([...data].filter(([k]) => k.startsWith(prefix)).sort()); },
   };
@@ -346,13 +346,13 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     let edit = calls.find((call) => call.method === 'editMessageText');
     assert.ok(edit.body.text.includes('AyuGram: ✅ установлен (1 устр.)'), 'The review checks whether the scammer has AyuGram');
     assert.deepEqual(edit.body.reply_markup.inline_keyboard.flat().map((b) => b.callback_data), ['w:' + rid, 'b:' + rid, 'd:' + rid, 'm:' + rid]);
-    assert.deepEqual(await status([scammerHash]), { banned: false, warning: null });
+    assert.deepEqual(await status([scammerHash]), { banned: false, warning: null, blocked: false });
     calls.length = 0;
     await press('w:' + rid);
     const warned = await status([scammerHash]);
     assert.equal(warned.banned, false);
     assert.ok(warned.warning.startsWith(rid), 'A warning reaches the scammer install');
-    assert.deepEqual(await status([await accountHash('556')]), { banned: false, warning: null }, 'Other accounts are not affected');
+    assert.deepEqual(await status([await accountHash('556')]), { banned: false, warning: null, blocked: false }, 'Other accounts are not affected');
     calls.length = 0;
     await press('b:' + rid);
     edit = calls.find((call) => call.method === 'editMessageText');
@@ -418,6 +418,63 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     calls.length = 0;
     await press('v:ffffffffffff');
     assert.ok(calls.find((call) => call.method === 'answerCallbackQuery').body.text === 'Жалоба не найдена');
+
+    const sig = (value) => createHash('sha256').update('ayugram-sig|' + value).digest('hex').slice(0, 32);
+    const check = async (body, country = 'KZ') => {
+      const request = new Request('https://relay.example/stats/status', { method: 'POST', body: JSON.stringify({ id: 'install-0001', accounts: [], check: true, build: 208301, variant: 'standard', status: 'official', source: 'sideload', devices: 1, repo: 'mapix3/AyuGram-iOS', official: true, tsig: sig('OWN1234567'), bsig: sig('org.example.app'), ...body }) });
+      Object.defineProperty(request, 'cf', { value: { country } });
+      return (await worker.fetch(request, botEnv)).json();
+    };
+    calls.length = 0;
+    assert.deepEqual(await check({}), { banned: false, warning: null, blocked: false }, 'Our build signed for yourself is not a copy');
+    assert.equal(calls.length, 0);
+    const forkBody = { id: 'fork-000001', status: 'modified', repo: 'scammer/AyuGram-iOS', commit: 'abcdef123456', run: '99', official: false, tsig: sig('EVIL123456'), bsig: sig('com.evil.ayu'), team: 'EVIL123456', teamName: 'Evil LLC', cert: 'Apple Development: Evil', profile: 'Evil Profile', bundle: 'com.evil.ayu', devices: 50, device: 'iPhone17,1', os: '26.1' };
+    assert.deepEqual(await check(forkBody), { banned: false, warning: null, blocked: false }, 'A fork learns nothing from the reply');
+    const forkNotice = calls.find((call) => call.method === 'sendMessage');
+    assert.equal(forkNotice.body.chat_id, '1272887902', 'Forks reach the owner');
+    assert.ok(forkNotice.body.text.startsWith('🍴 Форк AyuGram') && forkNotice.body.text.includes('github.com/scammer/AyuGram-iOS') && forkNotice.body.text.includes('EVIL123456 / Evil LLC') && forkNotice.body.text.includes('com.evil.ayu'));
+    assert.ok(!forkNotice.body.text.includes('fork-000001'), 'Install ids stay inside the worker');
+    const cid = forkNotice.body.reply_markup.inline_keyboard[0][0].callback_data.slice(2);
+    assert.equal(forkNotice.body.reply_markup.inline_keyboard[0][0].callback_data, 'k:' + cid);
+    calls.length = 0;
+    await check({ ...forkBody, id: 'fork-000002' });
+    assert.equal(calls.length, 0, 'A copy is announced once');
+    await press('y:' + cid);
+    assert.ok(calls.find((call) => call.method === 'editMessageText').body.text.includes('Установок: 2'), 'Refresh counts every install of the copy');
+    calls.length = 0;
+    await press('k:' + cid);
+    assert.equal(calls.find((call) => call.method === 'editMessageText').body.reply_markup.inline_keyboard[0][0].callback_data, 'K:' + cid, 'A block asks for confirmation');
+    assert.equal((await check(forkBody)).blocked, false);
+    calls.length = 0;
+    await press('K:' + cid, 999);
+    assert.equal((await check(forkBody)).blocked, false, 'Only the owner blocks');
+    await press('K:' + cid);
+    assert.ok(calls.find((call) => call.method === 'editMessageText').body.text.includes('заблокирована по сертификату, bundle id, репозиторию'));
+    assert.equal((await check(forkBody)).blocked, true, 'The block reaches the copy');
+    assert.equal((await check({ ...forkBody, bsig: sig('com.other.bundle'), repo: 'other/repo' })).blocked, true, 'Changing the bundle id or repository does not escape the certificate');
+    assert.equal((await check({ ...forkBody, tsig: sig('NEW1234567'), bsig: sig('com.other.bundle') })).blocked, true, 'A new certificate in the same repository stays blocked');
+    assert.equal((await check({ ...forkBody, tsig: sig('NEW1234567'), repo: 'SCAMMER/ayugram-ios', bsig: sig('x.y') })).blocked, true, 'Repository names are compared case-insensitively');
+    assert.equal((await check({})).blocked, false, 'Official installs stay open');
+    assert.equal((await check({ status: 'modified', tsig: '', bsig: sig('org.example.app'), team: 'OURTEST001' })).blocked, false, 'Our own bundle id is never blocked');
+    calls.length = 0;
+    await press('x:' + cid);
+    assert.equal((await check(forkBody)).blocked, false, 'Unblock lifts it');
+    calls.length = 0;
+    await check({ id: 'dist-000001', source: 'enterprise', tsig: sig('DIST123456'), official: false, bsig: sig('com.dist.app'), team: 'DIST123456', bundle: 'com.dist.app' });
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.startsWith('📤 Нашу сборку раздают'), 'Redistributed official builds reach the owner');
+    calls.length = 0;
+    await check({ id: 'mod-0000001', status: 'modified', official: true, tsig: '', bsig: sig('org.example.app'), plistBuild: 999999 });
+    const modified = calls.find((call) => call.method === 'sendMessage');
+    assert.ok(modified.body.text.startsWith('✂️ Изменённая сборка') && modified.body.text.includes('в Info.plist 999999') && modified.body.text.includes('Заблокировать нечем'));
+    assert.deepEqual(modified.body.reply_markup.inline_keyboard.flat().map((b) => b.callback_data.slice(0, 2)), ['y:'], 'Nothing to block offers only a refresh');
+    calls.length = 0;
+    for (let i = 0; i < 25; i += 1) {
+      await check({ id: 'spam-' + String(i).padStart(6, '0'), repo: 'spam' + i + '/x', tsig: sig('SPAM' + i), official: false });
+    }
+    assert.equal(calls.filter((call) => call.method === 'sendMessage').length, 13, 'New copies are announced at most twenty a day');
+    calls.length = 0;
+    await press('y:ffffffffffff');
+    assert.equal(calls.find((call) => call.method === 'answerCallbackQuery').body.text, 'Копия не найдена');
   } finally {
     globalThis.fetch = realFetch2;
   }

@@ -1,4 +1,4 @@
-import { reportMessage, statsStub } from './stats.js';
+import { copyMenu, copyMessage, reportMessage, statsStub } from './stats.js';
 
 const kyiv = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -121,10 +121,53 @@ async function stats(env, path, method) {
   return response;
 }
 
+async function handleCopyCallback(env, query, action, cid, answer) {
+  const message = query.message;
+  const response = await stats(env, '/copy/' + cid);
+  if (!response || !response.ok || !message) {
+    await answer('Копия не найдена', true);
+    return;
+  }
+  let copy = await response.json();
+  const edit = (markup) => telegram(env, 'editMessageText', {
+    chat_id: message.chat.id,
+    message_id: message.message_id,
+    text: copyMessage(copy),
+    link_preview_options: { is_disabled: true },
+    reply_markup: markup || copyMenu(copy),
+  });
+  if (action === 'y') {
+    await edit();
+    await answer('Обновлено');
+    return;
+  }
+  if (action === 'k') {
+    if (!copy.blockable.length) {
+      await answer('Заблокировать нечем', true);
+      return;
+    }
+    await edit({ inline_keyboard: [[{ text: '⛔ Да, заблокировать', callback_data: 'K:' + cid }], [{ text: 'Отмена', callback_data: 'y:' + cid }]] });
+    await answer('Блок по ' + copy.blockable.join(', ') + '. Подтверди', true);
+    return;
+  }
+  const moderated = await stats(env, '/copy-moderate/' + (action === 'K' ? 'block' : 'unblock') + '/' + cid, 'POST');
+  if (!moderated || !moderated.ok) {
+    await answer('Не получилось, попробуй ещё раз', true);
+    return;
+  }
+  copy = await moderated.json();
+  await edit();
+  await answer(action === 'K' ? '⛔ Заблокирована, AyuGram в ней закроется при следующем запуске' : '✅ Разблокирована', true);
+}
+
 async function handleCallback(env, query) {
   const message = query.message;
   const [action, rid] = String(query.data || '').split(':');
   const answer = (text, alert) => telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: text || undefined, show_alert: Boolean(alert) });
+  if (['k', 'K', 'x', 'y'].includes(action)) {
+    await handleCopyCallback(env, query, action, rid, answer);
+    return;
+  }
   const response = await stats(env, '/review/' + rid);
   if (!response || !response.ok || !message) {
     await answer('Жалоба не найдена', true);

@@ -235,6 +235,8 @@ def build(source, ci, output, env):
         check_ghost_and_content(source, variant)
         from ayugram_branding import prepare_branding, verify_branding_ipa
         prepare_branding(source)
+        from ayugram_origin import prepare_origin
+        prepare_origin(source, number, variant, config['bundle_id'], env)
         run(make + ['generateProject'] + common + ['--disableProvisioningProfiles'], cwd=source)
         if not (source / 'Telegram/Swiftgram.xcodeproj').is_dir():
             raise ValueError('Make.py did not generate Telegram/Swiftgram.xcodeproj')
