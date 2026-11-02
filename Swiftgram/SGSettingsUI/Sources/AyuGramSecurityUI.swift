@@ -51,6 +51,47 @@ func ayuGramStartSecurity(context: AccountContext) {
     ayuGramPresentWarningIfNeeded(context: context)
 }
 
+private var ayuGramTamperWindow: UIWindow?
+
+public func ayuGramArmTamperWatchdog() {
+    AyuGramSecurity.shared.armTamperWatchdog(after: 25.0, onTamper: {
+        ayuGramPresentTamperScreen()
+    })
+}
+
+private func ayuGramPresentTamperScreen() {
+    if AyuGramSecurity.shared.hasStarted {
+        return
+    }
+    let message = AyuGramSecurity.tamperMessage
+    if ayuGramTamperWindow == nil {
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1.0)
+        window.backgroundColor = .black
+        let controller = UIViewController()
+        controller.view.backgroundColor = .black
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 17.0, weight: .semibold)
+        label.text = message
+        controller.view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerYAnchor.constraint(equalTo: controller.view.centerYAnchor),
+            label.leadingAnchor.constraint(equalTo: controller.view.leadingAnchor, constant: 32.0),
+            label.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor, constant: -32.0)
+        ])
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        ayuGramTamperWindow = window
+    }
+    Queue.mainQueue().after(3.0, {
+        preconditionFailure(message)
+    })
+}
+
 func ayuGramReportUsername(_ text: String) -> String? {
     guard let regex = try? NSRegularExpression(pattern: "(?:@|t\\.me/|telegram\\.me/)([A-Za-z][A-Za-z0-9_]{3,31})", options: [.caseInsensitive]) else {
         return nil

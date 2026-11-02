@@ -147,6 +147,7 @@ public final class AyuGramSecurity {
     private var currentStatus: AyuGramBuildStatus = .checking
     private var rules = AyuGramBlockRules()
     private var started = false
+    private var watchdogArmed = false
     private let statsMarkerKey = "ayugram.stats.last"
     private let installIdKey = "ayugram.stats.id"
     private let accountsKey = "ayugram.stats.accounts"
@@ -201,6 +202,31 @@ public final class AyuGramSecurity {
         self.lock.lock()
         defer { self.lock.unlock() }
         return self.currentStatus
+    }
+
+    public var hasStarted: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.started
+    }
+
+    public static let tamperMessage = "You've deleted a critical security component from AyuGram. Re-build the IPA with this security component."
+
+    /// Armed from the application core, independently of the security component itself. If that
+    /// component was removed from a rebuilt IPA, `start` never runs and this fires `onTamper`.
+    public func armTamperWatchdog(after seconds: Double, onTamper: @escaping () -> Void) {
+        self.lock.lock()
+        if self.watchdogArmed {
+            self.lock.unlock()
+            return
+        }
+        self.watchdogArmed = true
+        self.lock.unlock()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + seconds, execute: {
+            if !self.hasStarted {
+                DispatchQueue.main.async(execute: onTamper)
+            }
+        })
     }
 
     public var isBlocked: Bool {
