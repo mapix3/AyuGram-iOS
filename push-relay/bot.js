@@ -185,7 +185,9 @@ function bansText(data) {
 function bansMenu(data) {
   const rows = [];
   for (const ban of data.accounts) {
-    if (ban.rid) {
+    if (ban.id) {
+      rows.push([{ text: '✅ Разбанить ' + (ban.name || ban.id), callback_data: 'V:' + ban.id }]);
+    } else if (ban.rid) {
       rows.push([{ text: '✅ Разбанить ' + (ban.name || ban.rid), callback_data: 'U:' + ban.rid }]);
     }
   }
@@ -194,6 +196,25 @@ function bansMenu(data) {
   }
   rows.push([{ text: '🔄 Обновить', callback_data: 'L:x' }]);
   return { inline_keyboard: rows.map((row) => row.map((button) => ({ ...button, text: button.text.slice(0, 60) }))) };
+}
+
+async function banById(env, chatId, text) {
+  const [command, raw] = text.trim().split(/\s+/);
+  const action = command.startsWith('/unban') ? 'unban' : 'ban';
+  const id = String(raw || '').replace(/^ID/i, '');
+  if (!/^[1-9][0-9]{0,19}$/.test(id)) {
+    await telegram(env, 'sendMessage', { chat_id: chatId, text: 'Напиши числовой ID: /' + action + ' 123456789' });
+    return;
+  }
+  const response = await stats(env, '/ban-id/' + action + '/' + id, 'POST');
+  if (!response || !response.ok) {
+    await telegram(env, 'sendMessage', { chat_id: chatId, text: 'Не получилось, попробуй ещё раз' });
+    return;
+  }
+  const result = await response.json();
+  const installed = result.installs ? 'AyuGram у него: ✅ найден (' + result.installs + ' устр.)' : 'AyuGram у него: ❌ не найден или выключена статистика';
+  const head = action === 'ban' ? '⛔ Забанен ID ' + id + '. Сработает при следующем запуске AyuGram.' : '✅ Разбанен ID ' + id + '.';
+  await telegram(env, 'sendMessage', { chat_id: chatId, text: head + '\n' + installed });
 }
 
 async function sendBans(env, chatId) {
@@ -212,6 +233,9 @@ async function handleBansCallback(env, query, action, id, answer) {
     }
     const done = await stats(env, '/moderate/unban/' + id, 'POST');
     await answer(done && done.ok ? '✅ Разбанен' : 'Не получилось', true);
+  } else if (action === 'V') {
+    const done = await stats(env, '/ban-id/unban/' + id, 'POST');
+    await answer(done && done.ok ? '✅ Разбанен' : 'Не получилось', true);
   } else if (action === 'X') {
     const done = await stats(env, '/copy-moderate/unblock/' + id, 'POST');
     await answer(done && done.ok ? '✅ Разблокирована' : 'Не получилось', true);
@@ -227,7 +251,7 @@ async function handleCallback(env, query) {
   const message = query.message;
   const [action, rid] = String(query.data || '').split(':');
   const answer = (text, alert) => telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: text || undefined, show_alert: Boolean(alert) });
-  if (['U', 'X', 'L'].includes(action)) {
+  if (['U', 'V', 'X', 'L'].includes(action)) {
     await handleBansCallback(env, query, action, rid, answer);
     return;
   }
@@ -324,6 +348,8 @@ export async function handleBot(request, env, ctx) {
     } else if (message && message.chat && String(message.chat.id) === owner && typeof message.text === 'string') {
       if (message.text.startsWith('/bans') || message.text.startsWith('/blocks')) {
         await sendBans(env, owner);
+      } else if (/^\/(un)?ban(\s|$)/.test(message.text)) {
+        await banById(env, owner, message.text);
       } else if (message.text.startsWith('/start')) {
         await telegram(env, 'sendMessage', { chat_id: owner, text: 'Готов. Жалобы на скам приходят сюда. /bans — список банов и блокировок с кнопками снятия.' });
       }

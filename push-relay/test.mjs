@@ -489,17 +489,38 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     assert.ok(list.body.text.includes('Забаненные аккаунты (1)') && list.body.text.includes('@scam Scam'), 'The ban list names the banned account');
     assert.ok(list.body.text.includes('Заблокированные копии (1)') && list.body.text.includes('scammer/AyuGram-iOS'), 'The ban list names the blocked copy');
     const buttons = list.body.reply_markup.inline_keyboard.flat().map((b) => b.callback_data);
-    assert.ok(buttons.includes('U:' + rid) && buttons.includes('X:' + cid) && buttons.includes('L:x'));
+    assert.ok(buttons.includes('V:555') && buttons.includes('X:' + cid) && buttons.includes('L:x'), 'The list offers unban by id and unblock');
     assert.equal((await sendText('/bans', 999)).status, 200);
     assert.equal(calls.filter((call) => call.method === 'sendMessage').length, 1, 'Only the owner lists bans');
     calls.length = 0;
-    await press('U:' + rid);
+    await press('V:555');
     assert.equal((await status([scammerHash])).banned, false, 'Unban from the list lifts the ban');
     assert.ok(calls.find((call) => call.method === 'editMessageText').body.text.includes('Забаненные аккаунты (0)'), 'The list refreshes in place');
     calls.length = 0;
     await press('X:' + cid);
     assert.equal((await check(forkBody)).blocked, false, 'Unblock from the list lifts the block');
     assert.ok(calls.find((call) => call.method === 'editMessageText').body.text.includes('Заблокированные копии (0)'));
+
+    const hash777 = await accountHash('777');
+    calls.length = 0;
+    await sendText('/ban 777');
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('⛔ Забанен ID 777'), 'The owner can ban by id directly');
+    assert.equal((await status([hash777])).banned, true, 'A ban by id reaches that account');
+    calls.length = 0;
+    await sendText('/unban 777');
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('✅ Разбанен ID 777'));
+    assert.equal((await status([hash777])).banned, false, 'Unban by id lifts it');
+    assert.equal((await sendText('/ban 777', 999)).status, 200);
+    assert.equal((await status([hash777])).banned, false, 'Only the owner bans by id');
+    calls.length = 0;
+    await sendText('/ban nonsense');
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('числовой ID'), 'A non-numeric id is rejected');
+    assert.equal((await status([hash777])).banned, false);
+    calls.length = 0;
+    assert.equal((await ping({ ...base, id: 'target-7777', accounts: [hash777] }, 'RU')).status, 200);
+    await sendText('/ban 777');
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('✅ найден (1 устр.)'), 'A direct ban reports whether AyuGram is installed');
+    await sendText('/unban 777');
   } finally {
     globalThis.fetch = realFetch2;
   }
