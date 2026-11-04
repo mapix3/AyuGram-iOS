@@ -10,6 +10,10 @@ on:
         description: 'Type delete to remove every unpublished build release'
         required: true
         type: string
+      builds:
+        description: 'Instead, delete exactly these builds, for example 201601 201801 (published ones too)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -32,12 +36,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CONFIRM: ${{ inputs.confirm }}
+          BUILDS: ${{ inputs.builds }}
         run: |
           set -euo pipefail
           [ "$CONFIRM" = "delete" ] || { echo "::error::Type delete to confirm"; exit 1; }
           CURRENT="build-$(python3 -c 'import json; print(json.load(open("update.json"))["build"])')"
-          gh release list --repo "$GITHUB_REPOSITORY" --limit 500 --json tagName,isPrerelease,isDraft \
-            --jq '.[] | select((.isPrerelease or .isDraft) and (.tagName | test("^build-[0-9]+$"))) | .tagName' > unpublished.txt
+          if [ -n "$(echo "$BUILDS" | tr -d ' ,')" ]; then
+            : > unpublished.txt
+            for build in $(echo "$BUILDS" | tr ',' ' '); do
+              [[ "$build" =~ ^[0-9]+$ ]] || { echo "::error::$build is not a build number"; exit 1; }
+              if gh release view "build-$build" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+                echo "build-$build" >> unpublished.txt
+              else
+                echo "No release build-$build, skipping"
+              fi
+            done
+          else
+            gh release list --repo "$GITHUB_REPOSITORY" --limit 500 --json tagName,isPrerelease,isDraft \
+              --jq '.[] | select((.isPrerelease or .isDraft) and (.tagName | test("^build-[0-9]+$"))) | .tagName' > unpublished.txt
+          fi
           deleted=0
           while read -r tag; do
             [ -n "$tag" ] || continue
@@ -53,4 +70,4 @@ jobs:
             fi
             deleted=$((deleted + 1))
           done < unpublished.txt
-          echo "Deleted $deleted unpublished build releases" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Deleted $deleted build releases" | tee -a "$GITHUB_STEP_SUMMARY"
