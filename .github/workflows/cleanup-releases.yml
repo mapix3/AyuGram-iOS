@@ -1,0 +1,56 @@
+name: Clean up unreleased builds
+
+# Deletes the build-NNNNNN releases (and their tags) that were never published to users:
+# the ones still marked as prerelease. Published builds and the build in update.json stay.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type delete to remove every unpublished build release'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-update
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: standard
+          fetch-depth: 1
+
+      - name: Delete unpublished build releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [ "$CONFIRM" = "delete" ] || { echo "::error::Type delete to confirm"; exit 1; }
+          CURRENT="build-$(python3 -c 'import json; print(json.load(open("update.json"))["build"])')"
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 500 --json tagName,isPrerelease,isDraft \
+            --jq '.[] | select((.isPrerelease or .isDraft) and (.tagName | test("^build-[0-9]+$"))) | .tagName' > unpublished.txt
+          deleted=0
+          while read -r tag; do
+            [ -n "$tag" ] || continue
+            if [ "$tag" = "$CURRENT" ]; then
+              echo "Keeping $tag: it is the build in update.json"
+              continue
+            fi
+            if gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag; then
+              echo "Deleted $tag"
+            else
+              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes
+              echo "Deleted $tag (tag kept)"
+            fi
+            deleted=$((deleted + 1))
+          done < unpublished.txt
+          echo "Deleted $deleted unpublished build releases" | tee -a "$GITHUB_STEP_SUMMARY"
