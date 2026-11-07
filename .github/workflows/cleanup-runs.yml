@@ -1,0 +1,65 @@
+name: Clean up unreleased build runs
+
+# Deletes the "AyuGram iOS" workflow runs (with their logs and artifacts) whose build was never
+# published to users. A run's build number is 200000 + run number * 100 + attempt; the published
+# builds are every build update.json has ever pointed to. Runs still in progress stay.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type delete to remove every unreleased build run'
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: publish-update
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: standard
+          fetch-depth: 0
+
+      - name: Delete unreleased build runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [ "$CONFIRM" = "delete" ] || { echo "::error::Type delete to confirm"; exit 1; }
+          for commit in $(git log --format=%H -- update.json); do
+            git show "$commit:update.json" 2>/dev/null | python3 -c 'import json, sys; print(json.load(sys.stdin).get("build", 0))' 2>/dev/null || true
+          done | sort -u > published.txt
+          python3 -c '
+          import sys
+          keep = sorted({(int(b) - 200000) // 100 for b in open("published.txt").read().split() if b.isdigit() and int(b) > 200000})
+          print(" ".join(map(str, keep)))
+          ' > keep.txt
+          echo "Keeping runs of published builds: $(cat keep.txt)"
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow ayugram-ios.yml --limit 1000 --json databaseId,number,status \
+            --jq '.[] | "\(.databaseId) \(.number) \(.status)"' > runs.txt
+          deleted=0
+          kept=0
+          while read -r id number status; do
+            if [ "$status" != "completed" ] || grep -qw "$number" keep.txt; then
+              kept=$((kept + 1))
+              continue
+            fi
+            if gh run delete "$id" --repo "$GITHUB_REPOSITORY"; then
+              echo "Deleted run #$number"
+              deleted=$((deleted + 1))
+            else
+              echo "::warning::Could not delete run #$number"
+            fi
+          done < runs.txt
+          echo "Deleted $deleted unreleased build runs, kept $kept" | tee -a "$GITHUB_STEP_SUMMARY"
