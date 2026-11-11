@@ -1066,6 +1066,25 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                         })
                     ]), nil)
                 })))
+            } else if AyuGramSettings.shared.snapshot.suppressRead, message.flags.contains(.Incoming), message.id.peerId.namespace == Namespaces.Peer.CloudUser, let disappearing = ayuGramDisappearingMedia(message) {
+                if case .image = disappearing {
+                } else {
+                    actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.ReportMediaView", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
+                        generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Read"), color: theme.actionSheet.primaryTextColor)
+                    }, action: { _, f in
+                        f(.default)
+                        let data = context.sharedContext.currentPresentationData.with { $0 }
+                        controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n("Ayu.ReportMediaView", data.strings.baseLanguageCode), text: i18n("Ayu.ViewWarning", data.strings.baseLanguageCode), actions: [
+                            TextAlertAction(type: .genericAction, title: data.strings.Common_Cancel, action: {}),
+                            TextAlertAction(type: .defaultAction, title: i18n("Ayu.View", data.strings.baseLanguageCode), action: {
+                                let _ = (context.engine.messages.ayuReportContentViewed(messageId: message.id)
+                                |> deliverOnMainQueue).startStandalone(next: { success in
+                                    controllerInteraction.presentControllerInCurrent(textAlertController(context: context, title: i18n(success ? "Ayu.ReceiptSent" : "Ayu.ReceiptError", data.strings.baseLanguageCode), text: "", actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]), nil)
+                                })
+                            })
+                        ]), nil)
+                    })))
+                }
             }
         }
         if messages.count == 1, message.ayuHistory != nil {
@@ -1630,6 +1649,25 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     f(.default)
                 })))
                 if !SGSimpleSettings.shared.contextShowSaveMedia { sgActions.append(actions.removeLast()) }
+            }
+        }
+        
+        if !isCopyProtected, let disappearing = ayuGramDisappearingMedia(message) {
+            var alreadyOffered = false
+            if case .image = disappearing, ayuPrivateMediaDisplayMessage(message) != nil {
+                alreadyOffered = true
+            }
+            if !alreadyOffered {
+                actions.append(.action(ContextMenuActionItem(text: ayuGramDisappearingMediaSaveTitle(disappearing, strings: chatPresentationInterfaceState.strings), icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Save"), color: theme.actionSheet.primaryTextColor)
+                }, action: { _, f in
+                    f(.default)
+                    ayuGramSaveDisappearingMedia(context: context, message: message, presentOverlay: { c in
+                        controllerInteraction.presentControllerInCurrent(c, nil)
+                    }, presentShare: { c in
+                        controllerInteraction.navigationController()?.present(c, animated: true)
+                    })
+                })))
             }
         }
         

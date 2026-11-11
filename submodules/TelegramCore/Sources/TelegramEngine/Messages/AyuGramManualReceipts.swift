@@ -182,7 +182,15 @@ func _internal_ayuReportContentViewed(account: Account, messageId: MessageId) ->
           messageId.peerId.namespace == Namespaces.Peer.CloudUser else { return .single(false) }
     return account.postbox.transaction { transaction -> Bool in
         guard let message = transaction.getMessage(messageId), message.flags.contains(.Incoming) else { return false }
-        return message.media.contains(where: { $0 is TelegramMediaImage }) && message.containsSecretMedia
+        return message.containsSecretMedia && message.media.contains(where: { media in
+            if media is TelegramMediaImage {
+                return true
+            }
+            if let file = media as? TelegramMediaFile {
+                return file.isVideo || file.isInstantVideo || file.isVoice
+            }
+            return false
+        })
     }
     |> mapToSignal { available -> Signal<Bool, NoError> in
         guard available else { return .single(false) }

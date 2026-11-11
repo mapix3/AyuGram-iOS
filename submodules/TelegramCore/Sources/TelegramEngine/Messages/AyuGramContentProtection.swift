@@ -9,6 +9,12 @@ public func ayuGramIgnoresCopyProtection() -> Bool {
     return AyuGramSettings.shared.extra.ignoreCopyProtection
 }
 
+/// Screenshots of disappearing media are not reported to the sender while screenshots
+/// are allowed or read receipts are hidden.
+public func ayuGramSuppressesScreenshotNotices() -> Bool {
+    return AyuGramSettings.shared.extra.allowScreenshots || AyuGramSettings.shared.snapshot.suppressRead
+}
+
 /// Raw server-side protection of the source, independent of the local option.
 /// The server rejects messages.forwardMessages for these sources.
 private func ayuIsSourceCopyProtected(transaction: Transaction, message: Message) -> Bool {

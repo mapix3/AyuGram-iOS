@@ -118,6 +118,7 @@ import AudioWaveform
 import PeerNameColorScreen
 import ChatEmptyNode
 import ChatMediaInputStickerGridItem
+import SGSimpleSettings
 
 extension ChatControllerImpl {
     func openViewOnceMediaMessage(_ message: EngineMessage) {
@@ -129,8 +130,26 @@ extension ChatControllerImpl {
         }
         
         let isIncoming = message.effectivelyIncoming(self.context.account.peerId)
+        let keepsMedia = AyuGramSettings.shared.snapshot.suppressRead
         
         var presentImpl: ((ViewController) -> Void)?
+        var dismissImpl: (() -> Void)?
+        var viewerItems: [ContextMenuItem] = []
+        if let disappearing = ayuGramDisappearingMedia(message._asMessage()) {
+            viewerItems.append(.action(ContextMenuActionItem(text: ayuGramDisappearingMediaSaveTitle(disappearing, strings: self.presentationData.strings), icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Save"), color: theme.actionSheet.primaryTextColor)
+            }, action: { [weak self] _, _ in
+                guard let self else {
+                    return
+                }
+                dismissImpl?()
+                ayuGramSaveDisappearingMedia(context: self.context, message: message._asMessage(), presentOverlay: { [weak self] c in
+                    self?.present(c, in: .current)
+                }, presentShare: { [weak self] c in
+                    self?.present(c, animated: true)
+                })
+            })))
+        }
         let configuration = ContextController.Configuration(
             sources: [
                 ContextController.Source(
@@ -147,8 +166,8 @@ extension ChatControllerImpl {
                             presentImpl?(c)
                         }
                     )),
-                    items: .single(ContextController.Items(content: .list([]))),
-                    closeActionTitle: isIncoming ? self.presentationData.strings.Chat_PlayOnceMesasgeCloseAndDelete : self.presentationData.strings.Chat_PlayOnceMesasgeClose,
+                    items: .single(ContextController.Items(content: .list(viewerItems))),
+                    closeActionTitle: isIncoming && !keepsMedia ? self.presentationData.strings.Chat_PlayOnceMesasgeCloseAndDelete : self.presentationData.strings.Chat_PlayOnceMesasgeClose,
                     closeAction: { [weak self] in
                         if let self {
                             self.context.sharedContext.mediaManager.setPlaylist(nil, type: .voice, control: .playback(.pause))
@@ -170,6 +189,10 @@ extension ChatControllerImpl {
         
         presentImpl = { [weak contextController] c in
             contextController?.present(c, in: .current)
+        }
+        dismissImpl = { [weak self, weak contextController] in
+            self?.context.sharedContext.mediaManager.setPlaylist(nil, type: .voice, control: .playback(.pause))
+            contextController?.dismiss(completion: nil)
         }
         
         let _ = self.context.sharedContext.openChatMessage(OpenChatMessageParams(context: self.context, chatLocation: nil, chatFilterTag: nil, chatLocationContextHolder: nil, message: message._asMessage(), standalone: false, reverseMessageGalleryOrder: false, navigationController: nil, dismissInput: { }, present: { _, _, _ in }, transitionNode: { _, _, _ in return nil }, addToTransitionSurface: { _ in }, openUrl: { _ in }, openPeer: { _, _ in }, callPeer: { _, _ in }, openConferenceCall: { _ in

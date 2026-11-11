@@ -1453,7 +1453,7 @@ public class GalleryController: ViewController, StandalonePresentableController,
             if id.peerId.namespace == Namespaces.Peer.SecretChat {
                 self.screenCaptureEventsDisposable = (screenCaptureEvents()
                 |> deliverOnMainQueue).start(next: { [weak self] _ in
-                    if let strongSelf = self, strongSelf.traceVisibility() {
+                    if let strongSelf = self, strongSelf.traceVisibility(), !ayuGramSuppressesScreenshotNotices() {
                         let _ = strongSelf.context.engine.messages.addSecretChatMessageScreenshot(peerId: id.peerId).start()
                     }
                 }).strict()

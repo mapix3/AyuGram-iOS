@@ -104,9 +104,11 @@ enum AyuGramPushRelay {
         return data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
     }
 
-    private static func subscription(barkKey: String) -> String {
+    private static let taggedDefaultsKey = "ayuGram.pushRelay.tagged"
+
+    private static func subscription(barkKey: String, account: EnginePeer.Id? = nil) -> String {
         let keys = subscriptionKeys()
-        let endpoint = baseURL + "/p/" + base64url(keys + Data(barkKey.utf8))
+        let endpoint = baseURL + "/p/" + base64url(keys + Data(barkKey.utf8)) + (account.map { "?a=" + ayuGramPushAccountTag($0) } ?? "")
         let json: [String: Any] = ["endpoint": endpoint, "keys": ["p256dh": base64url(keys.subdata(in: 32 ..< 97)), "auth": base64url(keys.subdata(in: 97 ..< 113))]]
         guard let data = try? JSONSerialization.data(withJSONObject: json, options: [.sortedKeys, .withoutEscapingSlashes]) else {
             return ""
@@ -126,6 +128,7 @@ enum AyuGramPushRelay {
     /// Completes with Telegram's error, if any.
     static func apply(context: AccountContext, barkKey: String, completion: @escaping (String?) -> Void) {
         let previous = UserDefaults.standard.string(forKey: subscriptionDefaultsKey)
+        let previousKey = UserDefaults.standard.string(forKey: barkKeyDefaultsKey)
         let current = barkKey.isEmpty ? nil : subscription(barkKey: barkKey)
         if barkKey.isEmpty {
             UserDefaults.standard.removeObject(forKey: barkKeyDefaultsKey)
@@ -141,18 +144,35 @@ enum AyuGramPushRelay {
             }
             var requests: [Signal<String?, NoError>] = []
             for engine in engines {
-                var request: Signal<String?, NoError> = .single(nil)
-                if let previous, previous != current {
-                    request = engine.accountData.ayuUnregisterWebPush(subscription: previous)
-                    |> map { _ -> String? in
-                        return nil
-                    }
+                let account = engine.account.peerId
+                var stale: [String] = []
+                if let previous {
+                    stale.append(previous)
                 }
-                if let current {
+                if let previousKey, !previousKey.isEmpty, previousKey != barkKey {
+                    stale.append(subscription(barkKey: previousKey, account: account))
+                }
+                if current != nil {
+                    stale.append(subscription(barkKey: barkKey))
+                }
+                var request: Signal<String?, NoError> = .single(nil)
+                for old in Set(stale) {
                     request = request
                     |> take(1)
                     |> mapToSignal { _ -> Signal<String?, NoError> in
-                        return engine.accountData.ayuRegisterWebPush(subscription: current)
+                        return engine.accountData.ayuUnregisterWebPush(subscription: old)
+                        |> map { _ -> String? in
+                            return nil
+                        }
+                        |> take(1)
+                    }
+                }
+                if current != nil {
+                    let tagged = subscription(barkKey: barkKey, account: account)
+                    request = request
+                    |> take(1)
+                    |> mapToSignal { _ -> Signal<String?, NoError> in
+                        return engine.accountData.ayuRegisterWebPush(subscription: tagged)
                     }
                 }
                 requests.append(request |> take(1))
@@ -182,19 +202,32 @@ enum AyuGramPushRelay {
     static func renew(context: AccountContext) {
         collectContext = context
         if let barkKey, !barkKey.isEmpty {
-            let current = subscription(barkKey: barkKey)
+            let legacy = subscription(barkKey: barkKey)
+            let migrated = UserDefaults.standard.bool(forKey: taggedDefaultsKey)
             let _ = (engines(context: context)
             |> mapToSignal { engines -> Signal<Void, NoError> in
                 if engines.isEmpty {
                     return .single(Void())
                 }
                 return combineLatest(engines.map { engine -> Signal<Void, NoError> in
-                    return engine.accountData.ayuRegisterWebPush(subscription: current)
+                    let tagged = subscription(barkKey: barkKey, account: engine.account.peerId)
+                    let cleanup: Signal<Void, NoError> = migrated ? .single(Void()) : (engine.accountData.ayuUnregisterWebPush(subscription: legacy)
                     |> map { _ -> Void in
                         return Void()
                     }
-                    |> take(1)
+                    |> take(1))
+                    return cleanup
+                    |> mapToSignal { _ -> Signal<Void, NoError> in
+                        return engine.accountData.ayuRegisterWebPush(subscription: tagged)
+                        |> map { _ -> Void in
+                            return Void()
+                        }
+                        |> take(1)
+                    }
                 })
+                |> afterNext { _ in
+                    UserDefaults.standard.set(true, forKey: taggedDefaultsKey)
+                }
                 |> map { _ -> Void in
                     return Void()
                 }
@@ -409,7 +442,8 @@ enum AyuGramPushRelay {
     }
 
     private static func sendActivity(barkKey: String, seconds: Int) {
-        post(path: "/active/" + activityId(barkKey: barkKey), body: Data(String(seconds).utf8))
+        let account = collectContext.map { "|" + ayuGramPushAccountTag($0.account.peerId) } ?? ""
+        post(path: "/active/" + activityId(barkKey: barkKey), body: Data((String(seconds) + account).utf8))
     }
 
     static func chatOpened(peerId: EnginePeer.Id) {
@@ -526,4 +560,10 @@ func ayuGramOfferBarkIfNeeded(context: AccountContext) {
             })
         ]))
     }
+}
+
+/// A short one-way tag for an account, so the push relay can tell accounts apart without their ids.
+public func ayuGramPushAccountTag(_ peerId: EnginePeer.Id) -> String {
+    let digest = SHA256.hash(data: Data("ayugram-push-account|\(peerId.toInt64())".utf8))
+    return String(digest.map { String(format: "%02x", $0) }.joined().prefix(12))
 }
