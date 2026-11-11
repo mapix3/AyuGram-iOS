@@ -179,7 +179,7 @@ def check_context_menu_receipt_alerts(source: Path, output: Path):
                 depth += (char == '(') - (char == ')')
             end += 1
         calls.append(menus[match.start():end])
-    assert len(calls) == 4, len(calls)
+    assert len(calls) == 6, len(calls)
     fixture = '''
 import Foundation
 class ViewController {}
@@ -258,9 +258,20 @@ precondition(context.engine.messages.viewRequests == 1 && controllerInteraction.
 context.engine.messages.result = true
 viewDialog.actions[1].action()
 precondition(context.engine.messages.viewRequests == 2 && controllerInteraction.alerts.last!.title == "Ayu.ReceiptSent:en")
+let mediaDialog = makeDialog4(success: false)
+precondition(mediaDialog.title == "Ayu.ReportMediaView:en" && mediaDialog.text == "Ayu.ViewWarning:en")
+let viewsBefore = context.engine.messages.viewRequests
+mediaDialog.actions[0].action()
+precondition(context.engine.messages.viewRequests == viewsBefore, "Cancel never consumes video, round or voice media")
+context.engine.messages.result = false
+mediaDialog.actions[1].action()
+precondition(context.engine.messages.viewRequests == viewsBefore + 1 && controllerInteraction.alerts.last!.title == "Ayu.ReceiptError:en")
+context.engine.messages.result = true
+mediaDialog.actions[1].action()
+precondition(context.engine.messages.viewRequests == viewsBefore + 2 && controllerInteraction.alerts.last!.title == "Ayu.ReceiptSent:en")
 for success in [false, true] {
     let expected = success ? "Ayu.ReceiptSent:en" : "Ayu.ReceiptError:en"
-    for dialog in [makeDialog1(success: success), makeDialog3(success: success)] {
+    for dialog in [makeDialog1(success: success), makeDialog3(success: success), makeDialog5(success: success)] {
         precondition(dialog.title == expected && dialog.text.isEmpty, "Result dialogs follow the actual nonoptional text API")
     }
 }
