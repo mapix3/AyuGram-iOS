@@ -86,6 +86,7 @@ func managedAutoremoveMessageOperations(network: Network, postbox: Postbox, isRe
                             _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [entry.messageId])
                         } else if isRemove {
                             ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [entry.messageId])
+                            transaction.clearTimestampBasedAttribute(id: entry.messageId, tag: tag)
                         } else {
                             transaction.updateMessage(message.id, update: { currentMessage in
                                 var storeForwardInfo: StoreMessageForwardInfo?

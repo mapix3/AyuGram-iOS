@@ -55,7 +55,7 @@ private func ayuPeekStore(account: Account, peerId: PeerId, presence: TelegramUs
 /// The user's status as `account` sees it, looked up by its own access hash or by username.
 private func ayuPeekFetch(account: Account, peerId: PeerId, username: String?) -> Signal<TelegramUserPresence?, NoError> {
     return account.postbox.transaction { transaction -> Api.InputUser? in
-        return transaction.getPeer(peerId).flatMap(apiInputUser)
+        return transaction.getPeer(peerId).flatMap { apiInputUser($0) }
     }
     |> mapToSignal { inputUser -> Signal<TelegramUserPresence?, NoError> in
         if let inputUser {
