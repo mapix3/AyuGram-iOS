@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 import UIKit
 import Display
 import SwiftSignalKit
@@ -25,7 +26,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, bark, importChat, silentSending, sessionLog, buildInfo, reportScam
+    case history, appearance, update, checkUpdates, channel, developer, bark, importChat, silentSending, sessionLog, buildInfo, reportScam, keepAlive
 }
 
 private enum AyuScreenTint: Equatable {
@@ -193,6 +194,8 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.header(id: 660, section: .notifications, text: s("Ayu.NotificationsSection")))
     entries.append(.link(id: 670, section: .notifications, link: .bark, symbol: "bell.badge.fill", tint: .red, title: s(barkOn ? "Ayu.BarkConnected" : "Ayu.BarkSetUp"), label: ""))
     entries.append(.footer(id: 680, section: .notifications, text: s("Ayu.BarkFooter")))
+    entries.append(.link(id: 681, section: .notifications, link: .keepAlive, symbol: "speaker.wave.2.fill", tint: .orange, title: s("Ayu.KeepAlive"), label: ayuGramKeepAliveLabel(extra.backgroundKeepAlive, locale: locale)))
+    entries.append(.footer(id: 682, section: .notifications, text: s("Ayu.KeepAliveFooter")))
 
     let security = AyuGramSecurity.shared
     entries.append(.header(id: 690, section: .security, text: s("Ayu.SecuritySection")))
@@ -207,6 +210,18 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 730, section: .support, link: .sessionLog, symbol: "doc.text.fill", tint: .gray, title: s("Ayu.SessionLog"), label: ""))
     entries.append(.link(id: 740, section: .support, link: .checkUpdates, symbol: "arrow.triangle.2.circlepath", tint: .gray, title: s("Ayu.CheckUpdates"), label: ""))
     return entries
+}
+
+private let ayuGramKeepAliveOptions: [Int32] = [0, -1, 5, 15, 30, 60]
+
+private func ayuGramKeepAliveLabel(_ value: Int32, locale: String) -> String {
+    if value == 0 {
+        return i18n("Ayu.KeepAliveOff", locale)
+    } else if value < 0 {
+        return i18n("Ayu.KeepAliveAlways", locale)
+    } else {
+        return i18n("Ayu.KeepAliveMinutes", locale, "\(value)")
+    }
 }
 
 /// Redesigned AyuGram settings: summary card, grouped Ghost Mode controls,
@@ -308,6 +323,26 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             })
         case .importChat:
             ayuGramImportChat(context: context)
+        case .keepAlive:
+            let data = context.sharedContext.currentPresentationData.with { $0 }
+            let locale = data.strings.baseLanguageCode
+            let sheet = ActionSheetController(presentationData: data)
+            let current = AyuGramSettings.shared.extra.backgroundKeepAlive
+            var items: [ActionSheetItem] = []
+            for value in ayuGramKeepAliveOptions {
+                items.append(ActionSheetButtonItem(title: (value == current ? "✓ " : "") + ayuGramKeepAliveLabel(value, locale: locale), color: .accent, action: { [weak sheet] in
+                    sheet?.dismissAnimated()
+                    AyuGramSettings.shared.updateExtra { $0.backgroundKeepAlive = value }
+                    if value != 0 {
+                        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge], completionHandler: { _, _ in })
+                    }
+                }))
+            }
+            sheet.setItemGroups([
+                ActionSheetItemGroup(items: items),
+                ActionSheetItemGroup(items: [ActionSheetButtonItem(title: data.strings.Common_Cancel, color: .accent, action: { [weak sheet] in sheet?.dismissAnimated() })])
+            ])
+            presentController?(sheet)
         case .silentSending:
             let data = context.sharedContext.currentPresentationData.with { $0 }
             let locale = data.strings.baseLanguageCode
