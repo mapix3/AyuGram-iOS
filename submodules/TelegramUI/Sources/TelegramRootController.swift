@@ -85,11 +85,7 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
     private var sgContactsTabController: ContactsController?
 
     private func makeSGContactsTabController() -> ContactsController {
-        let controller = ContactsController(context: self.context)
-        controller.switchToChatsController = { [weak self] in
-            self?.openChatsController(activateSearch: false)
-        }
-        return controller
+        return ContactsController(context: self.context)
     }
     public var callListController: CallListController?
     public var chatListController: ChatListController?
