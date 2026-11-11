@@ -134,8 +134,8 @@ func ayuGramIsHistoryCandidate(transaction: Transaction, id: MessageId) -> Bool 
 
 /// Messages Save Deleted Messages keeps in chats outside Message history.
 func ayuGramIsRetainable(transaction: Transaction, id: MessageId) -> Bool {
-    guard id.namespace == Namespaces.Message.Cloud, id.peerId.namespace != Namespaces.Peer.SecretChat,
-          let message = transaction.getMessage(id) else { return false }
+    guard id.namespace == Namespaces.Message.Cloud || id.peerId.namespace == Namespaces.Peer.SecretChat,
+          let message = transaction.getMessage(id), !message.media.contains(where: { $0 is TelegramMediaAction }) else { return false }
     return !message.text.isEmpty || !message.media.isEmpty
 }
 

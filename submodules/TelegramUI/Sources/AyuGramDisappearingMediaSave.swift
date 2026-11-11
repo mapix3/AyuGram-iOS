@@ -17,7 +17,8 @@ enum AyuGramDisappearingMedia {
 }
 
 func ayuGramDisappearingMedia(_ message: EngineMessage) -> AyuGramDisappearingMedia? {
-    guard message.containsSecretMedia, message.id.namespace == Namespaces.Message.Cloud, message.id.peerId.namespace != Namespaces.Peer.SecretChat else {
+    let isSecretChat = message.id.peerId.namespace == Namespaces.Peer.SecretChat
+    guard isSecretChat || (message.containsSecretMedia && message.id.namespace == Namespaces.Message.Cloud) else {
         return nil
     }
     for media in message.media {

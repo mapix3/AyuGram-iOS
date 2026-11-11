@@ -56,7 +56,8 @@ func ayuPrepareProtectedForwards(account: Account, peerId: PeerId, messages: [(B
     return account.postbox.transaction { transaction -> [Int: Message] in
         var result: [Int: Message] = [:]
         for i in 0 ..< messages.count {
-            if case let .forward(sourceId, _, _, _, _) = messages[i].1, sourceId.namespace == Namespaces.Message.Cloud, let source = transaction.getMessage(sourceId), source.flags.contains(.AyuLocallyDeleted) || (ignoresProtection && ayuIsSourceCopyProtected(transaction: transaction, message: source)) {
+            // Secret chat messages exist only on this device, so they are always sent as new messages.
+            if case let .forward(sourceId, _, _, _, _) = messages[i].1, sourceId.namespace == Namespaces.Message.Cloud || sourceId.peerId.namespace == Namespaces.Peer.SecretChat, let source = transaction.getMessage(sourceId), sourceId.peerId.namespace == Namespaces.Peer.SecretChat || source.flags.contains(.AyuLocallyDeleted) || (ignoresProtection && ayuIsSourceCopyProtected(transaction: transaction, message: source)) {
                 result[i] = source
             }
         }
