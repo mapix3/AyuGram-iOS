@@ -1341,6 +1341,55 @@ extension PeerInfoScreenNode {
                         items.append(exportItem)
                     }
                 }
+                if case let .user(peekUser) = chatPeer, peekUser.botInfo == nil, peekUser.id != strongSelf.context.account.peerId {
+                    let peekPeerId = peekUser.id
+                    let peekItem: ContextMenuItem = .action(ContextMenuActionItem(text: i18n("Ayu.PeekOnline", presentationData.strings.baseLanguageCode), icon: { theme in
+                        generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Eye"), color: theme.contextMenu.primaryColor)
+                    }, action: { [weak self] _, f in
+                        f(.dismissWithoutContent)
+                        guard let self else {
+                            return
+                        }
+                        let context = self.context
+                        let _ = (context.sharedContext.activeAccountContexts
+                        |> take(1)
+                        |> mapToSignal { _, accounts, _ -> Signal<AyuPeekOnlineResult, NoError> in
+                            let bridges = accounts.map { $0.1.engine }.filter { $0.account.id != context.account.id }
+                            return context.engine.peers.ayuPeekOnline(peerId: peekPeerId, bridges: bridges)
+                        }
+                        |> deliverOnMainQueue).startStandalone(next: { [weak self] result in
+                            guard let self else {
+                                return
+                            }
+                            let locale = self.presentationData.strings.baseLanguageCode
+                            let text: String
+                            switch result {
+                            case let .peeked(bridge):
+                                if let bridge, !bridge.isEmpty {
+                                    text = i18n("Ayu.PeekOnlineVia", locale, bridge)
+                                } else {
+                                    text = i18n("Ayu.PeekOnlineDone", locale)
+                                }
+                            case .alreadyVisible:
+                                text = i18n("Ayu.PeekOnlineVisible", locale)
+                            case .hidden:
+                                text = i18n("Ayu.PeekOnlineHidden", locale)
+                            }
+                            self.controller?.present(UndoOverlayController(presentationData: self.presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
+                        })
+                    }))
+                    if let separatorIndex = items.firstIndex(where: { item in
+                        if case .separator = item {
+                            return true
+                        } else {
+                            return false
+                        }
+                    }) {
+                        items.insert(peekItem, at: separatorIndex)
+                    } else {
+                        items.append(peekItem)
+                    }
+                }
                 //
 
                 return .single(items)

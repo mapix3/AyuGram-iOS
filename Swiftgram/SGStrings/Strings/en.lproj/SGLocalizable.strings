@@ -470,3 +470,8 @@
 "Ayu.Reason.modified" = "a modified build of AyuGram";
 "Ayu.Reason.fork" = "an unofficial fork of AyuGram";
 "Ayu.ReportMediaView" = "Report view";
+"Ayu.PeekOnline" = "Peek online";
+"Ayu.PeekOnlineVia" = "Peeked via %@";
+"Ayu.PeekOnlineDone" = "Peeked: last seen time shown";
+"Ayu.PeekOnlineVisible" = "Last seen time is already visible";
+"Ayu.PeekOnlineHidden" = "This user hides last seen time, it cannot be peeked";

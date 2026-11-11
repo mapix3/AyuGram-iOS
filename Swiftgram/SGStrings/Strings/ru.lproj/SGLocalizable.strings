@@ -465,3 +465,8 @@
 "Ayu.Reason.modified" = "изменённая сборка AyuGram";
 "Ayu.Reason.fork" = "неофициальный форк AyuGram";
 "Ayu.ReportMediaView" = "Отправить просмотр";
+"Ayu.PeekOnline" = "Подглядеть онлайн";
+"Ayu.PeekOnlineVia" = "Подсмотрено через %@";
+"Ayu.PeekOnlineDone" = "Подсмотрено: время захода показано";
+"Ayu.PeekOnlineVisible" = "Время захода и так видно";
+"Ayu.PeekOnlineHidden" = "Пользователь скрыл время захода, подсмотреть нельзя";
