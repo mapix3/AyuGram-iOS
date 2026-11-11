@@ -15,8 +15,20 @@ struct AppBadge: Identifiable, Hashable {
     let assetName: String
 }
 
+private func appBadges(_ styles: [(name: String, title: String)]) -> [AppBadge] {
+    return styles.filter { !$0.name.hasSuffix("DuckyAppBadge") || SGSimpleSettings.shared.duckyAppIconAvailable }.map { AppBadge(displayName: $0.title, assetName: $0.name) }
+}
+
+func getAyuGramAppBadges() -> [AppBadge] {
+    return appBadges(ayuGramAppBadgeStyles)
+}
+
+func getSwiftgramAppBadges() -> [AppBadge] {
+    return appBadges(swiftgramAppBadgeStyles)
+}
+
 func getAvailableAppBadges() -> [AppBadge] {
-    return ayuGramAppBadgeStyles.filter { $0.name != "DuckyAppBadge" || SGSimpleSettings.shared.duckyAppIconAvailable }.map { AppBadge(displayName: $0.title, assetName: $0.name) }
+    return getAyuGramAppBadges() + getSwiftgramAppBadges()
 }
     
 @available(iOS 14.0, *)
@@ -67,8 +79,22 @@ struct AppBadgeSettingsView: View {
     
     var body: some View {
         ScrollView {
+            badgeSection(title: "AyuGram", badges: getAyuGramAppBadges())
+            badgeSection(title: "Swiftgram", badges: getSwiftgramAppBadges())
+                .padding(.bottom, 24)
+        }
+        .background(Color(colorScheme == .light ? .secondarySystemBackground : .systemBackground).ignoresSafeArea())
+    }
+
+    @ViewBuilder
+    private func badgeSection(title: String, badges: [AppBadge]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, Layout.horizontalPadding + 4)
             LazyVGrid(columns: columns, alignment: .center, spacing: Layout.columnSpacing) {
-                ForEach(availableAppBadges) { badge in
+                ForEach(badges) { badge in
                     Button {
                         onSelectBadge(badge)
                     } label: {
@@ -88,17 +114,15 @@ struct AppBadgeSettingsView: View {
                         .cornerRadius(Layout.cardCorner)
                         .overlay(
                             RoundedRectangle(cornerRadius: Layout.cardCorner)
-                                .stroke(selectedBadge == badge ? Color.accentColor : Color.clear, lineWidth: 2)
+                                .stroke(selectedBadge.assetName == badge.assetName ? Color.accentColor : Color.clear, lineWidth: 2)
                         )
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, Layout.horizontalPadding)
-            .padding(.vertical, 24)
-
         }
-        .background(Color(colorScheme == .light ? .secondarySystemBackground : .systemBackground).ignoresSafeArea())
+        .padding(.top, 24)
     }
     
 }

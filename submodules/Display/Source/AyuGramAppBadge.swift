@@ -90,7 +90,27 @@ public let ayuGramAppBadgeStyles: [(name: String, title: String)] = [
     ("SparklingAppBadge", "Sparkling")
 ]
 
+/// Swiftgram's original badges, kept as images; their stored name has this prefix.
+public let swiftgramAppBadgePrefix = "SG:"
+
+/// Loads a bundled image by its asset name; set by the app window.
+public var ayuGramBundleImageLoader: ((String) -> UIImage?)?
+
+public let swiftgramAppBadgeStyles: [(name: String, title: String)] = [
+    ("SG:Components/AppBadge", "Default"),
+    ("SG:SkyAppBadge", "Sky"),
+    ("SG:NightAppBadge", "Night"),
+    ("SG:TitaniumAppBadge", "Titanium"),
+    ("SG:ProAppBadge", "Pro"),
+    ("SG:DayAppBadge", "Day"),
+    ("SG:DuckyAppBadge", "Ducky"),
+    ("SG:SparklingAppBadge", "Sparkling")
+]
+
 public func ayuGramAppBadgeImage(style: String, scale: CGFloat) -> UIImage {
+    if style.hasPrefix(swiftgramAppBadgePrefix), let image = ayuGramBundleImageLoader?(String(style.dropFirst(swiftgramAppBadgePrefix.count))) {
+        return image
+    }
     let style = ayuBadgeStyle(style)
     let base = CGSize(width: 108, height: 23)
     let format = UIGraphicsImageRendererFormat.preferred()

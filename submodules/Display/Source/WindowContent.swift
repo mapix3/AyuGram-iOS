@@ -475,6 +475,7 @@ public class Window1 {
     public init(hostView: WindowHostView, statusBarHost: StatusBarHost?) {
         self.hostView = hostView
         self.badgeView = UIImageView()
+        ayuGramBundleImageLoader = { UIImage(bundleImageName: $0) }
         self.badgeView.image = ayuGramAppBadgeImage()
         self.badgeView.isHidden = true
         
