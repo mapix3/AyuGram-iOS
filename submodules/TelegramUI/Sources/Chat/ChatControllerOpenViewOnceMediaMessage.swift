@@ -132,7 +132,7 @@ extension ChatControllerImpl {
         var presentImpl: ((ViewController) -> Void)?
         var dismissImpl: (() -> Void)?
         var viewerItems: [ContextMenuItem] = []
-        if let disappearing = ayuGramDisappearingMedia(message._asMessage()) {
+        if let disappearing = ayuGramDisappearingMedia(message) {
             viewerItems.append(.action(ContextMenuActionItem(text: ayuGramDisappearingMediaSaveTitle(disappearing, strings: self.presentationData.strings), icon: { theme in
                 return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Save"), color: theme.actionSheet.primaryTextColor)
             }, action: { [weak self] _, _ in
@@ -140,7 +140,7 @@ extension ChatControllerImpl {
                     return
                 }
                 dismissImpl?()
-                ayuGramSaveDisappearingMedia(context: self.context, message: message._asMessage(), presentOverlay: { [weak self] c in
+                ayuGramSaveDisappearingMedia(context: self.context, message: message, presentOverlay: { [weak self] c in
                     self?.present(c, in: .current)
                 }, presentShare: { [weak self] c in
                     self?.present(c, animated: true)

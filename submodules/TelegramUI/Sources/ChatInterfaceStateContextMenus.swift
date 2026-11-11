@@ -1066,7 +1066,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                         })
                     ]), nil)
                 })))
-            } else if AyuGramSettings.shared.snapshot.suppressRead, message.flags.contains(.Incoming), message.id.peerId.namespace == Namespaces.Peer.CloudUser, let disappearing = ayuGramDisappearingMedia(message) {
+            } else if AyuGramSettings.shared.snapshot.suppressRead, message.flags.contains(.Incoming), message.id.peerId.namespace == Namespaces.Peer.CloudUser, let disappearing = ayuGramDisappearingMedia(EngineMessage(message)) {
                 if case .image = disappearing {
                 } else {
                     actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.ReportMediaView", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
@@ -1652,7 +1652,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
-        if !isCopyProtected, let disappearing = ayuGramDisappearingMedia(message) {
+        if !isCopyProtected, let disappearing = ayuGramDisappearingMedia(EngineMessage(message)) {
             var alreadyOffered = false
             if case .image = disappearing, ayuPrivateMediaDisplayMessage(message) != nil {
                 alreadyOffered = true
@@ -1662,7 +1662,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Save"), color: theme.actionSheet.primaryTextColor)
                 }, action: { _, f in
                     f(.default)
-                    ayuGramSaveDisappearingMedia(context: context, message: message, presentOverlay: { c in
+                    ayuGramSaveDisappearingMedia(context: context, message: EngineMessage(message), presentOverlay: { c in
                         controllerInteraction.presentControllerInCurrent(c, nil)
                     }, presentShare: { c in
                         controllerInteraction.navigationController()?.present(c, animated: true)
