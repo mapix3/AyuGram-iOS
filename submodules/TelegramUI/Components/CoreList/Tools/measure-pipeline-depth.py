@@ -3,7 +3,7 @@
 
 D is how long after a main-thread turn's work the frame carrying that turn's commit is scanned out,
 in display frames. `PhysicsScrollEngine.launchFlight` cannot derive it, and the residual it leaves is
-`(D - 1) x frameTravel` -- see that function and the CoreList CLAUDE.md.
+`(D - 1) x frameTravel` -- see that function and the CoreList notes.
 
 The app draws two bars on one 900 pt/s ramp from a shared origin: RED moved by a per-frame model
 write (how the drag moves the list), BLUE by a CABasicAnimation on an explicit beginTime (how a baked

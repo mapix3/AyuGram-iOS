@@ -25,7 +25,7 @@ import ChatInputTextNode
 /// oracle typed into the body). Reduced by probe.
 ///
 /// **Suspected cause.** The editor's rule is "the value is stored AS TYPED, trimmed; only the renderer
-/// lowercases" (RichTextEditor `CLAUDE.md`), but the bridge RENDERS the line lowercased
+/// lowercases" (RichTextEditor notes), but the bridge RENDERS the line lowercased
 /// (`EngineDocumentBridge` `languageLine(text: (code.language ?? "").lowercased(), …)`) and reads the
 /// line back as the stored value, so any re-render — the snapshot replay behind undo and redo — writes
 /// the lowercased, trimmed text back as the language, and the replayed caret is not clamped to it.

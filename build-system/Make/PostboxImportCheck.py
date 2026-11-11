@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keeps new code from importing or reaching into Postbox.
 
-The Postbox -> TelegramEngine refactor (CLAUDE.md, "Postbox -> TelegramEngine refactor") moves
+The Postbox -> TelegramEngine refactor (notes, "Postbox -> TelegramEngine refactor") moves
 every module except TelegramCore off Postbox. This check stops it from going backwards, with two
 lists that only shrink:
 
@@ -39,7 +39,7 @@ EXEMPT_PREFIXES = ('submodules/Postbox/', 'submodules/TelegramCore/')
 
 # Directory names the filesystem walk never enters. The walk is used when the tree has no git
 # metadata: the CI VM receives the source by rsync without .git (TartBuild.py).
-PRUNED_DIRECTORY_NAMES = frozenset(['.git', '.build', '.swiftpm', '.claude', 'build-input', 'DerivedData'])
+PRUNED_DIRECTORY_NAMES = frozenset(['.git', '.build', '.swiftpm', 'build-input', 'DerivedData'])
 
 IMPORT_RE = re.compile(
     r'^[ \t]*'
@@ -195,7 +195,7 @@ def find_unwrappable_media(text):
 
 MEDIA_CONFORMANCE_MESSAGE = ('{path}:{line}: {name} conforms to Media without EngineCustomMedia, so '
                              'EngineMedia.init(_:) would trap on it in release builds. Declare it '
-                             '`: EngineCustomMedia` instead (it wraps as EngineMedia.custom); see CLAUDE.md, '
+                             '`: EngineCustomMedia` instead (it wraps as EngineMedia.custom); see notes, '
                              '"Engine wrapper cheat sheet".')
 
 
@@ -362,11 +362,11 @@ def read_allowlist(base_path):
 
 
 IMPORT_UNLISTED = ('{path}:{line}: imports Postbox, which new code must not do. Use TelegramEngine and its '
-                   'wrappers (EnginePeer, EngineMessage, EngineMedia, ...) instead; see CLAUDE.md, '
+                   'wrappers (EnginePeer, EngineMessage, EngineMedia, ...) instead; see notes, '
                    '"Postbox -> TelegramEngine refactor". To allow it deliberately, add the path to {list}.')
 IMPORT_STALE = '{where}: {path} no longer imports Postbox; delete this line.'
 ACCESS_UNLISTED = ('{path}:{line}: uses .postbox, which new code must not do. Use TelegramEngine '
-                   '(context.engine...) instead; see CLAUDE.md, "Postbox -> TelegramEngine refactor". '
+                   '(context.engine...) instead; see notes, "Postbox -> TelegramEngine refactor". '
                    'To allow it deliberately, add the path to {list}.')
 ACCESS_STALE = '{where}: {path} no longer uses .postbox; delete this line.'
 

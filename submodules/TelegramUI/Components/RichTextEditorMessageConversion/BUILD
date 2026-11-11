@@ -30,13 +30,14 @@ swift_library(
     deps = [
         ":RichTextEditorMessageConversion",
         "//submodules/TelegramCore",
+        "//submodules/TextFormat",
         "//submodules/Postbox:Postbox",
         "//submodules/TelegramUI/Components/RichTextEditor:RichTextEditorCore",
     ],
 )
 
 # The default ios_test_runner picks an invalid device and the test process exits 15 — pin it to a
-# real device/OS, mirroring //submodules/TextFormat:TextFormatTestRunner. See CLAUDE.md.
+# real device/OS, mirroring //submodules/TextFormat:TextFormatTestRunner. See notes.
 ios_test_runner(
     name = "RichTextEditorMessageConversionTestRunner",
     device_type = "iPhone 17",

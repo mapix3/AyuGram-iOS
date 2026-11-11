@@ -179,7 +179,6 @@ class WalkTests(TreeTestCase):
 
     def test_files_outside_the_scan_roots_are_ignored(self):
         self.write('third-party/X/A.swift', 'import Postbox\n')
-        self.write('.claude/worktrees/w/submodules/Foo/A.swift', 'import Postbox\n')
         self.assertEqual(self.errors(), [])
 
 

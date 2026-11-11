@@ -20,7 +20,7 @@ import ChatInputTextNode
 /// ranges were the only ones, in 14 documents, that came back empty.
 ///
 /// **Suspected cause.** The rule that stands a selected paragraph break up as a mark ("A selected
-/// paragraph break on an EMPTY line draws a narrow mark", RichTextEditor `CLAUDE.md`, block selection
+/// paragraph break on an EMPTY line draws a narrow mark", RichTextEditor notes, block selection
 /// rectangles) covers a break before an EMPTY line; a break after an attachment-only line whose segment
 /// has zero width is reported as "failed to measure" (`IDBlockTextGeometry` / the coordinator's
 /// all-or-nothing validity check in `IDDocumentLayoutCoordinator`), which discards the whole answer.

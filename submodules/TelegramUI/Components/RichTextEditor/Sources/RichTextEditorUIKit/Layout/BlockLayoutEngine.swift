@@ -9,7 +9,7 @@ import UIKit
 ///
 /// Selected by `makeBlockLayout(...)`: an `RTE_TK1` build forces TextKit 1; otherwise TextKit 2 is used
 /// where available, falling back to TextKit 1 below iOS 17. (This factory + protocol is also what the real
-/// iOS-15 back-port needs — the seam was introduced as a feasibility spike, see the project CLAUDE.md.)
+/// iOS-15 back-port needs — the seam was introduced as a feasibility spike, see the project notes.)
 /// **Public since R7-collapse-fidelity**, so `RichTextEngineEditor` can drive one for a folded
 /// quote's preview. Visibility only: Swift will not expose an `internal` protocol through a
 /// `public typealias`, so republishing it (`RichTextLayoutSurface.swift`) requires this. The

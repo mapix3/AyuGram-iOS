@@ -31,7 +31,7 @@ final class PhysicsScrollView: UIView {
     private var flightGeneration = 0
     private static let flightAnimationKey = "decelerationFlight"
 
-    /// Layer-LOCAL time (CLAUDE.md gotcha). Equals `CACurrentMediaTime()` only at default layer speed;
+    /// Layer-LOCAL time (notes gotcha). Equals `CACurrentMediaTime()` only at default layer speed;
     /// reading it via `convertTime` keeps the flight sampler on CA's rendered position under slow-mo.
     static func localTime(of layer: CALayer) -> CFTimeInterval {
         layer.convertTime(CACurrentMediaTime(), from: nil)
@@ -281,6 +281,7 @@ extension PhysicsScrollView: UIGestureRecognizerDelegate {
     /// before it recognizes a drag — so catching here stops the flight on trackpad finger-rest exactly
     /// as `onTouchDown` does for touch. (The `.possible` gate confines the catch to finger-down: it must
     /// not fire mid-drag, which would null the physics.) Always returns `true` (never blocks the event).
+    /// A mouse wheel (`.discrete`) reaches it too, at its first notch.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive event: UIEvent) -> Bool {
         if gestureRecognizer.state == .possible { catchContent() }
         return true

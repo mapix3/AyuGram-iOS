@@ -67,7 +67,7 @@ final class ClearInlineFormattingTests: XCTestCase {
         ]
         let editor = editor(with: original)
         // Compared with the editor's OWN read-back: the canvas pins a run's rendered size on read-back
-        // (the package CLAUDE.md's "font size is PINNED into runs"), so the constructed runs differ
+        // (the package notes's "font size is PINNED into runs"), so the constructed runs differ
         // from what any later read returns in `fontSize` alone.
         let before = runs(editor)
         editor.selectAll()

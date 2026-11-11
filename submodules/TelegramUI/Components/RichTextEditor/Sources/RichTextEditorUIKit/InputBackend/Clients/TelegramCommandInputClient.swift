@@ -307,7 +307,7 @@ extension TelegramCommandInputClient {
 /// NOTE on the brief vs. reality: `UIResponderStandardEditActions` (checked against the iOS SDK's
 /// `UIResponder.h`) declares NO `undo(_:)`/`redo(_:)` selectors at all — hardware ⌘Z/⌘⇧Z, shake-to-undo,
 /// and the system Edit-menu Undo/Redo all act directly on the responder chain's `undoManager` (see this
-/// package's own `CLAUDE.md`), never through a `UIResponderStandardEditActions` witness. So this table
+/// package's own notes), never through a `UIResponderStandardEditActions` witness. So this table
 /// maps exactly SIX selectors (`copy:`/`cut:`/`paste:`/`select:`/`selectAll:`/`delete:`), not seven —
 /// there is no `undo:`/`redo:` selector for it to map. `RichTextInputCommand.undo`/`.redo` are reached
 /// only by a caller that already holds the command value directly (e.g. a keyboard-toolbar Undo/Redo

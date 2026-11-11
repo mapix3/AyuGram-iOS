@@ -180,7 +180,7 @@ func tlFunctionParts(_ call: TLObject) -> (FunctionDescription, Buffer, (Buffer)
 }
 
 /// Never specialized: one shared response closure for all 837 builders instead of one per
-/// result type (measured: 42 → 1 closure copies at -O). Pinned in CLAUDE.md / plan Task 7.
+/// result type (measured: 42 → 1 closure copies at -O). Pinned in notes / plan Task 7.
 @_semantics("optimize.sil.specialize.generic.never")
 func tlFunction<T>(_ call: TLObject) -> (FunctionDescription, Buffer, DeserializeFunctionResponse<T>) {
     let (description, buffer, parse) = tlFunctionParts(call)

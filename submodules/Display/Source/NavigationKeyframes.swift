@@ -12,7 +12,7 @@ public enum NavigationKeyframeOrigin: Equatable {
 
 /// The samples one bake takes and how its animations are timed. Sample times are seconds of animation time from the
 /// origin. Under Slow Animations each animation keeps that logical duration and runs at `speed = 1 / factor`, as
-/// `CAAnimationUtils` does (and CoreList: CLAUDE.md, "Slow Animations reaches the emitted animation as speed").
+/// `CAAnimationUtils` does (and CoreList: notes, "Slow Animations reaches the emitted animation as speed").
 public struct NavigationKeyframeTiming: Equatable {
     public static let samplesPerSecond: Double = 120.0
 

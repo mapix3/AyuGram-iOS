@@ -20,7 +20,7 @@ UIKit, and some are ordinary words (`selectionChanged`, `textInputTraits`): anot
 Swift field or enum case of that name lands in `__swift5_reflstr`, and an Objective-C ivar or
 method of ours in `__objc_methname`. Attribute every hit to an archive and a section before
 calling it a leak. The release result on 2026-10-12, and what each hit is, is in the package
-CLAUDE.md, "Private UIKit names are not in the binary".
+notes, "Private UIKit names are not in the binary".
 """
 import os
 import re

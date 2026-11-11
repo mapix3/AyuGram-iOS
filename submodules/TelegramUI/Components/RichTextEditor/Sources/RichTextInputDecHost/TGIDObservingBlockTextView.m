@@ -592,7 +592,7 @@ static BOOL TGIDDirectionIsBackward(UITextDirection direction) {
 /// **The engine's caret-follow entry point, which no longer follows anything.**
 ///
 /// The decision moved to the host — see
-/// the RichTextEditor `CLAUDE.md`, "The host decides when the caret is revealed". Every misfire it
+/// the RichTextEditor notes, "The host decides when the caret is revealed". Every misfire it
 /// replaced was this method deciding against geometry the host was about to change: the composer
 /// flickering into scroll mode as the panel grew the field around a keystroke, and the article
 /// editor's caret landing under a keyboard whose inset had not arrived yet.

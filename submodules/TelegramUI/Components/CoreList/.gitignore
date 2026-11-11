@@ -10,9 +10,6 @@ xcuserdata/
 # disk automatically. Per-user state inside it stays ignored via the xcuserdata/ rule above.
 !CoreListDemo.xcodeproj
 
-# Claude Code local (per-machine) settings + transient runtime state
-.claude/settings.local.json
-.claude/scheduled_tasks.lock
 
 # Xcode build output (DerivedData-style)
 build/

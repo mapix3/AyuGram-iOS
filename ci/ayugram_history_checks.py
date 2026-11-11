@@ -115,7 +115,7 @@ def check_notified_messages(source: Path):
     assert '_internal_ayuGramRememberNotifiedMessage(' in service, 'Notified messages are remembered before the poll'
     simple = (source / 'Swiftgram/SGSimpleSettings/Sources/SimpleSettings.swift').read_text()
     assert 'AyuGramSettings(shared: UserDefaults(suiteName: APP_GROUP_IDENTIFIER))' in simple, 'The notification service sees Save Deleted Messages'
-    utils = (source / 'submodules/TelegramCore/Sources/State/AccountStateManagementUtils.swift').read_text()
+    utils = (source / 'submodules/TelegramCore/Sources/State/Sync/StateReplay+Messages.swift').read_text()
     assert 'ayuGramRestoreNotifiedMessages(transaction: transaction, globalIds: ids)' in utils
     assert 'ayuGramRestoreNotifiedMessages(transaction: transaction, ids: ids)' in utils
 

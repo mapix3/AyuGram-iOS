@@ -12,7 +12,7 @@ import ChatInputTextNode
 /// fragment (control). The fuzz met it after compositions, typed emoji and Send's typed letter
 /// (default seeds 16, 34, 40; edited 16, 30, 34 — the p20 `externalPaste` op's one-undo check).
 ///
-/// **Suspected:** the engine's typing coalescing (RichTextEditor `CLAUDE.md`, "Typing coalesces because
+/// **Suspected:** the engine's typing coalescing (RichTextEditor notes, "Typing coalesces because
 /// UIKit coalesces it") treats the paste's storage edit as typing contiguous with the run; a paste must end
 /// the run as a caret move does (`endTypingRun`).
 ///

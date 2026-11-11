@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// of whether the factory-method name (`positionWithOffset:...`) happens to satisfy the
 /// importer's "leading word matches the class's stripped base name" heuristic — verified against
 /// a real simulator build (`IDBackendFamily1Tests`, which calls exactly this initializer form)
-/// rather than assumed; see the package `CLAUDE.md`'s note on Swift-spelling traps.
+/// rather than assumed; see the package notes's note on Swift-spelling traps.
 - (instancetype)initWithOffset:(NSInteger)offset
                        affinity:(UITextStorageDirection)affinity
                        revision:(uint64_t)revision NS_DESIGNATED_INITIALIZER;

@@ -18,7 +18,7 @@ import RichTextEditorCore
 ///
 /// **This type is a second source of truth about which roles own which views.** A new view pool
 /// needs a field here or the check silently under-tests it; that entry is part of adding a pool, and
-/// is listed with the other sites a new `EngineAncestor` case touches in the package `CLAUDE.md`.
+/// is listed with the other sites a new `EngineAncestor` case touches in the package notes.
 @available(iOS 18.4, *)
 internal struct EngineDerivedViewExpectation {
     /// Keys `tableGrids` AND `tableChromeViews`: a table needs both to appear at all.

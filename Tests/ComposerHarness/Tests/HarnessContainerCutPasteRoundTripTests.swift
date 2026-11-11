@@ -10,7 +10,7 @@ import ChatInputTextNode
 ///
 /// That trailing line is a product rule, not a defect: "the caret goes after all the inserted
 /// content; if the inserted content ends in a block other than body/header AND the insertion is at
-/// the end of the document, a line is added" (RichTextEditor `CLAUDE.md`, 2026-09-17, recorded as
+/// the end of the document, a line is added" (RichTextEditor notes, 2026-09-17, recorded as
 /// asked for; `RichTextEngineEditorView+ArticleHost.swift` `replaceRange`). The fifth roam filed it
 /// as a failed round trip; the fix wave traced it to that rule and stopped, and the rule stands.
 ///

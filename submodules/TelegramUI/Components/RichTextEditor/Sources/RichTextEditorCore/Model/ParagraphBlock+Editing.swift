@@ -36,7 +36,7 @@ extension ParagraphBlock {
     ///
     /// When the two paragraphs have DIFFERENT styles, `other`'s runs move into THIS block's style, so their
     /// display-only per-run font size (pinned on read-back — see the font-size tech-debt note in
-    /// RichTextEditorUIKit/CLAUDE.md) is dropped, letting the merged text inherit this style's size — e.g.
+    /// RichTextEditorUIKit/notes) is dropped, letting the merged text inherit this style's size — e.g.
     /// body text merged into a heading renders heading-sized, and the mirror on the other side. Same-style
     /// merges keep the pinned size (preserving the 15pt table-cell round-trip, which is a same-style merge).
     public func merging(_ other: ParagraphBlock) -> ParagraphBlock {

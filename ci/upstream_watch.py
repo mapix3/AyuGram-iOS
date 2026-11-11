@@ -1,6 +1,6 @@
 """Hourly check for a new Telegram-iOS release.
 
-Runs in GitHub Actions without any AI. It compares the upstream version with
+Runs in GitHub Actions. It compares the upstream version with
 ci/upstream.json (what is already merged here) and prints a GitHub Actions
 output: `update=true` plus a markdown report when something new is out.
 """

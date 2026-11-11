@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The "+" attachment menu. A NavigationStack with one row per attachment type.
 /// Each row pushes its screen inside THIS stack (avoids the sheet-from-sheet
-/// empty-body race; see CLAUDE.md SwiftUI gotchas). `dismiss` here is the
+/// empty-body race; see notes SwiftUI gotchas). `dismiss` here is the
 /// sheet's own dismiss, so each screen's `onComplete` collapses the whole sheet
 /// after a successful send.
 struct AttachmentSheet: View {

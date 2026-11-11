@@ -28,7 +28,7 @@
 #                    full; see `IDIsUpstreamRunArtifactPath`.
 #                    (Separate from both bundles: the SwiftPM suite's `LegacyDifferentialTests` and
 #                    `IDUpstreamResponderModelTests` ARE environmental on iOS 27 — see the package
-#                    CLAUDE.md's "The K-sims moved to iOS 27" section.)
+#                    notes's "The K-sims moved to iOS 27" section.)
 #   DEVICE=<udid> ./Scripts/hostapp.sh    use a different simulator
 #
 # DEVICE defaults to iPhone 18 Pro **K1** and NOT K3. K3 is the simulator the project's Telegram
@@ -47,7 +47,7 @@ command -v xcodegen >/dev/null || {
 
 # The .xcodeproj is generated, never committed (.gitignore). Regenerating every time is what keeps
 # a stale project from silently building yesterday's file list — the same class of trap as the
-# project CLAUDE.md's `Telegram_archive-root/` staleness note.
+# project notes's `Telegram_archive-root/` staleness note.
 xcodegen generate --spec Host/project.yml --project Host >/dev/null
 
 DEST="platform=iOS Simulator,id=$DEVICE"
@@ -84,7 +84,7 @@ xcrun simctl boot "$DEVICE" 2>/dev/null || true
 xcrun simctl bootstatus "$DEVICE" -b >/dev/null
 # `uninstall` first: installd keeps a hard-link cache and will NOT replace an already-installed app
 # whose build number has not changed, so a rebuilt binary silently does not take effect. This is the
-# same trap the project CLAUDE.md documents for Telegram; here the app has no state worth keeping,
+# same trap the project notes documents for Telegram; here the app has no state worth keeping,
 # so the blunt fix is the right one.
 xcrun simctl uninstall "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
 xcrun simctl install "$DEVICE" "$APP"

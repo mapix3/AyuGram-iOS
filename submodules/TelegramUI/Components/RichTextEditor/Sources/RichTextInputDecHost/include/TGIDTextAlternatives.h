@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// `insertText:` and a corrected word was indistinguishable from a typed one — no underline, no
 /// revert (K3, 2026-09-11). Recovered by in-process disassembly of `UITextView`,
 /// `UITextInputController` and `UITextSelectionInteraction` on iOS 26.5 (`23F73`); the package
-/// `CLAUDE.md` has the record.
+/// notes has the record.
 ///
 /// Every method keeps the engine's own rule — an annotation is never written into storage. The
 /// text goes through this view's gated `insertText:` / `replaceRange:withText:`, and the

@@ -10,7 +10,7 @@ public let mediaCaptionPlaceholderText = RichTextEditorPlaceholders.default.capt
 
 /// The slot a media block reserves, as pure geometry: the numbers `MediaBlockBox` reserves and
 /// `MediaItemNodeView.updateMosaic` fills, and — since R7-media — what the engine editor's
-/// `MediaTextAttachment` reserves too. ONE copy, because the package `CLAUDE.md` records that the
+/// `MediaTextAttachment` reserves too. ONE copy, because the package notes records that the
 /// box and the renderer must stay in lockstep, and a third copy would be a third thing to keep.
 public enum MediaSlotGeometry {
     /// Media is never taller than its display width, up to this.

@@ -12,7 +12,7 @@ import RichTextEditorUIKit
 /// was about to change — the composer flickering into scroll mode as the panel grew the field, and
 /// the article editor's caret landing under a keyboard whose inset had not arrived yet.
 ///
-/// See the RichTextEditor `CLAUDE.md`, "The host decides when the caret is revealed".
+/// See the RichTextEditor notes, "The host decides when the caret is revealed".
 @available(iOS 18.4, *)
 final class EngineCaretRevealContractTests: XCTestCase {
     private var window: UIWindow!

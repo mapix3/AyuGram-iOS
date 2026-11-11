@@ -4,7 +4,7 @@ import UIKit
 
 /// A row reached by a HOLDING `scrollTo` stays where it landed until the next touch or scroll:
 /// insets, re-measures, insertions, deletions and size changes re-place it at the same distance from
-/// the edge its placement used. Contract: `CoreList/CLAUDE.md`, "The scroll hold".
+/// the edge its placement used. Contract: `CoreList/notes`, "The scroll hold".
 ///
 /// A landing the list CLAMPED against one of its ends is held against that end instead of the edge
 /// the request named: resting on the newest edge, by its minY from the top inset edge; on the oldest,

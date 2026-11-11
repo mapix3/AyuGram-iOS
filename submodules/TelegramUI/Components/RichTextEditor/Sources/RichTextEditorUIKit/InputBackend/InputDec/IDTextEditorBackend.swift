@@ -177,7 +177,7 @@ final class IDTextEditorBackend: RichTextInputBackend {
     /// UNDECLARED, kernel/OS-driven-only private selectors on `TGRichTextInputDecLayoutController`
     /// — genuinely untestable by simulating a private-controller call (no Swift-visible entry
     /// point exists to trigger them, and the real native-checking machinery that WOULD drive them
-    /// is async and OS-scheduled — see the package CLAUDE.md's own admission that grammar checking
+    /// is async and OS-scheduled — see the package notes's own admission that grammar checking
     /// "did NOT fire in the unit-test host"). `IDBackendFamily4Tests` set this same precedent for
     /// C7's multi-arg thunks: it drives `storageFacadeForTesting` directly rather than the private
     /// selector that sets its latch. This hook lets `IDBackendFamily11Tests` drive the BRIDGE's own
@@ -292,7 +292,7 @@ final class IDTextEditorBackend: RichTextInputBackend {
     /// SPELLING — CORRECTED BY THIS TASK, empirically, against an `xcodebuild` simulator build
     /// (`swift build` cannot check this: `IDTextEditorBackend.swift` is entirely
     /// `#if canImport(UIKit)`-gated, so the macOS SwiftPM host build never type-checks this file
-    /// at all — the exact trap the package `CLAUDE.md` documents). The brief's own Step 5 prose
+    /// at all — the exact trap the package notes documents). The brief's own Step 5 prose
     /// claimed Swift stops stripping at `IDUIKitBehavior`, keeping the word "Capability" on each
     /// case (`.capabilityInputController`, …) because "Capabilities" (the type name) ≠
     /// "Capability" (the shared enumerator prefix). That is WRONG — a real build rejects every
@@ -1732,7 +1732,7 @@ final class IDTextEditorBackend: RichTextInputBackend {
     /// stage-1 contract corpus"). That assumption doesn't hold: `DocumentCanvasView`'s OWN
     /// `position(from:in:direction:offset:)` (the real `UITextInput` conformance, in
     /// `+Navigation.swift`) forwards EVERY hardware-arrow-driven caret move here verbatim — the
-    /// package `CLAUDE.md`'s own "OS-facing vertical-nav witness ... driven by the OS through this
+    /// package notes's own "OS-facing vertical-nav witness ... driven by the OS through this
     /// method + the `selectedTextRange` setter, not `keyCommands`" invariant, which applies to
     /// BOTH backends identically. A `nil` return here isn't merely incomplete: `caretByNavigating`
     /// (and, in production, the OS's own `position(from:in:offset:)` probe on every arrow key) reads

@@ -80,8 +80,6 @@ submodules/OpenSSLEncryptionProvider/SharedHeaders/*
 submodules/TelegramCore/FlatSerialization/Sources/*
 .build/**
 **/.build/**
-/.claude/
-**/.claude/settings.local.json
 /buildbox/*
 **/node_modules/
 tools/sim-watcher/dist/
@@ -94,3 +92,5 @@ __pycache__/
 submodules/TelegramApi/Sources/SwiftPMGenerated/
 submodules/TelegramApi/ObjC/SwiftPMGenerated/
 submodules/TelegramApi/Tests/SwiftPMGenerated/
+/Telegram.app/
+build/accessibility/

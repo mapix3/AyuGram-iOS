@@ -41,7 +41,7 @@ final class PrivateRuntimeNamesTests: XCTestCase {
     ]
 
     /// The legacy canvas's text-checking client. It predates the table and answers
-    /// `UITextCheckingController`'s callbacks as Swift `@objc` methods; the package `CLAUDE.md`
+    /// `UITextCheckingController`'s callbacks as Swift `@objc` methods; the package notes
     /// records it as a known residual. Any OTHER file spelling these names fails.
     private let legacyResidual: [String: Set<String>] = [
         "Sources/RichTextEditorUIKit/Canvas/DocumentCanvasView+NativeTextCheckingClient.swift": [

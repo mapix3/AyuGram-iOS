@@ -46,7 +46,7 @@ final class EngineUndoRedoHostTests: XCTestCase {
     /// This is the one answer the constants got right by accident, and the one that is easiest to
     /// get wrong once they become reads: legacy keeps a PRIVATE per-canvas `UndoManager`
     /// specifically so UIKit's own selection registrations cannot surface as "undo is available on
-    /// the first tap, before anything was typed" (package CLAUDE.md, device-observed). The engine
+    /// the first tap, before anything was typed" (package notes, device-observed). The engine
     /// reads the text-input controller's manager instead, so the same question has to be asked of
     /// it directly rather than assumed.
     func test_nothingIsUndoableBeforeAnEdit() {

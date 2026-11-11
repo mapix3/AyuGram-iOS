@@ -1038,8 +1038,7 @@ def remote_build_tart(macos_version, bazel_cache_host, configuration, build_inpu
             "/bazel-telegram-ios/",
             "/buildbox/",
             "/build/",
-            ".build/",
-            "/.claude/worktrees/"
+            ".build/"
         ]
         session.upload_directory(local_path=base_dir, remote_path="/Users/Shared/telegram-ios", exclude_patterns=source_exclude_patterns)
 

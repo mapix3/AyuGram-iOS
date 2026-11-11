@@ -280,7 +280,7 @@ public protocol ChatRichTextInputNode: AnyObject {
     func updateLayout(size: CGSize)
     /// As above, and says what the pass means about the caret. The editor does not scroll itself
     /// to follow the caret; a pass that applies a new field height is the one its visibility
-    /// depends on. See the RichTextEditor `CLAUDE.md`, "The host decides when the caret is revealed".
+    /// depends on. See the RichTextEditor notes, "The host decides when the caret is revealed".
     func updateLayout(size: CGSize, caretReveal: RichTextEditorCaretReveal)
 
     /// Force an immediate layout pass of the editor child (distinct name: `ASDisplayNode`
