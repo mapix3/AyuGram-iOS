@@ -173,7 +173,6 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.footer(id: 439, section: .chats, text: s("Ayu.LocalOnly")))
 
     entries.append(.header(id: 500, section: .history, text: s("Ayu.History")))
-    entries.append(.toggle(id: 510, section: .history, key: .history, symbol: "trash.fill", tint: .red, title: s("Ayu.SaveDeleted"), subtitle: s("Ayu.SaveDeletedInfo"), value: privacy.messageHistory, enabled: true))
     entries.append(.link(id: 520, section: .history, link: .history, symbol: "clock.fill", tint: .teal, title: s("Ayu.OpenHistory"), label: ""))
     entries.append(.footer(id: 530, section: .history, text: s("Ayu.HistoryInfo")))
 

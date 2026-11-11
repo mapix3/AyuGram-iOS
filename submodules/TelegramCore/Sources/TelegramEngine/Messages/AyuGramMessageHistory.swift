@@ -5,7 +5,10 @@ import SGSimpleSettings
 
 public struct AyuGramHistoryPolicy: Codable, Equatable {
     public var selectedChats: [Int64] = []
-    public var savePhotos = true
+    public var savePhotos: Bool {
+        get { true }
+        set {}
+    }
     public init() {}
 }
 
@@ -131,7 +134,9 @@ func ayuGramIsHistoryCandidate(transaction: Transaction, id: MessageId) -> Bool 
 
 /// Messages Save Deleted Messages keeps in chats outside Message history.
 func ayuGramIsRetainable(transaction: Transaction, id: MessageId) -> Bool {
-    return ayuGramIsHistoryCandidate(transaction: transaction, id: id)
+    guard id.namespace == Namespaces.Message.Cloud, id.peerId.namespace != Namespaces.Peer.SecretChat,
+          let message = transaction.getMessage(id) else { return false }
+    return !message.text.isEmpty || !message.media.isEmpty
 }
 
 @discardableResult

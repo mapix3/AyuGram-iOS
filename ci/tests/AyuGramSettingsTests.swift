@@ -18,7 +18,7 @@ struct AyuGramSettingsTests {
         let ghost = store.snapshot
         assert(ghost.suppressRead && ghost.suppressOnline && ghost.suppressTyping)
         assert(ghost.suppressRecording && ghost.suppressUploading && ghost.suppressStoryViews)
-        assert(!ghost.messageHistory, "Ghost Mode must never opt into keeping message content")
+        assert(ghost.messageHistory && AyuGramPrivacySettings().messageHistory, "Deleted, disappearing and one-time messages are always kept")
         store.update { $0.ghostMode = false }
         assert(store.snapshot.suppressTyping && !store.snapshot.suppressRead)
         assert(AyuGramSettings(defaults: defaults).snapshot == store.snapshot)
@@ -54,10 +54,11 @@ struct AyuGramSettingsTests {
         assert(!extensionStore.snapshot.antiTyping, "Nothing is shared before the app reads its settings")
         let appStore = AyuGramSettings(defaults: appDefaults, shared: groupDefaults)
         assert(appStore.snapshot.antiTyping && extensionStore.snapshot.antiTyping, "Settings saved before the copy existed are shared on first read")
-        appStore.update { $0.messageHistory = true }
-        assert(extensionStore.snapshot.messageHistory, "The extension sees Save Deleted Messages turned on later")
-        appStore.update { $0.messageHistory = false }
-        assert(!extensionStore.snapshot.messageHistory)
+        appStore.update { $0.antiRecording = true }
+        assert(extensionStore.snapshot.antiRecording, "The extension sees options turned on later")
+        appStore.update { $0.antiRecording = false }
+        assert(!extensionStore.snapshot.antiRecording)
+        assert(extensionStore.snapshot.messageHistory, "The extension always keeps deleted messages")
         #if AYUGRAM_CLIENT_EXTRAS
         let privacyBefore = store.snapshot
         assert(store.client == AyuGramClientSettings())
@@ -69,10 +70,10 @@ struct AyuGramSettingsTests {
         assert(store.client.pinnedChatLimit == 5)
         DispatchQueue.concurrentPerform(iterations: 2) { index in
             if index == 0 { store.updateClient { $0.maxPinnedChats = 17 } }
-            else { store.update { $0.messageHistory = true } }
+            else { store.update { $0.ghostMode = true } }
         }
         assert(store.client.pinnedChatLimit == 17 && store.client.localPremium)
-        assert(store.snapshot.messageHistory && store.snapshot.antiRead)
+        assert(store.snapshot.ghostMode && store.snapshot.antiRead)
         #if AYUGRAM_REFINEMENTS
         store.setLocalStatus(peerId: 1001, status: AyuGramLocalStatus(fileId: 9001, expirationDate: nil))
         store.setLocalStatus(peerId: 1002, status: AyuGramLocalStatus(fileId: 9002, expirationDate: nil))
