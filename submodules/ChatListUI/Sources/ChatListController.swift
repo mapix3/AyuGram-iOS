@@ -4055,6 +4055,55 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         })
     }
     
+    func toggleAyuGhostMode() {
+        let enabled = !AyuGramSettings.shared.snapshot.ghostMode
+        AyuGramSettings.shared.setGhostMode(enabled)
+        let locale = self.presentationData.strings.baseLanguageCode
+        let text = i18n(enabled ? "Ayu.GhostEnabledToast" : "Ayu.GhostDisabledToast", locale)
+        self.present(UndoOverlayController(presentationData: self.presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), elevatedLayout: true, animateInAsReplacement: true, action: { _ in return false }), in: .window(.root))
+    }
+    
+    func openAyuGhostMenu(sourceView: UIView, gesture: ContextGesture?) {
+        let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+        let locale = presentationData.strings.baseLanguageCode
+        let checkIcon: (Bool) -> (PresentationTheme) -> UIImage? = { checked in
+            return { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Check"), color: checked ? theme.contextMenu.primaryColor : .clear)
+            }
+        }
+        func makeItems() -> [ContextMenuItem] {
+            let settings = AyuGramSettings.shared.snapshot
+            let ghost = settings.ghostMode
+            var items: [ContextMenuItem] = []
+            items.append(.action(ContextMenuActionItem(text: i18n("Ayu.Ghost", locale), icon: checkIcon(ghost), iconPosition: .left, action: { c, _ in
+                AyuGramSettings.shared.setGhostMode(!ghost)
+                c?.setItems(.single(ContextController.Items(content: .list(makeItems()))), minHeight: nil, animated: false)
+            })))
+            items.append(.separator)
+            let options: [(String, Bool, WritableKeyPath<AyuGramPrivacySettings, Bool>)] = [
+                ("Ayu.HideRead", settings.suppressRead, \.antiRead),
+                ("Ayu.HideOnline", settings.suppressOnline, \.antiOnline),
+                ("Ayu.HideTyping", settings.suppressTyping, \.antiTyping),
+                ("Ayu.HideRecording", settings.suppressRecording, \.antiRecording),
+                ("Ayu.HideUploading", settings.suppressUploading, \.antiUploading),
+                ("Ayu.HideStories", settings.suppressStoryViews, \.storyPrivacy)
+            ]
+            for (key, value, keyPath) in options {
+                if ghost {
+                    items.append(.action(ContextMenuActionItem(text: i18n(key, locale), textColor: .disabled, icon: checkIcon(value), iconPosition: .left, action: { _, _ in })))
+                } else {
+                    items.append(.action(ContextMenuActionItem(text: i18n(key, locale), icon: checkIcon(value), iconPosition: .left, action: { c, _ in
+                        AyuGramSettings.shared.update { $0[keyPath: keyPath] = !value }
+                        c?.setItems(.single(ContextController.Items(content: .list(makeItems()))), minHeight: nil, animated: false)
+                    })))
+                }
+            }
+            return items
+        }
+        let contextController = makeContextController(presentationData: presentationData, source: .reference(HeaderContextReferenceContentSource(controller: self, sourceView: sourceView)), items: .single(ContextController.Items(content: .list(makeItems()))), gesture: gesture)
+        self.presentInGlobalOverlay(contextController)
+    }
+    
     /// iPhone Duo: the side column's "…" menu, the buttons that did not fit; each runs its own action
     /// from the "…" button.
     func openSideColumnOverflowMenu(sourceView: UIView, items: [NavigationBarComponent.OverflowItem]) {
@@ -6914,6 +6963,7 @@ private final class ChatListLocationContext {
     var settingsButton: NavigationBarComponent.Button?
     var proxyButton: NavigationBarComponent.Button?
     var storyButton: NavigationBarComponent.Button?
+    var ayuGhostButton: NavigationBarComponent.Button?
     
     var rightButtons: [NavigationBarComponent.Button] {
         var result: [NavigationBarComponent.Button] = []
@@ -6925,6 +6975,9 @@ private final class ChatListLocationContext {
         }
         if let storyButton = self.storyButton {
             result.append(storyButton)
+        }
+        if let ayuGhostButton = self.ayuGhostButton {
+            result.append(ayuGhostButton)
         }
         if let proxyButton = self.proxyButton {
             result.append(proxyButton)
@@ -6976,6 +7029,17 @@ private final class ChatListLocationContext {
         
         // MARK: Swiftgram
         let hideStoriesSignal = sgSimpleSettingsBoolSignal(.hideStories, defaultValue: false)
+        let ayuGhostSignal: Signal<Bool, NoError> = Signal { subscriber in
+            subscriber.putNext(AyuGramSettings.shared.snapshot.ghostMode)
+            let observer = NotificationCenter.default.addObserver(forName: AyuGramSettings.didChange, object: nil, queue: .main) { _ in
+                subscriber.putNext(AyuGramSettings.shared.snapshot.ghostMode)
+            }
+            return ActionDisposable {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+        |> distinctUntilChanged
+        let hideStoriesAndGhostSignal = combineLatest(hideStoriesSignal, ayuGhostSignal)
         
         let passcode = context.sharedContext.accountManager.accessChallengeData()
         |> map { view -> (Bool, Bool) in
@@ -7045,7 +7109,7 @@ private final class ChatListLocationContext {
         case .chatList:
             if !hideNetworkActivityStatus {
                 self.titleDisposable = combineLatest(queue: .mainQueue(),
-                    hideStoriesSignal,
+                    hideStoriesAndGhostSignal,
                     networkState,
                     hasProxy,
                     passcode,
@@ -7054,13 +7118,14 @@ private final class ChatListLocationContext {
                     peerStatus,
                     parentController.updatedPresentationData.1,
                     storyPostingAvailable
-                ).startStrict(next: { [weak self] hideStories, networkState, proxy, passcode, stateAndFilterId, isReorderingTabs, peerStatus, presentationData, storyPostingAvailable in
+                ).startStrict(next: { [weak self] hideStoriesAndGhost, networkState, proxy, passcode, stateAndFilterId, isReorderingTabs, peerStatus, presentationData, storyPostingAvailable in
                     guard let self else {
                         return
                     }
                     
                     self.updateChatList(
-                        hideStories: hideStories,
+                        hideStories: hideStoriesAndGhost.0,
+                        ghostMode: hideStoriesAndGhost.1,
                         networkState: networkState,
                         proxy: proxy,
                         passcode: passcode,
@@ -7291,6 +7356,7 @@ private final class ChatListLocationContext {
     
     private func updateChatList(
         hideStories: Bool,
+        ghostMode: Bool,
         networkState: AccountNetworkState,
         proxy: (Bool, Bool),
         passcode: (Bool, Bool),
@@ -7321,6 +7387,7 @@ private final class ChatListLocationContext {
             if case .chatList(.root) = self.location {
                 self.rightButton = nil
                 self.storyButton = nil
+                self.ayuGhostButton = nil
                 self.proxyButton = nil
             }
             let title = !stateAndFilterId.state.selectedPeerIds.isEmpty ? presentationData.strings.ChatList_SelectedChats(Int32(stateAndFilterId.state.selectedPeerIds.count)) : defaultTitle
@@ -7337,6 +7404,7 @@ private final class ChatListLocationContext {
             if case .chatList(.root) = self.location {
                 self.rightButton = nil
                 self.storyButton = nil
+                self.ayuGhostButton = nil
                 self.proxyButton = nil
             }
             self.leftButton = NavigationBarComponent.Button(id: "done",
@@ -7428,6 +7496,16 @@ private final class ChatListLocationContext {
                 } else {
                     self.storyButton = nil
                 }
+                
+                self.ayuGhostButton = NavigationBarComponent.Button(id: "ayuGhost",
+                    content: .image(ayuGramGhostButtonIcon(enabled: ghostMode)),
+                    action: { [weak self] _ in
+                        self?.parentController?.toggleAyuGhostMode()
+                    },
+                    contextAction: { [weak self] sourceView, gesture in
+                        self?.parentController?.openAyuGhostMenu(sourceView: sourceView, gesture: gesture)
+                    }
+                )
                 
                 // MARK: Swiftgram
                 if SGSimpleSettings.shared.hideTabBar {
