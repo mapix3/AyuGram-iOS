@@ -157,6 +157,12 @@ public extension TelegramEngine {
             self.account = account
         }
 
+        /// Shows a user's exact last seen time hidden only by this account's own setting:
+        /// through another logged-in account, or by opening the setting for one request.
+        public func ayuPeekOnline(peerId: EnginePeer.Id, bridges: [TelegramEngine]) -> Signal<AyuPeekOnlineResult, NoError> {
+            return _internal_ayuPeekOnline(account: self.account, peerId: peerId, bridges: bridges.map { $0.account })
+        }
+
         public func addressNameAvailability(domain: AddressNameDomain, name: String) -> Signal<AddressNameAvailability, NoError> {
             return _internal_addressNameAvailability(account: self.account, domain: domain, name: name)
         }

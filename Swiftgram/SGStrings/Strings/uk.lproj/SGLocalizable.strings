@@ -440,3 +440,8 @@
 "Ayu.Reason.modified" = "змінена збірка AyuGram";
 "Ayu.Reason.fork" = "неофіційний форк AyuGram";
 "Ayu.ReportMediaView" = "Надіслати перегляд";
+"Ayu.PeekOnline" = "Підглянути онлайн";
+"Ayu.PeekOnlineVia" = "Підглянуто через %@";
+"Ayu.PeekOnlineDone" = "Підглянуто: час заходу показано";
+"Ayu.PeekOnlineVisible" = "Час заходу й так видно";
+"Ayu.PeekOnlineHidden" = "Користувач приховав час заходу, підглянути не можна";
