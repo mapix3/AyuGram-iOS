@@ -19,8 +19,7 @@ private func ayuGramDeletionOutcome(transaction: Transaction, id: MessageId) -> 
     guard AyuGramSettings.shared.snapshot.messageHistory else { return "saving is off" }
     guard let message = transaction.getMessage(id) else { return "not in database" }
     if message.ayuHistory?.deletedAt != nil { return "already kept" }
-    if id.namespace != Namespaces.Message.Cloud { return "not a cloud message" }
-    if id.peerId.namespace == Namespaces.Peer.SecretChat { return "secret chat" }
+    if id.namespace != Namespaces.Message.Cloud && id.peerId.namespace != Namespaces.Peer.SecretChat { return "not a cloud message" }
     if message.text.isEmpty && message.media.isEmpty { return "empty" }
     return "kept"
 }

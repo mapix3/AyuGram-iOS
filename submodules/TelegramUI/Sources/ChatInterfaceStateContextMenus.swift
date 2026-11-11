@@ -1580,9 +1580,6 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 }
                 
                 var (canTranslate, _) = canTranslateText(context: context, text: messageText, showTranslate: translationSettings.showTranslate, showTranslateIfTopical: showTranslateIfTopical, ignoredLanguages: translationSettings.ignoredLanguages)
-                if let peerId = chatPresentationInterfaceState.chatLocation.peerId, peerId.namespace == Namespaces.Peer.SecretChat {
-                    canTranslate = false
-                }
                 if canTranslate {
                     actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_ContextMenuTranslate, icon: { theme in
                         return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Translate"), color: theme.actionSheet.primaryTextColor)
@@ -1622,7 +1619,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
-        if (resourceAvailable && !message.containsSecretMedia || ayuPrivateMediaDisplayMessage(message) != nil) && !isCopyProtected {
+        if (resourceAvailable && !message.containsSecretMedia || ayuPrivateMediaDisplayMessage(message) != nil) && !isCopyProtected && message.id.peerId.namespace != Namespaces.Peer.SecretChat {
             var mediaReference: AnyMediaReference?
             var isVideo = false
             for media in message.effectiveMedia {
@@ -2028,9 +2025,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                             break
                         }
                     }
-                    if message.id.peerId.namespace == Namespaces.Peer.SecretChat {
-                        
-                    } else if let file = media as? TelegramMediaFile, !isCopyProtected {
+                    if let file = media as? TelegramMediaFile, !isCopyProtected {
                         if file.isVideo {
                             if file.isAnimated && !file.isVideoSticker {
                                 actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_SaveGif, icon: { theme in
@@ -3154,22 +3149,10 @@ func chatAvailableMessageActionsImpl(engine: TelegramEngine, accountPeerId: Engi
                             optionsMap[id]!.insert(.report)
                         }
                     } else if let _ = peer as? TelegramSecretChat {
-                        var isNonRemovableServiceAction = false
-                        for media in message.media {
-                            if let action = media as? TelegramMediaAction {
-                                switch action.action {
-                                    case .historyScreenshot:
-                                        isNonRemovableServiceAction = true
-                                        disableDelete = true
-                                    default:
-                                        break
-                                }
-                            }
+                        if !isAction && !(message.flags.isSending || message.flags.contains(.Failed)) {
+                            optionsMap[id]!.insert(.forward)
                         }
-                       
-                        if !isNonRemovableServiceAction {
-                            optionsMap[id]!.insert(.deleteGlobally)
-                        }
+                        optionsMap[id]!.insert(.deleteGlobally)
                     } else {
                         assertionFailure()
                     }
