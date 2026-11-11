@@ -8,7 +8,11 @@ public struct AyuGramPrivacySettings: Codable, Equatable {
     public var antiRecording = false
     public var antiUploading = false
     public var storyPrivacy = false
-    public var messageHistory = false
+    /// Deleted, disappearing and one-time messages are always kept on this device.
+    public var messageHistory: Bool {
+        get { true }
+        set {}
+    }
 
     public init() {}
 

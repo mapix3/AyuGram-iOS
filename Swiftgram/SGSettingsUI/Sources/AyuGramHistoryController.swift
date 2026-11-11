@@ -154,7 +154,6 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
             let counts = Dictionary(grouping: records, by: { $0.peerId }).mapValues { $0.count }
             let settings: [HistorySettingsEntry] = [
                 .header(id: 100000, section: .options, text: presentationData.strings.Settings_Title, badge: nil),
-                .toggle(id: 100001, section: .options, settingName: 0, value: current.savePhotos, text: i18n("Ayu.SaveMedia", locale), enabled: true),
                 .notice(id: 100002, section: .options, text: i18n("Ayu.HistoryInfo", locale)),
                 .header(id: 100003, section: .chats, text: presentationData.strings.ChatListFolder_IncludeChatsTitle, badge: nil),
                 .action(id: 100004, section: .chats, actionType: .selectChats, text: presentationData.strings.ChatListFolder_AddChats, kind: .generic)

@@ -118,7 +118,6 @@ import AudioWaveform
 import PeerNameColorScreen
 import ChatEmptyNode
 import ChatMediaInputStickerGridItem
-import SGSimpleSettings
 
 extension ChatControllerImpl {
     func openViewOnceMediaMessage(_ message: EngineMessage) {
@@ -129,8 +128,6 @@ extension ChatControllerImpl {
             return
         }
         
-        let isIncoming = message.effectivelyIncoming(self.context.account.peerId)
-        let keepsMedia = AyuGramSettings.shared.snapshot.suppressRead
         
         var presentImpl: ((ViewController) -> Void)?
         var dismissImpl: (() -> Void)?
@@ -167,7 +164,7 @@ extension ChatControllerImpl {
                         }
                     )),
                     items: .single(ContextController.Items(content: .list(viewerItems))),
-                    closeActionTitle: isIncoming && !keepsMedia ? self.presentationData.strings.Chat_PlayOnceMesasgeCloseAndDelete : self.presentationData.strings.Chat_PlayOnceMesasgeClose,
+                    closeActionTitle: self.presentationData.strings.Chat_PlayOnceMesasgeClose,
                     closeAction: { [weak self] in
                         if let self {
                             self.context.sharedContext.mediaManager.setPlaylist(nil, type: .voice, control: .playback(.pause))

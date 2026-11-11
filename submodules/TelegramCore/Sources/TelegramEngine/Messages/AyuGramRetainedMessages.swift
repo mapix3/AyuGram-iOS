@@ -21,9 +21,6 @@ private func ayuGramDeletionOutcome(transaction: Transaction, id: MessageId) -> 
     if message.ayuHistory?.deletedAt != nil { return "already kept" }
     if id.namespace != Namespaces.Message.Cloud { return "not a cloud message" }
     if id.peerId.namespace == Namespaces.Peer.SecretChat { return "secret chat" }
-    if message.isCopyProtected() { return "protected" }
-    if message.containsSecretMedia { return "one-time media" }
-    if message.attributes.contains(where: { $0 is AutoremoveTimeoutMessageAttribute || $0 is AutoclearTimeoutMessageAttribute }) { return "auto-delete timer" }
     if message.text.isEmpty && message.media.isEmpty { return "empty" }
     return "kept"
 }
@@ -49,7 +46,6 @@ func ayuGramDeleteRemoteMessages(transaction: Transaction, mediaBox: MediaBox, i
     let ids = ids.filter { transaction.getMessage($0)?.ayuHistory?.deletedAt == nil }
     guard !ids.isEmpty else { return }
     let recorded = ayuGramRecordHistory(transaction: transaction, mediaBox: mediaBox, ids: ids, event: "deleted")
-    let policy = transaction.getPreferencesEntry(key: applicationSpecificPreferencesKey(0x415956))?.get(AyuGramHistoryPolicy.self) ?? AyuGramHistoryPolicy()
     var retained: [StoreMessage] = []
     // Every chat keeps its deleted messages; only the selected chats are also listed in Message history.
     let keepAll = AyuGramSettings.shared.snapshot.messageHistory
@@ -62,7 +58,7 @@ func ayuGramDeleteRemoteMessages(transaction: Transaction, mediaBox: MediaBox, i
         flags.insert(.AyuLocallyDeleted)
         flags.remove(.TopIndexable)
         flags.remove(.ReactionsArePossible)
-        retained.append(StoreMessage(id: .Id(id), customStableId: message.stableId, globallyUniqueId: message.globallyUniqueId, groupingKey: message.groupingKey, threadId: message.threadId, timestamp: message.timestamp, flags: flags, tags: [], globalTags: [], localTags: [], forwardInfo: message.forwardInfo.map(StoreMessageForwardInfo.init), authorId: message.author?.id, text: message.text, attributes: attributes, media: policy.savePhotos ? ayuGramKeptMedia(mediaBox: mediaBox, media: ayuGramRetainedMedia(transaction: transaction, mediaBox: mediaBox, message: message)) : []))
+        retained.append(StoreMessage(id: .Id(id), customStableId: message.stableId, globallyUniqueId: message.globallyUniqueId, groupingKey: message.groupingKey, threadId: message.threadId, timestamp: message.timestamp, flags: flags, tags: [], globalTags: [], localTags: [], forwardInfo: message.forwardInfo.map(StoreMessageForwardInfo.init), authorId: message.author?.id, text: message.text, attributes: attributes, media: ayuGramKeptMedia(mediaBox: mediaBox, media: ayuGramRetainedMedia(transaction: transaction, mediaBox: mediaBox, message: message))))
     }
     _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: manualAddMessageThreadStatsDifference)
     let _ = transaction.addMessages(retained, location: .Random)

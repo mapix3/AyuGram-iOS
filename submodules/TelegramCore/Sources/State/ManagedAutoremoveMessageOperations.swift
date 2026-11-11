@@ -82,8 +82,10 @@ func managedAutoremoveMessageOperations(network: Network, postbox: Postbox, isRe
                     Logger.shared.log("Autoremove", "Performing autoremove for \(entry.messageId), isRemove: \(isRemove)")
 
                     if let message = transaction.getMessage(entry.messageId) {
-                        if message.id.peerId.namespace == Namespaces.Peer.SecretChat || isRemove {
+                        if message.id.peerId.namespace == Namespaces.Peer.SecretChat {
                             _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [entry.messageId])
+                        } else if isRemove {
+                            ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [entry.messageId])
                         } else {
                             transaction.updateMessage(message.id, update: { currentMessage in
                                 var storeForwardInfo: StoreMessageForwardInfo?
@@ -91,7 +93,8 @@ func managedAutoremoveMessageOperations(network: Network, postbox: Postbox, isRe
                                     storeForwardInfo = StoreMessageForwardInfo(authorId: forwardInfo.author?.id, sourceId: forwardInfo.source?.id, sourceMessageId: forwardInfo.sourceMessageId, date: forwardInfo.date, authorSignature: forwardInfo.authorSignature, psaType: forwardInfo.psaType, flags: forwardInfo.flags)
                                 }
                                 var updatedMedia = currentMessage.media
-                                for i in 0 ..< updatedMedia.count {
+                                // AyuGram: disappearing media stays viewable on this device.
+                                for i in 0 ..< (currentMessage.id.namespace == Namespaces.Message.Cloud ? 0 : updatedMedia.count) {
                                     if let _ = updatedMedia[i] as? TelegramMediaImage {
                                         updatedMedia[i] = TelegramMediaExpiredContent(data: .image)
                                     } else if let file = updatedMedia[i] as? TelegramMediaFile {
