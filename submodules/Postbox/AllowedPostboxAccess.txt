@@ -5,7 +5,7 @@
 # This list only shrinks. When a refactor wave removes a file's last `.postbox` use, delete its
 # line in the same commit: the check fails while a listed file no longer uses `.postbox`.
 # Adding a line is a deliberate exception, made in review. New code uses TelegramEngine
-# (context.engine...) instead (CLAUDE.md, "Postbox -> TelegramEngine refactor").
+# (context.engine...) instead (notes, "Postbox -> TelegramEngine refactor").
 #
 # Not checked: test sources (directories named `Tests` or ending in `Tests`), and Postbox and
 # TelegramCore themselves. Comments and string literals do not count. Keep the entries sorted
@@ -234,8 +234,6 @@ submodules/TelegramUI/Sources/SharedMediaPlayer.swift
 submodules/TelegramUI/Sources/SharedWakeupManager.swift
 submodules/TelegramUI/Sources/StoreDownloadedMedia.swift
 submodules/TelegramUIPreferences/Sources/MediaAutoDownloadSettings.swift
-submodules/TelegramUniversalVideoContent/Sources/HLSVideoContent.swift
-submodules/TelegramUniversalVideoContent/Sources/HLSVideoJSNativeContentNode.swift
 submodules/TelegramUniversalVideoContent/Sources/NativeVideoContent.swift
 submodules/TelegramUniversalVideoContent/Sources/OverlayUniversalVideoNode.swift
 submodules/TelegramUniversalVideoContent/Sources/PlatformVideoContent.swift

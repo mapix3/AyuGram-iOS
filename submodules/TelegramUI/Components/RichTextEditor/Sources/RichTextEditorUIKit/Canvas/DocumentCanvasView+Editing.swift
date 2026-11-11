@@ -664,15 +664,13 @@ extension DocumentCanvasView {
     /// would only delete.
     ///
     /// **THIS IS THE ONE PLACE THE PROSE MENTIONS ARE DESCRIBED, AND THEIR COUNT IS DELIBERATELY NOT
-    /// STATED.** It has been wrong at every pass — "three in `CLAUDE.md`, one in `+Media.swift`" at
+    /// STATED.** It has been wrong at every pass — "three in notes, one in `+Media.swift`" at
     /// Task 36b, "six" at 36c's supplement, "four surviving" at 36c's review — which is Rule 15's case
     /// for describing the CLASS and letting a reader re-derive the members (`grep -rn deleteImageBox`).
     /// The class: every one of them attributes a media-delete path to this function, and **none of
     /// them is a caller.** The real paths are `deleteMediaBlock(id:)` (whole block: removes it from its
     /// OWN stack, appends an empty paragraph only if that stack would otherwise be empty, caret at the
-    /// previous block's text end) and `deleteMediaItem(blockID:itemIndex:)` (one album cell). Two
-    /// `CLAUDE.md` mentions are legitimately HISTORICAL ("the old …", "Previously the image branch
-    /// called …") and must stay; anything present-tense is wrong.
+    /// previous block's text end) and `deleteMediaItem(blockID:itemIndex:)` (one album cell).
     func deleteImageBoxOutcome(at index: Int) -> RichTextInputCaretOutcome {
         guard boxes.indices.contains(index) else { return .unchanged }
         var newBoxes = boxes

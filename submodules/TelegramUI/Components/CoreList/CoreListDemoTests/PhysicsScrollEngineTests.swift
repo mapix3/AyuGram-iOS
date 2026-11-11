@@ -163,7 +163,7 @@ final class PhysicsScrollEngineTests: XCTestCase {
         XCTAssertFalse(
             engine.responds(to: #selector(UIGestureRecognizerDelegate
                 .gestureRecognizer(_:shouldBeRequiredToFailBy:))),
-            "the engine must declare no failure dependency; see the limbo gotcha in CLAUDE.md"
+            "the engine must declare no failure dependency; see the limbo gotcha in notes"
         )
     }
 

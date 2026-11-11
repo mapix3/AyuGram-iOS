@@ -33,7 +33,7 @@ final class IDTextEditorBackendFloatingCursorSuppressionTests: XCTestCase {
     /// never-attached backend — and because the guard returns BEFORE `setSelection`'s own
     /// `isAttached` check, this is observable WITHOUT ever reaching that check (which would
     /// otherwise route through `RichTextInputContractViolation.report(...)`, an `assertionFailure()`
-    /// in DEBUG with no reporter installed — the "latent hard crash" the package CLAUDE.md and this
+    /// in DEBUG with no reporter installed — the "latent hard crash" the package notes and this
     /// task's own controller supplement warn about).
     ///
     /// **Proven capable of failing, not merely capable of passing**: commenting out the

@@ -15,7 +15,7 @@ struct TgwatchApp: App {
         // Under XCTest the app's `@main` `init()` still runs inside the test
         // process. Instantiating a `TDLibClientManager` here would conflict
         // with the one tests create via `SharedTestTDLibManager` (TDLib's
-        // `td_receive` is single-thread-global — see CLAUDE.md gotcha). Hand
+        // `td_receive` is single-thread-global — see notes gotcha). Hand
         // the test process a no-bootstrap manager; tests never drive the
         // SwiftUI scene, so its `factory` is never invoked.
         let factory: any TDClientFactory

@@ -972,7 +972,7 @@ public final class RichTextEditorView: UIView, UIScrollViewDelegate {
     /// this method's doc-comment above describes is preserved verbatim, not repaired. No behavior change:
     /// every existing call site (`onSelectionChange` below) is unaffected by the wider access.
     /// The shared contract's reveal, through the solver both editors use
-    /// (see the RichTextEditor `CLAUDE.md`, "The host decides when the caret is revealed"). Called from
+    /// (see the RichTextEditor notes, "The host decides when the caret is revealed"). Called from
     /// `update(…caretReveal:)` — the host's pass — and from
     /// `TelegramPresentationInputClient.requestReveal`, which is an input-backend seam rather than a
     /// host seam and is a caller like any other.

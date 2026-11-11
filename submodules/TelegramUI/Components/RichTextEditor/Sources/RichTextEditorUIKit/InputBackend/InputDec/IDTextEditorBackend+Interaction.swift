@@ -7,7 +7,7 @@ import UIKit
 /// `id_setNeedsSelectionDisplayUpdate()`, `setGestureRecognizersEnabled(_:)`,
 /// `clearGestureRecognizersForced(_:)`, `id_selectWord()`, `selectAll(_:)`. (The two `id_` ones are
 /// named after private UIKit selectors, and `#function` would write such a name into the binary as
-/// text: package `CLAUDE.md`, "Private UIKit names are not in the binary".) `.detach()` — the eighth
+/// text: package notes, "Private UIKit names are not in the binary".) `.detach()` — the eighth
 /// member this task's brief lists — stays where it already lived (`IDTextEditorBackend.detach()`),
 /// unchanged in shape; this task adds one new, guarded call to `clearGestureRecognizersForced(true)`
 /// there (see that method's own doc comment).
@@ -191,7 +191,7 @@ extension IDTextEditorBackend {
     // `beginFloatingCursorAtPoint:`, but Swift's importer applies its "Omit Needless Words"
     // transform and folds `AtPoint` into the `at:` argument label — confirmed only by a real
     // iOS-simulator compile error (`swift build` cannot see this file at all; see the package
-    // CLAUDE.md). The real name is `beginFloatingCursor(at:)`.
+    // notes). The real name is `beginFloatingCursor(at:)`.
     func beginFloatingCursor(at point: CGPoint) {
         guard isAttached else { return }
         var error: NSError?

@@ -2,7 +2,7 @@
 //  MTDisplayGenerator.swift
 //  SwiftMath
 //
-//  Created by Claude Code on 2025-12-16.
+//  Created by the editor on 2025-12-16.
 //  This software may be modified and distributed under the terms of the
 //  MIT license. See the LICENSE file for details.
 //

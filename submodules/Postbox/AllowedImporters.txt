@@ -4,7 +4,7 @@
 # This list only shrinks. When a refactor wave removes a file's last Postbox import, delete its
 # line in the same commit: the check fails while a listed file no longer imports Postbox.
 # Adding a line is a deliberate exception, made in review. New code uses TelegramEngine and its
-# wrappers instead (CLAUDE.md, "Postbox -> TelegramEngine refactor").
+# wrappers instead (notes, "Postbox -> TelegramEngine refactor").
 #
 # Not checked: test sources (directories named `Tests` or ending in `Tests`), and Postbox and
 # TelegramCore themselves. Keep the entries sorted (byte order, as `LC_ALL=C sort`).
@@ -91,7 +91,6 @@ submodules/TelegramUI/Sources/InChatPrefetchManager.swift
 submodules/TelegramUI/Sources/StoreDownloadedMedia.swift
 submodules/TelegramUI/Sources/TransformOutgoingMessageMedia.swift
 submodules/TelegramUniversalVideoContent/Sources/HLSVideoContent.swift
-submodules/TelegramUniversalVideoContent/Sources/HLSVideoJSNativeContentNode.swift
 submodules/TelegramUniversalVideoContent/Sources/NativeVideoContent.swift
 submodules/TelegramUniversalVideoContent/Sources/PlatformVideoContent.swift
 submodules/TelegramUniversalVideoContent/Sources/SystemVideoContent.swift

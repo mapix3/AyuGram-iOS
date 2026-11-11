@@ -26,7 +26,7 @@ public enum RichTextEditorAnimation {
 ///
 /// The default everywhere is `.none`, and that is the point: an editor does not scroll itself to
 /// follow the caret, so a pass that says nothing about it does not move it. See
-/// the RichTextEditor `CLAUDE.md`, "The host decides when the caret is revealed".
+/// the RichTextEditor notes, "The host decides when the caret is revealed".
 public enum RichTextEditorCaretReveal {
     /// This pass is not about the caret — a theme change, a measurement, a host-driven relayout.
     case none

@@ -28,7 +28,7 @@ import ChatInputTextNode
 /// **Changed 2026-09-23 (twelfth wave), with the controller's approval, for two wrong assertions:**
 /// the at-the-end cases compared the round trip for strict equality, but a paste whose content ends
 /// in a non-body block at the document's end adds EXACTLY ONE trailing empty body paragraph with the
-/// caret in it — a documented product rule (RichTextEditor `CLAUDE.md`, "The caret goes after
+/// caret in it — a documented product rule (RichTextEditor notes, "The caret goes after
 /// everything inserted, and the document grows a line if it must", 2026-09-17), the shape
 /// `HarnessContainerCutPasteRoundTripTests` pins. They now assert that shape exactly: the original
 /// blocks intact, one empty trailing line, the caret in it — a second line or a changed block still

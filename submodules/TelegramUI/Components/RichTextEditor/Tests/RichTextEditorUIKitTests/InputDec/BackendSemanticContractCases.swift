@@ -72,7 +72,7 @@ class BackendSemanticContractCases: XCTestCase {
     /// CORRECTED BY TASK C3 (empirically, against a real K1 simulator run — Step 3 of the task
     /// brief failed with the brief's literal `offset: -1` until this was fixed; see
     /// `task-C3-report.md`). `beginningOfDocument` is NOT the position axis's raw `0` — the
-    /// package `CLAUDE.md`'s "verification traps" entry documents that the axis is sparse and
+    /// package notes's "verification traps" entry documents that the axis is sparse and
     /// `beginningOfDocument`/`endOfDocument` deliberately SNAP to the nearest RENDERABLE slot,
     /// never the document's structural open/close-token slot (a caret must never hide on a
     /// non-renderable position). Measured on this harness's default two-paragraph fixture:
@@ -100,7 +100,7 @@ class BackendSemanticContractCases: XCTestCase {
     /// CORRECTED BY TASK C3 (empirically — the brief's literal `, 10)` failed Step 3 with
     /// `("11") is not equal to ("10")`). The position axis is SPARSE exactly at a top-level
     /// paragraph boundary: it carries TWO structural slots there while `text(in:)`'s document
-    /// projection emits only ONE `"\n"` character (package `CLAUDE.md`, same verification-traps
+    /// projection emits only ONE `"\n"` character (package notes, same verification-traps
     /// entry as above). The harness's default two-paragraph fixture ("Alpha", "Beta") has exactly
     /// one such boundary, so `offset(from:to:)` across the whole document is the UTF-16 text
     /// length PLUS one extra unit for that boundary — 11, not 10 — even though `text(in:)` itself

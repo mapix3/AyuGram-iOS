@@ -25,7 +25,7 @@ final class NavigationKeyframesTests: XCTestCase {
         XCTAssertEqual(NavigationKeyframeTiming(origin: .atCommit, duration: 0.4123, factor: 1.0).sampleTimes.last, 0.4123)
     }
 
-    // CoreList's rules (CLAUDE.md "Non-obvious gotchas"): Slow Animations as speed, an implicit origin at the commit,
+    // CoreList's rules (notes "Non-obvious gotchas"): Slow Animations as speed, an implicit origin at the commit,
     // an explicit one in the layer's own time.
     func test_animation_isLinearKeyframes_atSpeed_withItsOrigin() {
         let layer = CALayer()

@@ -22,7 +22,7 @@ import ChatInputTextNode
 ///
 /// **How it was seen.** The p15 fix-wave rule "the same trap stands in `normalisePresentation` and
 /// `rerenderPresentation`, which still merge per run; they have not measured superlinear yet" (editor
-/// `CLAUDE.md`), measured here on 2026-09-25.
+/// notes), measured here on 2026-09-25.
 ///
 /// Measured before the fix: theme 60 → 0.56 s, 240 → 8.37 s (15.0); Monospace OFF 60 → 0.97 s,
 /// 240 → 14.6 s (15.1). After: 0.05 → 0.16 s and 0.06 → 0.21 s.

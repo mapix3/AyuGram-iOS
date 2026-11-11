@@ -103,7 +103,7 @@ final class ScrollCaretOnEditTests: XCTestCase {
 
     /// **Rewritten 2026-09-17.** This editor no longer scrolls itself to follow the caret: it reports
     /// that a reveal is owed and performs one inside a host's layout pass, against the geometry that
-    /// pass applies. See the RichTextEditor `CLAUDE.md`, "The host decides when the caret is revealed".
+    /// pass applies. See the RichTextEditor notes, "The host decides when the caret is revealed".
     /// What the case pins is unchanged — typing at an off-screen caret ends with it visible — but the
     /// host pass that a real host runs from `onCaretRevealNeeded` is now part of the sequence.
     func test_typing_scrollsOffScreenCaretBackIntoView() {

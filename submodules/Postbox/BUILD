@@ -3,7 +3,7 @@ load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
 load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
 
 # Packages allowed to depend on Postbox. This list only shrinks: when a refactor wave frees a
-# package, remove it here in the same commit (CLAUDE.md, "Postbox -> TelegramEngine refactor").
+# package, remove it here in the same commit (notes, "Postbox -> TelegramEngine refactor").
 package_group(
     name = "clients",
     packages = [

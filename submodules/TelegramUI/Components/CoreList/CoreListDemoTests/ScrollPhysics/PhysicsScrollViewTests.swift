@@ -5,7 +5,7 @@ import QuartzCore
 
 final class PhysicsScrollViewTests: XCTestCase {
     /// The flight sampler MUST read layer-LOCAL time (convertTime), not media time, so it tracks CA
-    /// under slowed playback (CLAUDE.md: "the analytic slide clock is the layer's LOCAL time").
+    /// under slowed playback (notes: "the analytic slide clock is the layer's LOCAL time").
     /// A frozen layer (speed == 0) makes convertTime == timeOffset regardless of media time.
     func testLocalTimeRoutesThroughConvertTime() {
         let layer = CALayer()
@@ -19,5 +19,12 @@ final class PhysicsScrollViewTests: XCTestCase {
     func testRecognizerAllowsContinuousScrollType() {
         let pan = PhysicsPanGestureRecognizer(target: nil, action: nil)
         XCTAssertTrue(pan.allowedScrollTypesMask.contains(.continuous))
+    }
+
+    /// The recognizer must also accept discrete (mouse-wheel) indirect scroll: without it a wheel on
+    /// iPad never reaches the pan, and the chat history, which runs on this recognizer, does not scroll.
+    func testRecognizerAllowsDiscreteScrollType() {
+        let pan = PhysicsPanGestureRecognizer(target: nil, action: nil)
+        XCTAssertTrue(pan.allowedScrollTypesMask.contains(.discrete))
     }
 }

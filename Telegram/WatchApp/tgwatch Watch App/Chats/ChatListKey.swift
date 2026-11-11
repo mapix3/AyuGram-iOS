@@ -2,7 +2,7 @@ import TDShim
 
 /// Hashable identity for a TDLib `ChatList`. We avoid using `ChatList` directly as a
 /// dictionary key because its `Hashable`/`Equatable` conformance may not synthesize
-/// cleanly across TDLibKit versions (see CLAUDE.md gotchas).
+/// cleanly across TDLibKit versions (see notes gotchas).
 enum ChatListKey: Hashable {
     case main
     case archive

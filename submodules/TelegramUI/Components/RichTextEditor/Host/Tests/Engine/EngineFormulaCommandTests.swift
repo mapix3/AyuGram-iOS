@@ -168,7 +168,7 @@ final class EngineFormulaCommandTests: XCTestCase {
     }
 
     /// A view that draws NOTHING receives no real touches, although `hitTest:` still returns it
-    /// (project CLAUDE.md, "iOS 26/27 windows and touch delivery"). The target must therefore carry
+    /// (project notes, "iOS 26/27 windows and touch delivery"). The target must therefore carry
     /// transparent `contents`; this pins that it does, though only a device tap proves delivery.
     func test_theTargetIsInteractiveAndRenders() {
         insertOneFormula()

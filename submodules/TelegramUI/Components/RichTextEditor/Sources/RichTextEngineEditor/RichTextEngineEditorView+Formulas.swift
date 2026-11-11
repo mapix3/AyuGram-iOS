@@ -18,7 +18,7 @@ import RichTextInputDecUpstream
 /// a formula gets one too, purely to carry a recogniser.
 ///
 /// **LOAD-BEARING: the transparent `contents`.** A layer that renders NOTHING receives no real
-/// touches even though `hitTest:` returns it — the project `CLAUDE.md` records this under "iOS
+/// touches even though `hitTest:` returns it — the project notes records this under "iOS
 /// 26/27 windows and touch delivery", along with the fact that a near-zero background alpha only
 /// works above an undocumented threshold. A test can pin that `contents` is set; only a real tap
 /// proves delivery.

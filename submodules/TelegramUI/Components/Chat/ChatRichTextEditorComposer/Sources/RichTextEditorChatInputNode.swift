@@ -574,7 +574,7 @@ public final class RichTextEditorChatInputNode: ASDisplayNode, ChatRichTextInput
     /// seen is how the caret-to-caret half survived.
     ///
     /// Static and pure so it can be tested: constructing a `RichTextEditorChatInputNode` reaches
-    /// `AccountContext`, which a test bundle cannot link (see the project `CLAUDE.md`'s
+    /// `AccountContext`, which a test bundle cannot link (see the project notes's
     /// `ios_unit_test` dep-link ceiling), which is the same reason `storedMargins` /
     /// `measurementMargins` are static.
     internal static func echoedSelectionShouldApply(target: NSRange,

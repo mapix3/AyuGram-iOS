@@ -30,7 +30,7 @@ final class WindowDetachCharacterizationTests: XCTestCase {
     /// `updateDragAutoScroll` only fires when `superview is UIScrollView`.
     private func hostedCanvasInScroll() -> (canvas: DocumentCanvasView, scroll: UIScrollView) {
         let scroll = UIScrollView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
-        // Real production code sets this (`RichTextEditorView` — see the package's own CLAUDE.md), and it
+        // Real production code sets this (`RichTextEditorView` — see the package's own notes), and it
         // matters here too: a scroll view added to a REAL, key window otherwise auto-adjusts its resting
         // `contentOffset` to the negative safe-area inset, which silently throws off every hardcoded
         // viewport-band coordinate below (discovered the hard way — see the floating-cursor test).

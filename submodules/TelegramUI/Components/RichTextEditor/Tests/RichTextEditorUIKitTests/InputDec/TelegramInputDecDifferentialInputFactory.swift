@@ -218,7 +218,7 @@ enum TelegramInputDecDifferentialInputFactory {
 /// axis-conversion class `DIVERGENCES.md` already names ("the private controller hands us a
 /// PLAIN-TEXT-axis range while our bridge assumed STRUCTURAL") — found here for the FIRST time in
 /// this task's own test-construction code, not the production backend. The shift is not even a flat
-/// constant: it is Telegram's own 2-slot-per-paragraph-boundary convention (`CLAUDE.md`'s
+/// constant: it is Telegram's own 2-slot-per-paragraph-boundary convention (notes's
 /// "Verification traps": "a top-level paragraph boundary occupies TWO position slots where the text
 /// projection emits one '\n'") compounding by one MORE unit per boundary crossed — a flat `+1` is
 /// only correct for a single-paragraph document, and 58 of the corpus's 68 scenarios cross a

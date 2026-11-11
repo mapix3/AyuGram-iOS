@@ -79,7 +79,7 @@ final class IDClientBridgeSelectorConformanceTests: XCTestCase {
         ("C7", "prepareAndCommitReplacementInRange:text:intent:expectedRevision:outOutcome:"),
         // Task C12 — interaction-host thunks (two methods)
         // Was `interactionAssistant`, a private UIKit selector name; renamed so the bridge does
-        // not carry it (package CLAUDE.md, "Private UIKit names are not in the binary").
+        // not carry it (package notes, "Private UIKit names are not in the binary").
         ("C12", "canvasInteractionAssistant"),
         ("C12", "interactionContainerView"),
         // Task C14 — spellchecking and annotations (nine methods)

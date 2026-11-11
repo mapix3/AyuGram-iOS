@@ -310,7 +310,7 @@ final class TDClient {
     /// breaks the loop. With multi-account, the destroy is followed by a
     /// delegate callback so `AccountManager` can drop this account's record +
     /// dir entirely (matching the "logout = remove" UX). See
-    /// CLAUDE.md "TDLib gets stuck on authorizationStateLoggingOut" gotcha.
+    /// notes "TDLib gets stuck on authorizationStateLoggingOut" gotcha.
     private func armStuckLoggingOutWatchdog() {
         stuckLoggingOutTask?.cancel()
         let timeout = Self.kStuckLoggingOutTimeout

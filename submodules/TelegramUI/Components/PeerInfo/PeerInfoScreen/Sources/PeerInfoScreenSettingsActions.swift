@@ -9,6 +9,7 @@ import TelegramCore
 import SettingsUI
 import PeerInfoStoryGridScreen
 import CallListUI
+import ContactListUI
 import PassportUI
 import AccountUtils
 import OverlayStatusController
@@ -99,6 +100,8 @@ extension PeerInfoScreenNode {
             })
         case .recentCalls:
             push(CallListController(context: context, mode: .navigation))
+        case .contacts:
+            push(ContactsController(context: context))
         case .devices:
             let _ = (self.activeSessionsContextAndCount.get()
             |> take(1)

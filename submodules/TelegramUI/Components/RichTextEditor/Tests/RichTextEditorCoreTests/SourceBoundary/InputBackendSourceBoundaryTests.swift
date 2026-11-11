@@ -143,7 +143,7 @@ final class InputBackendSourceBoundaryTests: XCTestCase {
     /// (2026-08-17) found a THIRD, unrelated pre-existing offender the plan's D11 text does not
     /// mention: `SpoilerDustView.swift`'s `CAEmitterBehavior` lookup
     /// (`NSClassFromString(["CA","Emitter","Behavior"].joined())` +
-    /// `NSSelectorFromString(selector)`), which the package's own CLAUDE.md already documents as a
+    /// `NSSelectorFromString(selector)`), which the package's own notes already documents as a
     /// known, accepted App-Store-review risk ("guarded by a live canary test") predating this seam
     /// entirely — it is Telegram's own private-API integration for the spoiler twinkle effect, not
     /// InputDec's, exactly like the text-checking pair. Flagged here for reviewer sign-off: this

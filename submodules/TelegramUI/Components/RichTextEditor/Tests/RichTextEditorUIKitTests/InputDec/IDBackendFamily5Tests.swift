@@ -69,7 +69,7 @@ final class IDBackendFamily5Tests: XCTestCase {
     /// units. The controller's own `id_rangeOfCharacterClusterAtIndex:type:` (Family 1, Task C4)
     /// must resolve the WHOLE cluster, so `proposedRange.length` must equal the emoji's own
     /// `utf16.count` — never 1 (which would leave an orphaned half of the sequence, exactly the
-    /// surrogate/ZWJ-splitting bug the package `CLAUDE.md`'s grapheme-cluster invariants warn
+    /// surrogate/ZWJ-splitting bug the package notes's grapheme-cluster invariants warn
     /// about for the legacy backend's own `deleteBackward`).
     func test_deleteBackwardOverAGraphemeCluster_deletesTheWholeCluster() {
         let familyEmoji = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{200D}\u{1F466}"
