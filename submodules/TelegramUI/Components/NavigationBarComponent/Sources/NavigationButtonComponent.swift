@@ -69,6 +69,7 @@ final class NavigationButtonComponent: Component {
         private var customView: ComponentView<NavigationButtonEnvironment>?
 
         private(set) var moreButton: MoreHeaderButton?
+        private var longPressRecognizer: UILongPressGestureRecognizer?
 
         private var component: NavigationButtonComponent?
         private var currentColor: UIColor?
@@ -105,6 +106,14 @@ final class NavigationButtonComponent: Component {
 
         @objc private func pressed() {
             self.component?.pressed(self)
+        }
+
+        @objc private func longPressed(_ recognizer: UILongPressGestureRecognizer) {
+            guard recognizer.state == .began, let component = self.component, let contextAction = component.contextAction else {
+                return
+            }
+            self.cancelTracking(with: nil)
+            contextAction(self, nil)
         }
 
         /// Takes the hosted node back once its loan has ended (`NavigationBarNodeLoan.end`).
@@ -206,6 +215,21 @@ final class NavigationButtonComponent: Component {
 
         func update(component: NavigationButtonComponent, availableSize: CGSize, state: EmptyComponentState, environment: Environment<NavigationButtonEnvironment>, transition: ComponentTransition) -> CGSize {
             self.component = component
+            var usesLongPress = component.contextAction != nil
+            if case .more = component.content {
+                usesLongPress = false
+            }
+            if usesLongPress {
+                if self.longPressRecognizer == nil {
+                    let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(self.longPressed(_:)))
+                    recognizer.minimumPressDuration = 0.4
+                    self.addGestureRecognizer(recognizer)
+                    self.longPressRecognizer = recognizer
+                }
+            } else if let recognizer = self.longPressRecognizer {
+                self.longPressRecognizer = nil
+                self.removeGestureRecognizer(recognizer)
+            }
             self.isEnabled = component.isEnabled
 
             let environmentValue = environment[NavigationButtonEnvironment.self].value

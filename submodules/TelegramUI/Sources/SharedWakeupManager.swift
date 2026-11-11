@@ -72,6 +72,10 @@ public final class SharedWakeupManager {
     
     private var inForeground: Bool = false
     private var hasActiveAudioSession: Bool = false
+    private var ayuKeepAlive: AyuGramKeepAlive?
+    private var ayuKeepAliveActive: Bool = false
+    private var ayuNotifier: AyuGramBackgroundNotifier?
+    private var ayuNotifierDisposable: Disposable?
     private var activeExplicitExtensionTimer: SwiftSignalKit.Timer?
     private var activeExplicitExtensionTask: UIBackgroundTaskIdentifier?
     private var allowBackgroundTimeExtensionDeadline: Double?
@@ -120,6 +124,20 @@ public final class SharedWakeupManager {
         self.acquireIdleExtension = acquireIdleExtension
         self.presentationData = presentationData
         
+        self.ayuKeepAlive = AyuGramKeepAlive(beginBackgroundTask: beginBackgroundTask, endBackgroundTask: endBackgroundTask, updated: { [weak self] value in
+            guard let self else {
+                return
+            }
+            self.ayuKeepAliveActive = value
+            self.checkTasks()
+        })
+        let ayuNotifier = AyuGramBackgroundNotifier(presentationData: presentationData)
+        self.ayuNotifier = ayuNotifier
+        self.ayuNotifierDisposable = (activeAccounts
+        |> deliverOnMainQueue).startStrict(next: { [weak ayuNotifier] _, accounts in
+            ayuNotifier?.update(accounts: accounts)
+        })
+        
         self.accountSettingsDisposable = (activeAccounts
         |> mapToSignal { activeAccounts -> Signal<Bool, NoError> in
             guard let account = activeAccounts.primary else {
@@ -149,6 +167,7 @@ public final class SharedWakeupManager {
                 return
             }
             strongSelf.inForeground = value
+            strongSelf.ayuKeepAlive?.update(inForeground: value)
             if value {
                 strongSelf.activeExplicitExtensionTimer?.invalidate()
                 strongSelf.activeExplicitExtensionTimer = nil
@@ -174,6 +193,7 @@ public final class SharedWakeupManager {
                 return
             }
             strongSelf.hasActiveAudioSession = value
+            strongSelf.ayuKeepAlive?.update(telegramAudioActive: value)
             strongSelf.checkTasks()
         })
         
@@ -358,6 +378,7 @@ public final class SharedWakeupManager {
         self.accountSettingsDisposable?.dispose()
         self.inForegroundDisposable?.dispose()
         self.hasActiveAudioSessionDisposable?.dispose()
+        self.ayuNotifierDisposable?.dispose()
         self.tasksDisposable?.dispose()
         self.pendingMediaUploadsDisposable?.dispose()
         self.pendingStoryUploadsDisposable?.dispose()
@@ -993,7 +1014,7 @@ public final class SharedWakeupManager {
         
         var endTaskAfterTransactionsComplete: UIBackgroundTaskIdentifier?
         
-        if self.inForeground || self.hasActiveAudioSession || hasActiveCalls {
+        if self.inForeground || self.hasActiveAudioSession || hasActiveCalls || self.ayuKeepAliveActive {
             if let (completion, timer) = self.currentExternalCompletion {
                 self.currentExternalCompletion = nil
                 completion()
@@ -1135,13 +1156,13 @@ public final class SharedWakeupManager {
     private func updateAccounts(hasTasks: Bool, endTaskAfterTransactionsComplete: UIBackgroundTaskIdentifier?) {
         let hasBackgroundLocationTask = self.accountsAndTasks.contains(where: { $0.2.backgroundLocation })
         
-        if self.inForeground || self.hasActiveAudioSession || self.isInBackgroundExtension || self.backgroundProcessingTaskId != nil || self.backgroundStoryProcessingTaskId != nil || hasBackgroundLocationTask || (hasTasks && self.currentExternalCompletion != nil) || self.activeExplicitExtensionTimer != nil || self.silenceAudioRenderer != nil {
+        if self.inForeground || self.hasActiveAudioSession || self.isInBackgroundExtension || self.backgroundProcessingTaskId != nil || self.backgroundStoryProcessingTaskId != nil || hasBackgroundLocationTask || (hasTasks && self.currentExternalCompletion != nil) || self.activeExplicitExtensionTimer != nil || self.silenceAudioRenderer != nil || self.ayuKeepAliveActive {
             Logger.shared.log("Wakeup", "enableBeginTransactions: true (active)")
             
             for (account, primary, tasks) in self.accountsAndTasks {
                 account.postbox.setCanBeginTransactions(true)
                 
-                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) {
+                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) || (self.ayuKeepAliveActive && !self.inForeground) {
                     account.shouldBeServiceTaskMaster.set(.single(.always))
                 } else {
                     account.shouldBeServiceTaskMaster.set(.single(.never))

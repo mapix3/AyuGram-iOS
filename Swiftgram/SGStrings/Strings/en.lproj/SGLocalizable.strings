@@ -475,3 +475,8 @@
 "Ayu.PeekOnlineDone" = "Peeked: last seen time shown";
 "Ayu.PeekOnlineVisible" = "Last seen time is already visible";
 "Ayu.PeekOnlineHidden" = "This user hides last seen time, it cannot be peeked";
+"Ayu.KeepAlive" = "Notifications without Apple";
+"Ayu.KeepAliveOff" = "Off";
+"Ayu.KeepAliveAlways" = "Always";
+"Ayu.KeepAliveMinutes" = "%@ min after leaving";
+"Ayu.KeepAliveFooter" = "Keeps AyuGram running in the background with silent audio and shows notifications for new messages without Apple push. Uses more battery. Music and calls are not affected; after a call it resumes by itself. Not needed with Bark.";
