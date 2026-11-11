@@ -2,7 +2,6 @@ import Foundation
 import UIKit
 import Display
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import AccountContext
 import SaveToCameraRoll
@@ -17,7 +16,7 @@ enum AyuGramDisappearingMedia {
     case voice(TelegramMediaFile)
 }
 
-func ayuGramDisappearingMedia(_ message: Message) -> AyuGramDisappearingMedia? {
+func ayuGramDisappearingMedia(_ message: EngineMessage) -> AyuGramDisappearingMedia? {
     guard message.containsSecretMedia, message.id.namespace == Namespaces.Message.Cloud, message.id.peerId.namespace != Namespaces.Peer.SecretChat else {
         return nil
     }
@@ -50,7 +49,7 @@ func ayuGramDisappearingMediaSaveTitle(_ media: AyuGramDisappearingMedia, string
 
 /// Saves disappearing media without opening it, so nothing is reported to the sender:
 /// photos and videos go to the photo library, voice messages are shared as M4A.
-func ayuGramSaveDisappearingMedia(context: AccountContext, message: Message, presentOverlay: @escaping (ViewController) -> Void, presentShare: @escaping (UIViewController) -> Void) {
+func ayuGramSaveDisappearingMedia(context: AccountContext, message: EngineMessage, presentOverlay: @escaping (ViewController) -> Void, presentShare: @escaping (UIViewController) -> Void) {
     guard let media = ayuGramDisappearingMedia(message) else {
         return
     }
@@ -63,17 +62,17 @@ func ayuGramSaveDisappearingMedia(context: AccountContext, message: Message, pre
     }
     switch media {
     case let .image(image):
-        let _ = (saveToCameraRoll(context: context, userLocation: userLocation, mediaReference: ImageMediaReference.message(message: MessageReference(message), media: image).abstract)
+        let _ = (saveToCameraRoll(context: context, userLocation: userLocation, mediaReference: ImageMediaReference.message(message: MessageReference(message._asMessage()), media: image).abstract)
         |> deliverOnMainQueue).startStandalone(completed: {
             saved(false)
         })
     case let .video(file):
-        let _ = (saveToCameraRoll(context: context, userLocation: userLocation, mediaReference: FileMediaReference.message(message: MessageReference(message), media: file).abstract)
+        let _ = (saveToCameraRoll(context: context, userLocation: userLocation, mediaReference: FileMediaReference.message(message: MessageReference(message._asMessage()), media: file).abstract)
         |> deliverOnMainQueue).startStandalone(completed: {
             saved(true)
         })
     case let .voice(file):
-        let _ = (fetchMediaData(context: context, userLocation: userLocation, mediaReference: FileMediaReference.message(message: MessageReference(message), media: file).abstract)
+        let _ = (fetchMediaData(context: context, userLocation: userLocation, mediaReference: FileMediaReference.message(message: MessageReference(message._asMessage()), media: file).abstract)
         |> mapToSignal { state, _ -> Signal<String, NoError> in
             if case let .data(data) = state, data.isComplete {
                 return .single(data.path)
