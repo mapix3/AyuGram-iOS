@@ -469,3 +469,4 @@
 "Ayu.Reason.testflight" = "distributing AyuGram through TestFlight or the App Store";
 "Ayu.Reason.modified" = "a modified build of AyuGram";
 "Ayu.Reason.fork" = "an unofficial fork of AyuGram";
+"Ayu.ReportMediaView" = "Report view";

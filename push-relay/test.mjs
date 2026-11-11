@@ -194,6 +194,29 @@ assert.equal(seenUpdate({ loc_key: 'MESSAGE_TEXT', custom: { from_id: '7', msg_i
   await worker.fetch(new Request('https://relay.example/active/' + id, { method: 'POST', body: '0' }), activeEnv);
   await push('2');
   assert.equal(sent.length, 1, 'Relaying resumes once AyuGram is closed');
+  {
+    const before = sent.splice(0);
+    const sub2 = await subscription('ACTIVEKEY2');
+    const id2 = await activityId('ACTIVEKEY2');
+    const pushTo = async (msgId, account) => {
+      const { body, headers } = await encryptAes128gcm(sub2, JSON.stringify({ loc_key: 'MESSAGE_TEXT', loc_args: ['Bob', 'yo'], custom: { from_id: '71', msg_id: msgId } }));
+      return worker.fetch(new Request('https://relay.example/p/' + sub2.token + (account ? '?a=' + account : ''), { method: 'POST', body, headers }), activeEnv);
+    };
+    await worker.fetch(new Request('https://relay.example/active/' + id2, { method: 'POST', body: '90|aaaaaaaaaaaa' }), activeEnv);
+    await pushTo('10', 'aaaaaaaaaaaa');
+    assert.equal(sent.length, 0, 'The account open in AyuGram gets no push');
+    await pushTo('11', '');
+    assert.equal(sent.length, 0, 'A push from an untagged subscription is held while AyuGram is open, as before');
+    await pushTo('12', 'bbbbbbbbbbbb');
+    assert.equal(sent.length, 1, 'Another account still gets its push while AyuGram is open');
+    assert.ok(JSON.stringify(sent[0]).includes('acct=bbbbbbbbbbbb'), 'The push opens the right account');
+    await pushTo('13', 'NOT-A-TAG');
+    assert.equal(sent.length, 1, 'A malformed account is treated as unknown');
+    await worker.fetch(new Request('https://relay.example/active/' + id2, { method: 'POST', body: '0' }), activeEnv);
+    await pushTo('14', 'aaaaaaaaaaaa');
+    assert.equal(sent.length, 2, 'Once AyuGram closes every account gets pushes again');
+    sent.splice(0, sent.length, ...before);
+  }
   const other = await subscription('ACTIVEKEY1');
   const { body, headers } = await encryptAes128gcm(other, JSON.stringify({ loc_key: 'MESSAGE_TEXT', loc_args: ['Ann', 'hi'], custom: { from_id: '70', msg_id: '2' } }));
   await worker.fetch(new Request('https://relay.example/p/' + other.token, { method: 'POST', body, headers }), activeEnv);

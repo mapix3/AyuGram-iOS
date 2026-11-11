@@ -2753,9 +2753,14 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                 if url.host == "chat", let context, let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems {
                     var peerId: PeerId?
                     var messageNumber: Int32?
+                    var accountTag: String?
                     for item in items {
                         if item.name == "msg", let value = item.value.flatMap({ Int32($0) }), value > 0 {
                             messageNumber = value
+                            continue
+                        }
+                        if item.name == "acct", let value = item.value, !value.isEmpty {
+                            accountTag = value
                             continue
                         }
                         guard let value = item.value.flatMap({ Int64($0) }) else {
@@ -2774,7 +2779,17 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                     }
                     if let peerId {
                         let messageId = messageNumber.flatMap { MessageId(peerId: peerId, namespace: Namespaces.Message.Cloud, id: $0) }
-                        context.context.sharedContext.navigateToChat(accountId: context.context.account.id, peerId: peerId, messageId: messageId)
+                        let sharedContext = context.context.sharedContext
+                        let currentAccountId = context.context.account.id
+                        let _ = (sharedContext.activeAccountContexts
+                        |> take(1)
+                        |> deliverOnMainQueue).start(next: { _, accounts, _ in
+                            var accountId = currentAccountId
+                            if let accountTag, let match = accounts.first(where: { ayuGramPushAccountTag($0.1.account.peerId) == accountTag }) {
+                                accountId = match.0
+                            }
+                            sharedContext.navigateToChat(accountId: accountId, peerId: peerId, messageId: messageId)
+                        })
                     }
                 }
                 return

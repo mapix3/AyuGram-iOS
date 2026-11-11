@@ -7912,7 +7912,9 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                     // visible in the foreground, so a recording started behind a covering screen or while
                     // backgrounded is still reported once the chat comes into view.
                     if let strongSelf = self, strongSelf.isApplicationInForegroundValue, strongSelf.traceVisibility() {
-                        let _ = strongSelf.context.engine.messages.addSecretChatMessageScreenshot(peerId: peerId).startStandalone()
+                        if !ayuGramSuppressesScreenshotNotices() {
+                            let _ = strongSelf.context.engine.messages.addSecretChatMessageScreenshot(peerId: peerId).startStandalone()
+                        }
                         return true
                     } else {
                         return false

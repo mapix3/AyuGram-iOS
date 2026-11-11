@@ -464,3 +464,4 @@
 "Ayu.Reason.testflight" = "раздача AyuGram через TestFlight или App Store";
 "Ayu.Reason.modified" = "изменённая сборка AyuGram";
 "Ayu.Reason.fork" = "неофициальный форк AyuGram";
+"Ayu.ReportMediaView" = "Отправить просмотр";

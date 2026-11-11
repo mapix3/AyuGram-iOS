@@ -40,8 +40,12 @@ export class Presence {
     const storage = this.state.storage;
     if (request.method === 'POST' && url.pathname === '/deliver') {
       const now = Date.now();
+      const account = accountTag(request.headers.get('x-ayugram-account'));
       if (((await storage.get('until')) || 0) > now) {
-        return new Response('active');
+        const activeAccount = (await storage.get('account')) || '';
+        if (!account || !activeAccount || account === activeAccount) {
+          return new Response('active');
+        }
       }
       const id = (await request.text()).slice(0, 200);
       if (!id) {
@@ -131,8 +135,10 @@ export class Presence {
       return Response.json(cleared);
     }
     if (request.method === 'POST') {
-      const seconds = Math.min(Math.max(Number(await request.text()) || 0, 0), ACTIVE_MAX_SECONDS);
+      const [rawSeconds, rawAccount] = (await request.text()).split('|');
+      const seconds = Math.min(Math.max(Number(rawSeconds) || 0, 0), ACTIVE_MAX_SECONDS);
       await storage.put('until', seconds ? Date.now() + seconds * 1000 : 0);
+      await storage.put('account', accountTag(rawAccount));
       return new Response('ok\n');
     }
     return new Response(String((await storage.get('until')) || 0));
@@ -225,13 +231,17 @@ export async function clearShown(env, stub, barkKey, seen) {
   }
 }
 
-export async function claimDelivery(env, barkKey, id) {
+export function accountTag(value) {
+  return typeof value === 'string' && /^[0-9a-f]{12}$/.test(value) ? value : '';
+}
+
+export async function claimDelivery(env, barkKey, id, account) {
   const stub = presence(env, await activityId(barkKey));
   if (!stub) {
     return true;
   }
   try {
-    const response = await stub.fetch('https://presence.ayugram.invalid/deliver', { method: 'POST', body: id || '' });
+    const response = await stub.fetch('https://presence.ayugram.invalid/deliver', { method: 'POST', body: id || '', headers: { 'x-ayugram-account': accountTag(account) } });
     return (await response.text()) === 'send';
   } catch (error) {
     console.log('presence unavailable: ' + error);
@@ -305,6 +315,7 @@ export default {
     let route;
     try {
       route = parseRoute(url.pathname.slice(3));
+      route.account = accountTag(url.searchParams.get('a'));
     } catch {
       return new Response('bad subscription\n', { status: 400 });
     }
@@ -342,10 +353,11 @@ export default {
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
         const { title, text, link, icon, id, group } = notification;
-        if (await alreadySeen(route.barkKey, data.custom) || !await claimDelivery(env, route.barkKey, id)) {
+        if (await alreadySeen(route.barkKey, data.custom) || !await claimDelivery(env, route.barkKey, id, route.account)) {
           return;
         }
-        const result = await sendToBark(route.barkKey, title, text, { url: link, icon, id, group });
+        const url = route.account && link ? link + '&acct=' + route.account : link;
+        const result = await sendToBark(route.barkKey, title, text, { url, icon, id, group });
         if (!result.ok) {
           console.log('Bark refused the push: ' + result.status + ' ' + result.body);
         }
