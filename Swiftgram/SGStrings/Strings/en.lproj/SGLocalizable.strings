@@ -436,6 +436,7 @@
 "Ayu.ParticlesLeaves" = "Leaves";
 "Ayu.ParticlesRain" = "Rain";
 "Ayu.ParticlesSeasonal" = "Match the season";
+"Ayu.ParticlesHoldHint" = "Hold an option to preview it.";
 "Ayu.SnowDrift" = "Snowdrifts and snowman";
 "Ayu.Fireworks" = "Fireworks";
 "Ayu.Parallax" = "Background parallax";

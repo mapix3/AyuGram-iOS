@@ -65,18 +65,15 @@ public extension AyuGramAppearanceSettings {
         case 9, 10, 11:
             return 4
         default:
-            return 0
+            return 1
         }
     }
 
     var effects: AyuGramEffectsState {
         let newYear = self.newYear == true || (self.newYearAuto == true && AyuGramAppearanceSettings.isNewYearSeason())
-        var kind = min(AyuGramAppearanceSettings.particleKindCount - 1, max(0, self.particleKind ?? 0))
+        var kind = min(AyuGramAppearanceSettings.particleKindCount - 1, max(0, self.particleKind ?? 1))
         if self.seasonal == true {
             kind = AyuGramAppearanceSettings.seasonalParticleKind()
-        }
-        if newYear && kind > 1 {
-            kind = 0
         }
         let amount = min(1.0, max(0.1, self.particleAmount ?? 0.5))
         return AyuGramEffectsState(particles: newYear || self.particles == true, kind: kind, amount: amount, inChats: self.particlesInChats ?? true, drift: newYear || self.drift == true, fireworks: newYear || self.fireworks == true, newYear: newYear)

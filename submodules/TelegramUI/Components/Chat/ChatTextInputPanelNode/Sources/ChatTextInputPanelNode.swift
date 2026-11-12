@@ -6689,43 +6689,6 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
     public func makeAttachmentMenuTransition(accessoryPanelNode: ASDisplayNode?) -> AttachmentInputPanelTransition {
         return AttachmentInputPanelTransition(inputNode: self, accessoryPanelNode: accessoryPanelNode, menuButtonNode: self.menuButton, menuButtonBackgroundView: self.menuButtonBackgroundView, menuIconNode: self.menuButtonIconNode, menuTextNode: self.menuButtonTextNode, prepareForDismiss: { self.menuButtonIconNode.enqueueState(.app, animated: false) })
     }
-
-    public func ayuSnowSurfaces(in target: UIView) -> [CGRect] {
-        guard self.isNodeLoaded, self.view.window != nil else {
-            return []
-        }
-        let candidates: [UIView] = [self.attachmentButtonBackground, self.textInputContainerBackgroundView, self.mediaActionButtons.micButtonBackgroundView]
-        let targetLayer = target.layer.presentation() ?? target.layer
-        var result: [CGRect] = []
-        for view in candidates {
-            guard view.window != nil else {
-                continue
-            }
-            var alpha: Float = 1.0
-            var current: UIView? = view
-            while let item = current, item !== target {
-                if item.isHidden {
-                    alpha = 0.0
-                    break
-                }
-                alpha *= (item.layer.presentation() ?? item.layer).opacity
-                current = item.superview
-            }
-            if alpha < 0.5 {
-                continue
-            }
-            let layer = view.layer.presentation() ?? view.layer
-            let rect = layer.convert(layer.bounds, to: targetLayer)
-            if rect.width < 20.0 || rect.height < 20.0 {
-                continue
-            }
-            if result.contains(where: { $0.intersection(rect).width > rect.width * 0.5 }) {
-                continue
-            }
-            result.append(rect)
-        }
-        return result
-    }
 }
 
 

@@ -183,7 +183,6 @@ private final class PendingSwitchToChatLocation {
 
 class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
     private var ayuBackdrop: AyuGramBackdropView?
-    private var ayuEffects: AyuGramEffectsView?
     private var ayuNativeWallpaperAlpha: CGFloat {
         return AyuGramAppearance.shared.showsConversations ? 0.0 : 1.0
     }
@@ -1116,16 +1115,6 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         backdrop.visibilityChanged = { [weak self] enabled in self?.backgroundNode.alpha = enabled ? 0.0 : 1.0 }
         self.contentContainerNode.contentNode.view.insertSubview(backdrop, at: 0)
         backdrop.reload()
-        let effects = AyuGramEffectsView(scope: .conversation)
-        effects.frame = self.bounds
-        effects.surfaceProvider = { [weak self, weak effects] in
-            guard let self, let effects, let panel = self.inputPanelNode as? ChatTextInputPanelNode else {
-                return []
-            }
-            return panel.ayuSnowSurfaces(in: effects)
-        }
-        self.ayuEffects = effects
-        self.view.addSubview(effects)
         
         let recognizer = WindowPanRecognizer(target: nil, action: nil)
         recognizer.cancelsTouchesInView = false
@@ -2259,10 +2248,6 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         let wallpaperBounds = CGRect(x: 0.0, y: 0.0, width: layout.size.width - wrappingInsets.left - wrappingInsets.right, height: layout.size.height)
         
         self.ayuBackdrop?.frame = wallpaperBounds
-        if let effects = self.ayuEffects {
-            effects.frame = CGRect(origin: CGPoint(), size: layout.size)
-            self.view.bringSubviewToFront(effects)
-        }
         transition.updateFrame(node: self.backgroundNode, frame: wallpaperBounds)
         
         var displayMode: WallpaperDisplayMode = .aspectFill
@@ -5221,7 +5206,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         if let textInputPanelNode = self.textInputPanelNode {
             effectivePresentationInterfaceState = effectivePresentationInterfaceState.updatedInterfaceState { $0.withUpdatedEffectiveInputState(textInputPanelNode.inputTextState) }
         }
-        self.ayuEffects?.celebrateIfNeeded(text: effectivePresentationInterfaceState.interfaceState.effectiveInputState.inputText.string)
+        AyuGramEffectsView.shared?.celebrateIfNeeded(text: effectivePresentationInterfaceState.interfaceState.effectiveInputState.inputText.string)
         
         if let _ = effectivePresentationInterfaceState.interfaceState.editMessage, effectivePresentationInterfaceState.interfaceState.postSuggestionState == nil {
             self.interfaceInteraction?.editMessage()

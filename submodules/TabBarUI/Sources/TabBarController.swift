@@ -138,10 +138,6 @@ open class TabBarControllerImpl: ViewController, TabBarController {
     
     private var debugTapCounter: (Double, Int) = (0.0, 0)
     
-    public var ayuSnowSurfaceView: UIView? {
-        return self.isNodeLoaded ? self.tabBarControllerNode.ayuTabBarView : nil
-    }
-    
     public func frameForControllerTab(controller: ViewController) -> CGRect? {
         if let index = self.controllers.firstIndex(of: controller) {
             return self.tabBarControllerNode.frameForControllerTab(at: index)

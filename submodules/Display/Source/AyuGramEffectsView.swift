@@ -58,6 +58,24 @@ private final class AyuGramChunk {
     }
 }
 
+private struct AyuGramSurface {
+    let key: Int
+    let rect: CGRect
+    let isTabBar: Bool
+}
+
+private final class AyuGramWeakView {
+    weak var view: UIView?
+    let key: Int
+    let isTabBar: Bool
+
+    init(view: UIView, isTabBar: Bool) {
+        self.view = view
+        self.key = ObjectIdentifier(view).hashValue
+        self.isTabBar = isTabBar
+    }
+}
+
 private final class AyuGramSnowPile {
     var heights: [CGFloat] = []
     var icicles: [AyuGramIcicle] = []
@@ -91,9 +109,9 @@ private final class AyuGramSnowPile {
 
 public final class AyuGramEffectsView: UIView {
     private static let columnWidth: CGFloat = 2.0
-    private static var keptPiles: [String: [[CGFloat]]] = [:]
+    private static var keptPiles: [Int: [CGFloat]] = [:]
+    public private(set) static weak var shared: AyuGramEffectsView?
 
-    private let scope: AyuGramAppearanceScope
     private var observers: [NSObjectProtocol] = []
     private var displayLink: CADisplayLink?
     private var inBackground = false
@@ -105,7 +123,10 @@ public final class AyuGramEffectsView: UIView {
     private var currentCount = 0
     private var flakeImages: [CGImage] = []
     private var flakeScale: CGFloat = 1.0
-    private var piles: [AyuGramSnowPile] = []
+    private var piles: [Int: AyuGramSnowPile] = [:]
+    private var tracked: [AyuGramWeakView] = []
+    private var scanTimer: CGFloat = 0.0
+    private var frontTimer: CGFloat = 0.0
     private var chunks: [AyuGramChunk] = []
     private var lastTimestamp: CFTimeInterval = 0.0
     private var time: CGFloat = 0.0
@@ -114,27 +135,17 @@ public final class AyuGramEffectsView: UIView {
     private var lastSize = CGSize()
     private var snowman: AyuGramSnowman?
     private var snowmanCooldown: CGFloat = 6.0
-    private var lastSurfaces: [CGRect] = []
+    private var lastSurfaces: [AyuGramSurface] = []
 
-    public var surfaceProvider: (() -> [CGRect])?
-
-    private var scopeKey: String {
-        return self.scope == .chatList ? "list" : "chat"
-    }
-
-    public init(scope: AyuGramAppearanceScope) {
-        self.scope = scope
-
+    public init() {
         super.init(frame: .zero)
 
-        self.isUserInteractionEnabled = scope == .chatList
+        AyuGramEffectsView.shared = self
+        self.isUserInteractionEnabled = true
         self.clipsToBounds = true
         self.backgroundColor = nil
         self.isOpaque = false
-
-        if scope == .chatList {
-            self.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.tapped(_:))))
-        }
+        self.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.tapped(_:))))
 
         let center = NotificationCenter.default
         for name in [AyuGramAppearance.didChange, Notification.Name.NSProcessInfoPowerStateDidChange, UIAccessibility.reduceMotionStatusDidChangeNotification] {
@@ -171,7 +182,7 @@ public final class AyuGramEffectsView: UIView {
     }
 
     public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        guard self.isUserInteractionEnabled, !self.isHidden, let snowman = self.snowman, snowman.hitPart(at: point) != nil else {
+        guard self.isUserInteractionEnabled, !self.isHidden, let snowman = self.snowman, !snowman.container.isHidden, snowman.hitPart(at: point) != nil else {
             return nil
         }
         return self
@@ -216,12 +227,34 @@ public final class AyuGramEffectsView: UIView {
         return self.inBackground || UIAccessibility.isReduceMotionEnabled || ProcessInfo.processInfo.isLowPowerModeEnabled
     }
 
+    private var previewKind: Int32?
+    private var previewToken = 0
+
+    public func preview(kind: Int32) {
+        self.previewKind = kind
+        self.previewToken += 1
+        let token = self.previewToken
+        self.reload()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0, execute: { [weak self] in
+            guard let self, self.previewToken == token else {
+                return
+            }
+            self.previewKind = nil
+            self.reload()
+        })
+    }
+
     public func reload() {
-        let state = AyuGramAppearance.shared.effects
+        var state = AyuGramAppearance.shared.effects
+        if let previewKind = self.previewKind {
+            state.kind = previewKind
+            state.particles = true
+            state.drift = state.drift && (previewKind == 0 || previewKind == 1)
+        }
         let size = self.bounds.size
         let hasSize = size.width > 0.0 && size.height > 0.0
         let active = hasSize && self.window != nil && !self.isPaused
-        self.showsParticles = active && state.particles && (self.scope == .chatList || state.inChats)
+        self.showsParticles = active && state.particles
         self.showsPiles = self.showsParticles && state.drift && (state.kind == 0 || state.kind == 1)
 
         if self.showsParticles {
@@ -236,11 +269,12 @@ public final class AyuGramEffectsView: UIView {
         if !self.showsPiles {
             if !self.piles.isEmpty {
                 self.storePiles()
-                for pile in self.piles {
+                for pile in self.piles.values {
                     pile.container.removeFromSuperlayer()
                 }
-                self.piles = []
+                self.piles = [:]
             }
+            self.tracked = []
             if let snowman = self.snowman {
                 snowman.remove()
                 self.snowman = nil
@@ -362,9 +396,21 @@ public final class AyuGramEffectsView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
-        var surfaces: [CGRect] = []
+        self.frontTimer -= dt
+        if self.frontTimer <= 0.0 {
+            self.frontTimer = 0.5
+            if let superview = self.superview, superview.subviews.last !== self {
+                superview.bringSubviewToFront(self)
+            }
+        }
+        var surfaces: [AyuGramSurface] = []
         if self.showsPiles {
-            surfaces = (self.surfaceProvider?() ?? []).filter { $0.maxY > 0.0 && $0.minY < size.height }
+            self.scanTimer -= dt
+            if self.scanTimer <= 0.0 {
+                self.scanTimer = 0.35
+                self.scanSurfaces()
+            }
+            surfaces = self.currentSurfaces(size: size)
             self.syncPiles(surfaces: surfaces)
             self.handleMotion(surfaces: surfaces, dt: dt)
         }
@@ -387,11 +433,14 @@ public final class AyuGramEffectsView: UIView {
 
             var landed = false
             if self.showsPiles {
-                for (surfaceIndex, surface) in surfaces.enumerated() where flake.x > surface.minX + 2.0 && flake.x < surface.maxX - 2.0 {
-                    let top = self.pileTop(index: surfaceIndex, surface: surface, x: flake.x)
+                for item in surfaces where flake.x > item.rect.minX + 2.0 && flake.x < item.rect.maxX - 2.0 {
+                    guard let pile = self.piles[item.key] else {
+                        continue
+                    }
+                    let top = self.pileTop(pile: pile, surface: item.rect, x: flake.x)
                     if previousY <= top && flake.y >= top {
                         let volume = self.flakeVariants[index] == 1 ? flake.size * 0.22 : flake.size * 0.3
-                        self.deposit(index: surfaceIndex, surface: surface, x: flake.x, amount: volume)
+                        self.deposit(pile: pile, surface: item.rect, x: flake.x, amount: volume)
                         landed = true
                         break
                     }
@@ -438,21 +487,103 @@ public final class AyuGramEffectsView: UIView {
         if surface.width < surface.height * 1.4 {
             return 6.5
         }
-        if self.scope == .chatList {
-            return 11.0
+        if surface.width > 200.0 {
+            return 10.5
         }
-        return 9.5
+        return 8.5
     }
 
-    private func syncPiles(surfaces: [CGRect]) {
-        let kept = AyuGramEffectsView.keptPiles[self.scopeKey] ?? []
-        while self.piles.count < surfaces.count {
-            let index = self.piles.count
-            let surface = surfaces[index]
-            let pile = AyuGramSnowPile()
+    private func scanSurfaces() {
+        guard let window = self.window else {
+            self.tracked = []
+            return
+        }
+        var found: [AyuGramWeakView] = []
+        func visit(_ view: UIView, depth: Int, inTabBar: Bool) {
+            if view === self || view.isHidden || view.alpha < 0.05 || depth > 70 || found.count > 40 {
+                return
+            }
+            let name = NSStringFromClass(type(of: view))
+            let tabBar = inTabBar || name.contains("TabBar")
+            if name.hasSuffix("GlassBackgroundView") {
+                found.append(AyuGramWeakView(view: view, isTabBar: tabBar))
+            }
+            for subview in view.subviews {
+                visit(subview, depth: depth + 1, inTabBar: tabBar)
+            }
+        }
+        visit(window, depth: 0, inTabBar: false)
+        var result: [AyuGramWeakView] = []
+        for item in found {
+            guard let view = item.view else {
+                continue
+            }
+            let bounds = view.bounds
+            let point = view.convert(CGPoint(x: bounds.midX, y: bounds.minY + min(4.0, bounds.height * 0.25)), to: window)
+            if let hit = window.hitTest(point, with: nil), hit !== self {
+                if !(hit === view || hit.isDescendant(of: view) || view.isDescendant(of: hit)) {
+                    continue
+                }
+            }
+            result.append(item)
+        }
+        self.tracked = result
+    }
+
+    private func currentSurfaces(size: CGSize) -> [AyuGramSurface] {
+        let targetLayer = self.layer.presentation() ?? self.layer
+        var result: [AyuGramSurface] = []
+        for item in self.tracked {
+            guard let view = item.view, view.window === self.window else {
+                continue
+            }
+            var alpha: Float = 1.0
+            var current: UIView? = view
+            while let node = current, node !== self.window {
+                if node.isHidden {
+                    alpha = 0.0
+                    break
+                }
+                alpha *= (node.layer.presentation() ?? node.layer).opacity
+                current = node.superview
+            }
+            if alpha < 0.5 {
+                continue
+            }
+            let layer = view.layer.presentation() ?? view.layer
+            let rect = layer.convert(layer.bounds, to: targetLayer)
+            if rect.width < 26.0 || rect.height < 22.0 || rect.height > 96.0 || rect.width > size.width * 0.995 || rect.minY < 24.0 || rect.maxY > size.height || rect.minX < -4.0 || rect.maxX > size.width + 4.0 {
+                continue
+            }
+            if result.contains(where: { $0.rect.intersection(rect).width > min($0.rect.width, rect.width) * 0.5 && abs($0.rect.minY - rect.minY) < 12.0 }) {
+                continue
+            }
+            result.append(AyuGramSurface(key: item.key, rect: rect, isTabBar: item.isTabBar))
+        }
+        return result
+    }
+
+    private func syncPiles(surfaces: [AyuGramSurface]) {
+        var present = Set<Int>()
+        for item in surfaces {
+            present.insert(item.key)
+            let surface = item.rect
             let columns = max(3, Int(surface.width / AyuGramEffectsView.columnWidth) + 1)
-            if index < kept.count, !kept[index].isEmpty {
-                pile.heights = AyuGramEffectsView.resample(kept[index], to: columns)
+            if let pile = self.piles[item.key] {
+                if pile.heights.count != columns {
+                    let previousWidth = pile.previousFrame?.width ?? surface.width
+                    pile.heights = AyuGramEffectsView.resample(pile.heights, to: columns)
+                    if !pile.icicles.isEmpty, previousWidth > 0.0 {
+                        for icicle in pile.icicles.indices {
+                            pile.icicles[icicle].position = pile.icicles[icicle].position / previousWidth * surface.width
+                        }
+                    }
+                }
+                continue
+            }
+            let pile = AyuGramSnowPile()
+            if let kept = AyuGramEffectsView.keptPiles[item.key], !kept.isEmpty {
+                pile.heights = AyuGramEffectsView.resample(kept, to: columns)
             } else {
                 var heights = (0 ..< columns).map { column -> CGFloat in
                     return self.limit(column: column, columns: columns, surface: surface) * CGFloat.random(in: 0.49 ... 0.61)
@@ -466,30 +597,21 @@ public final class AyuGramEffectsView: UIView {
                 }
                 pile.heights = heights
             }
-            if self.scope == .conversation && surface.width > 120.0 {
+            if !item.isTabBar && surface.width > 120.0 {
                 pile.icicles = self.makeIcicles(surface: surface)
             }
             self.layer.addSublayer(pile.container)
-            self.piles.append(pile)
+            self.piles[item.key] = pile
         }
-        while self.piles.count > surfaces.count {
-            let pile = self.piles.removeLast()
+        for (key, pile) in self.piles where !present.contains(key) {
+            AyuGramEffectsView.keptPiles[key] = pile.heights
             pile.container.removeFromSuperlayer()
+            self.piles[key] = nil
         }
-        for (index, surface) in surfaces.enumerated() {
-            let pile = self.piles[index]
-            let columns = max(3, Int(surface.width / AyuGramEffectsView.columnWidth) + 1)
-            if pile.heights.count != columns {
-                pile.heights = AyuGramEffectsView.resample(pile.heights, to: columns)
-                if !pile.icicles.isEmpty, let previous = pile.previousFrame, previous.width > 0.0 {
-                    for icicle in pile.icicles.indices {
-                        pile.icicles[icicle].position = pile.icicles[icicle].position / previous.width * surface.width
-                    }
-                }
-            }
+        if AyuGramEffectsView.keptPiles.count > 300 {
+            AyuGramEffectsView.keptPiles = [:]
         }
     }
-
     private func makeIcicles(surface: CGRect) -> [AyuGramIcicle] {
         let radius = min(surface.width, surface.height) / 2.0
         var result: [AyuGramIcicle] = []
@@ -503,9 +625,10 @@ public final class AyuGramEffectsView: UIView {
     }
 
     private func storePiles() {
-        AyuGramEffectsView.keptPiles[self.scopeKey] = self.piles.map { $0.heights }
+        for (key, pile) in self.piles {
+            AyuGramEffectsView.keptPiles[key] = pile.heights
+        }
     }
-
     private static func resample(_ values: [CGFloat], to count: Int) -> [CGFloat] {
         guard values.count > 1, count > 1 else {
             return Array(repeating: values.first ?? 0.0, count: max(count, 0))
@@ -560,14 +683,11 @@ public final class AyuGramEffectsView: UIView {
         return min(columns - 1, max(0, Int(position.rounded())))
     }
 
-    private func pileTop(index: Int, surface: CGRect, x: CGFloat) -> CGFloat {
-        let pile = self.piles[index]
+    private func pileTop(pile: AyuGramSnowPile, surface: CGRect, x: CGFloat) -> CGFloat {
         let column = self.column(for: x, surface: surface, columns: pile.heights.count)
         return surface.minY + AyuGramEffectsView.baseOffset(x: x, surface: surface) - pile.heights[column]
     }
-
-    private func deposit(index: Int, surface: CGRect, x: CGFloat, amount: CGFloat) {
-        let pile = self.piles[index]
+    private func deposit(pile: AyuGramSnowPile, surface: CGRect, x: CGFloat, amount: CGFloat) {
         let columns = pile.heights.count
         let center = self.column(for: x, surface: surface, columns: columns)
         for offset in -4 ... 4 {
@@ -581,10 +701,12 @@ public final class AyuGramEffectsView: UIView {
             pile.heights[column] = max(current, min(limit, current + amount * weight * 0.35))
         }
     }
-
-    private func handleMotion(surfaces: [CGRect], dt: CGFloat) {
-        for (index, surface) in surfaces.enumerated() {
-            let pile = self.piles[index]
+    private func handleMotion(surfaces: [AyuGramSurface], dt: CGFloat) {
+        for item in surfaces {
+            guard let pile = self.piles[item.key] else {
+                continue
+            }
+            let surface = item.rect
             defer {
                 pile.previousFrame = surface
             }
@@ -644,7 +766,7 @@ public final class AyuGramEffectsView: UIView {
 
     private func settlePiles(dt: CGFloat, snowing: Bool) {
         let rate = min(1.0, dt * 6.0)
-        for pile in self.piles {
+        for pile in self.piles.values {
             let count = pile.heights.count
             guard count > 2 else {
                 continue
@@ -669,9 +791,12 @@ public final class AyuGramEffectsView: UIView {
         }
     }
 
-    private func renderPiles(surfaces: [CGRect]) {
-        for (index, surface) in surfaces.enumerated() {
-            let pile = self.piles[index]
+    private func renderPiles(surfaces: [AyuGramSurface]) {
+        for item in surfaces {
+            guard let pile = self.piles[item.key] else {
+                continue
+            }
+            let surface = item.rect
             let columns = pile.heights.count
             guard columns > 2 else {
                 continue
@@ -742,16 +867,15 @@ public final class AyuGramEffectsView: UIView {
         }
     }
 
-    private func updateSnowman(surfaces: [CGRect], dt: CGFloat) {
-        guard self.scope == .chatList, let surface = surfaces.first, let pile = self.piles.first else {
-            if let snowman = self.snowman {
-                snowman.remove()
-                self.snowman = nil
-            }
+    private func updateSnowman(surfaces: [AyuGramSurface], dt: CGFloat) {
+        guard let item = surfaces.first(where: { $0.isTabBar && $0.rect.width > 120.0 }), let pile = self.piles[item.key] else {
+            self.snowman?.container.isHidden = true
             return
         }
+        let surface = item.rect
         let cap = self.capacity(for: surface)
         if let snowman = self.snowman {
+            snowman.container.isHidden = false
             let size = snowman.size
             snowman.container.position = CGPoint(x: surface.minX + surface.width * 0.25, y: surface.minY + size.height * 0.03 - cap * 0.62 - size.height / 2.0)
             return
@@ -795,9 +919,10 @@ public final class AyuGramEffectsView: UIView {
     }
 
     private func addMound() {
-        guard let surface = self.lastSurfaces.first, let pile = self.piles.first else {
+        guard let item = self.lastSurfaces.first(where: { $0.isTabBar && $0.rect.width > 120.0 }), let pile = self.piles[item.key] else {
             return
         }
+        let surface = item.rect
         let columns = pile.heights.count
         let center = self.column(for: surface.minX + surface.width * 0.25, surface: surface, columns: columns)
         let cap = self.capacity(for: surface)

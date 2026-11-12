@@ -62,9 +62,6 @@ final class TabBarControllerNode: ASDisplayNode {
     private let contextAction: (Int, ContextExtractedContentContainingView, ContextGesture) -> Void
     
     private let tabBarView = ComponentView<Empty>()
-    var ayuTabBarView: UIView? {
-        return self.tabBarView.view
-    }
     
     private let disabledOverlayNode: ASDisplayNode
     private var toolbar: ComponentView<Empty>?

@@ -470,6 +470,10 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         //
         
         hostView.containerView.layer.addSublayer(MetalEngine.shared.rootLayer)
+        let ayuSnowOverlay = AyuGramEffectsView()
+        ayuSnowOverlay.frame = window.bounds
+        ayuSnowOverlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        window.addSubview(ayuSnowOverlay)
         // On the first start after an update, compile the pipelines that would otherwise stall their first use.
         if MetalEngine.shared.pipelineCache.isFresh {
             prewarmLiquidGlassShapes([.crest], qos: .utility)

@@ -431,6 +431,7 @@
 "Ayu.ParticlesLeaves" = "Листья";
 "Ayu.ParticlesRain" = "Дождь";
 "Ayu.ParticlesSeasonal" = "По времени года";
+"Ayu.ParticlesHoldHint" = "Зажмите вариант, чтобы посмотреть, как он выглядит.";
 "Ayu.SnowDrift" = "Сугробы и снеговик";
 "Ayu.Fireworks" = "Фейерверк";
 "Ayu.Parallax" = "Параллакс фона";

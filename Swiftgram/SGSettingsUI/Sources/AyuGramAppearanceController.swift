@@ -13,23 +13,31 @@ import SGStrings
 private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, reset }
 private enum AyuAppearanceToggle: Hashable { case enabled, motion, newYear, newYearAuto, particles, particlesInChats, seasonal, drift, fireworks, parallax }
 private enum AyuAppearanceSlider: Hashable { case dim, blur, rows, amount }
-private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind }
+private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind, selectKind(Int32), previewKind(Int32) }
 private enum AyuAppearanceUnused: Hashable { case unused }
 private typealias AyuAppearanceSettingEntry = SGItemListUIEntry<AyuAppearanceSection, AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>
 private enum AyuAppearanceEntry: ItemListNodeEntry {
     case preview(AyuGramAppearanceScope, AyuGramAppearanceSettings)
     case setting(AyuAppearanceSettingEntry)
+    case kindOption(Int, Int32, String, Bool)
     var section: ItemListSectionId {
-        switch self { case .preview: return AyuAppearanceSection.preview.rawValue; case let .setting(value): return value.section }
+        switch self { case .preview: return AyuAppearanceSection.preview.rawValue; case let .setting(value): return value.section; case .kindOption: return AyuAppearanceSection.effects.rawValue }
     }
     var stableId: Int {
-        switch self { case .preview: return 0; case let .setting(value): return value.stableId + 1 }
+        switch self { case .preview: return 0; case let .setting(value): return value.stableId + 1; case let .kindOption(id, _, _, _): return id }
     }
     static func < (lhs: AyuAppearanceEntry, rhs: AyuAppearanceEntry) -> Bool { lhs.stableId < rhs.stableId }
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         switch self {
         case let .preview(scope, settings): return AyuGramAppearancePreviewItem(data: presentationData, scope: scope, settings: settings, sectionId: section)
         case let .setting(value): return value.item(presentationData: presentationData, arguments: arguments)
+        case let .kindOption(_, kind, title, selected):
+            let args = arguments as! SGItemListArguments<AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: (selected ? "✓  " : "      ") + title, kind: selected ? .generic : .neutral, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                args.action(.selectKind(kind))
+            }, longTapAction: {
+                args.action(.previewKind(kind))
+            })
         }
     }
 }
@@ -42,10 +50,21 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
         let observer = NotificationCenter.default.addObserver(forName: AyuGramAppearance.didChange, object: nil, queue: .main) { _ in subscriber.putNext(0) }
         return ActionDisposable { NotificationCenter.default.removeObserver(observer) }
     }
+    let kindsExpanded = ValuePromise<Bool>(false, ignoreRepeated: true)
+    var kindsExpandedValue = false
+    let _ = kindsExpanded.get().startStandalone(next: { value in
+        kindsExpandedValue = value
+    })
     let arguments = SGItemListArguments<AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>(context: context, setBoolValue: { key, value in
         switch key {
         case .newYear:
-            AyuGramAppearance.shared.update { $0.newYear = value }
+            AyuGramAppearance.shared.update { settings in
+                settings.newYear = value
+                if value {
+                    settings.particleKind = 1
+                    settings.seasonal = false
+                }
+            }
             return
         case .newYearAuto:
             AyuGramAppearance.shared.update { $0.newYearAuto = value }
@@ -100,16 +119,27 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
         case .wallpaper: openWallpaper?()
         case .reset: AyuGramAppearance.shared.reset(scope: scope)
         case .particleKind:
+            kindsExpanded.set(!kindsExpandedValue)
+        case let .selectKind(kind):
             AyuGramAppearance.shared.update { settings in
-                settings.particleKind = ((settings.particleKind ?? 0) + 1) % AyuGramAppearanceSettings.particleKindCount
+                if kind < 0 {
+                    settings.seasonal = true
+                } else {
+                    settings.seasonal = false
+                    settings.particleKind = kind
+                }
             }
+            kindsExpanded.set(false)
+        case let .previewKind(kind):
+            AyuGramEffectsView.shared?.preview(kind: kind < 0 ? AyuGramAppearanceSettings.seasonalParticleKind() : kind)
         }
     })
-    let signal = combineLatest(context.sharedContext.presentationData, changes)
+    let signal = combineLatest(context.sharedContext.presentationData, changes, kindsExpanded.get())
     |> deliverOnMainQueue
-    |> map { data, _ -> (ItemListControllerState, (ItemListNodeState, SGItemListArguments<AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>)) in
+    |> map { data, _, expanded -> (ItemListControllerState, (ItemListNodeState, SGItemListArguments<AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>)) in
         let settings = AyuGramAppearance.shared.effectiveSettings(for: scope)
         let locale = data.strings.baseLanguageCode
+        var kindOptions: [AyuAppearanceEntry] = []
         var settingsEntries: [AyuAppearanceSettingEntry] = [
             .header(id: 0, section: .media, text: i18n(scope == .chatList ? "Ayu.ChatListBackground" : "Ayu.ConversationBackground", locale), badge: nil),
             .action(id: 1, section: .media, actionType: .photo, text: data.strings.Common_ChoosePhoto, kind: .generic),
@@ -129,7 +159,8 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             let stored = AyuGramAppearance.shared.settings
             let effects = stored.effects
             let kindKeys = ["Ayu.ParticlesSnow", "Ayu.ParticlesFlakes", "Ayu.ParticlesSakura", "Ayu.ParticlesStars", "Ayu.ParticlesLeaves", "Ayu.ParticlesRain"]
-            let kindName = i18n(kindKeys[Int(min(Int32(kindKeys.count - 1), max(0, stored.particleKind ?? 0)))], locale)
+            let selectedKind: Int32 = stored.seasonal == true ? -1 : min(Int32(kindKeys.count - 1), max(0, stored.particleKind ?? 1))
+            let kindName = selectedKind < 0 ? i18n("Ayu.ParticlesSeasonal", locale) : i18n(kindKeys[Int(selectedKind)], locale)
             settingsEntries += [
                 .header(id: 11, section: .newYear, text: i18n("Ayu.NewYearHeader", locale), badge: nil),
                 .toggle(id: 12, section: .newYear, settingName: .newYear, value: stored.newYear == true, text: i18n("Ayu.NewYearMode", locale), enabled: true),
@@ -137,20 +168,25 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
                 .notice(id: 14, section: .newYear, text: i18n("Ayu.NewYearInfo", locale)),
                 .header(id: 15, section: .effects, text: i18n("Ayu.EffectsHeader", locale), badge: nil),
                 .toggle(id: 16, section: .effects, settingName: .particles, value: effects.particles, text: i18n("Ayu.Particles", locale), enabled: !effects.newYear),
-                .action(id: 17, section: .effects, actionType: .particleKind, text: i18n("Ayu.ParticlesKind", locale) + ": " + kindName, kind: .generic),
-                .toggle(id: 18, section: .effects, settingName: .particlesInChats, value: effects.inChats, text: i18n("Ayu.ParticlesInChats", locale), enabled: true),
-                .toggle(id: 19, section: .effects, settingName: .seasonal, value: stored.seasonal == true, text: i18n("Ayu.ParticlesSeasonal", locale), enabled: true),
-                .toggle(id: 20, section: .effects, settingName: .drift, value: effects.drift, text: i18n("Ayu.SnowDrift", locale), enabled: !effects.newYear),
-                .toggle(id: 21, section: .effects, settingName: .fireworks, value: effects.fireworks, text: i18n("Ayu.Fireworks", locale), enabled: !effects.newYear),
-                .toggle(id: 22, section: .effects, settingName: .parallax, value: stored.parallax == true, text: i18n("Ayu.Parallax", locale), enabled: true),
-                .notice(id: 23, section: .effects, text: i18n("Ayu.EffectsInfo", locale)),
-                .header(id: 24, section: .amount, text: i18n("Ayu.ParticlesAmount", locale), badge: nil),
-                .rangedPercentageSlider(id: 25, section: .amount, settingName: .amount, value: Int32((effects.amount * 100).rounded()), minimum: 10, maximum: 100),
-                .disclosure(id: 30, section: .reset, link: .wallpaper, text: i18n("Ayu.ConversationBackground", locale))
+                .action(id: 17, section: .effects, actionType: .particleKind, text: i18n("Ayu.ParticlesKind", locale) + ": " + kindName + (expanded ? "  ▴" : "  ▾"), kind: .generic),
+                .toggle(id: 40, section: .effects, settingName: .drift, value: effects.drift, text: i18n("Ayu.SnowDrift", locale), enabled: !effects.newYear),
+                .toggle(id: 41, section: .effects, settingName: .fireworks, value: effects.fireworks, text: i18n("Ayu.Fireworks", locale), enabled: !effects.newYear),
+                .toggle(id: 42, section: .effects, settingName: .parallax, value: stored.parallax == true, text: i18n("Ayu.Parallax", locale), enabled: true),
+                .notice(id: 43, section: .effects, text: i18n("Ayu.EffectsInfo", locale)),
+                .header(id: 44, section: .amount, text: i18n("Ayu.ParticlesAmount", locale), badge: nil),
+                .rangedPercentageSlider(id: 45, section: .amount, settingName: .amount, value: Int32((effects.amount * 100).rounded()), minimum: 10, maximum: 100),
+                .disclosure(id: 50, section: .reset, link: .wallpaper, text: i18n("Ayu.ConversationBackground", locale))
             ]
+            if expanded {
+                let options: [(Int32, String)] = [(1, "Ayu.ParticlesFlakes"), (0, "Ayu.ParticlesSnow"), (2, "Ayu.ParticlesSakura"), (3, "Ayu.ParticlesStars"), (4, "Ayu.ParticlesLeaves"), (5, "Ayu.ParticlesRain"), (-1, "Ayu.ParticlesSeasonal")]
+                for (index, option) in options.enumerated() {
+                    kindOptions.append(.kindOption(19 + index, option.0, i18n(option.1, locale), option.0 == selectedKind))
+                }
+                settingsEntries.append(.notice(id: 26, section: .effects, text: i18n("Ayu.ParticlesHoldHint", locale)))
+            }
         }
-        settingsEntries.append(.action(id: 31, section: .reset, actionType: .reset, text: data.strings.AutoDownloadSettings_Reset, kind: .destructive))
-        let entries: [AyuAppearanceEntry] = [.preview(scope, settings)] + settingsEntries.map(AyuAppearanceEntry.setting)
+        settingsEntries.append(.action(id: 51, section: .reset, actionType: .reset, text: data.strings.AutoDownloadSettings_Reset, kind: .destructive))
+        let entries: [AyuAppearanceEntry] = ([.preview(scope, settings)] + settingsEntries.map(AyuAppearanceEntry.setting) + kindOptions).sorted(by: { $0.stableId < $1.stableId })
         let state = ItemListControllerState(presentationData: ItemListPresentationData(data), title: .text(scope == .chatList ? data.strings.Appearance_Title : data.strings.Wallpaper_Title), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: data.strings.Common_Back))
         return (state, (ItemListNodeState(presentationData: ItemListPresentationData(data), entries: entries, style: .blocks), arguments))
     }

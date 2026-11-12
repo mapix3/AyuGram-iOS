@@ -1183,7 +1183,6 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
 
 final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     private var ayuBackdrop: AyuGramBackdropView?
-    private var ayuEffects: AyuGramEffectsView?
 
     private let context: AccountContext
     private let location: ChatListControllerLocation
@@ -1409,21 +1408,6 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         }
         self.view.insertSubview(backdrop, at: 0)
         backdrop.reload()
-        let effects = AyuGramEffectsView(scope: .chatList)
-        effects.surfaceProvider = { [weak self, weak effects] in
-            guard let self, let effects, let tabBarView = (self.controller?.parent as? TabBarController)?.ayuSnowSurfaceView, tabBarView.window != nil, !tabBarView.isHidden, tabBarView.alpha > 0.5 else {
-                return []
-            }
-            let layer = tabBarView.layer.presentation() ?? tabBarView.layer
-            let rect = layer.convert(layer.bounds, to: effects.layer.presentation() ?? effects.layer)
-            if rect.width < 60.0 || rect.height < 20.0 {
-                return []
-            }
-            return [rect]
-        }
-        effects.frame = self.bounds
-        self.ayuEffects = effects
-        self.view.addSubview(effects)
         
         let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.tapGesture(_:)))
         self.tapRecognizer = tapRecognizer
@@ -1986,10 +1970,6 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         storiesInset = navigationBarLayout.storiesInset
         
         self.containerLayout = (layout, navigationBarHeight, visualNavigationHeight, cleanNavigationBarHeight, storiesInset)
-        if let effects = self.ayuEffects {
-            effects.frame = CGRect(origin: .zero, size: layout.size)
-            self.view.bringSubviewToFront(effects)
-        }
 
         // MARK: Swiftgram
         let sgComponentTransition = ComponentTransition(transition)
