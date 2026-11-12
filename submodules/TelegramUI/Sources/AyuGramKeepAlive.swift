@@ -234,6 +234,7 @@ final class AyuGramBackgroundNotifier {
     private var accounts: [AccountRecordId: Account] = [:]
     private var seenGroups = Set<String>()
     private var seenGroupOrder: [String] = []
+    private var loadingAvatars = Set<String>()
     private var pending: [AccountRecordId: [EnginePeer.Id: [(identifier: String, index: EngineMessage.Index)]]] = [:]
 
     init(presentationData: @escaping () -> PresentationData?) {
@@ -288,11 +289,19 @@ final class AyuGramBackgroundNotifier {
             let accountPeerId = account.peerId
             self.disposables.set((account.stateManager.notificationMessages
             |> deliverOnMainQueue).startStrict(next: { [weak self, weak account] list in
-                guard let self, let account, AyuGramBackgroundNotifier.isEnabled else {
+                guard let self, let account else {
                     return
                 }
-                for (messages, _, notify, _) in list {
+                let enabled = AyuGramBackgroundNotifier.isEnabled
+                for (rawMessages, _, notify, _) in list {
+                    let messages = rawMessages.map { EngineMessage($0) }
                     guard notify, let first = messages.first else {
+                        continue
+                    }
+                    if let peer = first.enginePeers[first.id.peerId] ?? first.author {
+                        let _ = self.avatarData(account: account, accountId: id, peer: peer)
+                    }
+                    if !enabled {
                         continue
                     }
                     if let groupingKey = first.groupingKey {
@@ -307,8 +316,8 @@ final class AyuGramBackgroundNotifier {
                         }
                     }
                     let primary = messages.first(where: { !$0.text.isEmpty }) ?? first
-                    let pictureMessage = messages.map({ EngineMessage($0) }).first(where: { AyuGramBackgroundNotifier.picture(in: $0) != nil })
-                    self.post(account: account, accountId: id, accountPeerId: accountPeerId, message: EngineMessage(primary), pictureMessage: pictureMessage, count: messages.count)
+                    let pictureMessage = messages.first(where: { AyuGramBackgroundNotifier.picture(in: $0) != nil })
+                    self.post(account: account, accountId: id, accountPeerId: accountPeerId, message: primary, pictureMessage: pictureMessage, count: messages.count)
                 }
             }), forKey: id)
         }
@@ -404,62 +413,115 @@ final class AyuGramBackgroundNotifier {
         let identifier = "m\(message.id.peerId.toInt64()):\(message.id.namespace):\(message.id.id)_\(accountId.int64)"
         self.track(accountId: accountId, peerId: message.id.peerId, identifier: identifier, index: message.index)
         let conversationId = "\(message.id.peerId.toInt64())"
-        let needsAvatar = AyuGramSecurity.allowsCommunicationNotifications
-        let avatarPeer = chatPeer ?? message.author
-        var pictureData: Data?
-        if let pictureMessage, let representation = AyuGramBackgroundNotifier.pictureRepresentation(in: pictureMessage) {
-            if let path = TelegramEngine(account: account).resources.completedResourcePath(id: EngineMediaResource(representation.resource).id), let value = try? Data(contentsOf: URL(fileURLWithPath: path)), UIImage(data: value) != nil {
-                pictureData = value
-            } else {
+        let avatarData = (chatPeer ?? message.author).flatMap { self.avatarData(account: account, accountId: accountId, peer: $0) }
+        guard let pictureMessage, let representation = AyuGramBackgroundNotifier.pictureRepresentation(in: pictureMessage, side: 300) else {
+            self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: avatarData, picture: nil)
+            return
+        }
+        if let path = TelegramEngine(account: account).resources.completedResourcePath(id: EngineMediaResource(representation.resource).id), let value = try? Data(contentsOf: URL(fileURLWithPath: path)), UIImage(data: value) != nil {
+            self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: avatarData, picture: value)
+            return
+        }
+        let _ = (AyuGramBackgroundNotifier.loadPicture(account: account, message: pictureMessage, side: 300, timeout: 2.5)
+        |> take(1)).start(next: { [weak self] picture in
+            if picture == nil {
                 content.categoryIdentifier = "ayu-" + category
                 userInfo["ayuPictureId"] = pictureMessage.id.id
                 content.userInfo = userInfo
             }
-        }
-        guard let avatarPeer, needsAvatar || pictureData == nil else {
-            self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: nil, picture: pictureData)
-            return
-        }
-        var delivered = false
-        let disposable = MetaDisposable()
-        let finish: (UIImage?) -> Void = { [weak self] image in
-            if delivered {
-                return
-            }
-            delivered = true
-            disposable.set(nil)
-            self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: image, picture: pictureData)
-        }
-        Queue.mainQueue().after(1.5, {
-            finish(nil)
+            self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: avatarData, picture: picture)
         })
-        disposable.set((peerAvatarCompleteImage(account: account, peer: avatarPeer, size: CGSize(width: 120.0, height: 120.0))
-        |> deliverOnMainQueue).start(next: { image in
-            if let image {
-                finish(image)
-            }
-        }, completed: {
-            finish(nil)
-        }))
     }
 
-    private static func pictureRepresentation(in message: EngineMessage) -> TelegramMediaImageRepresentation? {
+    private static let avatarSide: CGFloat = 512.0
+
+    private static let avatarDirectory: URL = {
+        let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("ayu-avatars", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
+        return url
+    }()
+
+    private static func isRoundedRect(_ peer: EnginePeer) -> Bool {
+        if case let .channel(channel) = peer, channel.isForumOrMonoForum {
+            return true
+        }
+        return false
+    }
+
+    private static func renderAvatar(data: Data, roundedRect: Bool) -> Data? {
+        guard let image = UIImage(data: data), image.size.width > 0.0, image.size.height > 0.0 else {
+            return nil
+        }
+        let side = AyuGramBackgroundNotifier.avatarSide
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1.0
+        format.opaque = false
+        let rect = CGRect(origin: CGPoint(), size: CGSize(width: side, height: side))
+        return UIGraphicsImageRenderer(size: rect.size, format: format).pngData(actions: { _ in
+            if roundedRect {
+                UIBezierPath(roundedRect: rect, cornerRadius: floor(side * 0.25)).addClip()
+            } else {
+                UIBezierPath(ovalIn: rect).addClip()
+            }
+            let scale = max(side / image.size.width, side / image.size.height)
+            let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            image.draw(in: CGRect(origin: CGPoint(x: (side - size.width) / 2.0, y: (side - size.height) / 2.0), size: size))
+        })
+    }
+
+    private func avatarData(account: Account, accountId: AccountRecordId, peer: EnginePeer) -> Data? {
+        guard let representation = largestImageRepresentation(peer.profileImageRepresentations) else {
+            let side = floor(AyuGramBackgroundNotifier.avatarSide / max(1.0, UIScreen.main.scale))
+            var result: UIImage?
+            let _ = peerAvatarCompleteImage(account: account, peer: peer, size: CGSize(width: side, height: side), font: avatarPlaceholderFont(size: floor(side * 0.4))).start(next: { image in
+                result = image
+            })
+            return result?.pngData()
+        }
+        let prefix = "\(accountId.int64)_\(peer.id.toInt64())_"
+        let resourceId = EngineMediaResource(representation.resource).id.stringRepresentation
+        let name = prefix + String(resourceId.map { $0.isLetter || $0.isNumber ? $0 : "-" }) + ".png"
+        let url = AyuGramBackgroundNotifier.avatarDirectory.appendingPathComponent(name)
+        if let data = try? Data(contentsOf: url), !data.isEmpty {
+            return data
+        }
+        if self.loadingAvatars.contains(name) {
+            return nil
+        }
+        guard let peerReference = PeerReference(peer._asPeer()) else {
+            return nil
+        }
+        self.loadingAvatars.insert(name)
+        let roundedRect = AyuGramBackgroundNotifier.isRoundedRect(peer)
+        let _ = (AyuGramBackgroundNotifier.loadResource(account: account, reference: .avatar(peer: peerReference, resource: representation.resource), resource: EngineMediaResource(representation.resource), userLocation: .other, userContentType: .avatar, timeout: 30.0)
+        |> take(1)).start(next: { [weak self] data in
+            self?.loadingAvatars.remove(name)
+            guard let data, let rendered = AyuGramBackgroundNotifier.renderAvatar(data: data, roundedRect: roundedRect) else {
+                return
+            }
+            if let files = try? FileManager.default.contentsOfDirectory(atPath: AyuGramBackgroundNotifier.avatarDirectory.path) {
+                for file in files where file.hasPrefix(prefix) && file != name {
+                    try? FileManager.default.removeItem(at: AyuGramBackgroundNotifier.avatarDirectory.appendingPathComponent(file))
+                }
+            }
+            try? rendered.write(to: url, options: .atomic)
+        })
+        return nil
+    }
+
+    private static func pictureRepresentation(in message: EngineMessage, side: Int32) -> TelegramMediaImageRepresentation? {
         guard let image = AyuGramBackgroundNotifier.picture(in: message) else {
             return nil
         }
-        return imageRepresentationLargerThan(image.representations, size: PixelDimensions(width: 500, height: 500)) ?? largestImageRepresentation(image.representations)
+        return imageRepresentationLargerThan(image.representations, size: PixelDimensions(width: side, height: side)) ?? largestImageRepresentation(image.representations)
     }
 
-    private static func loadPicture(account: Account, message: EngineMessage) -> Signal<Data?, NoError> {
-        guard let image = AyuGramBackgroundNotifier.picture(in: message), let representation = AyuGramBackgroundNotifier.pictureRepresentation(in: message) else {
-            return .single(nil)
-        }
+    private static func loadResource(account: Account, reference: MediaResourceReference, resource: EngineMediaResource, userLocation: MediaResourceUserLocation, userContentType: MediaResourceUserContentType, timeout timeoutValue: Double) -> Signal<Data?, NoError> {
         let engine = TelegramEngine(account: account)
-        let reference = AnyMediaReference.message(message: MessageReference(message._asMessage()), media: image).resourceReference(representation.resource)
-        let peerId = message.id.peerId
         let signal = Signal<Data?, NoError> { subscriber in
-            let fetchDisposable = engine.resources.fetch(reference: reference, userLocation: .peer(peerId), userContentType: .image).start()
-            let dataDisposable = (engine.resources.data(resource: EngineMediaResource(representation.resource))
+            let priorityDisposable = engine.resources.pushPriorityDownload(resourceId: resource.id.stringRepresentation, priority: 2)
+            let fetchDisposable = engine.resources.fetch(reference: reference, userLocation: userLocation, userContentType: userContentType).start()
+            let dataDisposable = (engine.resources.data(resource: resource)
             |> filter { $0.isComplete }
             |> take(1)).start(next: { data in
                 if let value = try? Data(contentsOf: URL(fileURLWithPath: data.path)), UIImage(data: value) != nil {
@@ -470,13 +532,22 @@ final class AyuGramBackgroundNotifier {
                 subscriber.putCompletion()
             })
             return ActionDisposable {
+                priorityDisposable.dispose()
                 fetchDisposable.dispose()
                 dataDisposable.dispose()
             }
         }
         return signal
-        |> timeout(20.0, queue: Queue.mainQueue(), alternate: .single(nil))
+        |> timeout(timeoutValue, queue: Queue.mainQueue(), alternate: .single(nil))
         |> deliverOnMainQueue
+    }
+
+    private static func loadPicture(account: Account, message: EngineMessage, side: Int32, timeout: Double) -> Signal<Data?, NoError> {
+        guard let image = AyuGramBackgroundNotifier.picture(in: message), let representation = AyuGramBackgroundNotifier.pictureRepresentation(in: message, side: side) else {
+            return .single(nil)
+        }
+        let reference = AnyMediaReference.message(message: MessageReference(message._asMessage()), media: image).resourceReference(representation.resource)
+        return AyuGramBackgroundNotifier.loadResource(account: account, reference: reference, resource: EngineMediaResource(representation.resource), userLocation: .peer(message.id.peerId), userContentType: .image, timeout: timeout)
     }
 
     static let pictureActionIdentifier = "ayuPicture"
@@ -519,7 +590,7 @@ final class AyuGramBackgroundNotifier {
             guard let message else {
                 return .single(nil)
             }
-            return AyuGramBackgroundNotifier.loadPicture(account: account, message: message)
+            return AyuGramBackgroundNotifier.loadPicture(account: account, message: message, side: 500, timeout: 20.0)
         }
         |> take(1)
         |> deliverOnMainQueue).start(next: { picture in
@@ -565,16 +636,15 @@ final class AyuGramBackgroundNotifier {
         }), forKey: accountId)
     }
 
-    private func deliver(content: UNMutableNotificationContent, identifier: String, title: String, conversationId: String, avatar: UIImage?, picture: Data?) {
+    private func deliver(content: UNMutableNotificationContent, identifier: String, title: String, conversationId: String, avatar: Data?, picture: Data?) {
         let plain = (content.copy() as? UNNotificationContent) ?? content
         var result: UNNotificationContent = content
         let allowsCommunication = AyuGramSecurity.allowsCommunicationNotifications
-        let avatarData = avatar?.pngData()
         var attachment: (data: Data, pathExtension: String)?
         if let picture {
             attachment = (picture, "jpg")
-        } else if let avatarData, !allowsCommunication {
-            attachment = (avatarData, "png")
+        } else if let avatar, !allowsCommunication {
+            attachment = (avatar, "png")
         }
         if let attachment {
             let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ayu-attachment-" + identifier.replacingOccurrences(of: ":", with: "-") + "." + attachment.pathExtension)
@@ -582,8 +652,8 @@ final class AyuGramBackgroundNotifier {
                 content.attachments = [value]
             }
         }
-        if let avatarData, allowsCommunication {
-            let image = INImage(imageData: avatarData)
+        if let avatar, allowsCommunication {
+            let image = INImage(imageData: avatar)
             var components = PersonNameComponents()
             components.nickname = title
             let sender = INPerson(personHandle: INPersonHandle(value: conversationId, type: .unknown), nameComponents: components, displayName: title, image: image, contactIdentifier: nil, customIdentifier: conversationId, isMe: false, suggestionType: .none)
