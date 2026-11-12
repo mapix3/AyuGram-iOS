@@ -207,6 +207,9 @@ public final class ContextControllerActionsListActionItemNode: HighlightTracking
         let selectionChanged = self.item.accessibilityIsSelected != item.accessibilityIsSelected
         let colorChanged = self.item.textColor != item.textColor
         self.item = item
+        if item.iconSource == nil {
+            self.iconNode.image = nil
+        }
         if selectionChanged || colorChanged {
             let fade = CATransition()
             fade.type = .fade
