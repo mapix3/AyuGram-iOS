@@ -92,7 +92,7 @@ def check_sources(source: Path, variant: str):
     autoremove = (source / 'submodules/TelegramCore/Sources/State/ManagedAutoremoveMessageOperations.swift').read_text()
     assert 'ayuGramRecordHistory' not in autoremove, 'One-time and timer media are never archived'
     core_h = (source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages/AyuGramMessageHistory.swift').read_text()
-    assert 'AutoremoveTimeoutMessageAttribute' in core_h.split('func ayuGramIsHistoryCandidate', 1)[1].split('return', 1)[0], 'History excludes one-time and timer media'
+    assert 'AutoclearTimeoutMessageAttribute' in core_h.split('func ayuGramIsHistoryCandidate', 1)[1].split('return', 1)[0], 'History excludes one-time media'
     core = (source / 'submodules/TelegramCore/Sources/TelegramEngine/Messages/AyuGramMessageHistory.swift').read_text()
     assert 'if file.isVoice { return "ogg" }' in core and 'file.isInstantVideo ? "round" : file.isVoice ? "voice"' in core, 'Voice and round messages keep a playable type'
     assert 'avatarNode.frame = avatar.frame' in cards, 'The avatar node is sized through its own frame'
