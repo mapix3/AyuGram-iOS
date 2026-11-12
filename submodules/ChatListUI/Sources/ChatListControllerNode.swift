@@ -1410,6 +1410,17 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         self.view.insertSubview(backdrop, at: 0)
         backdrop.reload()
         let effects = AyuGramEffectsView(scope: .chatList)
+        effects.surfaceProvider = { [weak self, weak effects] in
+            guard let self, let effects, let tabBarView = (self.controller?.parent as? TabBarController)?.ayuSnowSurfaceView, tabBarView.window != nil, !tabBarView.isHidden, tabBarView.alpha > 0.5 else {
+                return []
+            }
+            let layer = tabBarView.layer.presentation() ?? tabBarView.layer
+            let rect = layer.convert(layer.bounds, to: effects.layer.presentation() ?? effects.layer)
+            if rect.width < 60.0 || rect.height < 20.0 {
+                return []
+            }
+            return [rect]
+        }
         effects.frame = self.bounds
         self.ayuEffects = effects
         self.view.addSubview(effects)

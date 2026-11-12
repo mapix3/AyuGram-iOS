@@ -29,43 +29,69 @@ private struct AyuGramFlake {
     var lastSway: CGFloat
 }
 
-private final class AyuGramSnowPile {
-    var heights: [CGFloat]
+private struct AyuGramIcicle {
+    var position: CGFloat
+    var length: CGFloat
+    var maximum: CGFloat
     var width: CGFloat
+    var lean: CGFloat
+}
+
+private final class AyuGramChunk {
+    enum Kind {
+        case crumb
+        case snowball
+    }
+
+    let layer = CALayer()
+    var position: CGPoint
+    var velocity: CGPoint
+    var life: CGFloat
+    let kind: Kind
+    var gravity: CGFloat = 900.0
+
+    init(kind: Kind, position: CGPoint, velocity: CGPoint, life: CGFloat) {
+        self.kind = kind
+        self.position = position
+        self.velocity = velocity
+        self.life = life
+    }
+}
+
+private final class AyuGramSnowPile {
+    var heights: [CGFloat] = []
+    var icicles: [AyuGramIcicle] = []
+    var previousFrame: CGRect?
+    var stillTime: CGFloat = 0.0
     let container = CALayer()
-    let shape = CAShapeLayer()
     let gradient = CAGradientLayer()
     let mask = CAShapeLayer()
-    let highlight = CAShapeLayer()
+    let icicleLayer = CAShapeLayer()
 
-    init(width: CGFloat) {
-        self.width = width
-        self.heights = []
-        self.container.shadowColor = UIColor(red: 0.1, green: 0.14, blue: 0.25, alpha: 1.0).cgColor
-        self.container.shadowOpacity = 0.28
-        self.container.shadowRadius = 2.5
+    init() {
+        self.container.zPosition = 5.0
+        self.container.shadowColor = UIColor(red: 0.08, green: 0.12, blue: 0.24, alpha: 1.0).cgColor
+        self.container.shadowOpacity = 0.32
+        self.container.shadowRadius = 2.0
         self.container.shadowOffset = CGSize(width: 0.0, height: 1.0)
-        self.shape.fillColor = UIColor(white: 1.0, alpha: 1.0).cgColor
         self.gradient.colors = [
             UIColor(white: 1.0, alpha: 1.0).cgColor,
-            UIColor(red: 0.93, green: 0.95, blue: 1.0, alpha: 1.0).cgColor,
-            UIColor(red: 0.8, green: 0.86, blue: 0.96, alpha: 1.0).cgColor
+            UIColor(red: 0.97, green: 0.98, blue: 1.0, alpha: 1.0).cgColor,
+            UIColor(red: 0.84, green: 0.88, blue: 0.95, alpha: 1.0).cgColor
         ]
         self.gradient.locations = [0.0, 0.55, 1.0]
         self.gradient.mask = self.mask
-        self.highlight.fillColor = nil
-        self.highlight.strokeColor = UIColor(white: 1.0, alpha: 0.9).cgColor
-        self.highlight.lineWidth = 1.0
-        self.highlight.lineCap = .round
-        self.container.addSublayer(self.shape)
+        self.icicleLayer.fillColor = UIColor(red: 0.93, green: 0.96, blue: 1.0, alpha: 0.88).cgColor
+        self.icicleLayer.strokeColor = UIColor(red: 0.7, green: 0.8, blue: 0.95, alpha: 0.55).cgColor
+        self.icicleLayer.lineWidth = 0.5
         self.container.addSublayer(self.gradient)
-        self.container.addSublayer(self.highlight)
+        self.container.addSublayer(self.icicleLayer)
     }
 }
 
 public final class AyuGramEffectsView: UIView {
     private static let columnWidth: CGFloat = 2.0
-    private static var keptPiles: [[CGFloat]] = []
+    private static var keptPiles: [String: [[CGFloat]]] = [:]
 
     private let scope: AyuGramAppearanceScope
     private var observers: [NSObjectProtocol] = []
@@ -74,27 +100,41 @@ public final class AyuGramEffectsView: UIView {
     private var activeBursts = 0
     private var flakes: [AyuGramFlake] = []
     private var flakeLayers: [CALayer] = []
+    private var flakeVariants: [Int] = []
     private var currentKind: Int32 = -1
     private var currentCount = 0
-    private var flakeImage: CGImage?
+    private var flakeImages: [CGImage] = []
+    private var flakeScale: CGFloat = 1.0
     private var piles: [AyuGramSnowPile] = []
+    private var chunks: [AyuGramChunk] = []
     private var lastTimestamp: CFTimeInterval = 0.0
     private var time: CGFloat = 0.0
     private var showsParticles = false
     private var showsPiles = false
     private var lastSize = CGSize()
+    private var snowman: AyuGramSnowman?
+    private var snowmanCooldown: CGFloat = 6.0
+    private var lastSurfaces: [CGRect] = []
 
     public var surfaceProvider: (() -> [CGRect])?
+
+    private var scopeKey: String {
+        return self.scope == .chatList ? "list" : "chat"
+    }
 
     public init(scope: AyuGramAppearanceScope) {
         self.scope = scope
 
         super.init(frame: .zero)
 
-        self.isUserInteractionEnabled = false
+        self.isUserInteractionEnabled = scope == .chatList
         self.clipsToBounds = true
         self.backgroundColor = nil
         self.isOpaque = false
+
+        if scope == .chatList {
+            self.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.tapped(_:))))
+        }
 
         let center = NotificationCenter.default
         for name in [AyuGramAppearance.didChange, Notification.Name.NSProcessInfoPowerStateDidChange, UIAccessibility.reduceMotionStatusDidChangeNotification] {
@@ -127,6 +167,27 @@ public final class AyuGramEffectsView: UIView {
             NotificationCenter.default.removeObserver(observer)
         }
         self.displayLink?.invalidate()
+        self.snowman?.remove()
+    }
+
+    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard self.isUserInteractionEnabled, !self.isHidden, let snowman = self.snowman, snowman.hitPart(at: point) != nil else {
+            return nil
+        }
+        return self
+    }
+
+    @objc private func tapped(_ recognizer: UITapGestureRecognizer) {
+        guard let snowman = self.snowman else {
+            return
+        }
+        let location = recognizer.location(in: self)
+        guard let body = snowman.hitPart(at: location) else {
+            return
+        }
+        snowman.smash(body: body, burst: { [weak self] center, radius in
+            self?.burst(at: center, radius: radius)
+        })
     }
 
     public override func didMoveToWindow() {
@@ -161,7 +222,7 @@ public final class AyuGramEffectsView: UIView {
         let hasSize = size.width > 0.0 && size.height > 0.0
         let active = hasSize && self.window != nil && !self.isPaused
         self.showsParticles = active && state.particles && (self.scope == .chatList || state.inChats)
-        self.showsPiles = active && state.drift && self.scope == .conversation
+        self.showsPiles = self.showsParticles && state.drift && (state.kind == 0 || state.kind == 1)
 
         if self.showsParticles {
             let count = AyuGramEffectsView.flakeCount(kind: state.kind, amount: state.amount)
@@ -172,17 +233,23 @@ public final class AyuGramEffectsView: UIView {
             self.removeFlakes()
         }
 
-        if !self.showsPiles && !self.piles.isEmpty {
-            self.storePiles()
-            for pile in self.piles {
-                pile.container.removeFromSuperlayer()
+        if !self.showsPiles {
+            if !self.piles.isEmpty {
+                self.storePiles()
+                for pile in self.piles {
+                    pile.container.removeFromSuperlayer()
+                }
+                self.piles = []
             }
-            self.piles = []
+            if let snowman = self.snowman {
+                snowman.remove()
+                self.snowman = nil
+            }
         }
 
-        let running = self.showsParticles || self.showsPiles
+        let running = self.showsParticles || self.showsPiles || !self.chunks.isEmpty
         self.isHidden = !(running || self.activeBursts > 0)
-        if running {
+        if running && active {
             if self.displayLink == nil {
                 let link = CADisplayLink(target: AyuGramDisplayLinkTarget(view: self), selector: #selector(AyuGramDisplayLinkTarget.tick(_:)))
                 link.preferredFrameRateRange = CAFrameRateRange(minimum: 30.0, maximum: 60.0, preferred: 60.0)
@@ -207,10 +274,8 @@ public final class AyuGramEffectsView: UIView {
             maximum = 46.0
         case 4:
             maximum = 26.0
-        case 5:
-            maximum = 110.0
         default:
-            maximum = 120.0
+            maximum = 110.0
         }
         return max(6, Int((maximum * amount).rounded()))
     }
@@ -221,6 +286,7 @@ public final class AyuGramEffectsView: UIView {
         }
         self.flakeLayers = []
         self.flakes = []
+        self.flakeVariants = []
         self.currentKind = -1
         self.currentCount = 0
     }
@@ -229,34 +295,37 @@ public final class AyuGramEffectsView: UIView {
         self.removeFlakes()
         self.currentKind = kind
         self.currentCount = count
-        let image = AyuGramEffectsView.particleImage(kind: kind)
-        self.flakeImage = image.cgImage
-        let scale = image.scale
+        let images = kind == 0 ? [AyuGramEffectsView.particleImage(kind: 0), AyuGramEffectsView.particleImage(kind: 6)] : [AyuGramEffectsView.particleImage(kind: kind)]
+        self.flakeImages = images.compactMap { $0.cgImage }
+        self.flakeScale = images.first?.scale ?? 1.0
+        guard !self.flakeImages.isEmpty else {
+            return
+        }
         for _ in 0 ..< count {
-            var flake = self.makeFlake(kind: kind, width: size.width)
+            let variant = kind == 0 && Double.random(in: 0.0 ... 1.0) < 0.38 ? 1 : 0
+            var flake = self.makeFlake(kind: kind, variant: variant, width: size.width)
             flake.y = CGFloat.random(in: -20.0 ... max(0.0, size.height))
             self.flakes.append(flake)
+            self.flakeVariants.append(variant)
             let layer = CALayer()
-            layer.contents = self.flakeImage
-            layer.contentsScale = scale
+            layer.contents = self.flakeImages[min(variant, self.flakeImages.count - 1)]
+            layer.contentsScale = self.flakeScale
             layer.contentsGravity = .resizeAspect
+            layer.zPosition = 6.0
             layer.bounds = CGRect(origin: CGPoint(), size: CGSize(width: flake.size, height: kind == 5 ? 18.0 : flake.size))
             layer.opacity = flake.alpha
             layer.position = CGPoint(x: flake.x, y: flake.y)
             self.layer.addSublayer(layer)
             self.flakeLayers.append(layer)
         }
-        for pile in self.piles {
-            self.layer.addSublayer(pile.container)
-        }
     }
 
-    private func makeFlake(kind: Int32, width: CGFloat) -> AyuGramFlake {
+    private func makeFlake(kind: Int32, variant: Int, width: CGFloat) -> AyuGramFlake {
         let x = CGFloat.random(in: -20.0 ... width + 20.0)
         switch kind {
         case 1:
-            let size = CGFloat.random(in: 6.0 ... 11.0)
-            return AyuGramFlake(x: x, y: -size, speed: CGFloat.random(in: 22.0 ... 40.0), size: size, swayAmplitude: CGFloat.random(in: 8.0 ... 20.0), swayFrequency: CGFloat.random(in: 0.25 ... 0.6), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: CGFloat.random(in: 0.0 ... 6.28), spin: CGFloat.random(in: -0.8 ... 0.8), alpha: Float.random(in: 0.6 ... 0.95), twinkle: 0.0, lastSway: 0.0)
+            let size = CGFloat.random(in: 6.0 ... 10.0)
+            return AyuGramFlake(x: x, y: -size, speed: CGFloat.random(in: 26.0 ... 44.0), size: size, swayAmplitude: CGFloat.random(in: 6.0 ... 16.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.5), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: CGFloat.random(in: 0.0 ... 6.28), spin: CGFloat.random(in: -0.8 ... 0.8), alpha: Float.random(in: 0.7 ... 0.95), twinkle: 0.0, lastSway: 0.0)
         case 2:
             let size = CGFloat.random(in: 7.0 ... 11.0)
             return AyuGramFlake(x: x, y: -size, speed: CGFloat.random(in: 30.0 ... 52.0), size: size, swayAmplitude: CGFloat.random(in: 16.0 ... 34.0), swayFrequency: CGFloat.random(in: 0.3 ... 0.7), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: CGFloat.random(in: 0.0 ... 6.28), spin: CGFloat.random(in: -2.2 ... 2.2), alpha: Float.random(in: 0.7 ... 0.95), twinkle: 0.0, lastSway: 0.0)
@@ -267,11 +336,14 @@ public final class AyuGramEffectsView: UIView {
             let size = CGFloat.random(in: 9.0 ... 14.0)
             return AyuGramFlake(x: x, y: -size, speed: CGFloat.random(in: 34.0 ... 58.0), size: size, swayAmplitude: CGFloat.random(in: 20.0 ... 44.0), swayFrequency: CGFloat.random(in: 0.25 ... 0.55), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: CGFloat.random(in: 0.0 ... 6.28), spin: CGFloat.random(in: -2.6 ... 2.6), alpha: Float.random(in: 0.8 ... 1.0), twinkle: 0.0, lastSway: 0.0)
         case 5:
-            let size: CGFloat = 1.2
-            return AyuGramFlake(x: x, y: -20.0, speed: CGFloat.random(in: 520.0 ... 720.0), size: size, swayAmplitude: 0.0, swayFrequency: 0.0, phase: 0.0, rotation: 0.0, spin: 0.0, alpha: Float.random(in: 0.25 ... 0.5), twinkle: 0.0, lastSway: 0.0)
+            return AyuGramFlake(x: x, y: -20.0, speed: CGFloat.random(in: 520.0 ... 720.0), size: 1.2, swayAmplitude: 0.0, swayFrequency: 0.0, phase: 0.0, rotation: 0.0, spin: 0.0, alpha: Float.random(in: 0.25 ... 0.5), twinkle: 0.0, lastSway: 0.0)
         default:
-            let size = CGFloat.random(in: 2.0 ... 5.5)
-            return AyuGramFlake(x: x, y: -size, speed: 14.0 + size * 6.0 + CGFloat.random(in: 0.0 ... 8.0), size: size, swayAmplitude: CGFloat.random(in: 5.0 ... 16.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.55), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: 0.0, spin: 0.0, alpha: Float(0.45 + size / 5.5 * 0.5), twinkle: 0.0, lastSway: 0.0)
+            if variant == 1 {
+                let size = CGFloat.random(in: 5.0 ... 8.0)
+                return AyuGramFlake(x: x, y: -size, speed: CGFloat.random(in: 34.0 ... 56.0), size: size, swayAmplitude: CGFloat.random(in: 4.0 ... 12.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.45), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: CGFloat.random(in: 0.0 ... 6.28), spin: CGFloat.random(in: -0.6 ... 0.6), alpha: Float.random(in: 0.75 ... 1.0), twinkle: 0.0, lastSway: 0.0)
+            }
+            let size = CGFloat.random(in: 2.0 ... 3.6)
+            return AyuGramFlake(x: x, y: -size, speed: 26.0 + size * 7.0 + CGFloat.random(in: 0.0 ... 8.0), size: size, swayAmplitude: CGFloat.random(in: 4.0 ... 12.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.5), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: 0.0, spin: 0.0, alpha: Float(0.6 + size / 3.6 * 0.4), twinkle: 0.0, lastSway: 0.0)
         }
     }
 
@@ -287,17 +359,19 @@ public final class AyuGramEffectsView: UIView {
             return
         }
 
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
         var surfaces: [CGRect] = []
         if self.showsPiles {
             surfaces = (self.surfaceProvider?() ?? []).filter { $0.maxY > 0.0 && $0.minY < size.height }
             self.syncPiles(surfaces: surfaces)
+            self.handleMotion(surfaces: surfaces, dt: dt)
         }
-        let accumulates = self.showsPiles && (self.currentKind == 0 || self.currentKind == 1)
-        let wind = sin(self.time * 0.13) * 7.0 + sin(self.time * 0.41) * 3.0
+        self.lastSurfaces = surfaces
+        let wind = sin(self.time * 0.13) * 6.0 + sin(self.time * 0.41) * 2.5
         let kind = self.currentKind
 
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
         for index in self.flakes.indices {
             var flake = self.flakes[index]
             let sway = flake.swayAmplitude * sin(self.time * flake.swayFrequency * 2.0 * .pi + flake.phase)
@@ -312,11 +386,12 @@ public final class AyuGramEffectsView: UIView {
             flake.rotation += flake.spin * dt
 
             var landed = false
-            if accumulates {
-                for (surfaceIndex, surface) in surfaces.enumerated() where flake.x > surface.minX && flake.x < surface.maxX {
+            if self.showsPiles {
+                for (surfaceIndex, surface) in surfaces.enumerated() where flake.x > surface.minX + 2.0 && flake.x < surface.maxX - 2.0 {
                     let top = self.pileTop(index: surfaceIndex, surface: surface, x: flake.x)
                     if previousY <= top && flake.y >= top {
-                        self.deposit(index: surfaceIndex, surface: surface, x: flake.x, amount: kind == 1 ? flake.size * 0.5 : flake.size * 0.4)
+                        let volume = self.flakeVariants[index] == 1 ? flake.size * 0.22 : flake.size * 0.3
+                        self.deposit(index: surfaceIndex, surface: surface, x: flake.x, amount: volume)
                         landed = true
                         break
                     }
@@ -324,7 +399,7 @@ public final class AyuGramEffectsView: UIView {
             }
 
             if landed || flake.y > size.height + 30.0 || flake.x < -60.0 || flake.x > size.width + 60.0 {
-                var next = self.makeFlake(kind: kind, width: size.width)
+                var next = self.makeFlake(kind: kind, variant: self.flakeVariants[index], width: size.width)
                 if flake.x < -60.0 || flake.x > size.width + 60.0 {
                     next.y = CGFloat.random(in: -20.0 ... size.height * 0.6)
                     next.x = flake.x < 0.0 ? size.width + 10.0 : -10.0
@@ -344,26 +419,55 @@ public final class AyuGramEffectsView: UIView {
                 layer.opacity = flake.alpha * Float(0.55 + 0.45 * sin(self.time * flake.twinkle + flake.phase))
             }
         }
+
         if self.showsPiles {
-            self.settlePiles(dt: dt)
+            self.settlePiles(dt: dt, snowing: self.showsParticles)
             self.renderPiles(surfaces: surfaces)
+            self.updateSnowman(surfaces: surfaces, dt: dt)
         }
+        self.stepChunks(dt: dt, size: size)
+
         CATransaction.commit()
+
+        if !self.showsParticles && !self.showsPiles && self.chunks.isEmpty {
+            self.reload()
+        }
+    }
+
+    private func capacity(for surface: CGRect) -> CGFloat {
+        if surface.width < surface.height * 1.4 {
+            return 6.5
+        }
+        if self.scope == .chatList {
+            return 11.0
+        }
+        return 9.5
     }
 
     private func syncPiles(surfaces: [CGRect]) {
+        let kept = AyuGramEffectsView.keptPiles[self.scopeKey] ?? []
         while self.piles.count < surfaces.count {
-            let width = surfaces[self.piles.count].width
-            let pile = AyuGramSnowPile(width: width)
-            let columns = max(2, Int(width / AyuGramEffectsView.columnWidth) + 1)
             let index = self.piles.count
-            if index < AyuGramEffectsView.keptPiles.count {
-                pile.heights = AyuGramEffectsView.resample(AyuGramEffectsView.keptPiles[index], to: columns)
+            let surface = surfaces[index]
+            let pile = AyuGramSnowPile()
+            let columns = max(3, Int(surface.width / AyuGramEffectsView.columnWidth) + 1)
+            if index < kept.count, !kept[index].isEmpty {
+                pile.heights = AyuGramEffectsView.resample(kept[index], to: columns)
             } else {
-                pile.heights = (0 ..< columns).map { column in
-                    let limit = AyuGramEffectsView.limit(column: column, columns: columns, surface: surfaces[index])
-                    return limit * CGFloat.random(in: 0.35 ... 0.55)
+                var heights = (0 ..< columns).map { column -> CGFloat in
+                    return self.limit(column: column, columns: columns, surface: surface) * CGFloat.random(in: 0.49 ... 0.61)
                 }
+                for _ in 0 ..< 4 {
+                    var pass = heights
+                    for column in 1 ..< columns - 1 {
+                        pass[column] = heights[column - 1] * 0.25 + heights[column] * 0.5 + heights[column + 1] * 0.25
+                    }
+                    heights = pass
+                }
+                pile.heights = heights
+            }
+            if self.scope == .conversation && surface.width > 120.0 {
+                pile.icicles = self.makeIcicles(surface: surface)
             }
             self.layer.addSublayer(pile.container)
             self.piles.append(pile)
@@ -374,16 +478,32 @@ public final class AyuGramEffectsView: UIView {
         }
         for (index, surface) in surfaces.enumerated() {
             let pile = self.piles[index]
-            let columns = max(2, Int(surface.width / AyuGramEffectsView.columnWidth) + 1)
+            let columns = max(3, Int(surface.width / AyuGramEffectsView.columnWidth) + 1)
             if pile.heights.count != columns {
                 pile.heights = AyuGramEffectsView.resample(pile.heights, to: columns)
+                if !pile.icicles.isEmpty, let previous = pile.previousFrame, previous.width > 0.0 {
+                    for icicle in pile.icicles.indices {
+                        pile.icicles[icicle].position = pile.icicles[icicle].position / previous.width * surface.width
+                    }
+                }
             }
-            pile.width = surface.width
         }
     }
 
+    private func makeIcicles(surface: CGRect) -> [AyuGramIcicle] {
+        let radius = min(surface.width, surface.height) / 2.0
+        var result: [AyuGramIcicle] = []
+        var x = radius * 0.9 + CGFloat.random(in: 0.0 ... 6.0)
+        while x < surface.width - radius * 0.9 {
+            let maximum = CGFloat.random(in: 3.0 ... 12.0)
+            result.append(AyuGramIcicle(position: x, length: maximum * CGFloat.random(in: 0.0 ... 0.5), maximum: maximum, width: CGFloat.random(in: 2.2 ... 3.6), lean: CGFloat.random(in: -0.6 ... 0.6)))
+            x += CGFloat.random(in: 7.0 ... 15.0)
+        }
+        return result
+    }
+
     private func storePiles() {
-        AyuGramEffectsView.keptPiles = self.piles.map { $0.heights }
+        AyuGramEffectsView.keptPiles[self.scopeKey] = self.piles.map { $0.heights }
     }
 
     private static func resample(_ values: [CGFloat], to count: Int) -> [CGFloat] {
@@ -392,7 +512,7 @@ public final class AyuGramEffectsView: UIView {
         }
         return (0 ..< count).map { index in
             let position = CGFloat(index) / CGFloat(count - 1) * CGFloat(values.count - 1)
-            let lower = Int(position)
+            let lower = min(values.count - 1, Int(position))
             let upper = min(values.count - 1, lower + 1)
             let fraction = position - CGFloat(lower)
             return values[lower] * (1.0 - fraction) + values[upper] * fraction
@@ -414,56 +534,116 @@ public final class AyuGramEffectsView: UIView {
         return radius - sqrt(max(0.0, radius * radius - clamped * clamped))
     }
 
-    private static func limit(column: Int, columns: Int, surface: CGRect) -> CGFloat {
-        let radius = min(surface.height, surface.width) / 2.0
+    private func limit(column: Int, columns: Int, surface: CGRect) -> CGFloat {
+        let cap = self.capacity(for: surface)
         let x = CGFloat(column) / CGFloat(max(1, columns - 1)) * surface.width
-        let isRound = surface.width < surface.height * 1.4
-        if isRound {
-            let t = x / surface.width
-            let dome = max(0.0, sin(t * .pi))
-            return 9.0 * pow(dome, 2.2)
+        let radius = min(surface.height, surface.width) / 2.0
+        let start: CGFloat
+        if surface.width < surface.height * 1.4 {
+            start = surface.width * 0.16
+        } else {
+            start = radius * 0.32
         }
-        let maximum: CGFloat = 15.0
-        let edge = min(x, surface.width - x)
-        let start = radius * 0.3
-        let full = radius * 1.25
-        if edge <= start {
+        let edge = min(x, surface.width - x) - start
+        if edge <= 0.0 {
             return 0.0
         }
-        if edge >= full {
-            return maximum
+        if edge >= cap {
+            return cap
         }
-        let t = (edge - start) / (full - start)
-        return maximum * t * t * (3.0 - 2.0 * t)
+        let t = 1.0 - edge / cap
+        return cap * sqrt(max(0.0, 1.0 - t * t))
+    }
+
+    private func column(for x: CGFloat, surface: CGRect, columns: Int) -> Int {
+        let position = (x - surface.minX) / max(1.0, surface.width) * CGFloat(columns - 1)
+        return min(columns - 1, max(0, Int(position.rounded())))
     }
 
     private func pileTop(index: Int, surface: CGRect, x: CGFloat) -> CGFloat {
         let pile = self.piles[index]
-        let columns = pile.heights.count
-        let position = (x - surface.minX) / max(1.0, surface.width) * CGFloat(columns - 1)
-        let column = min(columns - 1, max(0, Int(position.rounded())))
+        let column = self.column(for: x, surface: surface, columns: pile.heights.count)
         return surface.minY + AyuGramEffectsView.baseOffset(x: x, surface: surface) - pile.heights[column]
     }
 
     private func deposit(index: Int, surface: CGRect, x: CGFloat, amount: CGFloat) {
         let pile = self.piles[index]
         let columns = pile.heights.count
-        let position = (x - surface.minX) / max(1.0, surface.width) * CGFloat(columns - 1)
-        let center = Int(position.rounded())
-        let spread = 4
-        for offset in -spread ... spread {
+        let center = self.column(for: x, surface: surface, columns: columns)
+        for offset in -4 ... 4 {
             let column = center + offset
             if column < 0 || column >= columns {
                 continue
             }
             let weight = exp(-CGFloat(offset * offset) / 6.0)
-            let limit = AyuGramEffectsView.limit(column: column, columns: columns, surface: surface)
-            pile.heights[column] = min(limit, pile.heights[column] + amount * weight * 0.35)
+            let limit = self.limit(column: column, columns: columns, surface: surface)
+            let current = pile.heights[column]
+            pile.heights[column] = max(current, min(limit, current + amount * weight * 0.35))
         }
     }
 
-    private func settlePiles(dt: CGFloat) {
-        let rate = min(1.0, dt * 5.0)
+    private func handleMotion(surfaces: [CGRect], dt: CGFloat) {
+        for (index, surface) in surfaces.enumerated() {
+            let pile = self.piles[index]
+            defer {
+                pile.previousFrame = surface
+            }
+            guard let previous = pile.previousFrame, abs(previous.width - surface.width) < 1.0 else {
+                pile.stillTime = 0.0
+                continue
+            }
+            let dx = surface.midX - previous.midX
+            let dy = surface.minY - previous.minY
+            let distance = hypot(dx, dy)
+            let speed = distance / max(dt, 0.001)
+            if distance < 0.3 {
+                pile.stillTime += dt
+                if pile.stillTime > 4.0 {
+                    for icicle in pile.icicles.indices where pile.icicles[icicle].length < pile.icicles[icicle].maximum {
+                        pile.icicles[icicle].length = min(pile.icicles[icicle].maximum, pile.icicles[icicle].length + dt * 0.05 * pile.icicles[icicle].maximum)
+                    }
+                }
+                continue
+            }
+            pile.stillTime = 0.0
+            guard speed > 90.0 else {
+                continue
+            }
+            let fraction = min(0.85, speed / 1400.0)
+            let columns = pile.heights.count
+            let step = surface.width / CGFloat(max(1, columns - 1))
+            let surfaceVelocityX = dx / max(dt, 0.001)
+            let surfaceVelocityY = dy / max(dt, 0.001)
+            var column = 0
+            while column < columns {
+                let removed = pile.heights[column] * fraction
+                if removed > 0.6 {
+                    let x = surface.minX + CGFloat(column) * step
+                    let y = surface.minY + AyuGramEffectsView.baseOffset(x: x, surface: surface) - pile.heights[column] * 0.5
+                    let velocity = CGPoint(x: surfaceVelocityX * 0.35 + CGFloat.random(in: -40.0 ... 40.0), y: min(0.0, surfaceVelocityY) * 0.2 - CGFloat.random(in: 20.0 ... 90.0))
+                    self.addCrumb(at: CGPoint(x: x, y: y), velocity: velocity, size: min(7.0, 2.0 + removed * 0.8))
+                }
+                column += 5
+            }
+            for column in 0 ..< columns {
+                pile.heights[column] *= (1.0 - fraction)
+            }
+            if speed > 160.0 {
+                for icicle in pile.icicles.indices where pile.icicles[icicle].length > 1.5 {
+                    let item = pile.icicles[icicle]
+                    let chunk = AyuGramChunk(kind: .crumb, position: CGPoint(x: surface.minX + item.position, y: surface.maxY + item.length / 2.0), velocity: CGPoint(x: CGFloat.random(in: -15.0 ... 15.0), y: CGFloat.random(in: 0.0 ... 40.0)), life: 2.0)
+                    chunk.layer.backgroundColor = UIColor(red: 0.9, green: 0.95, blue: 1.0, alpha: 0.85).cgColor
+                    chunk.layer.bounds = CGRect(x: 0.0, y: 0.0, width: item.width * 0.7, height: item.length)
+                    chunk.layer.cornerRadius = item.width * 0.35
+                    self.addChunk(chunk)
+                    pile.icicles[icicle].length = 0.0
+                }
+            }
+        }
+    }
+
+    private func settlePiles(dt: CGFloat, snowing: Bool) {
+        let rate = min(1.0, dt * 6.0)
         for pile in self.piles {
             let count = pile.heights.count
             guard count > 2 else {
@@ -473,18 +653,19 @@ public final class AyuGramEffectsView: UIView {
             for column in 1 ..< count - 1 {
                 let slopeLeft = pile.heights[column] - pile.heights[column - 1]
                 let slopeRight = pile.heights[column] - pile.heights[column + 1]
-                var change: CGFloat = 0.0
-                if slopeLeft > 1.4 {
-                    change -= (slopeLeft - 1.4) * 0.25 * rate
-                    next[column - 1] += (slopeLeft - 1.4) * 0.25 * rate
+                if slopeLeft > 0.9 {
+                    let moved = (slopeLeft - 0.9) * 0.25 * rate
+                    next[column] -= moved
+                    next[column - 1] += moved
                 }
-                if slopeRight > 1.4 {
-                    change -= (slopeRight - 1.4) * 0.25 * rate
-                    next[column + 1] += (slopeRight - 1.4) * 0.25 * rate
+                if slopeRight > 0.9 {
+                    let moved = (slopeRight - 0.9) * 0.25 * rate
+                    next[column] -= moved
+                    next[column + 1] += moved
                 }
-                next[column] += change
             }
-            pile.heights = next.map { max(0.0, $0) }
+            let melt: CGFloat = snowing ? 0.0 : dt * 0.04
+            pile.heights = next.map { max(0.0, $0 - melt) }
         }
     }
 
@@ -492,11 +673,11 @@ public final class AyuGramEffectsView: UIView {
         for (index, surface) in surfaces.enumerated() {
             let pile = self.piles[index]
             let columns = pile.heights.count
-            guard columns > 1 else {
+            guard columns > 2 else {
                 continue
             }
             var smoothed = pile.heights
-            for _ in 0 ..< 2 {
+            for _ in 0 ..< 3 {
                 var pass = smoothed
                 for column in 1 ..< columns - 1 {
                     pass[column] = smoothed[column - 1] * 0.25 + smoothed[column] * 0.5 + smoothed[column + 1] * 0.25
@@ -506,18 +687,19 @@ public final class AyuGramEffectsView: UIView {
             let step = surface.width / CGFloat(columns - 1)
             var tops: [CGPoint] = []
             var bottoms: [CGPoint] = []
-            var minTop = CGFloat.greatestFiniteMagnitude
+            var minTop = surface.minY
             for column in 0 ..< columns {
                 let x = surface.minX + CGFloat(column) * step
-                let base = surface.minY + AyuGramEffectsView.baseOffset(x: x, surface: surface) + 1.5
-                let height = smoothed[column] > 0.25 ? smoothed[column] + 1.5 : 0.0
+                let base = surface.minY + AyuGramEffectsView.baseOffset(x: x, surface: surface) + 1.0
+                let height = smoothed[column] > 0.35 ? smoothed[column] + 1.0 : 0.0
                 let top = CGPoint(x: x, y: base - height)
                 tops.append(top)
                 bottoms.append(CGPoint(x: x, y: base))
                 minTop = min(minTop, top.y)
             }
             let path = UIBezierPath()
-            path.move(to: tops[0])
+            path.move(to: bottoms[0])
+            path.addLine(to: tops[0])
             for column in 1 ..< columns {
                 let previous = tops[column - 1]
                 let current = tops[column]
@@ -529,29 +711,247 @@ public final class AyuGramEffectsView: UIView {
             }
             path.close()
 
-            let highlight = UIBezierPath()
-            highlight.move(to: CGPoint(x: tops[0].x, y: tops[0].y + 0.6))
-            for column in 1 ..< columns {
-                let previous = tops[column - 1]
-                let current = tops[column]
-                highlight.addQuadCurve(to: CGPoint(x: (previous.x + current.x) / 2.0, y: (previous.y + current.y) / 2.0 + 0.6), controlPoint: CGPoint(x: previous.x, y: previous.y + 0.6))
-            }
-
-            let bounds = CGRect(x: surface.minX, y: min(minTop, surface.minY) - 2.0, width: surface.width, height: surface.minY + surface.height * 0.5 - min(minTop, surface.minY) + 2.0)
+            let frame = CGRect(x: surface.minX - 2.0, y: minTop - 2.0, width: surface.width + 4.0, height: surface.minY - minTop + surface.height * 0.5 + 4.0)
             pile.container.frame = self.bounds
             pile.container.shadowPath = path.cgPath
-            pile.shape.frame = self.bounds
-            pile.shape.path = path.cgPath
-            pile.gradient.frame = bounds
+            pile.gradient.frame = frame
             let shifted = UIBezierPath(cgPath: path.cgPath)
-            shifted.apply(CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY))
-            pile.mask.frame = CGRect(origin: CGPoint(), size: bounds.size)
+            shifted.apply(CGAffineTransform(translationX: -frame.minX, y: -frame.minY))
+            pile.mask.frame = CGRect(origin: CGPoint(), size: frame.size)
             pile.mask.path = shifted.cgPath
-            pile.highlight.frame = self.bounds
-            pile.highlight.path = highlight.cgPath
+
+            if pile.icicles.isEmpty {
+                pile.icicleLayer.path = nil
+            } else {
+                let icicles = UIBezierPath()
+                let bottom = surface.maxY - 0.5
+                for icicle in pile.icicles where icicle.length > 0.8 {
+                    let x = surface.minX + icicle.position
+                    let tip = CGPoint(x: x + icicle.lean, y: bottom + icicle.length)
+                    icicles.move(to: CGPoint(x: x - icicle.width / 2.0, y: bottom - 0.5))
+                    icicles.addQuadCurve(to: tip, controlPoint: CGPoint(x: x - icicle.width * 0.25, y: bottom + icicle.length * 0.55))
+                    icicles.addQuadCurve(to: CGPoint(x: x + icicle.width / 2.0, y: bottom - 0.5), controlPoint: CGPoint(x: x + icicle.width * 0.25, y: bottom + icicle.length * 0.55))
+                    icicles.close()
+                }
+                pile.icicleLayer.frame = self.bounds
+                pile.icicleLayer.path = icicles.cgPath
+            }
         }
         if !self.piles.isEmpty {
             self.storePiles()
+        }
+    }
+
+    private func updateSnowman(surfaces: [CGRect], dt: CGFloat) {
+        guard self.scope == .chatList, let surface = surfaces.first, let pile = self.piles.first else {
+            if let snowman = self.snowman {
+                snowman.remove()
+                self.snowman = nil
+            }
+            return
+        }
+        let cap = self.capacity(for: surface)
+        if let snowman = self.snowman {
+            let size = snowman.size
+            snowman.container.position = CGPoint(x: surface.minX + surface.width * 0.25, y: surface.minY + size.height * 0.03 - cap * 0.62 - size.height / 2.0)
+            return
+        }
+        self.snowmanCooldown -= dt
+        guard self.snowmanCooldown <= 0.0 else {
+            return
+        }
+        let columns = pile.heights.count
+        var filled: CGFloat = 0.0
+        var total: CGFloat = 0.0
+        for column in 0 ..< columns {
+            let limit = self.limit(column: column, columns: columns, surface: surface)
+            filled += min(limit, pile.heights[column])
+            total += limit
+        }
+        guard total > 0.0, filled / total >= 0.85 else {
+            return
+        }
+        let width = min(64.0, max(44.0, surface.height * 1.05))
+        let snowman = AyuGramSnowman(width: width)
+        snowman.container.zPosition = 4.0
+        let size = snowman.size
+        snowman.container.position = CGPoint(x: surface.minX + surface.width * 0.25, y: surface.minY + size.height * 0.03 - cap * 0.62 - size.height / 2.0)
+        snowman.onGone = { [weak self] melted in
+            guard let self else {
+                return
+            }
+            self.snowman = nil
+            self.snowmanCooldown = 45.0
+            if melted {
+                self.addMound()
+            }
+        }
+        snowman.onThrow = { [weak self] point in
+            self?.throwSnowball(from: point)
+        }
+        self.layer.addSublayer(snowman.container)
+        self.snowman = snowman
+        snowman.build(melts: true)
+    }
+
+    private func addMound() {
+        guard let surface = self.lastSurfaces.first, let pile = self.piles.first else {
+            return
+        }
+        let columns = pile.heights.count
+        let center = self.column(for: surface.minX + surface.width * 0.25, surface: surface, columns: columns)
+        let cap = self.capacity(for: surface)
+        for offset in -8 ... 8 {
+            let column = center + offset
+            if column < 0 || column >= columns {
+                continue
+            }
+            let limit = self.limit(column: column, columns: columns, surface: surface)
+            pile.heights[column] = min(limit * 1.3, pile.heights[column] + cap * 0.7 * exp(-CGFloat(offset * offset) / 18.0))
+        }
+    }
+
+    private func addChunk(_ chunk: AyuGramChunk) {
+        chunk.layer.zPosition = 7.0
+        chunk.layer.position = chunk.position
+        self.layer.addSublayer(chunk.layer)
+        self.chunks.append(chunk)
+        self.reload()
+    }
+
+    private func addCrumb(at position: CGPoint, velocity: CGPoint, size: CGFloat) {
+        let chunk = AyuGramChunk(kind: .crumb, position: position, velocity: velocity, life: 2.5)
+        chunk.layer.backgroundColor = UIColor(red: 0.97, green: 0.98, blue: 1.0, alpha: 1.0).cgColor
+        chunk.layer.bounds = CGRect(x: 0.0, y: 0.0, width: size, height: size)
+        chunk.layer.cornerRadius = size / 2.0
+        self.addChunk(chunk)
+    }
+
+    private func burst(at center: CGPoint, radius: CGFloat) {
+        for _ in 0 ..< 12 {
+            let angle = -CGFloat.pi / 2.0 + CGFloat.random(in: -1.4 ... 1.4)
+            let speed = radius * CGFloat.random(in: 3.0 ... 6.0)
+            let position = CGPoint(x: center.x + cos(angle) * radius * 0.4, y: center.y + sin(angle) * radius * 0.4)
+            let chunk = AyuGramChunk(kind: .crumb, position: position, velocity: CGPoint(x: cos(angle) * speed, y: sin(angle) * speed), life: CGFloat.random(in: 0.7 ... 1.1))
+            chunk.gravity = 420.0
+            let size = CGFloat.random(in: 1.4 ... 3.6)
+            chunk.layer.backgroundColor = UIColor(red: 0.97, green: 0.98, blue: 1.0, alpha: 1.0).cgColor
+            chunk.layer.bounds = CGRect(x: 0.0, y: 0.0, width: size, height: size)
+            chunk.layer.cornerRadius = size / 2.0
+            self.addChunk(chunk)
+        }
+    }
+
+    private func throwSnowball(from point: CGPoint) {
+        let size = self.bounds.size
+        guard size.width > 0.0, size.height > 0.0, !self.isPaused else {
+            return
+        }
+        let target = CGPoint(x: CGFloat.random(in: size.width * 0.15 ... size.width * 0.9), y: CGFloat.random(in: size.height * 0.18 ... size.height * 0.55))
+        let flight: CGFloat = 0.9
+        let gravity: CGFloat = 900.0
+        let velocity = CGPoint(x: (target.x - point.x) / flight, y: (target.y - point.y - 0.5 * gravity * flight * flight) / flight)
+        let chunk = AyuGramChunk(kind: .snowball, position: point, velocity: velocity, life: flight)
+        chunk.gravity = gravity
+        chunk.layer.contents = AyuGramEffectsView.snowballImage.cgImage
+        chunk.layer.contentsScale = AyuGramEffectsView.snowballImage.scale
+        chunk.layer.bounds = CGRect(x: 0.0, y: 0.0, width: 8.0, height: 8.0)
+        self.addChunk(chunk)
+    }
+
+    private static let snowballImage: UIImage = {
+        let format = UIGraphicsImageRendererFormat()
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: CGSize(width: 8.0, height: 8.0), format: format).image(actions: { rendererContext in
+            let context = rendererContext.cgContext
+            context.addEllipse(in: CGRect(x: 0.0, y: 0.0, width: 8.0, height: 8.0))
+            context.clip()
+            let colors = [UIColor(white: 1.0, alpha: 1.0).cgColor, UIColor(red: 0.945, green: 0.96, blue: 0.99, alpha: 1.0).cgColor, UIColor(red: 0.655, green: 0.725, blue: 0.855, alpha: 1.0).cgColor] as CFArray
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0.0, 0.55, 1.0]) {
+                context.drawRadialGradient(gradient, startCenter: CGPoint(x: 2.9, y: 2.4), startRadius: 0.0, endCenter: CGPoint(x: 2.9, y: 2.4), endRadius: 6.4, options: [.drawsAfterEndLocation])
+            }
+        })
+    }()
+
+    private func splat(at point: CGPoint) {
+        let splat = CAShapeLayer()
+        splat.zPosition = 7.0
+        let blob = UIBezierPath()
+        for index in 0 ..< 10 {
+            let angle = CGFloat(index) / 10.0 * 2.0 * .pi
+            let radius: CGFloat = (index % 2 == 0 ? 6.5 : 4.0) * CGFloat.random(in: 0.85 ... 1.15)
+            let item = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius * 0.75)
+            if index == 0 {
+                blob.move(to: item)
+            } else {
+                blob.addLine(to: item)
+            }
+        }
+        blob.close()
+        let fill = UIColor(red: 0.97, green: 0.98, blue: 1.0, alpha: 0.95).cgColor
+        splat.path = blob.cgPath
+        splat.fillColor = fill
+        splat.strokeColor = fill
+        splat.lineJoin = .round
+        splat.lineWidth = 2.0
+        let end = CGPoint(x: point.x, y: point.y + 34.0)
+        splat.position = end
+        splat.opacity = 0.0
+        self.layer.addSublayer(splat)
+        let slide = CABasicAnimation(keyPath: "position.y")
+        slide.fromValue = point.y
+        slide.toValue = end.y
+        slide.duration = 3.2
+        slide.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        let stretch = CABasicAnimation(keyPath: "transform.scale.y")
+        stretch.fromValue = 1.0
+        stretch.toValue = 1.6
+        stretch.duration = 3.2
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [1.0, 1.0, 0.0]
+        fade.keyTimes = [0.0, 0.5, 1.0]
+        fade.duration = 3.2
+        splat.add(slide, forKey: "slide")
+        splat.add(stretch, forKey: "stretch")
+        splat.add(fade, forKey: "fade")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.3, execute: {
+            splat.removeFromSuperlayer()
+        })
+        for _ in 0 ..< 6 {
+            let angle = CGFloat.random(in: 0.0 ... 2.0 * .pi)
+            self.addCrumb(at: point, velocity: CGPoint(x: cos(angle) * 60.0, y: sin(angle) * 60.0 - 40.0), size: CGFloat.random(in: 1.4 ... 2.6))
+        }
+    }
+
+    private func stepChunks(dt: CGFloat, size: CGSize) {
+        guard !self.chunks.isEmpty else {
+            return
+        }
+        var remaining: [AyuGramChunk] = []
+        var splats: [CGPoint] = []
+        for chunk in self.chunks {
+            chunk.velocity.y += chunk.gravity * dt
+            chunk.position.x += chunk.velocity.x * dt
+            chunk.position.y += chunk.velocity.y * dt
+            chunk.life -= dt
+            if chunk.kind == .snowball && chunk.life <= 0.0 {
+                chunk.layer.removeFromSuperlayer()
+                splats.append(chunk.position)
+                continue
+            }
+            if chunk.life <= 0.0 || chunk.position.y > size.height + 20.0 {
+                chunk.layer.removeFromSuperlayer()
+                continue
+            }
+            chunk.layer.position = chunk.position
+            if chunk.kind == .crumb && chunk.life < 0.5 {
+                chunk.layer.opacity = Float(max(0.0, chunk.life / 0.5))
+            }
+            remaining.append(chunk)
+        }
+        self.chunks = remaining
+        for point in splats {
+            self.splat(at: point)
         }
     }
 
@@ -587,6 +987,7 @@ public final class AyuGramEffectsView: UIView {
         let image = AyuGramEffectsView.particleImage(kind: 0)
         let burst = CAEmitterLayer()
         burst.frame = CGRect(origin: CGPoint(), size: size)
+        burst.zPosition = 8.0
         burst.emitterShape = .point
         burst.renderMode = .additive
         burst.emitterPosition = CGPoint(x: CGFloat.random(in: size.width * 0.15 ... size.width * 0.85), y: CGFloat.random(in: size.height * 0.15 ... size.height * 0.45))
@@ -630,6 +1031,8 @@ public final class AyuGramEffectsView: UIView {
             side = 8.0
         case 5:
             side = 2.0
+        case 6:
+            side = 12.0
         default:
             side = 24.0
         }
@@ -656,6 +1059,19 @@ public final class AyuGramEffectsView: UIView {
                     }
                 }
                 context.strokePath()
+            case 6:
+                context.setStrokeColor(UIColor.white.cgColor)
+                context.setLineWidth(1.5)
+                context.setLineCap(.round)
+                let radius = side / 2.0 - 1.0
+                for index in 0 ..< 3 {
+                    let angle = CGFloat(index) * CGFloat.pi / 3.0 + CGFloat.pi / 2.0
+                    context.move(to: CGPoint(x: center.x - cos(angle) * radius, y: center.y - sin(angle) * radius))
+                    context.addLine(to: CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius))
+                }
+                context.strokePath()
+                context.setFillColor(UIColor.white.cgColor)
+                context.fillEllipse(in: CGRect(x: center.x - 1.4, y: center.y - 1.4, width: 2.8, height: 2.8))
             case 2:
                 context.translateBy(x: center.x, y: center.y)
                 context.rotate(by: CGFloat.pi / 5.0)
@@ -674,8 +1090,7 @@ public final class AyuGramEffectsView: UIView {
             case 4:
                 context.translateBy(x: center.x, y: center.y)
                 context.rotate(by: -CGFloat.pi / 4.0)
-                let palette = [UIColor(red: 0.93, green: 0.5, blue: 0.14, alpha: 1.0), UIColor(red: 0.85, green: 0.3, blue: 0.12, alpha: 1.0), UIColor(red: 0.95, green: 0.7, blue: 0.2, alpha: 1.0)]
-                context.setFillColor((palette.randomElement() ?? palette[0]).cgColor)
+                context.setFillColor(UIColor(red: 0.93, green: 0.5, blue: 0.14, alpha: 1.0).cgColor)
                 let length = side * 0.42
                 let width = side * 0.2
                 context.move(to: CGPoint(x: -length, y: 0.0))
@@ -689,8 +1104,8 @@ public final class AyuGramEffectsView: UIView {
                     context.drawLinearGradient(gradient, start: CGPoint(x: 1.0, y: 0.0), end: CGPoint(x: 1.0, y: canvas.height), options: [])
                 }
             default:
-                let colors = [UIColor(white: 1.0, alpha: 1.0).cgColor, UIColor(white: 1.0, alpha: 0.85).cgColor, UIColor(white: 1.0, alpha: 0.0).cgColor] as CFArray
-                if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0.0, 0.5, 1.0]) {
+                let colors = [UIColor(white: 1.0, alpha: 1.0).cgColor, UIColor(white: 1.0, alpha: 0.9).cgColor, UIColor(white: 1.0, alpha: 0.0).cgColor] as CFArray
+                if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0.0, 0.55, 1.0]) {
                     context.drawRadialGradient(gradient, startCenter: center, startRadius: 0.0, endCenter: center, endRadius: side / 2.0, options: [])
                 }
             }

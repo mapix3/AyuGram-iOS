@@ -18,6 +18,7 @@ public protocol TabBarController: ViewController {
     func updateBackgroundAlpha(_ alpha: CGFloat, transition: ContainedViewLayoutTransition)
     
     func frameForControllerTab(controller: ViewController) -> CGRect?
+    var ayuSnowSurfaceView: UIView? { get }
     func isPointInsideContentArea(point: CGPoint) -> Bool
     /// The vertical tab bar's frame in a side strip (iPhone Duo) for `layout`, whether or not the bar
     /// is hidden; nil for the horizontal bar.

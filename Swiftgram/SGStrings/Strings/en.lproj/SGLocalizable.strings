@@ -428,7 +428,7 @@
 "Ayu.NewYearHeader" = "New Year";
 "Ayu.NewYearMode" = "New Year mode";
 "Ayu.NewYearAuto" = "Turn on from Dec 15 to Jan 15";
-"Ayu.NewYearInfo" = "New Year mode turns on snow, the snowdrift on the message field and fireworks together.";
+"Ayu.NewYearInfo" = "New Year mode turns on snow, snowdrifts with a snowman and fireworks together.";
 "Ayu.EffectsHeader" = "Effects";
 "Ayu.Particles" = "Falling particles";
 "Ayu.ParticlesKind" = "Kind";
@@ -436,10 +436,10 @@
 "Ayu.ParticlesLeaves" = "Leaves";
 "Ayu.ParticlesRain" = "Rain";
 "Ayu.ParticlesSeasonal" = "Match the season";
-"Ayu.SnowDrift" = "Snow on the message field";
+"Ayu.SnowDrift" = "Snowdrifts and snowman";
 "Ayu.Fireworks" = "Fireworks";
 "Ayu.Parallax" = "Background parallax";
-"Ayu.EffectsInfo" = "Fireworks go off when you send 🎄, 🎆, 🎉 or a New Year greeting. Parallax moves your custom background as you tilt the phone.";
+"Ayu.EffectsInfo" = "Fireworks go off when you send 🎄, 🎆, 🎉 or a New Year greeting. A snowman builds itself on the tab bar when the snow there is deep enough: tap him to knock him down. Parallax moves your custom background as you tilt the phone.";
 "Ayu.ParticlesAmount" = "Amount of particles";
 "Ayu.ParticlesSnow" = "Snow";
 "Ayu.ParticlesFlakes" = "Snowflakes";
