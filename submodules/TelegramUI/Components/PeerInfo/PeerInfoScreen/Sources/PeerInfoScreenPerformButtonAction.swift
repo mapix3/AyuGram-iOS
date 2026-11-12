@@ -1298,14 +1298,20 @@ extension PeerInfoScreenNode {
 
                 // MARK: AyuGram
                 var canExportChat = false
+                var exportPeerId = chatPeer.id
+                var exportTitle: String?
                 switch chatPeer {
                 case .user, .legacyGroup, .channel:
-                    canExportChat = strongSelf.peerId.namespace != Namespaces.Peer.SecretChat
+                    canExportChat = true
                 default:
                     break
                 }
+                if case .secretChat = chatPeer {
+                    canExportChat = true
+                    exportPeerId = chatPeer.id
+                    exportTitle = peer.debugDisplayTitle
+                }
                 if canExportChat {
-                    let exportPeerId = chatPeer.id
                     let exportItem: ContextMenuItem = .action(ContextMenuActionItem(text: i18n("Ayu.ExportChat", presentationData.strings.baseLanguageCode), icon: { theme in
                         generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Share"), color: theme.contextMenu.primaryColor)
                     }, action: { [weak self] _, f in
@@ -1313,7 +1319,7 @@ extension PeerInfoScreenNode {
                         guard let self else {
                             return
                         }
-                        ayuGramExportChat(context: self.context, peerId: exportPeerId, present: { [weak self] controller in
+                        ayuGramExportChat(context: self.context, peerId: exportPeerId, title: exportTitle, present: { [weak self] controller in
                             self?.controller?.present(controller, in: .window(.root))
                         })
                     }))
