@@ -307,14 +307,30 @@ final class AyuGramBackgroundNotifier {
                         }
                     }
                     let primary = messages.first(where: { !$0.text.isEmpty }) ?? first
-                    self.post(account: account, accountId: id, accountPeerId: accountPeerId, message: EngineMessage(primary), count: messages.count)
+                    let pictureMessage = messages.map({ EngineMessage($0) }).first(where: { AyuGramBackgroundNotifier.picture(in: $0) != nil })
+                    self.post(account: account, accountId: id, accountPeerId: accountPeerId, message: EngineMessage(primary), pictureMessage: pictureMessage, count: messages.count)
                 }
             }), forKey: id)
         }
         self.accountIds = ids
     }
 
-    private func post(account: Account, accountId: AccountRecordId, accountPeerId: EnginePeer.Id, message: EngineMessage, count: Int) {
+    private static func picture(in message: EngineMessage) -> TelegramMediaImage? {
+        if message.id.peerId.namespace == Namespaces.Peer.SecretChat || message.containsSecretMedia {
+            return nil
+        }
+        if message.attributes.contains(where: { $0 is MediaSpoilerMessageAttribute }) {
+            return nil
+        }
+        for media in message.media {
+            if let image = media as? TelegramMediaImage, !image.representations.isEmpty {
+                return image
+            }
+        }
+        return nil
+    }
+
+    private func post(account: Account, accountId: AccountRecordId, accountPeerId: EnginePeer.Id, message: EngineMessage, pictureMessage: EngineMessage?, count: Int) {
         guard let presentationData = self.presentationData() else {
             return
         }
@@ -388,31 +404,66 @@ final class AyuGramBackgroundNotifier {
         let identifier = "m\(message.id.peerId.toInt64()):\(message.id.namespace):\(message.id.id)_\(accountId.int64)"
         self.track(accountId: accountId, peerId: message.id.peerId, identifier: identifier, index: message.index)
         let conversationId = "\(message.id.peerId.toInt64())"
-        guard let avatarPeer = chatPeer ?? message.author else {
-            self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: nil)
-            return
+        let needsAvatar = AyuGramSecurity.allowsCommunicationNotifications
+        let avatarPeer = chatPeer ?? message.author
+        var pictureSource: (EngineMessage, TelegramMediaImage, TelegramMediaImageRepresentation)?
+        if let pictureMessage, let image = AyuGramBackgroundNotifier.picture(in: pictureMessage), let representation = imageRepresentationLargerThan(image.representations, size: PixelDimensions(width: 500, height: 500)) ?? largestImageRepresentation(image.representations) {
+            pictureSource = (pictureMessage, image, representation)
         }
+        var avatarImage: UIImage?
+        var pictureData: Data?
+        var avatarDone = avatarPeer == nil
+        var pictureDone = pictureSource == nil
         var delivered = false
-        let disposable = MetaDisposable()
-        let finish: (UIImage?) -> Void = { [weak self] image in
+        let disposables = DisposableSet()
+        let finish: (Bool) -> Void = { [weak self] force in
             if delivered {
                 return
             }
-            delivered = true
-            disposable.set(nil)
-            self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: image)
-        }
-        Queue.mainQueue().after(1.5, {
-            finish(nil)
-        })
-        disposable.set((peerAvatarCompleteImage(account: account, peer: avatarPeer, size: CGSize(width: 120.0, height: 120.0))
-        |> deliverOnMainQueue).start(next: { image in
-            if let image {
-                finish(image)
+            if !force {
+                if !pictureDone {
+                    return
+                }
+                if !avatarDone && (needsAvatar || pictureData == nil) {
+                    return
+                }
             }
-        }, completed: {
-            finish(nil)
-        }))
+            delivered = true
+            disposables.dispose()
+            self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: avatarImage, picture: pictureData)
+        }
+        Queue.mainQueue().after(pictureSource == nil ? 1.5 : 4.0, {
+            finish(true)
+        })
+        if let (pictureMessage, image, representation) = pictureSource {
+            let engine = TelegramEngine(account: account)
+            let reference = AnyMediaReference.message(message: MessageReference(pictureMessage._asMessage()), media: image).resourceReference(representation.resource)
+            disposables.add(engine.resources.fetch(reference: reference, userLocation: .peer(pictureMessage.id.peerId), userContentType: .image).start())
+            disposables.add((engine.resources.data(resource: EngineMediaResource(representation.resource))
+            |> filter { $0.isComplete }
+            |> take(1)
+            |> deliverOnMainQueue).start(next: { data in
+                if let value = try? Data(contentsOf: URL(fileURLWithPath: data.path)), UIImage(data: value) != nil {
+                    pictureData = value
+                }
+                pictureDone = true
+                finish(false)
+            }))
+        }
+        if let avatarPeer {
+            disposables.add((peerAvatarCompleteImage(account: account, peer: avatarPeer, size: CGSize(width: 120.0, height: 120.0))
+            |> deliverOnMainQueue).start(next: { image in
+                if let image {
+                    avatarImage = image
+                    avatarDone = true
+                    finish(false)
+                }
+            }, completed: {
+                avatarDone = true
+                finish(false)
+            }))
+        }
+        finish(false)
     }
 
     private func track(accountId: AccountRecordId, peerId: EnginePeer.Id, identifier: String, index: EngineMessage.Index) {
@@ -453,29 +504,36 @@ final class AyuGramBackgroundNotifier {
         }), forKey: accountId)
     }
 
-    private func deliver(content: UNMutableNotificationContent, identifier: String, title: String, conversationId: String, avatar: UIImage?) {
+    private func deliver(content: UNMutableNotificationContent, identifier: String, title: String, conversationId: String, avatar: UIImage?, picture: Data?) {
         let plain = (content.copy() as? UNNotificationContent) ?? content
         var result: UNNotificationContent = content
-        if let data = avatar?.pngData() {
-            if AyuGramSecurity.allowsCommunicationNotifications {
-                let image = INImage(imageData: data)
-                var components = PersonNameComponents()
-                components.nickname = title
-                let sender = INPerson(personHandle: INPersonHandle(value: conversationId, type: .unknown), nameComponents: components, displayName: title, image: image, contactIdentifier: nil, customIdentifier: conversationId, isMe: false, suggestionType: .none)
-                let me = INPerson(personHandle: INPersonHandle(value: "0", type: .unknown), nameComponents: nil, displayName: nil, image: nil, contactIdentifier: nil, customIdentifier: nil, isMe: true, suggestionType: .none)
-                let intent = INSendMessageIntent(recipients: [me], outgoingMessageType: .outgoingMessageText, content: content.body, speakableGroupName: INSpeakableString(spokenPhrase: title), conversationIdentifier: conversationId, serviceName: nil, sender: sender, attachments: nil)
-                intent.setImage(image, forParameterNamed: \.sender)
-                let interaction = INInteraction(intent: intent, response: nil)
-                interaction.direction = .incoming
-                interaction.donate(completion: nil)
-                if let updated = try? content.updating(from: intent) {
-                    result = updated
-                }
-            } else {
-                let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ayu-avatar-" + identifier.replacingOccurrences(of: ":", with: "-") + ".png")
-                if (try? data.write(to: url)) != nil, let attachment = try? UNNotificationAttachment(identifier: "avatar", url: url, options: nil) {
-                    content.attachments = [attachment]
-                }
+        let allowsCommunication = AyuGramSecurity.allowsCommunicationNotifications
+        let avatarData = avatar?.pngData()
+        var attachment: (data: Data, pathExtension: String)?
+        if let picture {
+            attachment = (picture, "jpg")
+        } else if let avatarData, !allowsCommunication {
+            attachment = (avatarData, "png")
+        }
+        if let attachment {
+            let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ayu-attachment-" + identifier.replacingOccurrences(of: ":", with: "-") + "." + attachment.pathExtension)
+            if (try? attachment.data.write(to: url)) != nil, let value = try? UNNotificationAttachment(identifier: "attachment", url: url, options: nil) {
+                content.attachments = [value]
+            }
+        }
+        if let avatarData, allowsCommunication {
+            let image = INImage(imageData: avatarData)
+            var components = PersonNameComponents()
+            components.nickname = title
+            let sender = INPerson(personHandle: INPersonHandle(value: conversationId, type: .unknown), nameComponents: components, displayName: title, image: image, contactIdentifier: nil, customIdentifier: conversationId, isMe: false, suggestionType: .none)
+            let me = INPerson(personHandle: INPersonHandle(value: "0", type: .unknown), nameComponents: nil, displayName: nil, image: nil, contactIdentifier: nil, customIdentifier: nil, isMe: true, suggestionType: .none)
+            let intent = INSendMessageIntent(recipients: [me], outgoingMessageType: .outgoingMessageText, content: content.body, speakableGroupName: INSpeakableString(spokenPhrase: title), conversationIdentifier: conversationId, serviceName: nil, sender: sender, attachments: nil)
+            intent.setImage(image, forParameterNamed: \.sender)
+            let interaction = INInteraction(intent: intent, response: nil)
+            interaction.direction = .incoming
+            interaction.donate(completion: nil)
+            if let updated = try? content.updating(from: intent) {
+                result = updated
             }
         }
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: result, trigger: nil), withCompletionHandler: { error in
