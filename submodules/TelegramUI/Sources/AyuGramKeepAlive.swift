@@ -318,16 +318,23 @@ final class AyuGramBackgroundNotifier {
         let authorTitle = message.author?.displayTitle(strings: strings, displayOrder: order) ?? ""
         var title = authorTitle
         var prefix = ""
+        var category = "r"
         if let chatPeer {
             switch chatPeer {
             case .secretChat, .user:
                 break
             case let .channel(channel):
                 title = chatPeer.displayTitle(strings: strings, displayOrder: order)
-                if case .group = channel.info, !authorTitle.isEmpty {
-                    prefix = authorTitle + ": "
+                if case .group = channel.info {
+                    category = "gr"
+                    if !authorTitle.isEmpty {
+                        prefix = authorTitle + ": "
+                    }
+                } else {
+                    category = "c"
                 }
             default:
+                category = "gr"
                 title = chatPeer.displayTitle(strings: strings, displayOrder: order)
                 if !authorTitle.isEmpty {
                     prefix = authorTitle + ": "
@@ -343,6 +350,7 @@ final class AyuGramBackgroundNotifier {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
+        content.categoryIdentifier = category
         content.threadIdentifier = "ayu-\(accountId.int64)-\(message.id.peerId.toInt64())"
         var userInfo: [AnyHashable: Any] = [
             "accountId": accountId.int64,
