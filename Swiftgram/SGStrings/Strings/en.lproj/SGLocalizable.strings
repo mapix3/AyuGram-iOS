@@ -420,7 +420,7 @@
 "Ayu.LocalPremium" = "Local Premium";
 "Ayu.Pins" = "Maximum pinned chats";
 "Ayu.LocalOnly" = "Only on this device";
-"Ayu.HistoryInfo" = "Selected chats only. Cached photos and text, 30 days, up to 200 entries. Secret and disappearing messages are excluded.";
+"Ayu.HistoryInfo" = "Selected chats only. Cached photos and text, 30 days, up to 200 entries. Secret chats and one-time media are excluded.";
 "Ayu.ReadWarning" = "Send a read receipt for this chat up to this message?";
 "Ayu.ViewWarning" = "Send a view receipt and start the disappearing media timer?";
 

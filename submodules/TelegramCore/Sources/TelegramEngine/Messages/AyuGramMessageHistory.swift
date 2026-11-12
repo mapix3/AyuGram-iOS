@@ -128,7 +128,7 @@ private func ayuGramFileExtension(_ file: TelegramMediaFile) -> String {
 func ayuGramIsHistoryCandidate(transaction: Transaction, id: MessageId) -> Bool {
     guard id.namespace == Namespaces.Message.Cloud, id.peerId.namespace != Namespaces.Peer.SecretChat,
           let message = transaction.getMessage(id), !message.isCopyProtected(), !message.containsSecretMedia,
-          !message.attributes.contains(where: { $0 is AutoremoveTimeoutMessageAttribute || $0 is AutoclearTimeoutMessageAttribute }) else { return false }
+          !message.attributes.contains(where: { $0 is AutoclearTimeoutMessageAttribute }) else { return false }
     return !message.text.isEmpty || !message.media.isEmpty
 }
 
