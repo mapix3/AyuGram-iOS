@@ -3,6 +3,7 @@ import Postbox
 import SwiftSignalKit
 internal import TelegramApi
 import MtProtoKit
+import SGSimpleSettings
 
 /// What the server said about stored Cloud messages a regular-chat history fill did not get back, which it
 /// suspects are gone.
@@ -211,6 +212,21 @@ func confirmStoredMessages(accountPeerId: PeerId, postbox: Postbox, source: Fetc
 /// Returns the ids it deleted: the private-chat and basic-group ones, then the channel ones, each in the order given.
 @discardableResult
 func deleteStoredMessagesAsReceivedDeletion(transaction: Transaction, mediaBox: MediaBox, ids: [MessageId]) -> [MessageId] {
+    let ids = ids.filter { id -> Bool in
+        guard let message = transaction.getMessage(id) else {
+            return true
+        }
+        return !message.flags.contains(.AyuLocallyDeleted) && message.ayuHistory?.deletedAt == nil
+    }
+    if ids.isEmpty {
+        return []
+    }
+    if AyuGramSettings.shared.snapshot.messageHistory {
+        ayuGramLogDeletion(transaction: transaction, source: "confirmation", ids: ids)
+        ayuGramDeleteRemoteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids)
+        StoredMessageConfirmationDeletionReporters.shared.report(ids, mediaBox: mediaBox, transaction: transaction)
+        return ids
+    }
     var regularIds: [MessageId] = []
     var channelIds: [MessageId] = []
     for id in ids {
