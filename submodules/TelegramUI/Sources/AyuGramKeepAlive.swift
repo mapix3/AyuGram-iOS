@@ -232,6 +232,8 @@ final class AyuGramBackgroundNotifier {
     private var accountIds = Set<AccountRecordId>()
     private let readDisposables = DisposableDict<AccountRecordId>()
     private var accounts: [AccountRecordId: Account] = [:]
+    private var seenGroups = Set<String>()
+    private var seenGroupOrder: [String] = []
     private var pending: [AccountRecordId: [EnginePeer.Id: [(identifier: String, index: EngineMessage.Index)]]] = [:]
 
     init(presentationData: @escaping () -> PresentationData?) {
@@ -293,7 +295,19 @@ final class AyuGramBackgroundNotifier {
                     guard notify, let first = messages.first else {
                         continue
                     }
-                    self.post(account: account, accountId: id, accountPeerId: accountPeerId, message: EngineMessage(first), count: messages.count)
+                    if let groupingKey = first.groupingKey {
+                        let key = "\(id.int64)_\(first.id.peerId.toInt64())_\(groupingKey)"
+                        if self.seenGroups.contains(key) {
+                            continue
+                        }
+                        self.seenGroups.insert(key)
+                        self.seenGroupOrder.append(key)
+                        if self.seenGroupOrder.count > 200 {
+                            self.seenGroups.remove(self.seenGroupOrder.removeFirst())
+                        }
+                    }
+                    let primary = messages.first(where: { !$0.text.isEmpty }) ?? first
+                    self.post(account: account, accountId: id, accountPeerId: accountPeerId, message: EngineMessage(primary), count: messages.count)
                 }
             }), forKey: id)
         }
