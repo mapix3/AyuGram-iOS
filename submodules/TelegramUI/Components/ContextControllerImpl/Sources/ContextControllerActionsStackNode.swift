@@ -204,7 +204,19 @@ public final class ContextControllerActionsListActionItemNode: HighlightTracking
     }
     
     public func setItem(item: ContextMenuActionItem) {
+        let selectionChanged = self.item.accessibilityIsSelected != item.accessibilityIsSelected
+        let colorChanged = self.item.textColor != item.textColor
         self.item = item
+        if selectionChanged || colorChanged {
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = 0.2
+            fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            self.layer.add(fade, forKey: "ayuItemFade")
+        }
+        if selectionChanged && item.accessibilityIsSelected {
+            self.iconNode.layer.animateSpring(from: 0.3 as NSNumber, to: 1.0 as NSNumber, keyPath: "transform.scale", duration: 0.5, damping: 70.0)
+        }
         self.accessibilityLabel = item.text
         self.accessibilityTraits = item.accessibilityIsSelected ? [.button, .selected] : [.button]
     }

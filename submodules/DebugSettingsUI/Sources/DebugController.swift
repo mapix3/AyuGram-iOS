@@ -698,6 +698,7 @@ private enum DebugControllerSection: Int32 {
 
 private enum DebugControllerEntry: ItemListNodeEntry {
     case SGDebug(PresentationTheme)
+    case ayuBarkNotifications
     case testStickerImport(PresentationTheme)
     case logsHeader(PresentationTheme)
     case logsInfo(PresentationTheme)
@@ -789,7 +790,7 @@ private enum DebugControllerEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
-        case .SGDebug:
+        case .SGDebug, .ayuBarkNotifications:
             return DebugControllerSection.swiftgram.rawValue
         case .testStickerImport:
             return DebugControllerSection.sticker.rawValue
@@ -827,6 +828,8 @@ private enum DebugControllerEntry: ItemListNodeEntry {
         // MARK: Swiftgram
         case .SGDebug:
             return -110
+        case .ayuBarkNotifications:
+            return -109
         case .testStickerImport:
             return 0
         case .logsHeader:
@@ -1053,6 +1056,15 @@ private enum DebugControllerEntry: ItemListNodeEntry {
                     return
                 }
                 arguments.pushController(sgDebugController(context: context))
+            })
+        case .ayuBarkNotifications:
+            return ItemListDisclosureItem(presentationData: presentationData, title: "Bark Notifications", label: "", sectionId: self.section, style: .blocks, action: {
+                guard let context = arguments.context else {
+                    return
+                }
+                ayuGramBarkSetupHook?(context, { controller in
+                    arguments.presentController(controller, nil)
+                })
             })
         case .testStickerImport:
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Simulate Stickers Import", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
@@ -2109,6 +2121,7 @@ private func debugControllerEntries(context: AccountContext?, sharedContext: Sha
     entries.append(.logsHeader(presentationData.theme))
     // MARK: Swiftgram
     entries.append(.SGDebug(presentationData.theme))
+    entries.append(.ayuBarkNotifications)
 
     entries.append(.sendLogs(presentationData.theme))
     if isMainApp {

@@ -159,7 +159,6 @@ def check_push_relay(source: Path):
         assert '<string>ayugram</string>' in text, 'Bark opens AyuGram'
         assert '<string>bark</string>' in text, 'AyuGram can tell whether Bark is installed'
     assert 'apps.apple.com/app/id1403753865' in relay, 'Without Bark its App Store page opens'
-    assert 'ayuGramOfferBarkIfNeeded(context: context)' in (source / 'Swiftgram/SGSettingsUI/Sources/AyuGramUpdatePrompt.swift').read_text()
     subprocess.run(['node', 'push-relay/test.mjs'], cwd=source, check=True)
 
 

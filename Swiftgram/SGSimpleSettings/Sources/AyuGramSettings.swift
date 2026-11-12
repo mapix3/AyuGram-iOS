@@ -90,9 +90,8 @@ public final class AyuGramSettings {
 
 public struct AyuGramClientSettings: Codable, Equatable {
     public var localPremium = false
-    public var maxPinnedChats: Int32 = 5
     public init() {}
-    public var pinnedChatLimit: Int32 { max(5, min(30, maxPinnedChats)) }
+    public var pinnedChatLimit: Int32 { 2000 }
 }
 
 public extension AyuGramSettings {
@@ -114,7 +113,6 @@ public extension AyuGramSettings {
         lock.lock()
         var value = readClient()
         transform(&value)
-        value.maxPinnedChats = value.pinnedChatLimit
         if let encoded = try? JSONEncoder().encode(value) {
             defaults.set(encoded, forKey: "swiftgram.ayuGram.client.v1")
         }
@@ -186,7 +184,6 @@ public struct AyuGramExtraSettings: Codable, Equatable {
     /// Daily anonymous ping with the build, install source and signing certificate.
     public var anonymousStats = true
     /// Keeps the app running in the background with silent audio and posts local notifications: 0 off, -1 always, else minutes after leaving the app.
-    public var backgroundKeepAlive: Int32 = 0
 
     public var sendsSilently: Bool {
         return silentSending == 2 || (silentSending == 1 && AyuGramSettings.shared.snapshot.ghostMode)
@@ -213,7 +210,6 @@ public struct AyuGramExtraSettings: Codable, Equatable {
         self.confirmGifs = try container.decodeIfPresent(Bool.self, forKey: .confirmGifs) ?? defaults.confirmGifs
         self.confirmReadReceipt = try container.decodeIfPresent(Bool.self, forKey: .confirmReadReceipt) ?? defaults.confirmReadReceipt
         self.anonymousStats = try container.decodeIfPresent(Bool.self, forKey: .anonymousStats) ?? defaults.anonymousStats
-        self.backgroundKeepAlive = try container.decodeIfPresent(Int32.self, forKey: .backgroundKeepAlive) ?? defaults.backgroundKeepAlive
     }
 }
 

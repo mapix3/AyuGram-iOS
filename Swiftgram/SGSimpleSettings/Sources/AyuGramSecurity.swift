@@ -712,3 +712,12 @@ public final class AyuGramSecurity {
         return info
     }
 }
+
+public extension AyuGramSecurity {
+    static let allowsCommunicationNotifications: Bool = {
+        guard let path = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"), let data = FileManager.default.contents(atPath: path), let plist = AyuGramSecurity.provisioningPlist(data), let entitlements = plist["Entitlements"] as? [String: Any] else {
+            return true
+        }
+        return (entitlements["com.apple.developer.usernotifications.communication"] as? Bool) == true
+    }()
+}
