@@ -406,64 +406,125 @@ final class AyuGramBackgroundNotifier {
         let conversationId = "\(message.id.peerId.toInt64())"
         let needsAvatar = AyuGramSecurity.allowsCommunicationNotifications
         let avatarPeer = chatPeer ?? message.author
-        var pictureSource: (EngineMessage, TelegramMediaImage, TelegramMediaImageRepresentation)?
-        if let pictureMessage, let image = AyuGramBackgroundNotifier.picture(in: pictureMessage), let representation = imageRepresentationLargerThan(image.representations, size: PixelDimensions(width: 500, height: 500)) ?? largestImageRepresentation(image.representations) {
-            pictureSource = (pictureMessage, image, representation)
-        }
-        var avatarImage: UIImage?
         var pictureData: Data?
-        var avatarDone = avatarPeer == nil
-        var pictureDone = pictureSource == nil
+        if let pictureMessage, let representation = AyuGramBackgroundNotifier.pictureRepresentation(in: pictureMessage) {
+            if let path = TelegramEngine(account: account).resources.completedResourcePath(id: EngineMediaResource(representation.resource).id), let value = try? Data(contentsOf: URL(fileURLWithPath: path)), UIImage(data: value) != nil {
+                pictureData = value
+            } else {
+                content.categoryIdentifier = "ayu-" + category
+                userInfo["ayuPictureId"] = pictureMessage.id.id
+                content.userInfo = userInfo
+            }
+        }
+        guard let avatarPeer, needsAvatar || pictureData == nil else {
+            self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: nil, picture: pictureData)
+            return
+        }
         var delivered = false
-        let disposables = DisposableSet()
-        let finish: (Bool) -> Void = { [weak self] force in
+        let disposable = MetaDisposable()
+        let finish: (UIImage?) -> Void = { [weak self] image in
             if delivered {
                 return
             }
-            if !force {
-                if !pictureDone {
-                    return
+            delivered = true
+            disposable.set(nil)
+            self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: image, picture: pictureData)
+        }
+        Queue.mainQueue().after(1.5, {
+            finish(nil)
+        })
+        disposable.set((peerAvatarCompleteImage(account: account, peer: avatarPeer, size: CGSize(width: 120.0, height: 120.0))
+        |> deliverOnMainQueue).start(next: { image in
+            if let image {
+                finish(image)
+            }
+        }, completed: {
+            finish(nil)
+        }))
+    }
+
+    private static func pictureRepresentation(in message: EngineMessage) -> TelegramMediaImageRepresentation? {
+        guard let image = AyuGramBackgroundNotifier.picture(in: message) else {
+            return nil
+        }
+        return imageRepresentationLargerThan(image.representations, size: PixelDimensions(width: 500, height: 500)) ?? largestImageRepresentation(image.representations)
+    }
+
+    private static func loadPicture(account: Account, message: EngineMessage) -> Signal<Data?, NoError> {
+        guard let image = AyuGramBackgroundNotifier.picture(in: message), let representation = AyuGramBackgroundNotifier.pictureRepresentation(in: message) else {
+            return .single(nil)
+        }
+        let engine = TelegramEngine(account: account)
+        let reference = AnyMediaReference.message(message: MessageReference(message._asMessage()), media: image).resourceReference(representation.resource)
+        let peerId = message.id.peerId
+        let signal = Signal<Data?, NoError> { subscriber in
+            let fetchDisposable = engine.resources.fetch(reference: reference, userLocation: .peer(peerId), userContentType: .image).start()
+            let dataDisposable = (engine.resources.data(resource: EngineMediaResource(representation.resource))
+            |> filter { $0.isComplete }
+            |> take(1)).start(next: { data in
+                if let value = try? Data(contentsOf: URL(fileURLWithPath: data.path)), UIImage(data: value) != nil {
+                    subscriber.putNext(value)
+                } else {
+                    subscriber.putNext(nil)
                 }
-                if !avatarDone && (needsAvatar || pictureData == nil) {
-                    return
+                subscriber.putCompletion()
+            })
+            return ActionDisposable {
+                fetchDisposable.dispose()
+                dataDisposable.dispose()
+            }
+        }
+        return signal
+        |> timeout(20.0, queue: Queue.mainQueue(), alternate: .single(nil))
+        |> deliverOnMainQueue
+    }
+
+    static let pictureActionIdentifier = "ayuPicture"
+
+    static var pictureActionTitle: String {
+        return i18n("Ayu.NotificationPicture", AyuGramBackgroundNotifier.current?.presentationData()?.strings.baseLanguageCode ?? "en")
+    }
+
+    func loadPicture(notification: UNNotification, completion: @escaping () -> Void) {
+        let request = notification.request
+        let userInfo = request.content.userInfo
+        guard let content = request.content.mutableCopy() as? UNMutableNotificationContent else {
+            completion()
+            return
+        }
+        content.sound = nil
+        let restore: (Data?) -> Void = { picture in
+            if let picture {
+                let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ayu-attachment-" + request.identifier.replacingOccurrences(of: ":", with: "-") + ".jpg")
+                if (try? picture.write(to: url)) != nil, let value = try? UNNotificationAttachment(identifier: "attachment", url: url, options: nil) {
+                    content.attachments = [value]
+                    if content.categoryIdentifier.hasPrefix("ayu-") {
+                        content.categoryIdentifier = String(content.categoryIdentifier.dropFirst(4))
+                    }
                 }
             }
-            delivered = true
-            disposables.dispose()
-            self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: avatarImage, picture: pictureData)
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: request.identifier, content: content, trigger: nil), withCompletionHandler: { _ in
+                Queue.mainQueue().async {
+                    completion()
+                }
+            })
         }
-        Queue.mainQueue().after(pictureSource == nil ? 1.5 : 4.0, {
-            finish(true)
+        guard let accountIdValue = userInfo["accountId"] as? Int64, let account = self.accounts[AccountRecordId(rawValue: accountIdValue)], let peerIdValue = userInfo["peerId"] as? Int64, let namespace = userInfo["messageId.namespace"] as? Int32, let id = userInfo["ayuPictureId"] as? Int32 else {
+            restore(nil)
+            return
+        }
+        let messageId = EngineMessage.Id(peerId: EnginePeer.Id(peerIdValue), namespace: namespace, id: id)
+        let _ = (TelegramEngine(account: account).data.get(TelegramEngine.EngineData.Item.Messages.Message(id: messageId))
+        |> mapToSignal { message -> Signal<Data?, NoError> in
+            guard let message else {
+                return .single(nil)
+            }
+            return AyuGramBackgroundNotifier.loadPicture(account: account, message: message)
+        }
+        |> take(1)
+        |> deliverOnMainQueue).start(next: { picture in
+            restore(picture)
         })
-        if let (pictureMessage, image, representation) = pictureSource {
-            let engine = TelegramEngine(account: account)
-            let reference = AnyMediaReference.message(message: MessageReference(pictureMessage._asMessage()), media: image).resourceReference(representation.resource)
-            disposables.add(engine.resources.fetch(reference: reference, userLocation: .peer(pictureMessage.id.peerId), userContentType: .image).start())
-            disposables.add((engine.resources.data(resource: EngineMediaResource(representation.resource))
-            |> filter { $0.isComplete }
-            |> take(1)
-            |> deliverOnMainQueue).start(next: { data in
-                if let value = try? Data(contentsOf: URL(fileURLWithPath: data.path)), UIImage(data: value) != nil {
-                    pictureData = value
-                }
-                pictureDone = true
-                finish(false)
-            }))
-        }
-        if let avatarPeer {
-            disposables.add((peerAvatarCompleteImage(account: account, peer: avatarPeer, size: CGSize(width: 120.0, height: 120.0))
-            |> deliverOnMainQueue).start(next: { image in
-                if let image {
-                    avatarImage = image
-                    avatarDone = true
-                    finish(false)
-                }
-            }, completed: {
-                avatarDone = true
-                finish(false)
-            }))
-        }
-        finish(false)
     }
 
     private func track(accountId: AccountRecordId, peerId: EnginePeer.Id, identifier: String, index: EngineMessage.Index) {
