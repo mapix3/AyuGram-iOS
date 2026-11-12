@@ -230,7 +230,6 @@ final class AyuGramBackgroundNotifier {
     private let presentationData: () -> PresentationData?
     private let disposables = DisposableDict<AccountRecordId>()
     private var accountIds = Set<AccountRecordId>()
-    private let avatarDisposables = DisposableSet()
     private let readDisposables = DisposableDict<AccountRecordId>()
     private var accounts: [AccountRecordId: Account] = [:]
     private var pending: [AccountRecordId: [EnginePeer.Id: [(identifier: String, index: EngineMessage.Index)]]] = [:]
@@ -242,7 +241,6 @@ final class AyuGramBackgroundNotifier {
 
     deinit {
         self.disposables.dispose()
-        self.avatarDisposables.dispose()
         self.readDisposables.dispose()
     }
 
@@ -254,9 +252,6 @@ final class AyuGramBackgroundNotifier {
     }
 
     private static var isEnabled: Bool {
-        if AyuGramBackgroundNotifier.usesBark {
-            return false
-        }
         return UIApplication.shared.applicationState != .active
     }
 
@@ -375,13 +370,26 @@ final class AyuGramBackgroundNotifier {
             self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: nil)
             return
         }
-        let avatar = peerAvatarCompleteImage(account: account, peer: avatarPeer, size: CGSize(width: 120.0, height: 120.0))
-        |> filter { $0 != nil }
-        |> take(1)
-        |> timeout(2.5, queue: Queue.mainQueue(), alternate: .single(nil))
-        |> deliverOnMainQueue
-        self.avatarDisposables.add(avatar.start(next: { [weak self] image in
+        var delivered = false
+        let disposable = MetaDisposable()
+        let finish: (UIImage?) -> Void = { [weak self] image in
+            if delivered {
+                return
+            }
+            delivered = true
+            disposable.set(nil)
             self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: image)
+        }
+        Queue.mainQueue().after(1.5, {
+            finish(nil)
+        })
+        disposable.set((peerAvatarCompleteImage(account: account, peer: avatarPeer, size: CGSize(width: 120.0, height: 120.0))
+        |> deliverOnMainQueue).start(next: { image in
+            if let image {
+                finish(image)
+            }
+        }, completed: {
+            finish(nil)
         }))
     }
 
@@ -424,6 +432,7 @@ final class AyuGramBackgroundNotifier {
     }
 
     private func deliver(content: UNMutableNotificationContent, identifier: String, title: String, conversationId: String, avatar: UIImage?) {
+        let plain = (content.copy() as? UNNotificationContent) ?? content
         var result: UNNotificationContent = content
         if let data = avatar?.pngData() {
             if AyuGramSecurity.allowsCommunicationNotifications {
@@ -447,6 +456,10 @@ final class AyuGramBackgroundNotifier {
                 }
             }
         }
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: result, trigger: nil), withCompletionHandler: nil)
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: result, trigger: nil), withCompletionHandler: { error in
+            if error != nil {
+                UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: plain, trigger: nil), withCompletionHandler: nil)
+            }
+        })
     }
 }
