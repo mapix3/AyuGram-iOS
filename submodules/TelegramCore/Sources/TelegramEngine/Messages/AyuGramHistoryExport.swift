@@ -76,3 +76,17 @@ func _internal_ayuExportHistoryPage(account: Account, peerId: PeerId, offsetId: 
         }
     }
 }
+
+public extension TelegramEngine {
+    func ayuGramLocalChatMessages(peerId: EnginePeer.Id) -> Signal<[EngineMessage], NoError> {
+        return self.account.postbox.transaction { transaction -> [EngineMessage] in
+            var messages: [Message] = []
+            transaction.withAllMessages(peerId: peerId, { message in
+                messages.append(message)
+                return true
+            })
+            messages.sort(by: { $0.index < $1.index })
+            return messages.map(EngineMessage.init)
+        }
+    }
+}

@@ -186,6 +186,8 @@ private final class AyuExportJob {
             var isPrivate = false
             if case .user? = peer {
                 isPrivate = true
+            } else if self.peerId.namespace == Namespaces.Peer.SecretChat {
+                isPrivate = true
             } else if peer == nil, self.peerId.namespace == Namespaces.Peer.CloudUser {
                 isPrivate = true
             }
@@ -422,14 +424,22 @@ func ayuGramExportChatArchive(context: AccountContext, peerId: EnginePeer.Id, ti
 
 /// Loads the chat's whole history from the server (not only what is cached), then exports it
 /// with `ayuGramExportChatArchive`. Asks first whether to include media.
-public func ayuGramExportChat(context: AccountContext, peerId: EnginePeer.Id, present: @escaping (ViewController) -> Void) {
+public func ayuGramExportChat(context: AccountContext, peerId: EnginePeer.Id, title: String? = nil, present: @escaping (ViewController) -> Void) {
     let data = context.sharedContext.currentPresentationData.with { $0 }
     let locale = data.strings.baseLanguageCode
+    let providedTitle = title
     let start: (Bool) -> Void = { includeMedia in
         let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: peerId))
         |> deliverOnMainQueue).startStandalone(next: { peer in
-            let title = peer?.debugDisplayTitle ?? ""
+            let title = providedTitle ?? peer?.debugDisplayTitle ?? ""
             let job = ayuExportProgressScreen(context: context, peerId: peerId, text: i18n("Ayu.ExportChatLoading", locale, "0"), present: present)
+            if peerId.namespace == Namespaces.Peer.SecretChat {
+                let _ = (context.engine.ayuGramLocalChatMessages(peerId: peerId)
+                |> deliverOnMainQueue).startStandalone(next: { [weak job] messages in
+                    job?.writeArchive(title: title, messages: messages, includeMedia: includeMedia, fetchMedia: true)
+                })
+                return
+            }
             ayuExportLoadHistory(job: job, offsetId: 0, loaded: [], completion: { [weak job] messages in
                 // Deleted messages AyuGram kept are gone from the server; they come from the device.
                 let _ = (context.engine.ayuGramDeletedChatMessages(peerId: peerId)
