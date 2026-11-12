@@ -420,6 +420,20 @@
 "Ayu.ViewWarning" = "Отправить отчёт о просмотре и запустить таймер исчезающего медиа?";
 
 "Ayu.RowOpacity" = "Непрозрачность строк чатов";
+"Ayu.NewYearHeader" = "Новый год";
+"Ayu.NewYearMode" = "Новогодний режим";
+"Ayu.NewYearAuto" = "Включать с 15 декабря по 15 января";
+"Ayu.NewYearInfo" = "Новогодний режим включает снег и гирлянду вместе.";
+"Ayu.EffectsHeader" = "Эффекты";
+"Ayu.Particles" = "Падающие частицы";
+"Ayu.ParticlesKind" = "Вид";
+"Ayu.ParticlesInChats" = "Показывать в чатах";
+"Ayu.Garland" = "Гирлянда";
+"Ayu.ParticlesAmount" = "Количество частиц";
+"Ayu.ParticlesSnow" = "Снег";
+"Ayu.ParticlesFlakes" = "Снежинки";
+"Ayu.ParticlesSakura" = "Сакура";
+"Ayu.ParticlesStars" = "Звёзды";
 "Ayu.MediaImportError" = "Не удалось загрузить файл. Максимальный размер: 100 МБ.";
 "Ayu.SilentSending" = "Отправка без звука";
 "Ayu.SilentNever" = "Никогда";

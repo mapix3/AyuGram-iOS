@@ -183,6 +183,7 @@ private final class PendingSwitchToChatLocation {
 
 class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
     private var ayuBackdrop: AyuGramBackdropView?
+    private var ayuEffects: AyuGramEffectsView?
     private var ayuNativeWallpaperAlpha: CGFloat {
         return AyuGramAppearance.shared.showsConversations ? 0.0 : 1.0
     }
@@ -1115,6 +1116,10 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         backdrop.visibilityChanged = { [weak self] enabled in self?.backgroundNode.alpha = enabled ? 0.0 : 1.0 }
         self.contentContainerNode.contentNode.view.insertSubview(backdrop, at: 0)
         backdrop.reload()
+        let effects = AyuGramEffectsView(scope: .conversation)
+        effects.frame = self.bounds
+        self.ayuEffects = effects
+        self.view.addSubview(effects)
         
         let recognizer = WindowPanRecognizer(target: nil, action: nil)
         recognizer.cancelsTouchesInView = false
@@ -2248,6 +2253,10 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         let wallpaperBounds = CGRect(x: 0.0, y: 0.0, width: layout.size.width - wrappingInsets.left - wrappingInsets.right, height: layout.size.height)
         
         self.ayuBackdrop?.frame = wallpaperBounds
+        if let effects = self.ayuEffects {
+            effects.frame = CGRect(origin: CGPoint(), size: layout.size)
+            self.view.bringSubviewToFront(effects)
+        }
         transition.updateFrame(node: self.backgroundNode, frame: wallpaperBounds)
         
         var displayMode: WallpaperDisplayMode = .aspectFill

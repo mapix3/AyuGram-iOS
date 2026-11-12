@@ -21,7 +21,45 @@ public struct AyuGramAppearanceSettings: Codable, Equatable {
     public var blur: Float = 0.2
     public var rowOpacity: Float = 0.65
     public var animateVideo = true
+    public var particles: Bool? = nil
+    public var particleKind: Int32? = nil
+    public var particleAmount: Float? = nil
+    public var particlesInChats: Bool? = nil
+    public var garland: Bool? = nil
+    public var newYear: Bool? = nil
+    public var newYearAuto: Bool? = nil
     public init() {}
+}
+
+public struct AyuGramEffectsState: Equatable {
+    public var particles: Bool
+    public var kind: Int32
+    public var amount: Float
+    public var inChats: Bool
+    public var garland: Bool
+    public var newYear: Bool
+}
+
+public extension AyuGramAppearanceSettings {
+    static let particleKindCount: Int32 = 4
+
+    static func isNewYearSeason(_ date: Date = Date()) -> Bool {
+        let components = Calendar(identifier: .gregorian).dateComponents([.month, .day], from: date)
+        guard let month = components.month, let day = components.day else {
+            return false
+        }
+        return (month == 12 && day >= 15) || (month == 1 && day <= 15)
+    }
+
+    var effects: AyuGramEffectsState {
+        let newYear = self.newYear == true || (self.newYearAuto == true && AyuGramAppearanceSettings.isNewYearSeason())
+        var kind = min(AyuGramAppearanceSettings.particleKindCount - 1, max(0, self.particleKind ?? 0))
+        if newYear && kind > 1 {
+            kind = 0
+        }
+        let amount = min(1.0, max(0.1, self.particleAmount ?? 0.5))
+        return AyuGramEffectsState(particles: newYear || self.particles == true, kind: kind, amount: amount, inChats: self.particlesInChats ?? true, garland: newYear || self.garland == true, newYear: newYear)
+    }
 }
 
 public final class AyuGramAppearance {
@@ -97,6 +135,7 @@ public final class AyuGramAppearance {
         let url = directory.appendingPathComponent(name)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
+    public var effects: AyuGramEffectsState { settings.effects }
     public var showsChatList: Bool { settings.chatList && mediaURL != nil }
     public var showsConversations: Bool { settings.conversations && mediaURL(for: .conversation) != nil }
     public func importMedia(_ url: URL, isVideo: Bool, scope: AyuGramAppearanceScope = .chatList) throws {
@@ -124,9 +163,17 @@ public final class AyuGramAppearance {
             if scope == .chatList {
                 let wallpaper = settings.wallpaper ?? AyuGramWallpaperAppearanceSettings(fileName: settings.fileName, isVideo: settings.isVideo, dim: settings.dim, blur: settings.blur, animateVideo: settings.animateVideo)
                 let conversations = settings.conversations
+                let previous = settings
                 settings = AyuGramAppearanceSettings()
                 settings.wallpaper = wallpaper
                 settings.conversations = conversations
+                settings.particles = previous.particles
+                settings.particleKind = previous.particleKind
+                settings.particleAmount = previous.particleAmount
+                settings.particlesInChats = previous.particlesInChats
+                settings.garland = previous.garland
+                settings.newYear = previous.newYear
+                settings.newYearAuto = previous.newYearAuto
             } else {
                 settings.wallpaper = AyuGramWallpaperAppearanceSettings(followsChatList: false, fileName: nil, isVideo: false, dim: 0.6, blur: 0.2, animateVideo: true)
                 settings.conversations = true

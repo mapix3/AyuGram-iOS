@@ -10,10 +10,10 @@ import SGItemListUI
 import SGSimpleSettings
 import SGStrings
 
-private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, reset }
-private enum AyuAppearanceToggle: Hashable { case enabled, motion }
-private enum AyuAppearanceSlider: Hashable { case dim, blur, rows }
-private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset }
+private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, reset }
+private enum AyuAppearanceToggle: Hashable { case enabled, motion, newYear, newYearAuto, particles, particlesInChats, garland }
+private enum AyuAppearanceSlider: Hashable { case dim, blur, rows, amount }
+private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind }
 private enum AyuAppearanceUnused: Hashable { case unused }
 private typealias AyuAppearanceSettingEntry = SGItemListUIEntry<AyuAppearanceSection, AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>
 private enum AyuAppearanceEntry: ItemListNodeEntry {
@@ -43,19 +43,45 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
         return ActionDisposable { NotificationCenter.default.removeObserver(observer) }
     }
     let arguments = SGItemListArguments<AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>(context: context, setBoolValue: { key, value in
+        switch key {
+        case .newYear:
+            AyuGramAppearance.shared.update { $0.newYear = value }
+            return
+        case .newYearAuto:
+            AyuGramAppearance.shared.update { $0.newYearAuto = value }
+            return
+        case .particles:
+            AyuGramAppearance.shared.update { $0.particles = value }
+            return
+        case .particlesInChats:
+            AyuGramAppearance.shared.update { $0.particlesInChats = value }
+            return
+        case .garland:
+            AyuGramAppearance.shared.update { $0.garland = value }
+            return
+        case .enabled, .motion:
+            break
+        }
         AyuGramAppearance.shared.updateForScope(scope) { settings in
             switch key {
             case .enabled:
                 if scope == .chatList { settings.chatList = value } else { settings.conversations = value }
             case .motion: settings.animateVideo = value
+            case .newYear, .newYearAuto, .particles, .particlesInChats, .garland:
+                break
             }
         }
     }, updateSliderValue: { key, value in
+        if case .amount = key {
+            AyuGramAppearance.shared.update { $0.particleAmount = Float(value) / 100 }
+            return
+        }
         AyuGramAppearance.shared.updateForScope(scope) { settings in
             switch key {
             case .dim: settings.dim = Float(value) / 100
             case .blur: settings.blur = Float(value) / 100
             case .rows: settings.rowOpacity = Float(value) / 100
+            case .amount: break
             }
         }
     }, openDisclosureLink: { _ in openWallpaper?() }, action: { action in
@@ -64,6 +90,10 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
         case .video: mediaPicker.choose(video: true)
         case .wallpaper: openWallpaper?()
         case .reset: AyuGramAppearance.shared.reset(scope: scope)
+        case .particleKind:
+            AyuGramAppearance.shared.update { settings in
+                settings.particleKind = ((settings.particleKind ?? 0) + 1) % AyuGramAppearanceSettings.particleKindCount
+            }
         }
     })
     let signal = combineLatest(context.sharedContext.presentationData, changes)
@@ -85,11 +115,28 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
         if scope == .chatList {
             settingsEntries += [
                 .header(id: 9, section: .rows, text: i18n("Ayu.RowOpacity", locale), badge: nil),
-                .rangedPercentageSlider(id: 10, section: .rows, settingName: .rows, value: Int32((settings.rowOpacity * 100).rounded()), minimum: 35, maximum: 100),
-                .disclosure(id: 11, section: .reset, link: .wallpaper, text: i18n("Ayu.ConversationBackground", locale))
+                .rangedPercentageSlider(id: 10, section: .rows, settingName: .rows, value: Int32((settings.rowOpacity * 100).rounded()), minimum: 35, maximum: 100)
+            ]
+            let stored = AyuGramAppearance.shared.settings
+            let effects = stored.effects
+            let kindKeys = ["Ayu.ParticlesSnow", "Ayu.ParticlesFlakes", "Ayu.ParticlesSakura", "Ayu.ParticlesStars"]
+            let kindName = i18n(kindKeys[Int(min(Int32(kindKeys.count - 1), max(0, stored.particleKind ?? 0)))], locale)
+            settingsEntries += [
+                .header(id: 11, section: .newYear, text: i18n("Ayu.NewYearHeader", locale), badge: nil),
+                .toggle(id: 12, section: .newYear, settingName: .newYear, value: stored.newYear == true, text: i18n("Ayu.NewYearMode", locale), enabled: true),
+                .toggle(id: 13, section: .newYear, settingName: .newYearAuto, value: stored.newYearAuto == true, text: i18n("Ayu.NewYearAuto", locale), enabled: true),
+                .notice(id: 14, section: .newYear, text: i18n("Ayu.NewYearInfo", locale)),
+                .header(id: 15, section: .effects, text: i18n("Ayu.EffectsHeader", locale), badge: nil),
+                .toggle(id: 16, section: .effects, settingName: .particles, value: effects.particles, text: i18n("Ayu.Particles", locale), enabled: !effects.newYear),
+                .action(id: 17, section: .effects, actionType: .particleKind, text: i18n("Ayu.ParticlesKind", locale) + ": " + kindName, kind: .generic),
+                .toggle(id: 18, section: .effects, settingName: .particlesInChats, value: effects.inChats, text: i18n("Ayu.ParticlesInChats", locale), enabled: true),
+                .toggle(id: 19, section: .effects, settingName: .garland, value: effects.garland, text: i18n("Ayu.Garland", locale), enabled: !effects.newYear),
+                .header(id: 20, section: .amount, text: i18n("Ayu.ParticlesAmount", locale), badge: nil),
+                .rangedPercentageSlider(id: 21, section: .amount, settingName: .amount, value: Int32((effects.amount * 100).rounded()), minimum: 10, maximum: 100),
+                .disclosure(id: 30, section: .reset, link: .wallpaper, text: i18n("Ayu.ConversationBackground", locale))
             ]
         }
-        settingsEntries.append(.action(id: 12, section: .reset, actionType: .reset, text: data.strings.AutoDownloadSettings_Reset, kind: .destructive))
+        settingsEntries.append(.action(id: 31, section: .reset, actionType: .reset, text: data.strings.AutoDownloadSettings_Reset, kind: .destructive))
         let entries: [AyuAppearanceEntry] = [.preview(scope, settings)] + settingsEntries.map(AyuAppearanceEntry.setting)
         let state = ItemListControllerState(presentationData: ItemListPresentationData(data), title: .text(scope == .chatList ? data.strings.Appearance_Title : data.strings.Wallpaper_Title), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: data.strings.Common_Back))
         return (state, (ItemListNodeState(presentationData: ItemListPresentationData(data), entries: entries, style: .blocks), arguments))

@@ -425,6 +425,20 @@
 "Ayu.ViewWarning" = "Send a view receipt and start the disappearing media timer?";
 
 "Ayu.RowOpacity" = "Chat row opacity";
+"Ayu.NewYearHeader" = "New Year";
+"Ayu.NewYearMode" = "New Year mode";
+"Ayu.NewYearAuto" = "Turn on from Dec 15 to Jan 15";
+"Ayu.NewYearInfo" = "New Year mode turns on snow and the garland together.";
+"Ayu.EffectsHeader" = "Effects";
+"Ayu.Particles" = "Falling particles";
+"Ayu.ParticlesKind" = "Kind";
+"Ayu.ParticlesInChats" = "Show in chats";
+"Ayu.Garland" = "Garland";
+"Ayu.ParticlesAmount" = "Amount of particles";
+"Ayu.ParticlesSnow" = "Snow";
+"Ayu.ParticlesFlakes" = "Snowflakes";
+"Ayu.ParticlesSakura" = "Sakura";
+"Ayu.ParticlesStars" = "Stars";
 "Ayu.MediaImportError" = "Unable to import media. Maximum size: 100 MB.";
 "Ayu.SilentSending" = "Send without sound";
 "Ayu.SilentNever" = "Never";

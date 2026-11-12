@@ -1183,6 +1183,7 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
 
 final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     private var ayuBackdrop: AyuGramBackdropView?
+    private var ayuEffects: AyuGramEffectsView?
 
     private let context: AccountContext
     private let location: ChatListControllerLocation
@@ -1408,6 +1409,10 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         }
         self.view.insertSubview(backdrop, at: 0)
         backdrop.reload()
+        let effects = AyuGramEffectsView(scope: .chatList)
+        effects.frame = self.bounds
+        self.ayuEffects = effects
+        self.view.addSubview(effects)
         
         let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.tapGesture(_:)))
         self.tapRecognizer = tapRecognizer
@@ -1970,6 +1975,11 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         storiesInset = navigationBarLayout.storiesInset
         
         self.containerLayout = (layout, navigationBarHeight, visualNavigationHeight, cleanNavigationBarHeight, storiesInset)
+        if let effects = self.ayuEffects {
+            effects.frame = CGRect(origin: .zero, size: layout.size)
+            effects.garlandTop = max(0.0, cleanNavigationBarHeight - 4.0)
+            self.view.bringSubviewToFront(effects)
+        }
 
         // MARK: Swiftgram
         let sgComponentTransition = ComponentTransition(transition)
