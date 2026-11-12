@@ -414,6 +414,7 @@
 "Ayu.DeletedSectionGroups" = "Чати";
 "Ayu.DeletedSectionChannels" = "Канали";
 "Ayu.DeletedSearch" = "Пошук за чатом, ніком або текстом";
+"Ayu.DeletedSearchText" = "Пошук у видалених повідомленнях";
 "Ayu.DeletedSearchEmpty" = "Нічого не знайдено.";
 "Ayu.ViewDeletedInfo" = "Чати, де на цьому пристрої збережено видалені повідомлення. Відкрий чат, щоб переглянути його видалені повідомлення або весь чат.";
 "Ayu.ViewDeletedEmpty" = "Видалених повідомлень поки немає.";
