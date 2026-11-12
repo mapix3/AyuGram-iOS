@@ -1118,6 +1118,12 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         backdrop.reload()
         let effects = AyuGramEffectsView(scope: .conversation)
         effects.frame = self.bounds
+        effects.surfaceProvider = { [weak self, weak effects] in
+            guard let self, let effects, let panel = self.inputPanelNode as? ChatTextInputPanelNode else {
+                return []
+            }
+            return panel.ayuSnowSurfaces(in: effects)
+        }
         self.ayuEffects = effects
         self.view.addSubview(effects)
         
@@ -2873,7 +2879,6 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         
         var apparentInputPanelFrame = inputPanelFrame
         let apparentSecondaryInputPanelFrame = secondaryInputPanelFrame
-        self.ayuEffects?.driftFrame = inputPanelFrame
         var apparentInputBackgroundFrame = inputBackgroundFrame
         var apparentNavigateButtonsFrame = navigateButtonsFrame
         if case let .media(_, maybeExpanded, _) = self.chatPresentationInterfaceState.inputMode, let expanded = maybeExpanded, case .search = expanded, let inputPanelFrame = inputPanelFrame {
