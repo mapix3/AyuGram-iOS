@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import UserNotifications
 import Display
 import SwiftSignalKit
 import TelegramCore
@@ -157,5 +158,8 @@ public func ayuGramPresentUpdateIfNeeded(context: AccountContext) {
     }
     AyuGramUpdates.shared.check { _ in }
     AyuGramPushRelay.renew(context: context)
-    ayuGramOfferBarkIfNeeded(context: context)
+    ayuGramBarkSetupHook = { context, present in
+        ayuGramSetUpBark(context: context, present: present)
+    }
+    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge], completionHandler: { _, _ in })
 }

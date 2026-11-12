@@ -1,5 +1,4 @@
 import Foundation
-import UserNotifications
 import UIKit
 import Display
 import SwiftSignalKit
@@ -13,7 +12,7 @@ import SGSimpleSettings
 import SGStrings
 
 private enum AyuScreenSection: Int32 {
-    case hero, ghost, hide, behavior, content, chats, history, transfer, client, update, notifications, security, support
+    case hero, ghost, hide, behavior, content, chats, history, transfer, client, update, security, support
 }
 
 private enum AyuScreenToggle: Equatable {
@@ -26,7 +25,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, bark, importChat, silentSending, sessionLog, buildInfo, reportScam, keepAlive
+    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam
 }
 
 private enum AyuScreenTint: Equatable {
@@ -49,12 +48,10 @@ private enum AyuScreenTint: Equatable {
 
 private final class AyuScreenArguments {
     let toggle: (AyuScreenToggle, Bool) -> Void
-    let updatePins: (Int32) -> Void
     let open: (AyuScreenLink) -> Void
 
-    init(toggle: @escaping (AyuScreenToggle, Bool) -> Void, updatePins: @escaping (Int32) -> Void, open: @escaping (AyuScreenLink) -> Void) {
+    init(toggle: @escaping (AyuScreenToggle, Bool) -> Void, open: @escaping (AyuScreenLink) -> Void) {
         self.toggle = toggle
-        self.updatePins = updatePins
         self.open = open
     }
 }
@@ -64,14 +61,13 @@ private enum AyuScreenEntry: ItemListNodeEntry {
     case header(id: Int, section: AyuScreenSection, text: String)
     case toggle(id: Int, section: AyuScreenSection, key: AyuScreenToggle, symbol: String, tint: AyuScreenTint, title: String, subtitle: String?, value: Bool, enabled: Bool)
     case link(id: Int, section: AyuScreenSection, link: AyuScreenLink, symbol: String, tint: AyuScreenTint, title: String, label: String)
-    case pins(id: Int, section: AyuScreenSection, value: Int32)
     case footer(id: Int, section: AyuScreenSection, text: String)
 
     var section: ItemListSectionId {
         switch self {
         case .hero:
             return AyuScreenSection.hero.rawValue
-        case let .header(_, section, _), let .footer(_, section, _), let .pins(_, section, _):
+        case let .header(_, section, _), let .footer(_, section, _):
             return section.rawValue
         case let .toggle(_, section, _, _, _, _, _, _, _):
             return section.rawValue
@@ -82,7 +78,7 @@ private enum AyuScreenEntry: ItemListNodeEntry {
 
     var stableId: Int {
         switch self {
-        case let .hero(id, _, _, _, _), let .header(id, _, _), let .footer(id, _, _), let .pins(id, _, _):
+        case let .hero(id, _, _, _, _), let .header(id, _, _), let .footer(id, _, _):
             return id
         case let .toggle(id, _, _, _, _, _, _, _, _):
             return id
@@ -110,10 +106,6 @@ private enum AyuScreenEntry: ItemListNodeEntry {
             let icon = (link == .channel ? ayuGramRowImage("AyuUpdatesChannel") : nil) ?? ayuGramRowIcon(symbol, color: tint.color)
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: icon, title: title, label: label, sectionId: self.section, style: .blocks, action: {
                 arguments.open(link)
-            })
-        case let .pins(_, _, value):
-            return AyuPinnedCountSliderItem(theme: presentationData.theme, strings: presentationData.strings, value: value, sectionId: self.section, updated: { value in
-                arguments.updatePins(value)
             })
         case let .footer(_, _, text):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
@@ -186,16 +178,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     if hasAppearance {
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
     }
-    entries.append(.header(id: 630, section: .client, text: s("Ayu.Pins")))
-    entries.append(.pins(id: 640, section: .client, value: client.pinnedChatLimit))
     entries.append(.footer(id: 650, section: .client, text: s("Ayu.LocalOnly")))
-
-    let barkOn = !(AyuGramPushRelay.barkKey ?? "").isEmpty
-    entries.append(.header(id: 660, section: .notifications, text: s("Ayu.NotificationsSection")))
-    entries.append(.link(id: 670, section: .notifications, link: .bark, symbol: "bell.badge.fill", tint: .red, title: s(barkOn ? "Ayu.BarkConnected" : "Ayu.BarkSetUp"), label: ""))
-    entries.append(.footer(id: 680, section: .notifications, text: s("Ayu.BarkFooter")))
-    entries.append(.link(id: 681, section: .notifications, link: .keepAlive, symbol: "speaker.wave.2.fill", tint: .orange, title: s("Ayu.KeepAlive"), label: ayuGramKeepAliveLabel(extra.backgroundKeepAlive, locale: locale)))
-    entries.append(.footer(id: 682, section: .notifications, text: s("Ayu.KeepAliveFooter")))
 
     let security = AyuGramSecurity.shared
     entries.append(.header(id: 690, section: .security, text: s("Ayu.SecuritySection")))
@@ -210,18 +193,6 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 730, section: .support, link: .sessionLog, symbol: "doc.text.fill", tint: .gray, title: s("Ayu.SessionLog"), label: ""))
     entries.append(.link(id: 740, section: .support, link: .checkUpdates, symbol: "arrow.triangle.2.circlepath", tint: .gray, title: s("Ayu.CheckUpdates"), label: ""))
     return entries
-}
-
-private let ayuGramKeepAliveOptions: [Int32] = [0, -1, 5, 15, 30, 60]
-
-private func ayuGramKeepAliveLabel(_ value: Int32, locale: String) -> String {
-    if value == 0 {
-        return i18n("Ayu.KeepAliveOff", locale)
-    } else if value < 0 {
-        return i18n("Ayu.KeepAliveAlways", locale)
-    } else {
-        return i18n("Ayu.KeepAliveMinutes", locale, "\(value)")
-    }
 }
 
 /// Redesigned AyuGram settings: summary card, grouped Ghost Mode controls,
@@ -274,8 +245,6 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .confirmRead: settings.updateExtra { $0.confirmReadReceipt = value }
         case .anonymousStats: settings.updateExtra { $0.anonymousStats = value }
         }
-    }, updatePins: { value in
-        AyuGramSettings.shared.updateClient { $0.maxPinnedChats = value }
     }, open: { link in
         switch link {
         case .history:
@@ -317,32 +286,8 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             presentController?(ayuGramBuildInfoAlert(context: context))
         case .reportScam:
             presentController?(ayuGramScamReportPrompt(context: context, completion: {}))
-        case .bark:
-            ayuGramSetUpBark(context: context, present: { controller in
-                presentController?(controller)
-            })
         case .importChat:
             ayuGramImportChat(context: context)
-        case .keepAlive:
-            let data = context.sharedContext.currentPresentationData.with { $0 }
-            let locale = data.strings.baseLanguageCode
-            let sheet = ActionSheetController(presentationData: data)
-            let current = AyuGramSettings.shared.extra.backgroundKeepAlive
-            var items: [ActionSheetItem] = []
-            for value in ayuGramKeepAliveOptions {
-                items.append(ActionSheetButtonItem(title: (value == current ? "✓ " : "") + ayuGramKeepAliveLabel(value, locale: locale), color: .accent, action: { [weak sheet] in
-                    sheet?.dismissAnimated()
-                    AyuGramSettings.shared.updateExtra { $0.backgroundKeepAlive = value }
-                    if value != 0 {
-                        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge], completionHandler: { _, _ in })
-                    }
-                }))
-            }
-            sheet.setItemGroups([
-                ActionSheetItemGroup(items: items),
-                ActionSheetItemGroup(items: [ActionSheetButtonItem(title: data.strings.Common_Cancel, color: .accent, action: { [weak sheet] in sheet?.dismissAnimated() })])
-            ])
-            presentController?(sheet)
         case .silentSending:
             let data = context.sharedContext.currentPresentationData.with { $0 }
             let locale = data.strings.baseLanguageCode

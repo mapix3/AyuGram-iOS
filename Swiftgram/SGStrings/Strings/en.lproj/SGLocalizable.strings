@@ -484,3 +484,4 @@
 "Ayu.KeepAliveAlways" = "Always";
 "Ayu.KeepAliveMinutes" = "%@ min after leaving";
 "Ayu.KeepAliveFooter" = "Keeps AyuGram running in the background with silent audio and shows notifications for new messages without Apple push. Uses more battery. Music and calls are not affected; after a call it resumes by itself. Not needed with Bark.";
+"Ayu.TerminatedNotice" = "AyuGram was closed and notifications are paused. Open it to turn them back on.";

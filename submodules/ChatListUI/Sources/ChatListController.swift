@@ -4152,8 +4152,8 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             var items: [ContextMenuItem] = []
             items.append(.action(ContextMenuActionItem(text: i18n("Ayu.Ghost", locale), icon: checkIcon(ghost), iconPosition: .left, action: { c, _ in
                 AyuGramSettings.shared.setGhostMode(!ghost)
-                c?.setItems(.single(ContextController.Items(content: .list(makeItems()))), minHeight: nil, animated: false)
-            })))
+                c?.setItems(.single(ContextController.Items(id: AnyHashable("ayuGhost"), content: .list(makeItems()))), minHeight: nil, animated: true)
+            }, accessibilityIsSelected: ghost)))
             items.append(.separator)
             let options: [(String, Bool, WritableKeyPath<AyuGramPrivacySettings, Bool>)] = [
                 ("Ayu.HideRead", settings.suppressRead, \.antiRead),
@@ -4165,17 +4165,17 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             ]
             for (key, value, keyPath) in options {
                 if ghost {
-                    items.append(.action(ContextMenuActionItem(text: i18n(key, locale), textColor: .disabled, icon: checkIcon(value), iconPosition: .left, action: { _, _ in })))
+                    items.append(.action(ContextMenuActionItem(text: i18n(key, locale), textColor: .disabled, icon: checkIcon(value), iconPosition: .left, action: { _, _ in }, accessibilityIsSelected: value)))
                 } else {
                     items.append(.action(ContextMenuActionItem(text: i18n(key, locale), icon: checkIcon(value), iconPosition: .left, action: { c, _ in
                         AyuGramSettings.shared.update { $0[keyPath: keyPath] = !value }
-                        c?.setItems(.single(ContextController.Items(content: .list(makeItems()))), minHeight: nil, animated: false)
-                    })))
+                        c?.setItems(.single(ContextController.Items(id: AnyHashable("ayuGhost"), content: .list(makeItems()))), minHeight: nil, animated: true)
+                    }, accessibilityIsSelected: value)))
                 }
             }
             return items
         }
-        let contextController = makeContextController(presentationData: presentationData, source: .reference(HeaderContextReferenceContentSource(controller: self, sourceView: sourceView)), items: .single(ContextController.Items(content: .list(makeItems()))), gesture: gesture)
+        let contextController = makeContextController(presentationData: presentationData, source: .reference(HeaderContextReferenceContentSource(controller: self, sourceView: sourceView)), items: .single(ContextController.Items(id: AnyHashable("ayuGhost"), content: .list(makeItems()))), gesture: gesture)
         self.presentInGlobalOverlay(contextController)
     }
     

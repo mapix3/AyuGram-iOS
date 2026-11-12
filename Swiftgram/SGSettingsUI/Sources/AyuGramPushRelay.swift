@@ -23,7 +23,6 @@ enum AyuGramPushRelay {
 
     private static let barkKeyDefaultsKey = "ayuGram.pushRelay.barkKey"
     /// Set once the "Fix notifications" dialog has been shown.
-    private static let offeredDefaultsKey = "ayuGram.pushRelay.offered"
     private static let keysDefaultsKey = "ayuGram.pushRelay.keys"
     /// The subscription last registered, so changing the key unsubscribes the old one.
     private static let subscriptionDefaultsKey = "ayuGram.pushRelay.subscription"
@@ -35,15 +34,6 @@ enum AyuGramPushRelay {
     /// Bark's `bark` scheme is listed in LSApplicationQueriesSchemes.
     static var isBarkInstalled: Bool {
         return URL(string: "bark://").map { UIApplication.shared.canOpenURL($0) } == true
-    }
-
-    /// True the first time it is asked on an install without a Bark key.
-    static func shouldOffer() -> Bool {
-        guard (barkKey ?? "").isEmpty, !UserDefaults.standard.bool(forKey: offeredDefaultsKey) else {
-            return false
-        }
-        UserDefaults.standard.set(true, forKey: offeredDefaultsKey)
-        return true
     }
 
     /// The key from whatever the Bark app lets you copy: the key itself, a link
@@ -538,28 +528,6 @@ private func ayuGramBarkKeyPrompt(context: AccountContext, present: @escaping (V
             }
         })
     })
-}
-
-/// Once per install without a Bark key: a sideloaded AyuGram gets notifications only through Bark.
-func ayuGramOfferBarkIfNeeded(context: AccountContext) {
-    guard AyuGramPushRelay.shouldOffer() else {
-        return
-    }
-    let data = context.sharedContext.currentPresentationData.with { $0 }
-    let locale = data.strings.baseLanguageCode
-    let present: (ViewController) -> Void = { [weak context] controller in
-        context?.sharedContext.mainWindow?.present(controller, on: .root)
-    }
-    let text = i18n(AyuGramPushRelay.isBarkInstalled ? "Ayu.BarkFixConnect" : "Ayu.BarkFixInstall", locale)
-    // After the root controller is in the window.
-    Queue.mainQueue().after(1.0) {
-        present(textAlertController(context: context, title: i18n("Ayu.BarkFixTitle", locale), text: text, actions: [
-            TextAlertAction(type: .genericAction, title: data.strings.Common_No, action: {}),
-            TextAlertAction(type: .defaultAction, title: data.strings.Common_Yes, action: {
-                ayuGramSetUpBark(context: context, present: present)
-            })
-        ]))
-    }
 }
 
 /// A short one-way tag for an account, so the push relay can tell accounts apart without their ids.

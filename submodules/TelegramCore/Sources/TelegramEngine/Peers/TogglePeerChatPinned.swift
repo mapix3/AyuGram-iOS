@@ -15,9 +15,6 @@ public enum TogglePeerChatPinnedResult {
 
 func _internal_toggleItemPinned(postbox: Postbox, accountPeerId: PeerId, location: TogglePeerChatPinnedLocation, itemId: PinnedItemId) -> Signal<TogglePeerChatPinnedResult, NoError> {
     return postbox.transaction { transaction -> TogglePeerChatPinnedResult in
-        if case .group(.root) = location, AyuGramSettings.shared.client.pinnedChatLimit > 5 {
-            transaction.ayuEnableLocalRootPins()
-        }
         let isPremium = transaction.getPeer(accountPeerId)?.isPremium ?? false
         
         let appConfiguration = transaction.getPreferencesEntry(key: PreferencesKeys.appConfiguration)?.get(AppConfiguration.self) ?? .defaultValue
@@ -51,6 +48,10 @@ func _internal_toggleItemPinned(postbox: Postbox, accountPeerId: PeerId, locatio
                 additionalCount = -1
             } else {
                 additionalCount = 1
+            }
+            
+            if case .root = groupId, !transaction.ayuHasLocalRootPins, additionalCount > 0, sameKind.count + additionalCount > Int(userLimitsConfiguration.maxPinnedChatCount) {
+                transaction.ayuEnableLocalRootPins()
             }
             
             let limitCount: Int

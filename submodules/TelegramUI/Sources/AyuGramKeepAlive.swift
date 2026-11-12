@@ -2,12 +2,15 @@ import Foundation
 import UIKit
 import AVFAudio
 import UserNotifications
+import Intents
 import SwiftSignalKit
 import TelegramCore
 import TelegramPresentationData
 import TelegramStringFormatting
 import LocalizedPeerData
 import SGSimpleSettings
+import SGStrings
+import AvatarNode
 
 private func ayuGramSilentWav() -> Data {
     let sampleRate: UInt32 = 8000
@@ -49,8 +52,6 @@ final class AyuGramKeepAlive {
     private var inForeground = true
     private var telegramAudioActive = false
     private var interrupted = false
-    private var mode: Int32
-    private var deadlineTimer: SwiftSignalKit.Timer?
     private var retryTimer: SwiftSignalKit.Timer?
     private var retryTask: UIBackgroundTaskIdentifier?
     private var observers: [NSObjectProtocol] = []
@@ -67,7 +68,6 @@ final class AyuGramKeepAlive {
         self.beginBackgroundTask = beginBackgroundTask
         self.endBackgroundTask = endBackgroundTask
         self.updated = updated
-        self.mode = AyuGramSettings.shared.extra.backgroundKeepAlive
 
         let center = NotificationCenter.default
         self.observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(), queue: .main, using: { [weak self] notification in
@@ -84,25 +84,13 @@ final class AyuGramKeepAlive {
             self.isPlaying = false
             self.apply()
         }))
-        self.observers.append(center.addObserver(forName: AyuGramSettings.didChange, object: nil, queue: .main, using: { [weak self] _ in
-            guard let self else {
-                return
-            }
-            let mode = AyuGramSettings.shared.extra.backgroundKeepAlive
-            if mode != self.mode {
-                self.mode = mode
-                if !self.inForeground {
-                    self.enterBackground()
-                }
-            }
-        }))
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [AyuGramBackgroundNotifier.terminatedIdentifier])
     }
 
     deinit {
         for observer in self.observers {
             NotificationCenter.default.removeObserver(observer)
         }
-        self.deadlineTimer?.invalidate()
         self.retryTimer?.invalidate()
     }
 
@@ -112,14 +100,13 @@ final class AyuGramKeepAlive {
         }
         self.inForeground = inForeground
         if inForeground {
-            self.deadlineTimer?.invalidate()
-            self.deadlineTimer = nil
             self.interrupted = false
             self.isWanted = false
-            self.apply()
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [AyuGramBackgroundNotifier.terminatedIdentifier])
         } else {
-            self.enterBackground()
+            self.isWanted = true
         }
+        self.apply()
     }
 
     func update(telegramAudioActive: Bool) {
@@ -127,29 +114,6 @@ final class AyuGramKeepAlive {
             return
         }
         self.telegramAudioActive = telegramAudioActive
-        self.apply()
-    }
-
-    private func enterBackground() {
-        self.deadlineTimer?.invalidate()
-        self.deadlineTimer = nil
-        if self.mode == 0 {
-            self.isWanted = false
-        } else {
-            self.isWanted = true
-            if self.mode > 0 {
-                let timer = SwiftSignalKit.Timer(timeout: Double(self.mode) * 60.0, repeat: false, completion: { [weak self] in
-                    guard let self else {
-                        return
-                    }
-                    self.deadlineTimer = nil
-                    self.isWanted = false
-                    self.apply()
-                }, queue: Queue.mainQueue())
-                self.deadlineTimer = timer
-                timer.start()
-            }
-        }
         self.apply()
     }
 
@@ -260,26 +224,52 @@ final class AyuGramKeepAlive {
 }
 
 final class AyuGramBackgroundNotifier {
+    static let terminatedIdentifier = "ayu-terminated"
+    private(set) static weak var current: AyuGramBackgroundNotifier?
+
     private let presentationData: () -> PresentationData?
     private let disposables = DisposableDict<AccountRecordId>()
     private var accountIds = Set<AccountRecordId>()
+    private let avatarDisposables = DisposableSet()
 
     init(presentationData: @escaping () -> PresentationData?) {
         self.presentationData = presentationData
+        AyuGramBackgroundNotifier.current = self
     }
 
     deinit {
         self.disposables.dispose()
+        self.avatarDisposables.dispose()
+    }
+
+    private static var usesBark: Bool {
+        if let barkKey = UserDefaults.standard.string(forKey: "ayuGram.pushRelay.barkKey"), !barkKey.isEmpty {
+            return true
+        }
+        return false
     }
 
     private static var isEnabled: Bool {
-        if AyuGramSettings.shared.extra.backgroundKeepAlive == 0 {
-            return false
-        }
-        if let barkKey = UserDefaults.standard.string(forKey: "ayuGram.pushRelay.barkKey"), !barkKey.isEmpty {
+        if AyuGramBackgroundNotifier.usesBark {
             return false
         }
         return UIApplication.shared.applicationState != .active
+    }
+
+    func notifyTerminated() {
+        if AyuGramBackgroundNotifier.usesBark {
+            return
+        }
+        let locale = self.presentationData()?.strings.baseLanguageCode ?? "en"
+        let content = UNMutableNotificationContent()
+        content.title = "AyuGram"
+        content.body = i18n("Ayu.TerminatedNotice", locale)
+        content.sound = .default
+        let semaphore = DispatchSemaphore(value: 0)
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: AyuGramBackgroundNotifier.terminatedIdentifier, content: content, trigger: nil), withCompletionHandler: { _ in
+            semaphore.signal()
+        })
+        let _ = semaphore.wait(timeout: .now() + 1.0)
     }
 
     func update(accounts: [(AccountRecordId, Account)]) {
@@ -290,22 +280,22 @@ final class AyuGramBackgroundNotifier {
         for (id, account) in accounts where !self.accountIds.contains(id) {
             let accountPeerId = account.peerId
             self.disposables.set((account.stateManager.notificationMessages
-            |> deliverOnMainQueue).startStrict(next: { [weak self] list in
-                guard let self, AyuGramBackgroundNotifier.isEnabled else {
+            |> deliverOnMainQueue).startStrict(next: { [weak self, weak account] list in
+                guard let self, let account, AyuGramBackgroundNotifier.isEnabled else {
                     return
                 }
                 for (messages, _, notify, _) in list {
                     guard notify, let first = messages.first else {
                         continue
                     }
-                    self.post(accountId: id, accountPeerId: accountPeerId, message: EngineMessage(first), count: messages.count)
+                    self.post(account: account, accountId: id, accountPeerId: accountPeerId, message: EngineMessage(first), count: messages.count)
                 }
             }), forKey: id)
         }
         self.accountIds = ids
     }
 
-    private func post(accountId: AccountRecordId, accountPeerId: EnginePeer.Id, message: EngineMessage, count: Int) {
+    private func post(account: Account, accountId: AccountRecordId, accountPeerId: EnginePeer.Id, message: EngineMessage, count: Int) {
         guard let presentationData = self.presentationData() else {
             return
         }
@@ -369,6 +359,45 @@ final class AyuGramBackgroundNotifier {
             content.sound = .default
         }
         let identifier = "ayu-\(accountId.int64)-\(message.id.peerId.toInt64())-\(message.id.namespace)-\(message.id.id)"
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil), withCompletionHandler: nil)
+        let conversationId = "\(message.id.peerId.toInt64())"
+        guard let avatarPeer = chatPeer ?? message.author else {
+            self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: nil)
+            return
+        }
+        let avatar = peerAvatarCompleteImage(account: account, peer: avatarPeer, size: CGSize(width: 120.0, height: 120.0))
+        |> filter { $0 != nil }
+        |> take(1)
+        |> timeout(2.5, queue: Queue.mainQueue(), alternate: .single(nil))
+        |> deliverOnMainQueue
+        self.avatarDisposables.add(avatar.start(next: { [weak self] image in
+            self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: image)
+        }))
+    }
+
+    private func deliver(content: UNMutableNotificationContent, identifier: String, title: String, conversationId: String, avatar: UIImage?) {
+        var result: UNNotificationContent = content
+        if let data = avatar?.pngData() {
+            if AyuGramSecurity.allowsCommunicationNotifications {
+                let image = INImage(imageData: data)
+                var components = PersonNameComponents()
+                components.nickname = title
+                let sender = INPerson(personHandle: INPersonHandle(value: conversationId, type: .unknown), nameComponents: components, displayName: title, image: image, contactIdentifier: nil, customIdentifier: conversationId, isMe: false, suggestionType: .none)
+                let me = INPerson(personHandle: INPersonHandle(value: "0", type: .unknown), nameComponents: nil, displayName: nil, image: nil, contactIdentifier: nil, customIdentifier: nil, isMe: true, suggestionType: .none)
+                let intent = INSendMessageIntent(recipients: [me], outgoingMessageType: .outgoingMessageText, content: content.body, speakableGroupName: INSpeakableString(spokenPhrase: title), conversationIdentifier: conversationId, serviceName: nil, sender: sender, attachments: nil)
+                intent.setImage(image, forParameterNamed: \.sender)
+                let interaction = INInteraction(intent: intent, response: nil)
+                interaction.direction = .incoming
+                interaction.donate(completion: nil)
+                if let updated = try? content.updating(from: intent) {
+                    result = updated
+                }
+            } else {
+                let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ayu-avatar-" + identifier + ".png")
+                if (try? data.write(to: url)) != nil, let attachment = try? UNNotificationAttachment(identifier: "avatar", url: url, options: nil) {
+                    content.attachments = [attachment]
+                }
+            }
+        }
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: result, trigger: nil), withCompletionHandler: nil)
     }
 }
