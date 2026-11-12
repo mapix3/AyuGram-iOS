@@ -11,7 +11,7 @@ import SGSimpleSettings
 import SGStrings
 
 private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, reset }
-private enum AyuAppearanceToggle: Hashable { case enabled, motion, newYear, newYearAuto, particles, particlesInChats, garland }
+private enum AyuAppearanceToggle: Hashable { case enabled, motion, newYear, newYearAuto, particles, particlesInChats, seasonal, drift, fireworks, parallax }
 private enum AyuAppearanceSlider: Hashable { case dim, blur, rows, amount }
 private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind }
 private enum AyuAppearanceUnused: Hashable { case unused }
@@ -56,8 +56,17 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
         case .particlesInChats:
             AyuGramAppearance.shared.update { $0.particlesInChats = value }
             return
-        case .garland:
-            AyuGramAppearance.shared.update { $0.garland = value }
+        case .seasonal:
+            AyuGramAppearance.shared.update { $0.seasonal = value }
+            return
+        case .drift:
+            AyuGramAppearance.shared.update { $0.drift = value }
+            return
+        case .fireworks:
+            AyuGramAppearance.shared.update { $0.fireworks = value }
+            return
+        case .parallax:
+            AyuGramAppearance.shared.update { $0.parallax = value }
             return
         case .enabled, .motion:
             break
@@ -67,7 +76,7 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             case .enabled:
                 if scope == .chatList { settings.chatList = value } else { settings.conversations = value }
             case .motion: settings.animateVideo = value
-            case .newYear, .newYearAuto, .particles, .particlesInChats, .garland:
+            case .newYear, .newYearAuto, .particles, .particlesInChats, .seasonal, .drift, .fireworks, .parallax:
                 break
             }
         }
@@ -119,7 +128,7 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             ]
             let stored = AyuGramAppearance.shared.settings
             let effects = stored.effects
-            let kindKeys = ["Ayu.ParticlesSnow", "Ayu.ParticlesFlakes", "Ayu.ParticlesSakura", "Ayu.ParticlesStars"]
+            let kindKeys = ["Ayu.ParticlesSnow", "Ayu.ParticlesFlakes", "Ayu.ParticlesSakura", "Ayu.ParticlesStars", "Ayu.ParticlesLeaves", "Ayu.ParticlesRain"]
             let kindName = i18n(kindKeys[Int(min(Int32(kindKeys.count - 1), max(0, stored.particleKind ?? 0)))], locale)
             settingsEntries += [
                 .header(id: 11, section: .newYear, text: i18n("Ayu.NewYearHeader", locale), badge: nil),
@@ -130,9 +139,13 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
                 .toggle(id: 16, section: .effects, settingName: .particles, value: effects.particles, text: i18n("Ayu.Particles", locale), enabled: !effects.newYear),
                 .action(id: 17, section: .effects, actionType: .particleKind, text: i18n("Ayu.ParticlesKind", locale) + ": " + kindName, kind: .generic),
                 .toggle(id: 18, section: .effects, settingName: .particlesInChats, value: effects.inChats, text: i18n("Ayu.ParticlesInChats", locale), enabled: true),
-                .toggle(id: 19, section: .effects, settingName: .garland, value: effects.garland, text: i18n("Ayu.Garland", locale), enabled: !effects.newYear),
-                .header(id: 20, section: .amount, text: i18n("Ayu.ParticlesAmount", locale), badge: nil),
-                .rangedPercentageSlider(id: 21, section: .amount, settingName: .amount, value: Int32((effects.amount * 100).rounded()), minimum: 10, maximum: 100),
+                .toggle(id: 19, section: .effects, settingName: .seasonal, value: stored.seasonal == true, text: i18n("Ayu.ParticlesSeasonal", locale), enabled: true),
+                .toggle(id: 20, section: .effects, settingName: .drift, value: effects.drift, text: i18n("Ayu.SnowDrift", locale), enabled: !effects.newYear),
+                .toggle(id: 21, section: .effects, settingName: .fireworks, value: effects.fireworks, text: i18n("Ayu.Fireworks", locale), enabled: !effects.newYear),
+                .toggle(id: 22, section: .effects, settingName: .parallax, value: stored.parallax == true, text: i18n("Ayu.Parallax", locale), enabled: true),
+                .notice(id: 23, section: .effects, text: i18n("Ayu.EffectsInfo", locale)),
+                .header(id: 24, section: .amount, text: i18n("Ayu.ParticlesAmount", locale), badge: nil),
+                .rangedPercentageSlider(id: 25, section: .amount, settingName: .amount, value: Int32((effects.amount * 100).rounded()), minimum: 10, maximum: 100),
                 .disclosure(id: 30, section: .reset, link: .wallpaper, text: i18n("Ayu.ConversationBackground", locale))
             ]
         }

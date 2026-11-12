@@ -25,7 +25,10 @@ public struct AyuGramAppearanceSettings: Codable, Equatable {
     public var particleKind: Int32? = nil
     public var particleAmount: Float? = nil
     public var particlesInChats: Bool? = nil
-    public var garland: Bool? = nil
+    public var seasonal: Bool? = nil
+    public var drift: Bool? = nil
+    public var fireworks: Bool? = nil
+    public var parallax: Bool? = nil
     public var newYear: Bool? = nil
     public var newYearAuto: Bool? = nil
     public init() {}
@@ -36,12 +39,13 @@ public struct AyuGramEffectsState: Equatable {
     public var kind: Int32
     public var amount: Float
     public var inChats: Bool
-    public var garland: Bool
+    public var drift: Bool
+    public var fireworks: Bool
     public var newYear: Bool
 }
 
 public extension AyuGramAppearanceSettings {
-    static let particleKindCount: Int32 = 4
+    static let particleKindCount: Int32 = 6
 
     static func isNewYearSeason(_ date: Date = Date()) -> Bool {
         let components = Calendar(identifier: .gregorian).dateComponents([.month, .day], from: date)
@@ -51,14 +55,31 @@ public extension AyuGramAppearanceSettings {
         return (month == 12 && day >= 15) || (month == 1 && day <= 15)
     }
 
+    static func seasonalParticleKind(_ date: Date = Date()) -> Int32 {
+        let month = Calendar(identifier: .gregorian).dateComponents([.month], from: date).month ?? 1
+        switch month {
+        case 3, 4, 5:
+            return 2
+        case 6, 7, 8:
+            return 3
+        case 9, 10, 11:
+            return 4
+        default:
+            return 0
+        }
+    }
+
     var effects: AyuGramEffectsState {
         let newYear = self.newYear == true || (self.newYearAuto == true && AyuGramAppearanceSettings.isNewYearSeason())
         var kind = min(AyuGramAppearanceSettings.particleKindCount - 1, max(0, self.particleKind ?? 0))
+        if self.seasonal == true {
+            kind = AyuGramAppearanceSettings.seasonalParticleKind()
+        }
         if newYear && kind > 1 {
             kind = 0
         }
         let amount = min(1.0, max(0.1, self.particleAmount ?? 0.5))
-        return AyuGramEffectsState(particles: newYear || self.particles == true, kind: kind, amount: amount, inChats: self.particlesInChats ?? true, garland: newYear || self.garland == true, newYear: newYear)
+        return AyuGramEffectsState(particles: newYear || self.particles == true, kind: kind, amount: amount, inChats: self.particlesInChats ?? true, drift: newYear || self.drift == true, fireworks: newYear || self.fireworks == true, newYear: newYear)
     }
 }
 
@@ -171,7 +192,10 @@ public final class AyuGramAppearance {
                 settings.particleKind = previous.particleKind
                 settings.particleAmount = previous.particleAmount
                 settings.particlesInChats = previous.particlesInChats
-                settings.garland = previous.garland
+                settings.seasonal = previous.seasonal
+                settings.drift = previous.drift
+                settings.fireworks = previous.fireworks
+                settings.parallax = previous.parallax
                 settings.newYear = previous.newYear
                 settings.newYearAuto = previous.newYearAuto
             } else {

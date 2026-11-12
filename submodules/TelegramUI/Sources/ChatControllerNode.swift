@@ -2873,6 +2873,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         
         var apparentInputPanelFrame = inputPanelFrame
         let apparentSecondaryInputPanelFrame = secondaryInputPanelFrame
+        self.ayuEffects?.driftFrame = inputPanelFrame
         var apparentInputBackgroundFrame = inputBackgroundFrame
         var apparentNavigateButtonsFrame = navigateButtonsFrame
         if case let .media(_, maybeExpanded, _) = self.chatPresentationInterfaceState.inputMode, let expanded = maybeExpanded, case .search = expanded, let inputPanelFrame = inputPanelFrame {
@@ -5215,6 +5216,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         if let textInputPanelNode = self.textInputPanelNode {
             effectivePresentationInterfaceState = effectivePresentationInterfaceState.updatedInterfaceState { $0.withUpdatedEffectiveInputState(textInputPanelNode.inputTextState) }
         }
+        self.ayuEffects?.celebrateIfNeeded(text: effectivePresentationInterfaceState.interfaceState.effectiveInputState.inputText.string)
         
         if let _ = effectivePresentationInterfaceState.interfaceState.editMessage, effectivePresentationInterfaceState.interfaceState.postSuggestionState == nil {
             self.interfaceInteraction?.editMessage()

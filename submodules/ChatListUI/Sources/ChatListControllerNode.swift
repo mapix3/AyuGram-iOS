@@ -1977,7 +1977,6 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         self.containerLayout = (layout, navigationBarHeight, visualNavigationHeight, cleanNavigationBarHeight, storiesInset)
         if let effects = self.ayuEffects {
             effects.frame = CGRect(origin: .zero, size: layout.size)
-            effects.garlandTop = max(0.0, cleanNavigationBarHeight - 4.0)
             self.view.bringSubviewToFront(effects)
         }
 

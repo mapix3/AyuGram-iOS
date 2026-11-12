@@ -50,6 +50,7 @@ public final class AyuGramBackdropView: UIView {
         renderer?.stop()
     }
     public func reload() {
+        applyParallax()
         let settings = AyuGramAppearance.shared.effectiveSettings(for: scope)
         let enabled = scope == .chatList ? settings.chatList : settings.conversations
         let nextURL = enabled ? AyuGramAppearance.shared.mediaURL(for: scope) : nil
@@ -151,9 +152,33 @@ public final class AyuGramBackdropView: UIView {
         imageView.isHidden = settings.isVideo && playing && videoReady
     }
     public override func didMoveToWindow() { super.didMoveToWindow(); updatePlayback() }
+    private var parallaxApplied = false
+    private func applyParallax() {
+        let enabled = AyuGramAppearance.shared.settings.parallax == true && !UIAccessibility.isReduceMotionEnabled
+        if enabled == parallaxApplied {
+            return
+        }
+        parallaxApplied = enabled
+        for effect in imageView.motionEffects {
+            imageView.removeMotionEffect(effect)
+        }
+        if enabled {
+            let horizontal = UIInterpolatingMotionEffect(keyPath: "center.x", type: .tiltAlongHorizontalAxis)
+            horizontal.minimumRelativeValue = -20.0
+            horizontal.maximumRelativeValue = 20.0
+            let vertical = UIInterpolatingMotionEffect(keyPath: "center.y", type: .tiltAlongVerticalAxis)
+            vertical.minimumRelativeValue = -20.0
+            vertical.maximumRelativeValue = 20.0
+            let group = UIMotionEffectGroup()
+            group.motionEffects = [horizontal, vertical]
+            imageView.addMotionEffect(group)
+        }
+        setNeedsLayout()
+    }
     public override func layoutSubviews() {
         super.layoutSubviews()
-        imageView.frame = bounds
+        applyParallax()
+        imageView.frame = parallaxApplied ? bounds.insetBy(dx: -24.0, dy: -24.0) : bounds
         blurView.frame = bounds
         dimView.frame = bounds
         rowTintView.frame = bounds
