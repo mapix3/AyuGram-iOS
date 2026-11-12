@@ -3256,7 +3256,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                 } else {
                     if let (peerId, threadId) = peerIdFromNotification(response.notification) {
                         var messageId: MessageId? = nil
-                        if response.notification.request.content.categoryIdentifier == "c" || response.notification.request.content.categoryIdentifier == "t" {
+                        if response.notification.request.content.categoryIdentifier == "c" || response.notification.request.content.categoryIdentifier == "ayu-c" || response.notification.request.content.categoryIdentifier == "t" {
                             messageId = messageIdFromNotification(peerId: peerId, notification: response.notification)
                         }
                         let storyId = storyIdFromNotification(peerId: peerId, notification: response.notification)
@@ -3264,6 +3264,12 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                     }
                 }
                 completionHandler()
+            } else if response.actionIdentifier == AyuGramBackgroundNotifier.pictureActionIdentifier {
+                if let notifier = AyuGramBackgroundNotifier.current {
+                    notifier.loadPicture(notification: response.notification, completion: completionHandler)
+                } else {
+                    completionHandler()
+                }
             } else if response.actionIdentifier == "reply", let (peerId, threadId) = peerIdFromNotification(response.notification), let accountId = accountId {
                 guard let response = response as? UNTextInputNotificationResponse, !response.userText.isEmpty else {
                     completionHandler()
@@ -3374,6 +3380,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                         if result {
                             Queue.mainQueue().async {
                                 let reply = UNTextInputNotificationAction(identifier: "reply", title: replyString, options: [], textInputButtonTitle: replyString, textInputPlaceholder: messagePlaceholderString)
+                                let ayuPicture = UNNotificationAction(identifier: AyuGramBackgroundNotifier.pictureActionIdentifier, title: AyuGramBackgroundNotifier.pictureActionTitle, options: [])
                                                                     
                                 let unknownMessageCategory: UNNotificationCategory
                                 let repliableMessageCategory: UNNotificationCategory
@@ -3416,7 +3423,10 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                                     groupRepliableMediaMessageCategory,
                                     storyCategory,
                                     storyReactionCategory,
-                                    callUnlockVideoCategory
+                                    callUnlockVideoCategory,
+                                    UNNotificationCategory(identifier: "ayu-r", actions: [reply, ayuPicture], intentIdentifiers: [], hiddenPreviewsBodyPlaceholder: hiddenContentString, options: carPlayOptions),
+                                    UNNotificationCategory(identifier: "ayu-gr", actions: [reply, ayuPicture], intentIdentifiers: [], hiddenPreviewsBodyPlaceholder: hiddenContentString, options: carPlayOptions),
+                                    UNNotificationCategory(identifier: "ayu-c", actions: [ayuPicture], intentIdentifiers: [], hiddenPreviewsBodyPlaceholder: hiddenContentString, options: options)
                                 ])
                                 
                                 Logger.shared.log("App \(self.episodeId)", "register for notifications: invoke registerForRemoteNotifications")
