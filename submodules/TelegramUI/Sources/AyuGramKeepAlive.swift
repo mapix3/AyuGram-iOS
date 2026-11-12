@@ -355,7 +355,7 @@ final class AyuGramBackgroundNotifier {
             "messageId.namespace": message.id.namespace,
             "messageId.id": message.id.id
         ]
-        if let threadId = message.threadId {
+        if let threadId = message.threadId, case let .channel(channel) = chatPeer, channel.isForumOrMonoForum {
             userInfo["threadId"] = threadId
         }
         content.userInfo = userInfo
