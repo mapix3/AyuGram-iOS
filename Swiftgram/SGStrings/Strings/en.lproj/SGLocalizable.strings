@@ -452,6 +452,7 @@
 "Ayu.DeletedSectionGroups" = "Groups";
 "Ayu.DeletedSectionChannels" = "Channels";
 "Ayu.DeletedSearch" = "Search by chat, username or text";
+"Ayu.DeletedSearchText" = "Search in deleted messages";
 "Ayu.DeletedSearchEmpty" = "Nothing found.";
 "Ayu.ViewDeletedInfo" = "Chats with deleted messages kept on this device. Open one to read its deleted messages or the whole chat.";
 "Ayu.ViewDeletedEmpty" = "No deleted messages yet.";

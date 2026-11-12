@@ -192,6 +192,9 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
                 (controller.navigationController as? NavigationController)?.pushViewController(selection)
             })
         case let .chatOptions(id):
+            let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: PeerId(id))) |> deliverOnMainQueue).startStandalone(next: { [weak controller] peer in
+            let viewer = ayuGramDeletedChatViewer(context: context, peerId: PeerId(id), title: peer?.debugDisplayTitle ?? "\(id)", more: { viewer in
+            let controller = viewer
             let sheet = ActionSheetController(presentationData: data)
             sheet.setItemGroups([
                 ActionSheetItemGroup(items: [
@@ -211,6 +214,9 @@ public func ayuGramHistoryController(context: AccountContext, messageId: Message
                 ActionSheetItemGroup(items: [ActionSheetButtonItem(title: data.strings.Common_Cancel, color: .accent, action: { [weak sheet] in sheet?.dismissAnimated() })])
             ])
             controller.present(sheet, in: .window(.root))
+            })
+            (controller?.navigationController as? NavigationController)?.pushViewController(viewer)
+            })
         case .deletedChats:
             let _ = (context.engine.ayuGramHistoryPolicy() |> take(1) |> deliverOnMainQueue).startStandalone(next: { [weak controller] current, _ in
                 (controller?.navigationController as? NavigationController)?.pushViewController(ayuGramDeletedChatsController(context: context, onlyPeers: Set(current.selectedChats)))

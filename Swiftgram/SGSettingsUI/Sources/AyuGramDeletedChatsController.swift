@@ -187,9 +187,12 @@ func ayuGramDeletedChatsController(context: AccountContext, onlyPeers: Set<Int64
     let controller = ItemListController(context: context, state: signal)
     openImpl = { [weak controller] chat, peer in
         guard let controller else { return }
+        let peerId = EnginePeer.Id(chat.peerId)
+        let chatTitle = peer?.debugDisplayTitle ?? chat.title
+        let viewer = ayuGramDeletedChatViewer(context: context, peerId: peerId, title: chatTitle.isEmpty ? "\(chat.peerId)" : chatTitle, more: { viewer in
+        let controller = viewer
         let data = context.sharedContext.currentPresentationData.with { $0 }
         let locale = data.strings.baseLanguageCode
-        let peerId = EnginePeer.Id(chat.peerId)
         let sheet = ActionSheetController(presentationData: data)
         var items: [ActionSheetItem] = []
         if peer != nil {
@@ -198,10 +201,6 @@ func ayuGramDeletedChatsController(context: AccountContext, onlyPeers: Set<Int64
                 context.sharedContext.navigateToChat(accountId: context.account.id, peerId: peerId, messageId: nil)
             }))
         }
-        items.append(ActionSheetButtonItem(title: i18n("Ayu.ViewDeleted", locale), color: .accent, action: { [weak sheet, weak controller] in
-            sheet?.dismissAnimated()
-            (controller?.navigationController as? NavigationController)?.pushViewController(ayuGramHistoryController(context: context, deletedIn: peerId))
-        }))
         items.append(ActionSheetButtonItem(title: i18n("Ayu.DeletedChatSave", locale), color: .accent, action: { [weak sheet, weak controller] in
             sheet?.dismissAnimated()
             let _ = (context.engine.ayuGramDeletedChatMessages(peerId: peerId) |> deliverOnMainQueue).startStandalone(next: { messages in
@@ -213,15 +212,17 @@ func ayuGramDeletedChatsController(context: AccountContext, onlyPeers: Set<Int64
             })
         }))
         if !keptMessages {
-            items.append(ActionSheetButtonItem(title: i18n("Ayu.DeletedChatRemove", locale), color: .accent, action: { [weak sheet] in
+            items.append(ActionSheetButtonItem(title: i18n("Ayu.DeletedChatRemove", locale), color: .accent, action: { [weak sheet, weak controller] in
                 sheet?.dismissAnimated()
                 let _ = context.engine.ayuGramForgetDeletedChat(peerId: peerId, deleteMessages: false).startStandalone()
+                let _ = (controller?.navigationController as? NavigationController)?.popViewController(animated: true)
             }))
         }
-        items.append(ActionSheetButtonItem(title: i18n("Ayu.DeletedChatDelete", locale), color: .destructive, action: { [weak sheet] in
+        items.append(ActionSheetButtonItem(title: i18n("Ayu.DeletedChatDelete", locale), color: .destructive, action: { [weak sheet, weak controller] in
             sheet?.dismissAnimated()
             let _ = (context.engine.ayuGramForgetDeletedChat(peerId: peerId, deleteMessages: true) |> deliverOnMainQueue).startStandalone(completed: {
                 reload.set(0)
+                let _ = (controller?.navigationController as? NavigationController)?.popViewController(animated: true)
             })
         }))
         sheet.setItemGroups([
@@ -229,6 +230,8 @@ func ayuGramDeletedChatsController(context: AccountContext, onlyPeers: Set<Int64
             ActionSheetItemGroup(items: [ActionSheetButtonItem(title: data.strings.Common_Cancel, color: .accent, action: { [weak sheet] in sheet?.dismissAnimated() })])
         ])
         controller.present(sheet, in: .window(.root))
+        })
+        (controller.navigationController as? NavigationController)?.pushViewController(viewer)
     }
     return controller
 }
