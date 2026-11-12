@@ -231,6 +231,9 @@ final class AyuGramBackgroundNotifier {
     private let disposables = DisposableDict<AccountRecordId>()
     private var accountIds = Set<AccountRecordId>()
     private let avatarDisposables = DisposableSet()
+    private let readDisposables = DisposableDict<AccountRecordId>()
+    private var accounts: [AccountRecordId: Account] = [:]
+    private var pending: [AccountRecordId: [EnginePeer.Id: [(identifier: String, index: EngineMessage.Index)]]] = [:]
 
     init(presentationData: @escaping () -> PresentationData?) {
         self.presentationData = presentationData
@@ -240,6 +243,7 @@ final class AyuGramBackgroundNotifier {
     deinit {
         self.disposables.dispose()
         self.avatarDisposables.dispose()
+        self.readDisposables.dispose()
     }
 
     private static var usesBark: Bool {
@@ -276,6 +280,12 @@ final class AyuGramBackgroundNotifier {
         let ids = Set(accounts.map { $0.0 })
         for id in self.accountIds.subtracting(ids) {
             self.disposables.set(nil, forKey: id)
+            self.readDisposables.set(nil, forKey: id)
+            self.accounts[id] = nil
+            self.pending[id] = nil
+        }
+        for (id, account) in accounts {
+            self.accounts[id] = account
         }
         for (id, account) in accounts where !self.accountIds.contains(id) {
             let accountPeerId = account.peerId
@@ -358,7 +368,8 @@ final class AyuGramBackgroundNotifier {
         if !isSilent {
             content.sound = .default
         }
-        let identifier = "ayu-\(accountId.int64)-\(message.id.peerId.toInt64())-\(message.id.namespace)-\(message.id.id)"
+        let identifier = "m\(message.id.peerId.toInt64()):\(message.id.namespace):\(message.id.id)_\(accountId.int64)"
+        self.track(accountId: accountId, peerId: message.id.peerId, identifier: identifier, index: message.index)
         let conversationId = "\(message.id.peerId.toInt64())"
         guard let avatarPeer = chatPeer ?? message.author else {
             self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: nil)
@@ -372,6 +383,44 @@ final class AyuGramBackgroundNotifier {
         self.avatarDisposables.add(avatar.start(next: { [weak self] image in
             self?.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: image)
         }))
+    }
+
+    private func track(accountId: AccountRecordId, peerId: EnginePeer.Id, identifier: String, index: EngineMessage.Index) {
+        var peers = self.pending[accountId] ?? [:]
+        let isNewPeer = peers[peerId] == nil
+        var list = peers[peerId] ?? []
+        list.append((identifier: identifier, index: index))
+        if list.count > 100 {
+            list.removeFirst(list.count - 100)
+        }
+        peers[peerId] = list
+        self.pending[accountId] = peers
+        guard isNewPeer, let account = self.accounts[accountId] else {
+            return
+        }
+        let items = peers.keys.map { TelegramEngine.EngineData.Item.Messages.PeerReadCounters(id: $0) }
+        self.readDisposables.set((TelegramEngine(account: account).data.subscribe(EngineDataMap(items))
+        |> deliverOnMainQueue).startStrict(next: { [weak self] counters in
+            guard let self, var peers = self.pending[accountId] else {
+                return
+            }
+            var removed: [String] = []
+            for (peerId, counter) in counters {
+                guard let list = peers[peerId] else {
+                    continue
+                }
+                let remaining = list.filter { !counter.isIncomingMessageIndexRead($0.index) }
+                if remaining.count == list.count {
+                    continue
+                }
+                removed.append(contentsOf: list.filter { counter.isIncomingMessageIndexRead($0.index) }.map { $0.identifier })
+                peers[peerId] = remaining.isEmpty ? nil : remaining
+            }
+            if !removed.isEmpty {
+                self.pending[accountId] = peers
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: removed)
+            }
+        }), forKey: accountId)
     }
 
     private func deliver(content: UNMutableNotificationContent, identifier: String, title: String, conversationId: String, avatar: UIImage?) {
@@ -392,7 +441,7 @@ final class AyuGramBackgroundNotifier {
                     result = updated
                 }
             } else {
-                let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ayu-avatar-" + identifier + ".png")
+                let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ayu-avatar-" + identifier.replacingOccurrences(of: ":", with: "-") + ".png")
                 if (try? data.write(to: url)) != nil, let attachment = try? UNNotificationAttachment(identifier: "avatar", url: url, options: nil) {
                     content.attachments = [attachment]
                 }
