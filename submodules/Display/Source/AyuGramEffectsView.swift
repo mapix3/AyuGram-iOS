@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 import SGSimpleSettings
 
 private final class AyuGramDisplayLinkTarget: NSObject {
@@ -55,6 +56,38 @@ private final class AyuGramChunk {
         self.position = position
         self.velocity = velocity
         self.life = life
+    }
+}
+
+private final class AyuGramTouchObserver: UIGestureRecognizer, UIGestureRecognizerDelegate {
+    var onTouch: ((CGPoint) -> Void)?
+
+    override init(target: Any?, action: Selector?) {
+        super.init(target: target, action: action)
+
+        self.cancelsTouchesInView = false
+        self.delaysTouchesBegan = false
+        self.delaysTouchesEnded = false
+        self.delegate = self
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        if let touch = touches.first, let view = self.view {
+            self.onTouch?(touch.location(in: view))
+        }
+        self.state = .failed
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return false
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return false
     }
 }
 
@@ -201,9 +234,22 @@ public final class AyuGramEffectsView: UIView {
         })
     }
 
+    private weak var touchObserver: AyuGramTouchObserver?
+
     public override func didMoveToWindow() {
         super.didMoveToWindow()
 
+        if let window = self.window, self.touchObserver?.view !== window {
+            if let previous = self.touchObserver {
+                previous.view?.removeGestureRecognizer(previous)
+            }
+            let observer = AyuGramTouchObserver(target: nil, action: nil)
+            observer.onTouch = { [weak self] point in
+                self?.touched(at: point)
+            }
+            window.addGestureRecognizer(observer)
+            self.touchObserver = observer
+        }
         self.reload()
     }
 
@@ -597,7 +643,7 @@ public final class AyuGramEffectsView: UIView {
                 }
                 pile.heights = heights
             }
-            if !item.isTabBar && surface.width > 120.0 {
+            if !item.isTabBar && surface.width > 120.0 && surface.minY > self.bounds.height * 0.5 {
                 pile.icicles = self.makeIcicles(surface: surface)
             }
             self.layer.addSublayer(pile.container)
@@ -667,7 +713,9 @@ public final class AyuGramEffectsView: UIView {
         } else {
             start = radius * 0.32
         }
-        let edge = min(x, surface.width - x) - start
+        let maxDepth: CGFloat = 2.5
+        let drape = radius - sqrt(max(0.0, radius * radius - (radius - maxDepth) * (radius - maxDepth)))
+        let edge = min(x, surface.width - x) - max(start, drape)
         if edge <= 0.0 {
             return 0.0
         }
@@ -731,36 +779,55 @@ public final class AyuGramEffectsView: UIView {
             guard speed > 90.0 else {
                 continue
             }
-            let fraction = min(0.85, speed / 1400.0)
-            let columns = pile.heights.count
-            let step = surface.width / CGFloat(max(1, columns - 1))
-            let surfaceVelocityX = dx / max(dt, 0.001)
-            let surfaceVelocityY = dy / max(dt, 0.001)
-            var column = 0
-            while column < columns {
-                let removed = pile.heights[column] * fraction
-                if removed > 0.6 {
-                    let x = surface.minX + CGFloat(column) * step
-                    let y = surface.minY + AyuGramEffectsView.baseOffset(x: x, surface: surface) - pile.heights[column] * 0.5
-                    let velocity = CGPoint(x: surfaceVelocityX * 0.35 + CGFloat.random(in: -40.0 ... 40.0), y: min(0.0, surfaceVelocityY) * 0.2 - CGFloat.random(in: 20.0 ... 90.0))
-                    self.addCrumb(at: CGPoint(x: x, y: y), velocity: velocity, size: min(7.0, 2.0 + removed * 0.8))
-                }
-                column += 5
+            self.shed(pile: pile, surface: surface, fraction: min(0.85, speed / 1400.0), velocity: CGPoint(x: dx / max(dt, 0.001), y: dy / max(dt, 0.001)), breakIcicles: speed > 160.0)
+        }
+    }
+
+    private func shed(pile: AyuGramSnowPile, surface: CGRect, fraction: CGFloat, velocity: CGPoint, breakIcicles: Bool) {
+        let columns = pile.heights.count
+        let step = surface.width / CGFloat(max(1, columns - 1))
+        var column = 0
+        while column < columns {
+            let removed = pile.heights[column] * fraction
+            if removed > 0.6 {
+                let x = surface.minX + CGFloat(column) * step
+                let y = surface.minY + AyuGramEffectsView.baseOffset(x: x, surface: surface) - pile.heights[column] * 0.5
+                let crumbVelocity = CGPoint(x: velocity.x * 0.35 + CGFloat.random(in: -40.0 ... 40.0), y: min(0.0, velocity.y) * 0.2 - CGFloat.random(in: 20.0 ... 90.0))
+                self.addCrumb(at: CGPoint(x: x, y: y), velocity: crumbVelocity, size: min(7.0, 2.0 + removed * 0.8))
             }
-            for column in 0 ..< columns {
-                pile.heights[column] *= (1.0 - fraction)
+            column += 5
+        }
+        for column in 0 ..< columns {
+            pile.heights[column] *= (1.0 - fraction)
+        }
+        if breakIcicles {
+            for icicle in pile.icicles.indices where pile.icicles[icicle].length > 1.5 {
+                let item = pile.icicles[icicle]
+                let chunk = AyuGramChunk(kind: .crumb, position: CGPoint(x: surface.minX + item.position, y: surface.maxY + item.length / 2.0), velocity: CGPoint(x: CGFloat.random(in: -15.0 ... 15.0), y: CGFloat.random(in: 0.0 ... 40.0)), life: 2.0)
+                chunk.layer.backgroundColor = UIColor(red: 0.9, green: 0.95, blue: 1.0, alpha: 0.85).cgColor
+                chunk.layer.bounds = CGRect(x: 0.0, y: 0.0, width: item.width * 0.7, height: item.length)
+                chunk.layer.cornerRadius = item.width * 0.35
+                self.addChunk(chunk)
+                pile.icicles[icicle].length = 0.0
             }
-            if speed > 160.0 {
-                for icicle in pile.icicles.indices where pile.icicles[icicle].length > 1.5 {
-                    let item = pile.icicles[icicle]
-                    let chunk = AyuGramChunk(kind: .crumb, position: CGPoint(x: surface.minX + item.position, y: surface.maxY + item.length / 2.0), velocity: CGPoint(x: CGFloat.random(in: -15.0 ... 15.0), y: CGFloat.random(in: 0.0 ... 40.0)), life: 2.0)
-                    chunk.layer.backgroundColor = UIColor(red: 0.9, green: 0.95, blue: 1.0, alpha: 0.85).cgColor
-                    chunk.layer.bounds = CGRect(x: 0.0, y: 0.0, width: item.width * 0.7, height: item.length)
-                    chunk.layer.cornerRadius = item.width * 0.35
-                    self.addChunk(chunk)
-                    pile.icicles[icicle].length = 0.0
-                }
+            pile.stillTime = 0.0
+        }
+    }
+
+    fileprivate func touched(at windowPoint: CGPoint) {
+        guard self.showsPiles, let window = self.window else {
+            return
+        }
+        let point = self.convert(windowPoint, from: window)
+        for item in self.lastSurfaces {
+            guard let pile = self.piles[item.key] else {
+                continue
             }
+            let area = item.rect.insetBy(dx: -10.0, dy: -10.0).union(CGRect(x: item.rect.minX, y: item.rect.minY - self.capacity(for: item.rect) - 6.0, width: item.rect.width, height: 1.0))
+            guard area.contains(point) else {
+                continue
+            }
+            self.shed(pile: pile, surface: item.rect, fraction: 1.0, velocity: CGPoint(x: 0.0, y: 0.0), breakIcicles: true)
         }
     }
 
@@ -800,6 +867,12 @@ public final class AyuGramEffectsView: UIView {
             let columns = pile.heights.count
             guard columns > 2 else {
                 continue
+            }
+            for column in 0 ..< columns {
+                let limit = self.limit(column: column, columns: columns, surface: surface)
+                if pile.heights[column] > limit * 1.3 {
+                    pile.heights[column] = limit * 1.3
+                }
             }
             var smoothed = pile.heights
             for _ in 0 ..< 3 {
