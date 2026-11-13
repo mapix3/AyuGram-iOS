@@ -116,6 +116,8 @@ private final class AyuGramSnowPile {
     var heights: [CGFloat] = []
     var icicles: [AyuGramIcicle] = []
     var previousFrame: CGRect?
+    var renderedFrame: CGRect?
+    var renderCountdown = 0
     var stillTime: CGFloat = 0.0
     let container = CALayer()
     let gradient = CAGradientLayer()
@@ -162,6 +164,7 @@ public final class AyuGramEffectsView: UIView {
     private var piles: [Int: AyuGramSnowPile] = [:]
     private var tracked: [AyuGramWeakView] = []
     private var scanTimer: CGFloat = 0.0
+    private var settleCounter = 0
     private var frontTimer: CGFloat = 0.0
     private var chunks: [AyuGramChunk] = []
     private var lastTimestamp: CFTimeInterval = 0.0
@@ -358,7 +361,7 @@ public final class AyuGramEffectsView: UIView {
         case 4:
             maximum = 26.0
         default:
-            maximum = 110.0
+            maximum = 90.0
         }
         return max(6, Int((maximum * amount).rounded()))
     }
@@ -385,7 +388,7 @@ public final class AyuGramEffectsView: UIView {
             return
         }
         for _ in 0 ..< count {
-            let variant = kind == 0 && Double.random(in: 0.0 ... 1.0) < 0.38 ? 1 : 0
+            let variant = kind == 0 && Double.random(in: 0.0 ... 1.0) < 0.0 ? 1 : 0
             var flake = self.makeFlake(kind: kind, variant: variant, width: size.width)
             flake.y = CGFloat.random(in: -20.0 ... max(0.0, size.height))
             self.flakes.append(flake)
@@ -425,8 +428,8 @@ public final class AyuGramEffectsView: UIView {
                 let size = CGFloat.random(in: 5.0 ... 8.0)
                 return AyuGramFlake(x: x, y: -size, speed: CGFloat.random(in: 34.0 ... 56.0), size: size, swayAmplitude: CGFloat.random(in: 4.0 ... 12.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.45), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: CGFloat.random(in: 0.0 ... 6.28), spin: CGFloat.random(in: -0.6 ... 0.6), alpha: Float.random(in: 0.75 ... 1.0), twinkle: 0.0, lastSway: 0.0)
             }
-            let size = CGFloat.random(in: 2.0 ... 3.6)
-            return AyuGramFlake(x: x, y: -size, speed: 26.0 + size * 7.0 + CGFloat.random(in: 0.0 ... 8.0), size: size, swayAmplitude: CGFloat.random(in: 4.0 ... 12.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.5), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: 0.0, spin: 0.0, alpha: Float(0.6 + size / 3.6 * 0.4), twinkle: 0.0, lastSway: 0.0)
+            let size = CGFloat.random(in: 1.2 ... 2.8)
+            return AyuGramFlake(x: x, y: -size, speed: 22.0 + size * 9.0 + CGFloat.random(in: 0.0 ... 8.0), size: size, swayAmplitude: CGFloat.random(in: 4.0 ... 12.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.5), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: 0.0, spin: 0.0, alpha: Float(0.35 + size / 2.8 * 0.55), twinkle: 0.0, lastSway: 0.0)
         }
     }
 
@@ -456,7 +459,7 @@ public final class AyuGramEffectsView: UIView {
         if self.showsPiles {
             self.scanTimer -= dt
             if self.scanTimer <= 0.0 {
-                self.scanTimer = 0.35
+                self.scanTimer = 1.2
                 self.scanSurfaces()
             }
             surfaces = self.currentSurfaces(size: size)
@@ -519,7 +522,10 @@ public final class AyuGramEffectsView: UIView {
         }
 
         if self.showsPiles {
-            self.settlePiles(dt: dt, snowing: self.showsParticles)
+            self.settleCounter += 1
+            if self.settleCounter % 4 == 0 {
+                self.settlePiles(dt: dt * 4.0, snowing: self.showsParticles)
+            }
             self.renderPiles(surfaces: surfaces)
             self.updateSnowman(surfaces: surfaces, dt: dt)
         }
@@ -664,9 +670,9 @@ public final class AyuGramEffectsView: UIView {
                 pile.heights = AyuGramEffectsView.resample(kept, to: columns)
             } else {
                 var heights = (0 ..< columns).map { column -> CGFloat in
-                    return self.limit(column: column, columns: columns, surface: surface) * CGFloat.random(in: 0.49 ... 0.61)
+                    return self.limit(column: column, columns: columns, surface: surface) * CGFloat.random(in: 0.3 ... 0.8)
                 }
-                for _ in 0 ..< 4 {
+                for _ in 0 ..< 2 {
                     var pass = heights
                     for column in 1 ..< columns - 1 {
                         pass[column] = heights[column - 1] * 0.25 + heights[column] * 0.5 + heights[column + 1] * 0.25
@@ -813,6 +819,7 @@ public final class AyuGramEffectsView: UIView {
     }
 
     private func shed(pile: AyuGramSnowPile, surface: CGRect, fraction: CGFloat, velocity: CGPoint, breakIcicles: Bool) {
+        pile.renderCountdown = 0
         let columns = pile.heights.count
         let step = surface.width / CGFloat(max(1, columns - 1))
         var column = 0
@@ -871,13 +878,13 @@ public final class AyuGramEffectsView: UIView {
             for column in 1 ..< count - 1 {
                 let slopeLeft = pile.heights[column] - pile.heights[column - 1]
                 let slopeRight = pile.heights[column] - pile.heights[column + 1]
-                if slopeLeft > 0.9 {
-                    let moved = (slopeLeft - 0.9) * 0.25 * rate
+                if slopeLeft > 1.5 {
+                    let moved = (slopeLeft - 1.5) * 0.25 * rate
                     next[column] -= moved
                     next[column - 1] += moved
                 }
-                if slopeRight > 0.9 {
-                    let moved = (slopeRight - 0.9) * 0.25 * rate
+                if slopeRight > 1.5 {
+                    let moved = (slopeRight - 1.5) * 0.25 * rate
                     next[column] -= moved
                     next[column + 1] += moved
                 }
@@ -897,6 +904,12 @@ public final class AyuGramEffectsView: UIView {
             guard columns > 2 else {
                 continue
             }
+            if pile.renderedFrame == surface && pile.renderCountdown > 0 {
+                pile.renderCountdown -= 1
+                continue
+            }
+            pile.renderedFrame = surface
+            pile.renderCountdown = 8
             for column in 0 ..< columns {
                 let limit = self.limit(column: column, columns: columns, surface: surface)
                 if pile.heights[column] > limit * 1.3 {
@@ -904,7 +917,7 @@ public final class AyuGramEffectsView: UIView {
                 }
             }
             var smoothed = pile.heights
-            for _ in 0 ..< 3 {
+            for _ in 0 ..< 1 {
                 var pass = smoothed
                 for column in 1 ..< columns - 1 {
                     pass[column] = smoothed[column - 1] * 0.25 + smoothed[column] * 0.5 + smoothed[column + 1] * 0.25
@@ -963,9 +976,6 @@ public final class AyuGramEffectsView: UIView {
                 pile.icicleLayer.frame = self.bounds
                 pile.icicleLayer.path = icicles.cgPath
             }
-        }
-        if !self.piles.isEmpty {
-            self.storePiles()
         }
     }
 
