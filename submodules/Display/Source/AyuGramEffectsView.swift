@@ -50,7 +50,7 @@ private final class AyuGramChunk {
     var velocity: CGPoint
     var life: CGFloat
     let kind: Kind
-    var gravity: CGFloat = 900.0
+    var gravity: CGFloat = 1800.0
 
     init(kind: Kind, position: CGPoint, velocity: CGPoint, life: CGFloat) {
         self.kind = kind
@@ -131,11 +131,11 @@ private final class AyuGramSnowPile {
         self.container.shadowRadius = 2.0
         self.container.shadowOffset = CGSize(width: 0.0, height: 1.0)
         self.gradient.colors = [
-            UIColor(white: 1.0, alpha: 1.0).cgColor,
-            UIColor(red: 0.97, green: 0.98, blue: 1.0, alpha: 1.0).cgColor,
-            UIColor(red: 0.84, green: 0.88, blue: 0.95, alpha: 1.0).cgColor
+            UIColor(red: 0.975, green: 0.982, blue: 0.995, alpha: 1.0).cgColor,
+            UIColor(red: 0.925, green: 0.94, blue: 0.965, alpha: 1.0).cgColor,
+            UIColor(red: 0.82, green: 0.86, blue: 0.93, alpha: 1.0).cgColor
         ]
-        self.gradient.locations = [0.0, 0.55, 1.0]
+        self.gradient.locations = [0.0, 0.35, 1.0]
         self.gradient.mask = self.mask
         self.icicleLayer.fillColor = UIColor(red: 0.93, green: 0.96, blue: 1.0, alpha: 0.88).cgColor
         self.icicleLayer.strokeColor = UIColor(red: 0.7, green: 0.8, blue: 0.95, alpha: 0.55).cgColor
@@ -361,7 +361,7 @@ public final class AyuGramEffectsView: UIView {
         case 4:
             maximum = 26.0
         default:
-            maximum = 90.0
+            maximum = 250.0
         }
         return max(6, Int((maximum * amount).rounded()))
     }
@@ -388,7 +388,7 @@ public final class AyuGramEffectsView: UIView {
             return
         }
         for _ in 0 ..< count {
-            let variant = kind == 0 && Double.random(in: 0.0 ... 1.0) < 0.0 ? 1 : 0
+            let variant = kind == 0 && Double.random(in: 0.0 ... 1.0) < 0.02 ? 1 : 0
             var flake = self.makeFlake(kind: kind, variant: variant, width: size.width)
             flake.y = CGFloat.random(in: -20.0 ... max(0.0, size.height))
             self.flakes.append(flake)
@@ -425,11 +425,12 @@ public final class AyuGramEffectsView: UIView {
             return AyuGramFlake(x: x, y: -20.0, speed: CGFloat.random(in: 520.0 ... 720.0), size: 1.2, swayAmplitude: 0.0, swayFrequency: 0.0, phase: 0.0, rotation: 0.0, spin: 0.0, alpha: Float.random(in: 0.25 ... 0.5), twinkle: 0.0, lastSway: 0.0)
         default:
             if variant == 1 {
-                let size = CGFloat.random(in: 5.0 ... 8.0)
-                return AyuGramFlake(x: x, y: -size, speed: CGFloat.random(in: 34.0 ... 56.0), size: size, swayAmplitude: CGFloat.random(in: 4.0 ... 12.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.45), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: CGFloat.random(in: 0.0 ... 6.28), spin: CGFloat.random(in: -0.6 ... 0.6), alpha: Float.random(in: 0.75 ... 1.0), twinkle: 0.0, lastSway: 0.0)
+                let size = CGFloat.random(in: 8.0 ... 13.0)
+                return AyuGramFlake(x: x, y: -size, speed: CGFloat.random(in: 75.0 ... 100.0), size: size, swayAmplitude: CGFloat.random(in: 10.0 ... 20.0), swayFrequency: CGFloat.random(in: 0.5 ... 1.4), phase: CGFloat.random(in: 0.0 ... 62.8), rotation: 1.0, spin: 0.0, alpha: 0.28, twinkle: 0.0, lastSway: 0.0)
             }
-            let size = CGFloat.random(in: 1.2 ... 2.8)
-            return AyuGramFlake(x: x, y: -size, speed: 22.0 + size * 9.0 + CGFloat.random(in: 0.0 ... 8.0), size: size, swayAmplitude: CGFloat.random(in: 4.0 ... 12.0), swayFrequency: CGFloat.random(in: 0.2 ... 0.5), phase: CGFloat.random(in: 0.0 ... 6.28), rotation: 0.0, spin: 0.0, alpha: Float(0.35 + size / 2.8 * 0.55), twinkle: 0.0, lastSway: 0.0)
+            let depth = pow(CGFloat.random(in: 0.0 ... 1.0), 1.6)
+            let size = 1.4 + depth * 4.4 + CGFloat.random(in: 0.0 ... 1.0)
+            return AyuGramFlake(x: x, y: -size, speed: 16.0 + depth * 50.0 + CGFloat.random(in: 0.0 ... 10.0), size: size, swayAmplitude: CGFloat.random(in: 4.0 ... 9.0) + depth * 10.0, swayFrequency: CGFloat.random(in: 0.5 ... 1.4), phase: CGFloat.random(in: 0.0 ... 62.8), rotation: depth, spin: 0.0, alpha: Float(0.4 + depth * 0.5), twinkle: 0.0, lastSway: 0.0)
         }
     }
 
@@ -468,14 +469,27 @@ public final class AyuGramEffectsView: UIView {
         }
         self.lastSurfaces = surfaces
         let wind = sin(self.time * 0.13) * 6.0 + sin(self.time * 0.41) * 2.5
+        let breeze = 10.0 * sin(self.time * 0.07) + 6.0 * sin(self.time * 0.19 + 1.7) + 3.0 * sin(self.time * 0.43 + 4.1)
         let kind = self.currentKind
 
         for index in self.flakes.indices {
             var flake = self.flakes[index]
             let sway = flake.swayAmplitude * sin(self.time * flake.swayFrequency * 2.0 * .pi + flake.phase)
             let previousY = flake.y
-            flake.y += flake.speed * dt
-            if kind == 5 {
+            if kind == 0 {
+                flake.phase += flake.swayFrequency * dt
+                if flake.phase > 20.0 * .pi {
+                    flake.phase -= 20.0 * .pi
+                }
+                let drift = (cos(flake.phase) + 0.3 * cos(flake.phase * 2.3)) * flake.swayAmplitude
+                let flutter = 1.0 + 0.12 * sin(flake.phase * 1.3)
+                flake.x += (breeze * (0.35 + 0.65 * flake.rotation) + drift) * dt
+                flake.y += flake.speed * flutter * dt
+            } else {
+                flake.y += flake.speed * dt
+            }
+            if kind == 0 {
+            } else if kind == 5 {
                 flake.x += flake.speed * 0.12 * dt
             } else {
                 flake.x += wind * dt * (flake.size / 6.0 + 0.4) + (sway - flake.lastSway)
@@ -484,14 +498,14 @@ public final class AyuGramEffectsView: UIView {
             flake.rotation += flake.spin * dt
 
             var landed = false
-            if self.showsPiles {
+            if self.showsPiles && self.flakeVariants[index] == 0 {
                 for item in surfaces where flake.x > item.rect.minX + 2.0 && flake.x < item.rect.maxX - 2.0 {
                     guard let pile = self.piles[item.key] else {
                         continue
                     }
                     let top = self.pileTop(pile: pile, surface: item.rect, x: flake.x)
                     if previousY <= top && flake.y >= top {
-                        let volume = self.flakeVariants[index] == 1 ? flake.size * 0.22 : flake.size * 0.3
+                        let volume = kind == 0 ? flake.size * flake.size * 1.1 : flake.size * flake.size * 0.25
                         self.deposit(pile: pile, surface: item.rect, x: flake.x, amount: volume)
                         landed = true
                         break
@@ -543,9 +557,9 @@ public final class AyuGramEffectsView: UIView {
             return 6.5
         }
         if surface.width > 200.0 {
-            return 10.5
+            return 9.0
         }
-        return 8.5
+        return 7.5
     }
 
     private static func name(of view: UIView) -> String {
@@ -742,28 +756,13 @@ public final class AyuGramEffectsView: UIView {
     }
 
     private func limit(column: Int, columns: Int, surface: CGRect) -> CGFloat {
-        let cap = self.capacity(for: surface)
-        let x = CGFloat(column) / CGFloat(max(1, columns - 1)) * surface.width
-        let radius = min(surface.height, surface.width) / 2.0
-        let start: CGFloat
-        if surface.width < surface.height * 1.4 {
-            start = surface.width * 0.16
-        } else {
-            start = radius * 0.32
-        }
-        let maxDepth: CGFloat = 2.5
-        let drape = radius - sqrt(max(0.0, radius * radius - (radius - maxDepth) * (radius - maxDepth)))
-        let edge = min(x, surface.width - x) - max(start, drape)
-        if edge <= 0.0 {
+        let x = surface.minX + CGFloat(column) / CGFloat(max(1, columns - 1)) * surface.width
+        if AyuGramEffectsView.baseOffset(x: x, surface: surface) > 3.0 {
             return 0.0
         }
-        if edge >= cap {
-            return cap
-        }
-        let t = 1.0 - edge / cap
-        return cap * sqrt(max(0.0, 1.0 - t * t))
+        let drift = 0.12 * sin(x * 0.0105 + surface.minY) + 0.07 * sin(x * 0.037 + surface.minY * 1.7)
+        return self.capacity(for: surface) * (0.95 + drift)
     }
-
     private func column(for x: CGFloat, surface: CGRect, columns: Int) -> Int {
         let position = (x - surface.minX) / max(1.0, surface.width) * CGFloat(columns - 1)
         return min(columns - 1, max(0, Int(position.rounded())))
@@ -776,16 +775,20 @@ public final class AyuGramEffectsView: UIView {
     private func deposit(pile: AyuGramSnowPile, surface: CGRect, x: CGFloat, amount: CGFloat) {
         let columns = pile.heights.count
         let center = self.column(for: x, surface: surface, columns: columns)
-        for offset in -4 ... 4 {
-            let column = center + offset
-            if column < 0 || column >= columns {
-                continue
-            }
-            let weight = exp(-CGFloat(offset * offset) / 6.0)
-            let limit = self.limit(column: column, columns: columns, surface: surface)
-            let current = pile.heights[column]
-            pile.heights[column] = max(current, min(limit, current + amount * weight * 0.35))
+        let limit = self.limit(column: center, columns: columns, surface: surface)
+        guard limit > 0.0 else {
+            return
         }
+        let fill = max(0.0, 1.0 - pile.heights[center] / limit)
+        let value = amount * fill / AyuGramEffectsView.columnWidth
+        let kernel: [(Int, CGFloat)] = [(-2, 0.0625), (-1, 0.25), (0, 0.375), (1, 0.25), (2, 0.0625)]
+        for (offset, weight) in kernel {
+            let column = center + offset
+            if column >= 0 && column < columns {
+                pile.heights[column] += value * weight
+            }
+        }
+        pile.renderCountdown = min(pile.renderCountdown, 2)
     }
     private func handleMotion(surfaces: [AyuGramSurface], dt: CGFloat) {
         for item in surfaces {
@@ -868,32 +871,79 @@ public final class AyuGramEffectsView: UIView {
     }
 
     private func settlePiles(dt: CGFloat, snowing: Bool) {
-        let rate = min(1.0, dt * 6.0)
-        for pile in self.piles.values {
-            let count = pile.heights.count
-            guard count > 2 else {
+        let repose: CGFloat = 0.8 * AyuGramEffectsView.columnWidth
+        let rounding: CGFloat = 0.15
+        for item in self.lastSurfaces {
+            guard let pile = self.piles[item.key] else {
                 continue
             }
-            var next = pile.heights
-            for column in 1 ..< count - 1 {
-                let slopeLeft = pile.heights[column] - pile.heights[column - 1]
-                let slopeRight = pile.heights[column] - pile.heights[column + 1]
-                if slopeLeft > 1.5 {
-                    let moved = (slopeLeft - 1.5) * 0.25 * rate
-                    next[column] -= moved
-                    next[column - 1] += moved
-                }
-                if slopeRight > 1.5 {
-                    let moved = (slopeRight - 1.5) * 0.25 * rate
-                    next[column] -= moved
-                    next[column + 1] += moved
+            let count = pile.heights.count
+            guard count > 3 else {
+                continue
+            }
+            let surface = item.rect
+            let step = surface.width / CGFloat(count - 1)
+            var bed: [CGFloat] = []
+            bed.reserveCapacity(count)
+            for column in 0 ..< count {
+                bed.append(-AyuGramEffectsView.baseOffset(x: surface.minX + CGFloat(column) * step, surface: surface))
+            }
+            var h = pile.heights
+            var moved = false
+            for pass in 0 ..< 6 {
+                let forward = pass % 2 == 0
+                for k in 0 ..< count - 1 {
+                    let i = forward ? k : count - 2 - k
+                    let difference = (bed[i] + h[i]) - (bed[i + 1] + h[i + 1])
+                    if difference > repose + 0.01 {
+                        let transfer = min((difference - repose) * 0.5, h[i])
+                        h[i] -= transfer
+                        h[i + 1] += transfer
+                        if transfer > 0.0 {
+                            moved = true
+                        }
+                    } else if difference < -repose - 0.01 {
+                        let transfer = min((-difference - repose) * 0.5, h[i + 1])
+                        h[i + 1] -= transfer
+                        h[i] += transfer
+                        if transfer > 0.0 {
+                            moved = true
+                        }
+                    }
                 }
             }
-            let melt: CGFloat = snowing ? 0.0 : dt * 0.04
-            pile.heights = next.map { max(0.0, $0 - melt) }
+            for i in 1 ..< count - 2 {
+                let s0 = bed[i - 1] + h[i - 1]
+                let s1 = bed[i] + h[i]
+                let s2 = bed[i + 1] + h[i + 1]
+                let s3 = bed[i + 2] + h[i + 2]
+                let kink = (s1 - s2) - 0.5 * ((s0 - s1) + (s2 - s3))
+                if abs(kink) <= 0.02 {
+                    continue
+                }
+                let transfer = kink > 0.0 ? min(kink * rounding, h[i]) : max(kink * rounding, -h[i + 1])
+                h[i] -= transfer
+                h[i + 1] += transfer
+                if abs(transfer) > 0.003 {
+                    moved = true
+                }
+            }
+            for column in 0 ..< count where bed[column] < -3.0 && h[column] > 0.0 {
+                h[column] = 0.0
+                moved = true
+            }
+            if !snowing {
+                for column in 0 ..< count where h[column] > 0.0 {
+                    h[column] = max(0.0, h[column] - (0.02 + max(0.0, h[column] - 4.0) / 30.0) * dt)
+                }
+                moved = true
+            }
+            pile.heights = h
+            if moved {
+                pile.renderCountdown = min(pile.renderCountdown, 2)
+            }
         }
     }
-
     private func renderPiles(surfaces: [AyuGramSurface]) {
         for item in surfaces {
             guard let pile = self.piles[item.key] else {
@@ -1297,18 +1347,10 @@ public final class AyuGramEffectsView: UIView {
                 }
                 context.strokePath()
             case 6:
-                context.setStrokeColor(UIColor.white.cgColor)
-                context.setLineWidth(1.5)
-                context.setLineCap(.round)
-                let radius = side / 2.0 - 1.0
-                for index in 0 ..< 3 {
-                    let angle = CGFloat(index) * CGFloat.pi / 3.0 + CGFloat.pi / 2.0
-                    context.move(to: CGPoint(x: center.x - cos(angle) * radius, y: center.y - sin(angle) * radius))
-                    context.addLine(to: CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius))
+                let colors = [UIColor(white: 1.0, alpha: 0.9).cgColor, UIColor(red: 0.8, green: 0.86, blue: 0.96, alpha: 0.0).cgColor] as CFArray
+                if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0.0, 1.0]) {
+                    context.drawRadialGradient(gradient, startCenter: center, startRadius: 0.0, endCenter: center, endRadius: side / 2.0, options: [])
                 }
-                context.strokePath()
-                context.setFillColor(UIColor.white.cgColor)
-                context.fillEllipse(in: CGRect(x: center.x - 1.4, y: center.y - 1.4, width: 2.8, height: 2.8))
             case 2:
                 context.translateBy(x: center.x, y: center.y)
                 context.rotate(by: CGFloat.pi / 5.0)
@@ -1341,8 +1383,8 @@ public final class AyuGramEffectsView: UIView {
                     context.drawLinearGradient(gradient, start: CGPoint(x: 1.0, y: 0.0), end: CGPoint(x: 1.0, y: canvas.height), options: [])
                 }
             default:
-                let colors = [UIColor(white: 1.0, alpha: 1.0).cgColor, UIColor(white: 1.0, alpha: 0.9).cgColor, UIColor(white: 1.0, alpha: 0.0).cgColor] as CFArray
-                if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0.0, 0.55, 1.0]) {
+                let colors = [UIColor(red: 0.965, green: 0.975, blue: 0.995, alpha: 1.0).cgColor, UIColor(red: 0.85, green: 0.89, blue: 0.95, alpha: 0.85).cgColor, UIColor(red: 0.62, green: 0.67, blue: 0.77, alpha: 0.0).cgColor] as CFArray
+                if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0.0, 0.5, 1.0]) {
                     context.drawRadialGradient(gradient, startCenter: center, startRadius: 0.0, endCenter: center, endRadius: side / 2.0, options: [])
                 }
             }
