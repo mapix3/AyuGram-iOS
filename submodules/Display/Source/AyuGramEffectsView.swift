@@ -118,6 +118,31 @@ private final class AyuGramSnowPile {
     var previousFrame: CGRect?
     var renderedFrame: CGRect?
     var renderCountdown = 0
+    let detailLayer = CALayer()
+    var litter: [CALayer] = []
+    var sparkles: [(layer: CALayer, fraction: CGFloat)] = []
+
+    func addLitter(image: CGImage, scale: CGFloat, x: CGFloat, lift: CGFloat, size: CGFloat, rotation: CGFloat) {
+        let layer = CALayer()
+        layer.contents = image
+        layer.contentsScale = scale
+        layer.contentsGravity = .resizeAspect
+        layer.bounds = CGRect(x: 0.0, y: 0.0, width: size, height: size)
+        layer.position = CGPoint(x: x + CGFloat.random(in: -1.5 ... 1.5), y: lift - CGFloat.random(in: 0.0 ... 4.0))
+        layer.setAffineTransform(CGAffineTransform(rotationAngle: rotation))
+        self.detailLayer.addSublayer(layer)
+        self.litter.append(layer)
+        if self.litter.count > 70 {
+            self.litter.removeFirst().removeFromSuperlayer()
+        }
+    }
+
+    func clearLitter() {
+        for layer in self.litter {
+            layer.removeFromSuperlayer()
+        }
+        self.litter = []
+    }
     var stillTime: CGFloat = 0.0
     let container = CALayer()
     let gradient = CAGradientLayer()
@@ -142,6 +167,24 @@ private final class AyuGramSnowPile {
         self.icicleLayer.lineWidth = 0.5
         self.container.addSublayer(self.gradient)
         self.container.addSublayer(self.icicleLayer)
+        self.container.addSublayer(self.detailLayer)
+        for index in 0 ..< 3 {
+            let sparkle = CALayer()
+            sparkle.backgroundColor = UIColor.white.cgColor
+            sparkle.bounds = CGRect(x: 0.0, y: 0.0, width: 1.6, height: 1.6)
+            sparkle.cornerRadius = 0.8
+            sparkle.opacity = 0.0
+            let twinkle = CAKeyframeAnimation(keyPath: "opacity")
+            twinkle.values = [0.0, 0.0, 1.0, 0.0, 0.0]
+            twinkle.keyTimes = [0.0, 0.42, 0.5, 0.58, 1.0]
+            twinkle.duration = 3.5 + Double(index) * 1.3
+            twinkle.beginTime = CACurrentMediaTime() + Double.random(in: 0.0 ... 3.0)
+            twinkle.repeatCount = Float.infinity
+            twinkle.isRemovedOnCompletion = false
+            sparkle.add(twinkle, forKey: "twinkle")
+            self.detailLayer.addSublayer(sparkle)
+            self.sparkles.append((sparkle, CGFloat.random(in: 0.15 ... 0.85)))
+        }
     }
 }
 
@@ -157,6 +200,10 @@ public final class AyuGramEffectsView: UIView {
     private var flakes: [AyuGramFlake] = []
     private var flakeLayers: [CALayer] = []
     private var flakeVariants: [Int] = []
+    private var flakeKinds: [Int32] = []
+    private var kindImages: [Int32: [CGImage]] = [:]
+    private var currentSecond: Int32 = -1
+    private var snowSettles = true
     private var currentKind: Int32 = -1
     private var currentCount = 0
     private var flakeImages: [CGImage] = []
@@ -301,18 +348,21 @@ public final class AyuGramEffectsView: UIView {
         if let previewKind = self.previewKind {
             state.kind = previewKind
             state.particles = true
-            state.drift = state.drift && (previewKind == 0 || previewKind == 1)
+            state.secondKind = -1
         }
         let size = self.bounds.size
         let hasSize = size.width > 0.0 && size.height > 0.0
         let active = hasSize && self.window != nil && !self.isPaused
         self.showsParticles = active && state.particles
-        self.showsPiles = self.showsParticles && state.drift && (state.kind == 0 || state.kind == 1)
+        let second: Int32 = state.secondKind == state.kind ? -1 : state.secondKind
+        let settling: Set<Int32> = [0, 1, 2, 4]
+        self.showsPiles = self.showsParticles && state.drift && (settling.contains(state.kind) || settling.contains(second))
+        self.snowSettles = state.kind == 0 || state.kind == 1 || second == 0 || second == 1
 
         if self.showsParticles {
             let count = AyuGramEffectsView.flakeCount(kind: state.kind, amount: state.amount)
-            if state.kind != self.currentKind || count != self.currentCount {
-                self.rebuildFlakes(kind: state.kind, count: count, size: size)
+            if state.kind != self.currentKind || second != self.currentSecond || count != self.currentCount {
+                self.rebuildFlakes(kind: state.kind, second: second, count: count, size: size)
             }
         } else if !self.flakes.isEmpty {
             self.removeFlakes()
@@ -373,32 +423,107 @@ public final class AyuGramEffectsView: UIView {
         self.flakeLayers = []
         self.flakes = []
         self.flakeVariants = []
+        self.flakeKinds = []
         self.currentKind = -1
+        self.currentSecond = -1
         self.currentCount = 0
     }
 
-    private func rebuildFlakes(kind: Int32, count: Int, size: CGSize) {
+    private static func images(kind: Int32) -> [UIImage] {
+        switch kind {
+        case 0:
+            return [AyuGramEffectsView.particleImage(kind: 0), AyuGramEffectsView.particleImage(kind: 6)]
+        case 2:
+            return [
+                AyuGramEffectsView.pieceImage(leaf: false, color: UIColor(red: 1.0, green: 0.76, blue: 0.85, alpha: 1.0)),
+                AyuGramEffectsView.pieceImage(leaf: false, color: UIColor(red: 1.0, green: 0.62, blue: 0.76, alpha: 1.0)),
+                AyuGramEffectsView.pieceImage(leaf: false, color: UIColor(red: 1.0, green: 0.88, blue: 0.92, alpha: 1.0))
+            ]
+        case 4:
+            return [
+                AyuGramEffectsView.pieceImage(leaf: true, color: UIColor(red: 0.93, green: 0.5, blue: 0.14, alpha: 1.0)),
+                AyuGramEffectsView.pieceImage(leaf: true, color: UIColor(red: 0.8, green: 0.22, blue: 0.12, alpha: 1.0)),
+                AyuGramEffectsView.pieceImage(leaf: true, color: UIColor(red: 0.96, green: 0.74, blue: 0.2, alpha: 1.0)),
+                AyuGramEffectsView.pieceImage(leaf: true, color: UIColor(red: 0.55, green: 0.33, blue: 0.14, alpha: 1.0))
+            ]
+        default:
+            return [AyuGramEffectsView.particleImage(kind: kind)]
+        }
+    }
+
+    private static func pieceImage(leaf: Bool, color: UIColor) -> UIImage {
+        let side: CGFloat = 24.0
+        let format = UIGraphicsImageRendererFormat()
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image(actions: { rendererContext in
+            let context = rendererContext.cgContext
+            context.translateBy(x: side / 2.0, y: side / 2.0)
+            context.rotate(by: leaf ? -CGFloat.pi / 4.0 : CGFloat.pi / 5.0)
+            context.setFillColor(color.cgColor)
+            if leaf {
+                let length = side * 0.42
+                let width = side * 0.2
+                context.move(to: CGPoint(x: -length, y: 0.0))
+                context.addQuadCurve(to: CGPoint(x: length, y: 0.0), control: CGPoint(x: 0.0, y: -width * 2.0))
+                context.addQuadCurve(to: CGPoint(x: -length, y: 0.0), control: CGPoint(x: 0.0, y: width * 2.0))
+                context.closePath()
+                context.fillPath()
+                context.setStrokeColor(UIColor(white: 0.0, alpha: 0.18).cgColor)
+                context.setLineWidth(0.8)
+                context.move(to: CGPoint(x: -length, y: 0.0))
+                context.addLine(to: CGPoint(x: length, y: 0.0))
+                context.strokePath()
+            } else {
+                context.move(to: CGPoint(x: -side * 0.42, y: 0.0))
+                context.addQuadCurve(to: CGPoint(x: side * 0.42, y: -side * 0.04), control: CGPoint(x: 0.0, y: -side * 0.42))
+                context.addQuadCurve(to: CGPoint(x: -side * 0.42, y: 0.0), control: CGPoint(x: side * 0.05, y: side * 0.34))
+                context.closePath()
+                context.fillPath()
+            }
+        })
+    }
+
+    private func rebuildFlakes(kind: Int32, second: Int32, count: Int, size: CGSize) {
         self.removeFlakes()
         self.currentKind = kind
+        self.currentSecond = second
         self.currentCount = count
-        let images = kind == 0 ? [AyuGramEffectsView.particleImage(kind: 0), AyuGramEffectsView.particleImage(kind: 6)] : [AyuGramEffectsView.particleImage(kind: kind)]
-        self.flakeImages = images.compactMap { $0.cgImage }
-        self.flakeScale = images.first?.scale ?? 1.0
-        guard !self.flakeImages.isEmpty else {
-            return
+        self.kindImages = [:]
+        var kinds: [Int32] = [kind]
+        if second >= 0 {
+            kinds.append(second)
         }
-        for _ in 0 ..< count {
-            let variant = kind == 0 && Double.random(in: 0.0 ... 1.0) < 0.02 ? 1 : 0
-            var flake = self.makeFlake(kind: kind, variant: variant, width: size.width)
+        for item in kinds {
+            let images = AyuGramEffectsView.images(kind: item)
+            self.flakeScale = images.first?.scale ?? 1.0
+            self.kindImages[item] = images.compactMap { $0.cgImage }
+        }
+        for index in 0 ..< count {
+            let flakeKind = kinds[index % kinds.count]
+            guard let images = self.kindImages[flakeKind], !images.isEmpty else {
+                continue
+            }
+            let perKind = max(6, AyuGramEffectsView.flakeCount(kind: flakeKind, amount: AyuGramAppearance.shared.effects.amount) / kinds.count)
+            if index / kinds.count >= perKind {
+                continue
+            }
+            let variant: Int
+            if flakeKind == 0 {
+                variant = Double.random(in: 0.0 ... 1.0) < 0.02 ? 1 : 0
+            } else {
+                variant = Int.random(in: 0 ..< images.count)
+            }
+            var flake = self.makeFlake(kind: flakeKind, variant: variant, width: size.width)
             flake.y = CGFloat.random(in: -20.0 ... max(0.0, size.height))
             self.flakes.append(flake)
             self.flakeVariants.append(variant)
+            self.flakeKinds.append(flakeKind)
             let layer = CALayer()
-            layer.contents = self.flakeImages[min(variant, self.flakeImages.count - 1)]
+            layer.contents = images[min(variant, images.count - 1)]
             layer.contentsScale = self.flakeScale
             layer.contentsGravity = .resizeAspect
             layer.zPosition = 6.0
-            layer.bounds = CGRect(origin: CGPoint(), size: CGSize(width: flake.size, height: kind == 5 ? 18.0 : flake.size))
+            layer.bounds = CGRect(origin: CGPoint(), size: CGSize(width: flake.size, height: flakeKind == 5 ? 18.0 : flake.size))
             layer.opacity = flake.alpha
             layer.position = CGPoint(x: flake.x, y: flake.y)
             self.layer.addSublayer(layer)
@@ -470,9 +595,8 @@ public final class AyuGramEffectsView: UIView {
         self.lastSurfaces = surfaces
         let wind = sin(self.time * 0.13) * 6.0 + sin(self.time * 0.41) * 2.5
         let breeze = 10.0 * sin(self.time * 0.07) + 6.0 * sin(self.time * 0.19 + 1.7) + 3.0 * sin(self.time * 0.43 + 4.1)
-        let kind = self.currentKind
-
         for index in self.flakes.indices {
+            let kind = self.flakeKinds[index]
             var flake = self.flakes[index]
             let sway = flake.swayAmplitude * sin(self.time * flake.swayFrequency * 2.0 * .pi + flake.phase)
             let previousY = flake.y
@@ -498,15 +622,23 @@ public final class AyuGramEffectsView: UIView {
             flake.rotation += flake.spin * dt
 
             var landed = false
-            if self.showsPiles && self.flakeVariants[index] == 0 {
+            if self.showsPiles && (kind == 0 ? self.flakeVariants[index] == 0 : (kind == 1 || kind == 2 || kind == 4)) {
                 for item in surfaces where flake.x > item.rect.minX + 2.0 && flake.x < item.rect.maxX - 2.0 {
                     guard let pile = self.piles[item.key] else {
                         continue
                     }
                     let top = self.pileTop(pile: pile, surface: item.rect, x: flake.x)
                     if previousY <= top && flake.y >= top {
-                        let volume = kind == 0 ? flake.size * flake.size * 1.1 : flake.size * flake.size * 0.25
-                        self.deposit(pile: pile, surface: item.rect, x: flake.x, amount: volume)
+                        if kind == 2 || kind == 4 {
+                            if self.limit(column: self.column(for: flake.x, surface: item.rect, columns: pile.heights.count), columns: pile.heights.count, surface: item.rect) > 0.0, let images = self.kindImages[kind], !images.isEmpty {
+                                pile.addLitter(image: images[min(self.flakeVariants[index], images.count - 1)], scale: self.flakeScale, x: flake.x - item.rect.minX, lift: top - item.rect.minY, size: flake.size * 0.85, rotation: flake.rotation)
+                            } else {
+                                break
+                            }
+                        } else {
+                            let volume = kind == 0 ? flake.size * flake.size * 1.1 : flake.size * flake.size * 0.25
+                            self.deposit(pile: pile, surface: item.rect, x: flake.x, amount: volume)
+                        }
                         landed = true
                         break
                     }
@@ -538,7 +670,7 @@ public final class AyuGramEffectsView: UIView {
         if self.showsPiles {
             self.settleCounter += 1
             if self.settleCounter % 4 == 0 {
-                self.settlePiles(dt: dt * 4.0, snowing: self.showsParticles)
+                self.settlePiles(dt: dt * 4.0, snowing: self.showsParticles && self.snowSettles)
             }
             self.renderPiles(surfaces: surfaces)
             self.updateSnowman(surfaces: surfaces, dt: dt)
@@ -684,7 +816,7 @@ public final class AyuGramEffectsView: UIView {
                 pile.heights = AyuGramEffectsView.resample(kept, to: columns)
             } else {
                 var heights = (0 ..< columns).map { column -> CGFloat in
-                    return self.limit(column: column, columns: columns, surface: surface) * CGFloat.random(in: 0.3 ... 0.8)
+                    return self.snowSettles ? self.limit(column: column, columns: columns, surface: surface) * CGFloat.random(in: 0.3 ... 0.8) : 0.0
                 }
                 for _ in 0 ..< 2 {
                     var pass = heights
@@ -823,6 +955,9 @@ public final class AyuGramEffectsView: UIView {
 
     private func shed(pile: AyuGramSnowPile, surface: CGRect, fraction: CGFloat, velocity: CGPoint, breakIcicles: Bool) {
         pile.renderCountdown = 0
+        if fraction >= 0.99 {
+            pile.clearLitter()
+        }
         let columns = pile.heights.count
         let step = surface.width / CGFloat(max(1, columns - 1))
         var column = 0
@@ -1009,6 +1144,13 @@ public final class AyuGramEffectsView: UIView {
             shifted.apply(CGAffineTransform(translationX: -frame.minX, y: -frame.minY))
             pile.mask.frame = CGRect(origin: CGPoint(), size: frame.size)
             pile.mask.path = shifted.cgPath
+            pile.detailLayer.bounds = CGRect()
+            pile.detailLayer.position = surface.origin
+            for sparkle in pile.sparkles {
+                let column = min(columns - 1, max(0, Int(sparkle.fraction * CGFloat(columns - 1))))
+                sparkle.layer.isHidden = smoothed[column] < 2.5
+                sparkle.layer.position = CGPoint(x: tops[column].x - surface.minX, y: tops[column].y - surface.minY + 1.4)
+            }
 
             if pile.icicles.isEmpty {
                 pile.icicleLayer.path = nil

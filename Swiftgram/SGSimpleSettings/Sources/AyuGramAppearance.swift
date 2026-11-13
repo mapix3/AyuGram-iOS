@@ -23,6 +23,7 @@ public struct AyuGramAppearanceSettings: Codable, Equatable {
     public var animateVideo = true
     public var particles: Bool? = nil
     public var particleKind: Int32? = nil
+    public var particleKind2: Int32? = nil
     public var particleAmount: Float? = nil
     public var particlesInChats: Bool? = nil
     public var seasonal: Bool? = nil
@@ -37,6 +38,7 @@ public struct AyuGramAppearanceSettings: Codable, Equatable {
 public struct AyuGramEffectsState: Equatable {
     public var particles: Bool
     public var kind: Int32
+    public var secondKind: Int32
     public var amount: Float
     public var inChats: Bool
     public var drift: Bool
@@ -76,7 +78,7 @@ public extension AyuGramAppearanceSettings {
             kind = AyuGramAppearanceSettings.seasonalParticleKind()
         }
         let amount = min(1.0, max(0.1, self.particleAmount ?? 0.5))
-        return AyuGramEffectsState(particles: newYear || self.particles == true, kind: kind, amount: amount, inChats: self.particlesInChats ?? true, drift: newYear || self.drift == true, fireworks: newYear || self.fireworks == true, newYear: newYear)
+        return AyuGramEffectsState(particles: newYear || self.particles == true, kind: kind, secondKind: min(AyuGramAppearanceSettings.particleKindCount - 1, max(-1, self.particleKind2 ?? -1)), amount: amount, inChats: self.particlesInChats ?? true, drift: newYear || self.drift == true, fireworks: newYear || self.fireworks == true, newYear: newYear)
     }
 }
 
@@ -187,6 +189,7 @@ public final class AyuGramAppearance {
                 settings.conversations = conversations
                 settings.particles = previous.particles
                 settings.particleKind = previous.particleKind
+                settings.particleKind2 = previous.particleKind2
                 settings.particleAmount = previous.particleAmount
                 settings.particlesInChats = previous.particlesInChats
                 settings.seasonal = previous.seasonal

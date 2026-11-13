@@ -13,7 +13,7 @@ import SGStrings
 private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, reset }
 private enum AyuAppearanceToggle: Hashable { case enabled, motion, newYear, newYearAuto, particles, particlesInChats, seasonal, drift, fireworks, parallax }
 private enum AyuAppearanceSlider: Hashable { case dim, blur, rows, amount }
-private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind, selectKind(Int32), previewKind(Int32) }
+private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind, particleMix, selectKind(Int32), previewKind(Int32) }
 private enum AyuAppearanceUnused: Hashable { case unused }
 private typealias AyuAppearanceSettingEntry = SGItemListUIEntry<AyuAppearanceSection, AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>
 private enum AyuAppearanceEntry: ItemListNodeEntry {
@@ -120,6 +120,11 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
         case .reset: AyuGramAppearance.shared.reset(scope: scope)
         case .particleKind:
             kindsExpanded.set(!kindsExpandedValue)
+        case .particleMix:
+            AyuGramAppearance.shared.update { settings in
+                let current = settings.particleKind2 ?? -1
+                settings.particleKind2 = current + 1 >= AyuGramAppearanceSettings.particleKindCount ? -1 : current + 1
+            }
         case let .selectKind(kind):
             AyuGramAppearance.shared.update { settings in
                 if kind < 0 {
@@ -169,6 +174,7 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
                 .header(id: 15, section: .effects, text: i18n("Ayu.EffectsHeader", locale), badge: nil),
                 .toggle(id: 16, section: .effects, settingName: .particles, value: effects.particles, text: i18n("Ayu.Particles", locale), enabled: !effects.newYear),
                 .action(id: 17, section: .effects, actionType: .particleKind, text: i18n("Ayu.ParticlesKind", locale) + ": " + kindName + (expanded ? "  ▴" : "  ▾"), kind: .generic),
+                .action(id: 27, section: .effects, actionType: .particleMix, text: i18n("Ayu.ParticlesMix", locale) + ": " + ((stored.particleKind2 ?? -1) < 0 ? i18n("Ayu.ParticlesMixNone", locale) : i18n(kindKeys[Int(min(Int32(kindKeys.count - 1), stored.particleKind2 ?? 0))], locale)), kind: .generic),
                 .toggle(id: 40, section: .effects, settingName: .drift, value: effects.drift, text: i18n("Ayu.SnowDrift", locale), enabled: !effects.newYear),
                 .toggle(id: 41, section: .effects, settingName: .fireworks, value: effects.fireworks, text: i18n("Ayu.Fireworks", locale), enabled: !effects.newYear),
                 .toggle(id: 42, section: .effects, settingName: .parallax, value: stored.parallax == true, text: i18n("Ayu.Parallax", locale), enabled: true),

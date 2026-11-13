@@ -437,7 +437,9 @@
 "Ayu.ParticlesRain" = "Rain";
 "Ayu.ParticlesSeasonal" = "Match the season";
 "Ayu.ParticlesHoldHint" = "Hold an option to preview it.";
-"Ayu.SnowDrift" = "Snowdrifts and snowman";
+"Ayu.ParticlesMix" = "Mix with";
+"Ayu.ParticlesMixNone" = "None";
+"Ayu.SnowDrift" = "Snowdrifts, leaf piles and snowman";
 "Ayu.Fireworks" = "Fireworks";
 "Ayu.Parallax" = "Background parallax";
 "Ayu.EffectsInfo" = "Fireworks go off when you send 🎄, 🎆, 🎉 or a New Year greeting. A snowman builds itself on the tab bar when the snow there is deep enough: tap him to knock him down. Parallax moves your custom background as you tilt the phone.";
