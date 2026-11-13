@@ -274,7 +274,10 @@ final class AyuGramBackgroundNotifier {
         let _ = semaphore.wait(timeout: .now() + 1.0)
     }
 
-    func update(accounts: [(AccountRecordId, Account)]) {
+    private var primaryId: AccountRecordId?
+
+    func update(primary: AccountRecordId?, accounts: [(AccountRecordId, Account)]) {
+        self.primaryId = primary
         let ids = Set(accounts.map { $0.0 })
         for id in self.accountIds.subtracting(ids) {
             self.disposables.set(nil, forKey: id)
@@ -292,7 +295,7 @@ final class AyuGramBackgroundNotifier {
                 guard let self, let account else {
                     return
                 }
-                let enabled = AyuGramBackgroundNotifier.isEnabled
+                let enabled = AyuGramBackgroundNotifier.isEnabled || id != self.primaryId
                 for (rawMessages, _, notify, _) in list {
                     let messages = rawMessages.map { EngineMessage($0) }
                     guard notify, let first = messages.first else {
