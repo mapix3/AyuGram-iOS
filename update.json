@@ -1,10 +1,10 @@
 {
-  "build": 211501,
-  "version": "13.2 (211501)",
+  "build": 211601,
+  "version": "13.2 (211601)",
   "url": "https://t.me/ayugramiosupdates",
   "ipa": {
-    "standard": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-211501/AyuGram-standard-211501.ipa",
-    "custom": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-211501/AyuGram-custom-211501.ipa"
+    "standard": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-211601/AyuGram-standard-211601.ipa",
+    "custom": "https://github.com/mapix3/AyuGram-iOS/releases/download/build-211601/AyuGram-custom-211601.ipa"
   },
   "block": {
     "teams": [],
