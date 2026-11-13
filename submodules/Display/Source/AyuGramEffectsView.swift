@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import AsyncDisplayKit
 import UIKit.UIGestureRecognizerSubclass
 import SGSimpleSettings
 
@@ -101,11 +102,13 @@ private final class AyuGramWeakView {
     weak var view: UIView?
     let key: Int
     let isTabBar: Bool
+    let isChrome: Bool
 
-    init(view: UIView, isTabBar: Bool) {
+    init(view: UIView, isTabBar: Bool, isChrome: Bool) {
         self.view = view
         self.key = ObjectIdentifier(view).hashValue
         self.isTabBar = isTabBar
+        self.isChrome = isChrome
     }
 }
 
@@ -539,26 +542,38 @@ public final class AyuGramEffectsView: UIView {
         return 8.5
     }
 
+    private static func name(of view: UIView) -> String {
+        if let node = view.asyncdisplaykit_node {
+            return NSStringFromClass(type(of: node))
+        }
+        return NSStringFromClass(type(of: view))
+    }
+
     private func scanSurfaces() {
         guard let window = self.window else {
             self.tracked = []
             return
         }
         var found: [AyuGramWeakView] = []
-        func visit(_ view: UIView, depth: Int, inTabBar: Bool) {
-            if view === self || view.isHidden || view.alpha < 0.05 || depth > 70 || found.count > 40 {
+        func visit(_ view: UIView, depth: Int, kind: Int) {
+            if view === self || view.isHidden || view.alpha < 0.05 || depth > 80 || found.count > 24 {
                 return
             }
-            let name = NSStringFromClass(type(of: view))
-            let tabBar = inTabBar || name.contains("TabBar")
+            let name = AyuGramEffectsView.name(of: view)
+            var kind = kind
+            if name.contains("TabBar") {
+                kind = 1
+            } else if name.contains("ChatTextInputPanel") {
+                kind = 2
+            }
             if name.hasSuffix("GlassBackgroundView") {
-                found.append(AyuGramWeakView(view: view, isTabBar: tabBar))
+                found.append(AyuGramWeakView(view: view, isTabBar: kind == 1, isChrome: kind != 0))
             }
             for subview in view.subviews {
-                visit(subview, depth: depth + 1, inTabBar: tabBar)
+                visit(subview, depth: depth + 1, kind: kind)
             }
         }
-        visit(window, depth: 0, inTabBar: false)
+        visit(window, depth: 0, kind: 0)
         var result: [AyuGramWeakView] = []
         for item in found {
             guard let view = item.view else {
@@ -583,25 +598,42 @@ public final class AyuGramEffectsView: UIView {
             guard let view = item.view, view.window === self.window else {
                 continue
             }
-            var alpha: Float = 1.0
-            var current: UIView? = view
-            while let node = current, node !== self.window {
-                if node.isHidden {
-                    alpha = 0.0
-                    break
-                }
-                alpha *= (node.layer.presentation() ?? node.layer).opacity
-                current = node.superview
-            }
-            if alpha < 0.5 {
-                continue
-            }
             let layer = view.layer.presentation() ?? view.layer
             let rect = layer.convert(layer.bounds, to: targetLayer)
-            if rect.width < 26.0 || rect.height < 22.0 || rect.height > 96.0 || rect.width > size.width * 0.995 || rect.minY < 24.0 || rect.maxY > size.height || rect.minX < -4.0 || rect.maxX > size.width + 4.0 {
+            if rect.width < 26.0 || rect.height < 26.0 || rect.height > 96.0 || rect.width > size.width * 0.995 || rect.minY < 30.0 || rect.maxY > size.height || rect.minX < -1.0 || rect.maxX > size.width + 1.0 {
                 continue
             }
-            if result.contains(where: { $0.rect.intersection(rect).width > min($0.rect.width, rect.width) * 0.5 && abs($0.rect.minY - rect.minY) < 12.0 }) {
+            if !item.isChrome {
+                if rect.width > 76.0 || rect.height > 60.0 || rect.minY > 150.0 {
+                    continue
+                }
+            }
+            var visible = true
+            var current: UIView? = view
+            while let node = current, node !== self.window {
+                let nodeLayer = node.layer.presentation() ?? node.layer
+                if node.isHidden || nodeLayer.opacity < 0.9 {
+                    visible = false
+                    break
+                }
+                if node !== view && (node.clipsToBounds || nodeLayer.masksToBounds || nodeLayer.mask != nil) {
+                    let clip = nodeLayer.convert(nodeLayer.bounds, to: targetLayer)
+                    if rect.minY < clip.minY + 1.0 || rect.maxY > clip.maxY + 1.0 || rect.minX < clip.minX - 1.0 || rect.maxX > clip.maxX + 1.0 {
+                        visible = false
+                        break
+                    }
+                }
+                let transform = nodeLayer.affineTransform()
+                if abs(transform.a - 1.0) > 0.02 || abs(transform.d - 1.0) > 0.02 || abs(transform.b) > 0.02 {
+                    visible = false
+                    break
+                }
+                current = node.superview
+            }
+            if !visible {
+                continue
+            }
+            if result.contains(where: { $0.rect.intersects(rect.insetBy(dx: -2.0, dy: -12.0)) }) {
                 continue
             }
             result.append(AyuGramSurface(key: item.key, rect: rect, isTabBar: item.isTabBar))
@@ -776,10 +808,7 @@ public final class AyuGramEffectsView: UIView {
                 continue
             }
             pile.stillTime = 0.0
-            guard speed > 90.0 else {
-                continue
-            }
-            self.shed(pile: pile, surface: surface, fraction: min(0.85, speed / 1400.0), velocity: CGPoint(x: dx / max(dt, 0.001), y: dy / max(dt, 0.001)), breakIcicles: speed > 160.0)
+            let _ = speed
         }
     }
 
