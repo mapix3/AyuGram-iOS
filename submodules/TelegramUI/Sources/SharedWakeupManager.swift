@@ -134,8 +134,8 @@ public final class SharedWakeupManager {
         let ayuNotifier = AyuGramBackgroundNotifier(presentationData: presentationData)
         self.ayuNotifier = ayuNotifier
         self.ayuNotifierDisposable = (activeAccounts
-        |> deliverOnMainQueue).startStrict(next: { [weak ayuNotifier] _, accounts in
-            ayuNotifier?.update(accounts: accounts)
+        |> deliverOnMainQueue).startStrict(next: { [weak ayuNotifier] primary, accounts in
+            ayuNotifier?.update(primary: primary?.id, accounts: accounts)
         })
         
         self.accountSettingsDisposable = (activeAccounts
@@ -1162,7 +1162,7 @@ public final class SharedWakeupManager {
             for (account, primary, tasks) in self.accountsAndTasks {
                 account.postbox.setCanBeginTransactions(true)
                 
-                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) || (self.ayuKeepAliveActive && !self.inForeground) {
+                if self.inForeground || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) || self.ayuKeepAliveActive {
                     account.shouldBeServiceTaskMaster.set(.single(.always))
                 } else {
                     account.shouldBeServiceTaskMaster.set(.single(.never))

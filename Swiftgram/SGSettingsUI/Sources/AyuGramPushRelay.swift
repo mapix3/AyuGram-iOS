@@ -432,8 +432,7 @@ enum AyuGramPushRelay {
     }
 
     private static func sendActivity(barkKey: String, seconds: Int) {
-        let account = collectContext.map { "|" + ayuGramPushAccountTag($0.account.peerId) } ?? ""
-        post(path: "/active/" + activityId(barkKey: barkKey), body: Data((String(seconds) + account).utf8))
+        post(path: "/active/" + activityId(barkKey: barkKey), body: Data(String(seconds).utf8))
     }
 
     static func chatOpened(peerId: EnginePeer.Id) {
