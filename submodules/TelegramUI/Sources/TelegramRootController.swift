@@ -85,7 +85,16 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
     private var sgContactsTabController: ContactsController?
 
     private func makeSGContactsTabController() -> ContactsController {
-        return ContactsController(context: self.context)
+        let controller = ContactsController(context: self.context)
+        controller.isTab = true
+        controller.tabBarItem.title = self.presentationData.strings.Contacts_Title
+        let icon: UIImage = UIImage(bundleImageName: "Chat List/Tabs/IconContacts") ?? UIImage(bundleImageName: "Chat List/Tabs/IconChats") ?? UIImage()
+        controller.tabBarItem.image = icon
+        controller.tabBarItem.selectedImage = icon
+        if !self.presentationData.reduceMotion {
+            controller.tabBarItem.animationName = "TabContacts"
+        }
+        return controller
     }
     public var callListController: CallListController?
     public var chatListController: ChatListController?

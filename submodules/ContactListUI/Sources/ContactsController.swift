@@ -77,6 +77,7 @@ public class ContactsController: ViewController {
     }
     
     /// Run once the screen has appeared (`performWhenAppeared`).
+    public var isTab = false
     private var hasAppeared = false
     private var appearActions: [(ContactsController) -> Void] = []
     
