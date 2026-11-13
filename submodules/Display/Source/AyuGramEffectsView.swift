@@ -204,6 +204,7 @@ public final class AyuGramEffectsView: UIView {
     private var kindImages: [Int32: [CGImage]] = [:]
     private var currentSecond: Int32 = -1
     private var snowSettles = true
+    private var currentSize: Float = 1.0
     private var currentKind: Int32 = -1
     private var currentCount = 0
     private var flakeImages: [CGImage] = []
@@ -361,7 +362,8 @@ public final class AyuGramEffectsView: UIView {
 
         if self.showsParticles {
             let count = AyuGramEffectsView.flakeCount(kind: state.kind, amount: state.amount)
-            if state.kind != self.currentKind || second != self.currentSecond || count != self.currentCount {
+            if state.kind != self.currentKind || second != self.currentSecond || count != self.currentCount || state.size != self.currentSize {
+                self.currentSize = state.size
                 self.rebuildFlakes(kind: state.kind, second: second, count: count, size: size)
             }
         } else if !self.flakes.isEmpty {
@@ -413,7 +415,7 @@ public final class AyuGramEffectsView: UIView {
         default:
             maximum = 250.0
         }
-        return max(6, Int((maximum * amount).rounded()))
+        return min(700, max(3, Int((maximum * amount).rounded())))
     }
 
     private func removeFlakes() {
@@ -503,7 +505,7 @@ public final class AyuGramEffectsView: UIView {
             guard let images = self.kindImages[flakeKind], !images.isEmpty else {
                 continue
             }
-            let perKind = max(6, AyuGramEffectsView.flakeCount(kind: flakeKind, amount: AyuGramAppearance.shared.effects.amount) / kinds.count)
+            let perKind = max(3, AyuGramEffectsView.flakeCount(kind: flakeKind, amount: AyuGramAppearance.shared.effects.amount) / kinds.count)
             if index / kinds.count >= perKind {
                 continue
             }
@@ -514,6 +516,9 @@ public final class AyuGramEffectsView: UIView {
                 variant = Int.random(in: 0 ..< images.count)
             }
             var flake = self.makeFlake(kind: flakeKind, variant: variant, width: size.width)
+            if flakeKind != 5 {
+                flake.size *= CGFloat(self.currentSize)
+            }
             flake.y = CGFloat.random(in: -20.0 ... max(0.0, size.height))
             self.flakes.append(flake)
             self.flakeVariants.append(variant)
@@ -647,6 +652,7 @@ public final class AyuGramEffectsView: UIView {
 
             if landed || flake.y > size.height + 30.0 || flake.x < -60.0 || flake.x > size.width + 60.0 {
                 var next = self.makeFlake(kind: kind, variant: self.flakeVariants[index], width: size.width)
+                next.size = flake.size
                 if flake.x < -60.0 || flake.x > size.width + 60.0 {
                     next.y = CGFloat.random(in: -20.0 ... size.height * 0.6)
                     next.x = flake.x < 0.0 ? size.width + 10.0 : -10.0

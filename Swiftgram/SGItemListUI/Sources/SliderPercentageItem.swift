@@ -74,7 +74,16 @@ private func rescaleSliderValueToPercentageValue(_ value: CGFloat, minimum: CGFl
     return minimum + max(0.0, min(1.0, value)) * (maximum - minimum)
 }
 
+public let ayuGramSliderHeldNotification = Notification.Name("AyuGram.SliderHeld")
+
 class SliderPercentageItemNode: ListViewItemNode {
+    @objc private func sliderHeld(_ recognizer: UILongPressGestureRecognizer) {
+        guard recognizer.state == .began, let item = self.item else {
+            return
+        }
+        NotificationCenter.default.post(name: ayuGramSliderHeldNotification, object: nil, userInfo: ["section": item.sectionId, "value": item.value])
+    }
+
     private let backgroundNode: ASDisplayNode
     private let topStripeNode: ASDisplayNode
     private let bottomStripeNode: ASDisplayNode
@@ -169,6 +178,11 @@ class SliderPercentageItemNode: ListViewItemNode {
         }
         self.view.addSubview(sliderView)
         sliderView.addTarget(self, action: #selector(self.sliderValueChanged), for: .valueChanged)
+        let holdRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(self.sliderHeld(_:)))
+        holdRecognizer.minimumPressDuration = 2.0
+        holdRecognizer.allowableMovement = 12.0
+        holdRecognizer.cancelsTouchesInView = false
+        sliderView.addGestureRecognizer(holdRecognizer)
         self.sliderView = sliderView
     }
     

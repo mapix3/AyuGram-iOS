@@ -10,9 +10,9 @@ import SGItemListUI
 import SGSimpleSettings
 import SGStrings
 
-private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, reset }
+private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, size, reset }
 private enum AyuAppearanceToggle: Hashable { case enabled, motion, newYear, newYearAuto, particles, particlesInChats, seasonal, drift, fireworks, parallax }
-private enum AyuAppearanceSlider: Hashable { case dim, blur, rows, amount }
+private enum AyuAppearanceSlider: Hashable { case dim, blur, rows, amount, size }
 private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind, particleMix, selectKind(Int32), previewKind(Int32) }
 private enum AyuAppearanceUnused: Hashable { case unused }
 private typealias AyuAppearanceSettingEntry = SGItemListUIEntry<AyuAppearanceSection, AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>
@@ -104,12 +104,16 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             AyuGramAppearance.shared.update { $0.particleAmount = Float(value) / 100 }
             return
         }
+        if case .size = key {
+            AyuGramAppearance.shared.update { $0.particleSize = Float(value) / 100 }
+            return
+        }
         AyuGramAppearance.shared.updateForScope(scope) { settings in
             switch key {
             case .dim: settings.dim = Float(value) / 100
             case .blur: settings.blur = Float(value) / 100
             case .rows: settings.rowOpacity = Float(value) / 100
-            case .amount: break
+            case .amount, .size: break
             }
         }
     }, openDisclosureLink: { _ in openWallpaper?() }, action: { action in
@@ -179,8 +183,11 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
                 .toggle(id: 41, section: .effects, settingName: .fireworks, value: effects.fireworks, text: i18n("Ayu.Fireworks", locale), enabled: !effects.newYear),
                 .toggle(id: 42, section: .effects, settingName: .parallax, value: stored.parallax == true, text: i18n("Ayu.Parallax", locale), enabled: true),
                 .notice(id: 43, section: .effects, text: i18n("Ayu.EffectsInfo", locale)),
-                .header(id: 44, section: .amount, text: i18n("Ayu.ParticlesAmount", locale), badge: nil),
+                .header(id: 44, section: .amount, text: i18n("Ayu.ParticlesAmount", locale) + " · " + String(Int((effects.amount * 100).rounded())) + "%", badge: nil),
                 .rangedPercentageSlider(id: 45, section: .amount, settingName: .amount, value: Int32((effects.amount * 100).rounded()), minimum: 10, maximum: 100),
+                .header(id: 46, section: .size, text: i18n("Ayu.ParticlesSize", locale) + " · " + String(Int((effects.size * 100).rounded())) + "%", badge: nil),
+                .rangedPercentageSlider(id: 47, section: .size, settingName: .size, value: Int32((effects.size * 100).rounded()), minimum: 50, maximum: 200),
+                .notice(id: 48, section: .size, text: i18n("Ayu.ParticlesSliderHint", locale)),
                 .disclosure(id: 50, section: .reset, link: .wallpaper, text: i18n("Ayu.ConversationBackground", locale))
             ]
             if expanded {
@@ -198,10 +205,57 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
     }
     let controller = ItemListController(context: context, state: signal)
     mediaPicker.controller = controller
+    let holdObserver = NotificationCenter.default.addObserver(forName: ayuGramSliderHeldNotification, object: nil, queue: .main, using: { [weak controller] notification in
+        guard let controller, controller.view.window != nil, let section = notification.userInfo?["section"] as? Int32 else {
+            return
+        }
+        let isAmount = section == AyuAppearanceSection.amount.rawValue
+        guard isAmount || section == AyuAppearanceSection.size.rawValue else {
+            return
+        }
+        let data = context.sharedContext.currentPresentationData.with { $0 }
+        let locale = data.strings.baseLanguageCode
+        let effects = AyuGramAppearance.shared.settings.effects
+        let alert = UIAlertController(title: i18n(isAmount ? "Ayu.ParticlesAmount" : "Ayu.ParticlesSize", locale), message: i18n("Ayu.ParticlesCustomValue", locale), preferredStyle: .alert)
+        alert.addTextField(configurationHandler: { field in
+            field.keyboardType = .numberPad
+            field.text = String(Int(((isAmount ? effects.amount : effects.size) * 100).rounded()))
+        })
+        alert.addAction(UIAlertAction(title: data.strings.Common_Cancel, style: .cancel))
+        alert.addAction(UIAlertAction(title: data.strings.Common_OK, style: .default, handler: { [weak alert] _ in
+            guard let text = alert?.textFields?.first?.text, let value = Int(text.trimmingCharacters(in: .whitespaces)), value > 0 else {
+                return
+            }
+            AyuGramAppearance.shared.update { settings in
+                if isAmount {
+                    settings.particleAmount = Float(min(1000, max(2, value))) / 100
+                } else {
+                    settings.particleSize = Float(min(1000, max(10, value))) / 100
+                }
+            }
+        }))
+        controller.present(alert, animated: true)
+    })
+    let holdBox = AyuGramObserverBox(holdObserver)
+    controller.didDisappear = { _ in
+        let _ = holdBox
+    }
     openWallpaper = { [weak controller] in
         (controller?.navigationController as? NavigationController)?.pushViewController(ayuGramAppearanceController(context: context, scope: .conversation))
     }
     return controller
+}
+
+private final class AyuGramObserverBox: NSObject {
+    private let observer: NSObjectProtocol
+
+    init(_ observer: NSObjectProtocol) {
+        self.observer = observer
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self.observer)
+    }
 }
 
 private final class AyuGramAppearanceMediaPicker: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {

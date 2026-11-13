@@ -25,6 +25,7 @@ public struct AyuGramAppearanceSettings: Codable, Equatable {
     public var particleKind: Int32? = nil
     public var particleKind2: Int32? = nil
     public var particleAmount: Float? = nil
+    public var particleSize: Float? = nil
     public var particlesInChats: Bool? = nil
     public var seasonal: Bool? = nil
     public var drift: Bool? = nil
@@ -40,6 +41,7 @@ public struct AyuGramEffectsState: Equatable {
     public var kind: Int32
     public var secondKind: Int32
     public var amount: Float
+    public var size: Float
     public var inChats: Bool
     public var drift: Bool
     public var fireworks: Bool
@@ -77,8 +79,9 @@ public extension AyuGramAppearanceSettings {
         if self.seasonal == true {
             kind = AyuGramAppearanceSettings.seasonalParticleKind()
         }
-        let amount = min(1.0, max(0.1, self.particleAmount ?? 0.5))
-        return AyuGramEffectsState(particles: newYear || self.particles == true, kind: kind, secondKind: min(AyuGramAppearanceSettings.particleKindCount - 1, max(-1, self.particleKind2 ?? -1)), amount: amount, inChats: self.particlesInChats ?? true, drift: newYear || self.drift == true, fireworks: newYear || self.fireworks == true, newYear: newYear)
+        let amount = min(10.0, max(0.02, self.particleAmount ?? 0.5))
+        let size = min(10.0, max(0.1, self.particleSize ?? 1.0))
+        return AyuGramEffectsState(particles: newYear || self.particles == true, kind: kind, secondKind: min(AyuGramAppearanceSettings.particleKindCount - 1, max(-1, self.particleKind2 ?? -1)), amount: amount, size: size, inChats: self.particlesInChats ?? true, drift: newYear || self.drift == true, fireworks: newYear || self.fireworks == true, newYear: newYear)
     }
 }
 
@@ -191,6 +194,7 @@ public final class AyuGramAppearance {
                 settings.particleKind = previous.particleKind
                 settings.particleKind2 = previous.particleKind2
                 settings.particleAmount = previous.particleAmount
+                settings.particleSize = previous.particleSize
                 settings.particlesInChats = previous.particlesInChats
                 settings.seasonal = previous.seasonal
                 settings.drift = previous.drift

@@ -444,6 +444,9 @@
 "Ayu.Parallax" = "Background parallax";
 "Ayu.EffectsInfo" = "Fireworks go off when you send 🎄, 🎆, 🎉 or a New Year greeting. A snowman builds itself on the tab bar when the snow there is deep enough: tap him to knock him down. Parallax moves your custom background as you tilt the phone.";
 "Ayu.ParticlesAmount" = "Amount of particles";
+"Ayu.ParticlesSize" = "Particle size";
+"Ayu.ParticlesSliderHint" = "Hold a slider for 2 seconds to enter your own value past its limits.";
+"Ayu.ParticlesCustomValue" = "Value in percent";
 "Ayu.ParticlesSnow" = "Snow";
 "Ayu.ParticlesFlakes" = "Snowflakes";
 "Ayu.ParticlesSakura" = "Sakura";
