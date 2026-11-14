@@ -249,9 +249,83 @@ export async function claimDelivery(env, barkKey, id, account) {
   }
 }
 
+const aiHits = new Map();
+
+function aiAllowed(ip) {
+  const now = Date.now();
+  if (aiHits.size > 5000) {
+    aiHits.clear();
+  }
+  const recent = (aiHits.get(ip) || []).filter((time) => now - time < 60000);
+  if (recent.length >= 8) {
+    aiHits.set(ip, recent);
+    return false;
+  }
+  recent.push(now);
+  aiHits.set(ip, recent);
+  return true;
+}
+
+function aiAnswer(status, body) {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
+}
+
+async function handleAssistant(request, env) {
+  if (!env || !env.GROQ_API_KEY) {
+    return aiAnswer(503, { error: { message: 'The assistant is not configured' } });
+  }
+  if (!aiAllowed(request.headers.get('cf-connecting-ip') || 'unknown')) {
+    return aiAnswer(429, { error: { message: 'Too many requests, wait a minute' } });
+  }
+  let input;
+  try {
+    input = JSON.parse((await request.text()).slice(0, 200000));
+  } catch (error) {
+    return aiAnswer(400, { error: { message: 'Bad request' } });
+  }
+  const source = Array.isArray(input && input.messages) ? input.messages.slice(-21) : [];
+  const messages = [];
+  let total = 0;
+  for (const item of source) {
+    const role = item && ['system', 'user', 'assistant'].includes(item.role) ? item.role : null;
+    const content = item && typeof item.content === 'string' ? item.content.slice(0, 8000) : '';
+    if (!role || !content) {
+      continue;
+    }
+    total += content.length;
+    if (total > 32000) {
+      break;
+    }
+    messages.push({ role, content });
+  }
+  if (!messages.some((item) => item.role === 'user')) {
+    return aiAnswer(400, { error: { message: 'Empty request' } });
+  }
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.GROQ_API_KEY },
+    body: JSON.stringify({ model: env.GROQ_MODEL || 'llama-3.3-70b-versatile', messages, max_tokens: 1500 }),
+  });
+  let output = null;
+  try {
+    output = await response.json();
+  } catch (error) {
+    output = null;
+  }
+  const content = output && output.choices && output.choices[0] && output.choices[0].message && output.choices[0].message.content;
+  if (typeof content === 'string' && content) {
+    return aiAnswer(200, { choices: [{ message: { role: 'assistant', content } }] });
+  }
+  const busy = response.status === 429;
+  return aiAnswer(busy ? 429 : 502, { error: { message: busy ? 'The assistant is busy, try again later' : 'The assistant is unavailable' } });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (request.method === 'POST' && url.pathname === '/ai') {
+      return handleAssistant(request, env);
+    }
     if (url.pathname === '/tg/hook') {
       return handleBot(request, env, ctx);
     }

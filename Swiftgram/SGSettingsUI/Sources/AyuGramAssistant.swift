@@ -17,6 +17,7 @@ struct AyuGramAssistantProvider {
     let needsKey: Bool
 
     static let all: [AyuGramAssistantProvider] = [
+        AyuGramAssistantProvider(id: "ayugram", title: "AyuGram", endpoint: AyuGramPushRelay.baseURL + "/ai", model: "llama-3.3-70b", keyHint: "", needsKey: false),
         AyuGramAssistantProvider(id: "pollinations", title: "Pollinations", endpoint: "https://text.pollinations.ai/openai", model: "openai", keyHint: "", needsKey: false),
         AyuGramAssistantProvider(id: "groq", title: "Groq", endpoint: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", keyHint: "gsk_...", needsKey: true),
         AyuGramAssistantProvider(id: "gemini", title: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-flash-latest", keyHint: "AIza...", needsKey: true),
