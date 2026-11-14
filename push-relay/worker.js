@@ -373,6 +373,16 @@ async function handleAssistant(request, env) {
       if (retry.content) {
         groqPicked.set(kind, candidate);
         result = retry;
+        if (!vision) {
+          try {
+            const searched = await groqSearchAnswer(key, candidate, messages.slice(1), basePrompt);
+            if (searched) {
+              result = { model: candidate, status: 200, content: searched, reason: '' };
+            }
+          } catch (error) {
+            console.log('assistant search failed: ' + error);
+          }
+        }
         break;
       }
       if (retry.status === 429 || retry.status === 401) {
@@ -665,6 +675,16 @@ async function groqSearchAnswer(key, model, messages, basePrompt) {
   const second = await groqRaw(key, { model, messages: thread, max_tokens: 1500 });
   const answer = second.message && typeof second.message.content === 'string' ? second.message.content : '';
   return looksLikeToolCall(answer) ? '' : answer;
+}
+
+async function groqModels(key) {
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/models', { headers: { authorization: 'Bearer ' + key } });
+    const output = await response.json();
+    return Array.isArray(output && output.data) ? output.data.filter((item) => item && typeof item.id === 'string' && item.active !== false).map((item) => item.id) : [];
+  } catch (error) {
+    return [];
+  }
 }
 
 async function groqCandidates(key, vision) {
