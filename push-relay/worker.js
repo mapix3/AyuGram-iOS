@@ -351,7 +351,13 @@ async function handleAssistant(request, env) {
   const kind = vision ? 'vision' : 'text';
   const basePrompt = 'Current date and time: ' + new Date().toUTCString() + ' (UTC). Answer in the language of the user.';
   if (!vision) {
-    const searched = await groqSearchAnswer(key, groqPicked.get(kind) || preferred, messages, basePrompt);
+    let searched = '';
+    try {
+      searched = await groqSearchAnswer(key, groqPicked.get(kind) || preferred, messages, basePrompt);
+    } catch (error) {
+      console.log('assistant search failed: ' + error);
+      searched = '';
+    }
     if (searched) {
       return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: searched } }] });
     }
@@ -550,7 +556,7 @@ async function searchDuckDuckGo(query) {
     if (!response.ok) {
       return '';
     }
-    const html = await response.text();
+    const html = (await response.text()).slice(0, 250000);
     const titles = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)];
     const snippets = [...html.matchAll(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)];
     const lines = [];
@@ -717,7 +723,11 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === 'POST' && url.pathname === '/ai') {
-      return handleAssistant(request, env);
+      try {
+        return await handleAssistant(request, env);
+      } catch (error) {
+        return aiAnswer(502, { error: { message: 'The assistant failed: ' + String(error && error.message ? error.message : error).replace(/gsk_[A-Za-z0-9]+/g, '').slice(0, 200) } });
+      }
     }
     if (request.method === 'POST' && url.pathname === '/ai/pro') {
       return handlePro(request, env);
