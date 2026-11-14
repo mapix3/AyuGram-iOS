@@ -527,6 +527,10 @@
 "Ayu.AINeedKey" = "This provider needs an API key. Add it in AyuGram settings.";
 "Ayu.AIEmpty" = "Ask a question to start.";
 "Ayu.AICopy" = "Copy";
+"Ayu.AIChats" = "Chats";
+"Ayu.AINewChat" = "New chat";
+"Ayu.AIRename" = "Rename";
+"Ayu.AIDelete" = "Delete";
 "Ayu.AIBubble" = "Assistant button in chat list";
 "Ayu.AIRecording" = "Recording… tap stop to send";
 "Ayu.AIMicDenied" = "Allow microphone access in iOS Settings to send voice.";

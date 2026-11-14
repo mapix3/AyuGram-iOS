@@ -81,7 +81,125 @@ private struct AyuGramAssistantMessage {
     }
 }
 
-private var ayuGramAssistantMessages: [AyuGramAssistantMessage] = []
+private final class AyuGramAssistantChat {
+    let id: String
+    var title: String
+    var updated: Double
+    var messages: [AyuGramAssistantMessage]
+
+    init(id: String, title: String, updated: Double, messages: [AyuGramAssistantMessage]) {
+        self.id = id
+        self.title = title
+        self.updated = updated
+        self.messages = messages
+    }
+}
+
+private final class AyuGramAssistantStore {
+    static let shared = AyuGramAssistantStore()
+
+    private(set) var chats: [AyuGramAssistantChat] = []
+    private(set) var current: AyuGramAssistantChat
+    private let queue = DispatchQueue(label: "ayugram.assistant.store", qos: .utility)
+
+    private static var file: URL? {
+        guard let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        return directory.appendingPathComponent("ayugram-assistant-chats.json")
+    }
+
+    private init() {
+        self.current = AyuGramAssistantChat(id: UUID().uuidString, title: "", updated: Date().timeIntervalSince1970, messages: [])
+        guard let file = AyuGramAssistantStore.file, let data = try? Data(contentsOf: file), let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return
+        }
+        for item in list {
+            guard let id = item["id"] as? String, let rawMessages = item["messages"] as? [[String: Any]] else {
+                continue
+            }
+            var messages: [AyuGramAssistantMessage] = []
+            for raw in rawMessages {
+                guard let text = raw["t"] as? String else {
+                    continue
+                }
+                messages.append(AyuGramAssistantMessage(outgoing: (raw["o"] as? Bool) ?? false, text: text, failed: (raw["f"] as? Bool) ?? false))
+            }
+            if messages.isEmpty {
+                continue
+            }
+            self.chats.append(AyuGramAssistantChat(id: id, title: (item["title"] as? String) ?? "", updated: (item["updated"] as? Double) ?? 0.0, messages: messages))
+        }
+        self.chats.sort(by: { $0.updated > $1.updated })
+    }
+
+    private func save() {
+        var list: [[String: Any]] = []
+        for chat in self.chats.prefix(100) {
+            var messages: [[String: Any]] = []
+            for message in chat.messages.suffix(200) {
+                let text = message.text.isEmpty && message.image != nil ? "🖼" : message.text
+                messages.append(["o": message.outgoing, "t": text, "f": message.failed])
+            }
+            list.append(["id": chat.id, "title": chat.title, "updated": chat.updated, "messages": messages])
+        }
+        guard let file = AyuGramAssistantStore.file, let data = try? JSONSerialization.data(withJSONObject: list) else {
+            return
+        }
+        self.queue.async {
+            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? data.write(to: file, options: .atomic)
+        }
+    }
+
+    func append(_ message: AyuGramAssistantMessage, to chat: AyuGramAssistantChat) {
+        chat.messages.append(message)
+        chat.updated = Date().timeIntervalSince1970
+        if chat.title.isEmpty && message.outgoing {
+            let words = message.text.components(separatedBy: .whitespacesAndNewlines).filter({ !$0.isEmpty }).joined(separator: " ")
+            chat.title = String(words.prefix(48))
+        }
+        self.chats.removeAll(where: { $0 === chat })
+        self.chats.insert(chat, at: 0)
+        self.save()
+    }
+
+    func select(_ chat: AyuGramAssistantChat) {
+        self.current = chat
+    }
+
+    func startNew() {
+        if !self.current.messages.isEmpty {
+            self.current = AyuGramAssistantChat(id: UUID().uuidString, title: "", updated: Date().timeIntervalSince1970, messages: [])
+        }
+    }
+
+    func rename(_ chat: AyuGramAssistantChat, title: String) {
+        chat.title = String(title.prefix(80))
+        self.save()
+    }
+
+    func delete(_ chat: AyuGramAssistantChat) {
+        self.chats.removeAll(where: { $0 === chat })
+        if self.current === chat {
+            self.current = AyuGramAssistantChat(id: UUID().uuidString, title: "", updated: Date().timeIntervalSince1970, messages: [])
+        }
+        self.save()
+    }
+}
+
+private var ayuGramAssistantMessages: [AyuGramAssistantMessage] {
+    return AyuGramAssistantStore.shared.current.messages
+}
+
+private func ayuGramAssistantIcon(_ name: String, color: UIColor) -> UIImage? {
+    guard let symbol = UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 20.0, weight: .regular))?.withTintColor(color, renderingMode: .alwaysOriginal) else {
+        return nil
+    }
+    return UIGraphicsImageRenderer(size: symbol.size).image { _ in
+        symbol.draw(at: CGPoint())
+    }
+}
 
 private func ayuGramAssistantFailure(data: Data?, response: URLResponse?, error: Error?, locale: String) -> String {
     if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -413,9 +531,214 @@ private final class AyuGramAssistantCell: UITableViewCell {
     }
 }
 
+private final class AyuGramAssistantChatCell: UITableViewCell {
+    private let title = UILabel()
+    private let plate = UIView()
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+
+        self.backgroundColor = .clear
+        self.selectionStyle = .none
+        self.plate.layer.cornerRadius = 10.0
+        self.plate.layer.cornerCurve = .continuous
+        self.title.font = UIFont.systemFont(ofSize: 16.0)
+        self.title.lineBreakMode = .byTruncatingTail
+        self.contentView.addSubview(self.plate)
+        self.contentView.addSubview(self.title)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        let bounds = self.contentView.bounds
+        self.plate.frame = bounds.insetBy(dx: 8.0, dy: 2.0)
+        self.title.frame = bounds.insetBy(dx: 20.0, dy: 2.0)
+    }
+
+    func update(title: String, active: Bool, theme: PresentationTheme) {
+        self.title.text = title
+        self.title.textColor = theme.list.itemPrimaryTextColor
+        self.plate.backgroundColor = active ? theme.list.itemAccentColor.withAlphaComponent(0.16) : .clear
+    }
+}
+
+private final class AyuGramAssistantDrawer: UIView, UITableViewDataSource, UITableViewDelegate {
+    private let dim = UIButton(type: .custom)
+    private let panel = UIView()
+    private let heading = UILabel()
+    private let newButton = UIButton(type: .system)
+    private let line = UIView()
+    private let tableView = UITableView(frame: CGRect(), style: .plain)
+    private var theme: PresentationTheme
+    private var locale: String
+    private var panelWidth: CGFloat = 0.0
+    private(set) var isOpen = false
+
+    var selected: ((AyuGramAssistantChat) -> Void)?
+    var created: (() -> Void)?
+    var renameRequested: ((AyuGramAssistantChat) -> Void)?
+    var deleted: ((AyuGramAssistantChat) -> Void)?
+
+    init(theme: PresentationTheme, locale: String) {
+        self.theme = theme
+        self.locale = locale
+        super.init(frame: CGRect())
+
+        self.isHidden = true
+        self.dim.backgroundColor = UIColor(white: 0.0, alpha: 0.4)
+        self.dim.alpha = 0.0
+        self.dim.addTarget(self, action: #selector(self.dimPressed), for: .touchUpInside)
+        self.addSubview(self.dim)
+
+        self.heading.font = UIFont.systemFont(ofSize: 20.0, weight: .semibold)
+        self.newButton.titleLabel?.font = UIFont.systemFont(ofSize: 16.0, weight: .medium)
+        self.newButton.contentHorizontalAlignment = .leading
+        self.newButton.addTarget(self, action: #selector(self.newPressed), for: .touchUpInside)
+
+        self.tableView.dataSource = self
+        self.tableView.delegate = self
+        self.tableView.separatorStyle = .none
+        self.tableView.rowHeight = 44.0
+        self.tableView.backgroundColor = .clear
+        self.tableView.register(AyuGramAssistantChatCell.self, forCellReuseIdentifier: "chat")
+
+        self.panel.clipsToBounds = true
+        self.panel.addSubview(self.heading)
+        self.panel.addSubview(self.newButton)
+        self.panel.addSubview(self.line)
+        self.panel.addSubview(self.tableView)
+        self.addSubview(self.panel)
+
+        self.update(theme: theme, locale: locale)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(theme: PresentationTheme, locale: String) {
+        self.theme = theme
+        self.locale = locale
+        self.panel.backgroundColor = theme.list.plainBackgroundColor
+        self.heading.textColor = theme.list.itemPrimaryTextColor
+        self.heading.text = i18n("Ayu.AIChats", locale)
+        self.line.backgroundColor = theme.list.itemPlainSeparatorColor
+        self.newButton.tintColor = theme.list.itemAccentColor
+        self.newButton.setTitle("  " + i18n("Ayu.AINewChat", locale), for: .normal)
+        self.newButton.setImage(UIImage(systemName: "square.and.pencil", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17.0, weight: .medium)), for: .normal)
+        self.tableView.reloadData()
+    }
+
+    func reload() {
+        self.tableView.reloadData()
+    }
+
+    func layout(size: CGSize, left: CGFloat, bottom: CGFloat) {
+        self.dim.frame = CGRect(origin: CGPoint(), size: size)
+        let width = min(320.0, floor(size.width * 0.82)) + left
+        self.panelWidth = width
+        self.panel.frame = CGRect(x: self.isOpen ? 0.0 : -width, y: 0.0, width: width, height: size.height)
+        self.heading.frame = CGRect(x: left + 20.0, y: 14.0, width: width - left - 40.0, height: 26.0)
+        self.newButton.frame = CGRect(x: left + 20.0, y: 52.0, width: width - left - 40.0, height: 44.0)
+        self.line.frame = CGRect(x: 0.0, y: 108.0, width: width, height: 1.0 / UIScreen.main.scale)
+        self.tableView.frame = CGRect(x: left, y: 109.0, width: width - left, height: max(0.0, size.height - 109.0))
+        self.tableView.contentInset = UIEdgeInsets(top: 6.0, left: 0.0, bottom: bottom + 6.0, right: 0.0)
+    }
+
+    func setOpen(_ open: Bool) {
+        guard self.isOpen != open else {
+            return
+        }
+        self.isOpen = open
+        if open {
+            self.isHidden = false
+            self.tableView.reloadData()
+        }
+        UIView.animate(withDuration: 0.25, delay: 0.0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
+            self.dim.alpha = open ? 1.0 : 0.0
+            self.panel.frame.origin.x = open ? 0.0 : -self.panelWidth
+        }, completion: { _ in
+            if !self.isOpen {
+                self.isHidden = true
+            }
+        })
+    }
+
+    @objc private func dimPressed() {
+        self.setOpen(false)
+    }
+
+    @objc private func newPressed() {
+        self.created?()
+    }
+
+    private func chat(at indexPath: IndexPath) -> AyuGramAssistantChat? {
+        let chats = AyuGramAssistantStore.shared.chats
+        return indexPath.row < chats.count ? chats[indexPath.row] : nil
+    }
+
+    private func name(_ chat: AyuGramAssistantChat) -> String {
+        return chat.title.isEmpty ? i18n("Ayu.AINewChat", self.locale) : chat.title
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return AyuGramAssistantStore.shared.chats.count
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "chat", for: indexPath)
+        if let cell = cell as? AyuGramAssistantChatCell, let chat = self.chat(at: indexPath) {
+            cell.update(title: self.name(chat), active: chat === AyuGramAssistantStore.shared.current, theme: self.theme)
+        }
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        if let chat = self.chat(at: indexPath) {
+            self.selected?(chat)
+        }
+    }
+
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard let chat = self.chat(at: indexPath) else {
+            return nil
+        }
+        let action = UIContextualAction(style: .destructive, title: i18n("Ayu.AIDelete", self.locale), handler: { [weak self] _, _, completion in
+            self?.deleted?(chat)
+            completion(true)
+        })
+        return UISwipeActionsConfiguration(actions: [action])
+    }
+
+    func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        guard let chat = self.chat(at: indexPath) else {
+            return nil
+        }
+        let renameTitle = i18n("Ayu.AIRename", self.locale)
+        let deleteTitle = i18n("Ayu.AIDelete", self.locale)
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil, actionProvider: { [weak self] _ in
+            return UIMenu(title: "", children: [
+                UIAction(title: renameTitle, image: UIImage(systemName: "pencil"), handler: { _ in
+                    self?.renameRequested?(chat)
+                }),
+                UIAction(title: deleteTitle, image: UIImage(systemName: "trash"), attributes: .destructive, handler: { _ in
+                    self?.deleted?(chat)
+                })
+            ])
+        })
+    }
+}
+
 private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, UITableViewDelegate, UITextFieldDelegate, PHPickerViewControllerDelegate {
     private var presentationData: PresentationData
     private let presentNative: (UIViewController) -> Void
+    private let titleUpdated: (String?) -> Void
+    private let drawer: AyuGramAssistantDrawer
     private let tableView = UITableView(frame: CGRect(), style: .plain)
     private let inputBar = UIView()
     private let separator = UIView()
@@ -436,9 +759,11 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     private var recordingFile: URL?
     private var validLayout: (ContainerViewLayout, CGFloat)?
 
-    init(presentationData: PresentationData, presentNative: @escaping (UIViewController) -> Void) {
+    init(presentationData: PresentationData, presentNative: @escaping (UIViewController) -> Void, titleUpdated: @escaping (String?) -> Void) {
         self.presentationData = presentationData
         self.presentNative = presentNative
+        self.titleUpdated = titleUpdated
+        self.drawer = AyuGramAssistantDrawer(theme: presentationData.theme, locale: presentationData.strings.baseLanguageCode)
         super.init()
 
         self.tableView.dataSource = self
@@ -508,8 +833,78 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.inputBar.addSubview(self.sendButton)
         self.inputBar.addSubview(self.indicator)
         self.view.addSubview(self.inputBar)
+        self.view.addSubview(self.drawer)
+
+        self.drawer.selected = { [weak self] chat in
+            AyuGramAssistantStore.shared.select(chat)
+            self?.showCurrent()
+        }
+        self.drawer.created = { [weak self] in
+            AyuGramAssistantStore.shared.startNew()
+            self?.showCurrent()
+        }
+        self.drawer.deleted = { [weak self] chat in
+            guard let self else {
+                return
+            }
+            let wasCurrent = chat === AyuGramAssistantStore.shared.current
+            AyuGramAssistantStore.shared.delete(chat)
+            self.drawer.reload()
+            if wasCurrent {
+                self.reloadMessages()
+            }
+        }
+        self.drawer.renameRequested = { [weak self] chat in
+            self?.rename(chat)
+        }
 
         self.applyTheme()
+        self.titleUpdated(self.currentTitle)
+    }
+
+    private var currentTitle: String? {
+        let title = AyuGramAssistantStore.shared.current.title
+        return title.isEmpty ? nil : title
+    }
+
+    private func reloadMessages() {
+        self.emptyView.isHidden = !ayuGramAssistantMessages.isEmpty
+        self.tableView.reloadData()
+        self.tableView.layoutIfNeeded()
+        self.scrollToBottom(animated: false)
+        self.titleUpdated(self.currentTitle)
+    }
+
+    private func showCurrent() {
+        self.reloadMessages()
+        self.drawer.setOpen(false)
+    }
+
+    private func rename(_ chat: AyuGramAssistantChat) {
+        let strings = self.presentationData.strings
+        let alert = UIAlertController(title: i18n("Ayu.AIRename", self.locale), message: nil, preferredStyle: .alert)
+        alert.addTextField(configurationHandler: { field in
+            field.text = chat.title
+            field.autocapitalizationType = .sentences
+        })
+        alert.addAction(UIAlertAction(title: strings.Common_Cancel, style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: strings.Common_OK, style: .default, handler: { [weak self, weak alert] _ in
+            guard let self else {
+                return
+            }
+            let title = (alert?.textFields?.first?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !title.isEmpty {
+                AyuGramAssistantStore.shared.rename(chat, title: title)
+                self.drawer.reload()
+                self.titleUpdated(self.currentTitle)
+            }
+        }))
+        self.presentNative(alert)
+    }
+
+    func toggleChats() {
+        self.field.resignFirstResponder()
+        self.drawer.setOpen(!self.drawer.isOpen)
     }
 
     deinit {
@@ -522,6 +917,7 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     func updatePresentationData(_ presentationData: PresentationData) {
         self.presentationData = presentationData
         self.applyTheme()
+        self.drawer.update(theme: presentationData.theme, locale: presentationData.strings.baseLanguageCode)
         self.tableView.reloadData()
     }
 
@@ -564,12 +960,6 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.field.isEnabled = !recording
     }
 
-    func clear() {
-        ayuGramAssistantMessages = []
-        self.emptyView.isHidden = false
-        self.tableView.reloadData()
-    }
-
     func containerLayoutUpdated(_ layout: ContainerViewLayout, navigationHeight: CGFloat, transition: ContainedViewLayoutTransition) {
         self.validLayout = (layout, navigationHeight)
         let size = layout.size
@@ -591,6 +981,8 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         let tableFrame = CGRect(x: 0.0, y: navigationHeight, width: size.width, height: max(0.0, barFrame.minY - navigationHeight))
         transition.updateFrame(view: self.tableView, frame: tableFrame)
         self.emptyView.frame = tableFrame
+        self.drawer.frame = CGRect(x: 0.0, y: navigationHeight, width: size.width, height: max(0.0, size.height - navigationHeight))
+        self.drawer.layout(size: self.drawer.bounds.size, left: side, bottom: layout.intrinsicInsets.bottom)
         let width = min(tableFrame.width - 48.0, 340.0)
         let contentHeight: CGFloat = 60.0 + 12.0 + 44.0 + 16.0 + 3.0 * 44.0
         var y = max(8.0, floor((tableFrame.height - contentHeight) / 2.0))
@@ -638,11 +1030,20 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     }
 
     private func append(_ message: AyuGramAssistantMessage) {
-        ayuGramAssistantMessages.append(message)
+        self.append(message, to: AyuGramAssistantStore.shared.current)
+    }
+
+    private func append(_ message: AyuGramAssistantMessage, to chat: AyuGramAssistantChat) {
+        AyuGramAssistantStore.shared.append(message, to: chat)
+        self.drawer.reload()
+        guard chat === AyuGramAssistantStore.shared.current else {
+            return
+        }
         self.emptyView.isHidden = true
         self.tableView.reloadData()
         self.tableView.layoutIfNeeded()
         self.scrollToBottom(animated: true)
+        self.titleUpdated(self.currentTitle)
     }
 
     private func submit(text: String) {
@@ -652,17 +1053,18 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         }
         self.field.text = ""
         self.setAttachment(nil)
-        self.append(AyuGramAssistantMessage(outgoing: true, text: text, failed: false, image: attachment?.0, imagePayload: attachment?.1))
+        let chat = AyuGramAssistantStore.shared.current
+        self.append(AyuGramAssistantMessage(outgoing: true, text: text, failed: false, image: attachment?.0, imagePayload: attachment?.1), to: chat)
         self.setLoading(true)
-        ayuGramAssistantRequest(messages: ayuGramAssistantMessages, locale: self.locale, completion: { [weak self] reply, failure in
+        ayuGramAssistantRequest(messages: chat.messages, locale: self.locale, completion: { [weak self] reply, failure in
             guard let self else {
                 return
             }
             self.setLoading(false)
             if let reply {
-                self.append(AyuGramAssistantMessage(outgoing: false, text: reply, failed: false))
+                self.append(AyuGramAssistantMessage(outgoing: false, text: reply, failed: false), to: chat)
             } else {
-                self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true))
+                self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
             }
         })
     }
@@ -826,7 +1228,7 @@ private final class AyuGramAssistantController: ViewController {
         self.statusBar.statusBarStyle = presentationData.theme.rootController.statusBarStyle.style
         self.title = i18n("Ayu.Assistant", locale)
         self.navigationItem.backBarButtonItem = UIBarButtonItem(title: presentationData.strings.Common_Back, style: .plain, target: nil, action: nil)
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: i18n("Ayu.AIClear", locale), style: .plain, target: self, action: #selector(self.clearPressed))
+        self.navigationItem.rightBarButtonItem = UIBarButtonItem(image: ayuGramAssistantIcon("sidebar.left", color: presentationData.theme.rootController.navigationBar.accentTextColor), style: .plain, target: self, action: #selector(self.chatsPressed))
 
         self.presentationDataDisposable = (context.sharedContext.presentationData
         |> deliverOnMainQueue).start(next: { [weak self] presentationData in
@@ -838,6 +1240,7 @@ private final class AyuGramAssistantController: ViewController {
             if previousTheme !== presentationData.theme {
                 self.statusBar.statusBarStyle = presentationData.theme.rootController.statusBarStyle.style
                 self.navigationBar?.updatePresentationData(NavigationBarPresentationData(presentationData: presentationData), transition: .immediate)
+                self.navigationItem.rightBarButtonItem = UIBarButtonItem(image: ayuGramAssistantIcon("sidebar.left", color: presentationData.theme.rootController.navigationBar.accentTextColor), style: .plain, target: self, action: #selector(self.chatsPressed))
                 if self.isNodeLoaded {
                     self.node.updatePresentationData(presentationData)
                 }
@@ -853,9 +1256,9 @@ private final class AyuGramAssistantController: ViewController {
         self.presentationDataDisposable?.dispose()
     }
 
-    @objc private func clearPressed() {
+    @objc private func chatsPressed() {
         if self.isNodeLoaded {
-            self.node.clear()
+            self.node.toggleChats()
         }
     }
 
@@ -863,6 +1266,11 @@ private final class AyuGramAssistantController: ViewController {
         let context = self.context
         self.displayNode = AyuGramAssistantNode(presentationData: self.presentationData, presentNative: { controller in
             context.sharedContext.mainWindow?.presentNative(controller)
+        }, titleUpdated: { [weak self] title in
+            guard let self else {
+                return
+            }
+            self.title = title ?? i18n("Ayu.Assistant", self.presentationData.strings.baseLanguageCode)
         })
         self.displayNodeDidLoad()
     }
