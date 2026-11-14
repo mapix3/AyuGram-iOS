@@ -483,3 +483,17 @@
 "Ayu.KeepAliveFooter" = "Keeps AyuGram running in the background with silent audio and shows notifications for new messages without Apple push. Uses more battery. Music and calls are not affected; after a call it resumes by itself. Not needed with Bark.";
 "Ayu.TerminatedNotice" = "AyuGram was closed and notifications are paused. Open it to turn them back on.";
 "Ayu.NotificationPicture" = "Download picture";
+"Ayu.AISection" = "Search and AI";
+"Ayu.SearchEngine" = "Search engine";
+"Ayu.Assistant" = "AI assistant";
+"Ayu.AIProvider" = "AI provider";
+"Ayu.AIKey" = "API key";
+"Ayu.AIKeyNone" = "Not set";
+"Ayu.AIModel" = "Model";
+"Ayu.AIFooter" = "The search engine is used for the web search row in chat search. The assistant talks to the selected provider directly from your device. Pollinations works without a key but may be slow or unavailable; Groq, Gemini and OpenRouter give free keys on their sites.";
+"Ayu.AIPlaceholder" = "Ask anything";
+"Ayu.AIClear" = "Clear";
+"Ayu.AIError" = "Error";
+"Ayu.AINeedKey" = "This provider needs an API key. Add it in AyuGram settings.";
+"Ayu.AIEmpty" = "Ask a question to start.";
+"Ayu.AICopy" = "Copy";

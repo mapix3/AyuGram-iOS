@@ -174,6 +174,7 @@ public struct AyuGramExtraSettings: Codable, Equatable {
     public var silentSending: Int32 = 0
     public var scheduleInGhost = false
     public var disableAds = true
+    public var searchEngine: Int32 = 0
     public var disableLinkWarning = false
     public var disableGreetingSticker = false
     public var dimDeletedMessages = false
@@ -202,6 +203,7 @@ public struct AyuGramExtraSettings: Codable, Equatable {
         self.silentSending = try container.decodeIfPresent(Int32.self, forKey: .silentSending) ?? defaults.silentSending
         self.scheduleInGhost = try container.decodeIfPresent(Bool.self, forKey: .scheduleInGhost) ?? defaults.scheduleInGhost
         self.disableAds = try container.decodeIfPresent(Bool.self, forKey: .disableAds) ?? defaults.disableAds
+        self.searchEngine = try container.decodeIfPresent(Int32.self, forKey: .searchEngine) ?? defaults.searchEngine
         self.disableLinkWarning = try container.decodeIfPresent(Bool.self, forKey: .disableLinkWarning) ?? defaults.disableLinkWarning
         self.disableGreetingSticker = try container.decodeIfPresent(Bool.self, forKey: .disableGreetingSticker) ?? defaults.disableGreetingSticker
         self.dimDeletedMessages = try container.decodeIfPresent(Bool.self, forKey: .dimDeletedMessages) ?? defaults.dimDeletedMessages

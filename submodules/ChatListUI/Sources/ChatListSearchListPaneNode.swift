@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import UIKit
 import AsyncDisplayKit
@@ -1322,7 +1323,7 @@ public enum ChatListSearchEntry: Comparable, Identifiable {
                 })
             case let .webSearch(query, theme, _):
                 let icon = UIImage(systemName: "magnifyingglass")?.withTintColor(theme.list.itemAccentColor, renderingMode: .alwaysOriginal) ?? UIImage()
-                return ContactListActionItem(presentationData: ItemListPresentationData(presentationData), title: "Google: " + query, icon: .generic(icon), header: nil, action: {
+                return ContactListActionItem(presentationData: ItemListPresentationData(presentationData), title: AyuGramSearchEngine.current.title + ": " + query, icon: .generic(icon), header: nil, action: {
                     ayuGramOpenWebSearch?(context, query)
                 })
         }
