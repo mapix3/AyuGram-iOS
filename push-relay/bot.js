@@ -1,4 +1,4 @@
-import { BAN_REASONS, COPY_REASONS, OFFICIAL_REPO, copyMenu, copyMessage, reasonLabel, reportMessage, statsStub } from './stats.js';
+import { BAN_REASONS, COPY_REASONS, OFFICIAL_REPO, copyMenu, copyMessage, reasonLabel, reasonNote, reportMessage, statsStub } from './stats.js';
 
 const kyiv = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -60,7 +60,7 @@ function statusLines(review) {
     lines.push('AyuGram: ❌ не установлен или выключена статистика');
   }
   if (target.ban) {
-    lines.push('Статус: ⛔ забанен ' + when(target.ban.time) + ' · причина: ' + reasonLabel(target.ban.reason));
+    lines.push('Статус: ⛔ забанен ' + when(target.ban.time) + ' · причина: ' + reasonLabel(target.ban.reason, target.ban.note));
   } else if (target.warning) {
     lines.push('Статус: ⚠️ предупреждён ' + when(target.warning.time));
   } else {
@@ -94,7 +94,7 @@ export function detailsText(review) {
     lines.push('ID: ' + target.id);
     lines.push('Юзернейм и имя: ' + (target.name || '-'));
     lines.push('AyuGram: ' + (target.installs.length ? 'установлен на ' + target.installs.length + ' устр.' : 'не установлен или выключена статистика'));
-    lines.push('Бан: ' + (target.ban ? 'да, ' + when(target.ban.time) + ', причина: ' + reasonLabel(target.ban.reason) : 'нет'));
+    lines.push('Бан: ' + (target.ban ? 'да, ' + when(target.ban.time) + ', причина: ' + reasonLabel(target.ban.reason, target.ban.note) : 'нет'));
     lines.push('Предупреждение: ' + (target.warning ? 'да, ' + when(target.warning.time) : 'нет'));
     target.installs.forEach((install, index) => lines.push((index + 1) + '. ' + installLine(install)));
   } else {
@@ -112,20 +112,24 @@ export function detailsText(review) {
   return lines.join('\n').slice(0, 4000);
 }
 
-async function stats(env, path, method) {
+async function stats(env, path, method, body) {
   const stub = statsStub(env);
   if (!stub) {
     return null;
   }
-  const response = await stub.fetch('https://stats.ayugram.invalid' + path, { method: method || 'GET' });
+  const response = await stub.fetch('https://stats.ayugram.invalid' + path, { method: method || 'GET', body: body ? JSON.stringify(body) : undefined });
   return response;
 }
 
-function reasonMenu(reasons, prefix, cancel) {
-  return { inline_keyboard: [...reasons.map(([code, label]) => [{ text: '⛔ ' + label, callback_data: prefix + ':' + code }]), [{ text: 'Отмена', callback_data: cancel }]] };
+function reasonQuery(reason, note) {
+  return note ? '?note=' + encodeURIComponent(note) : '?reason=' + encodeURIComponent(reason || 'other');
 }
 
-async function handleCopyCallback(env, query, action, cid, answer, reason) {
+function reasonMenu(reasons, prefix, cancel) {
+  return { inline_keyboard: [...reasons.map(([code, label]) => [{ text: '⛔ ' + label, callback_data: prefix + ':' + code }]), [{ text: '✏️ Своя причина', callback_data: prefix + ':custom' }], [{ text: 'Отмена', callback_data: cancel }]] };
+}
+
+async function handleCopyCallback(env, query, action, cid, answer, reason, note) {
   const message = query.message;
   const response = await stats(env, '/copy/' + cid);
   if (!response || !response.ok || !message) {
@@ -154,7 +158,7 @@ async function handleCopyCallback(env, query, action, cid, answer, reason) {
     await answer('Блок по ' + copy.blockable.join(', ') + '. Выбери причину', true);
     return;
   }
-  const moderated = await stats(env, '/copy-moderate/' + (action === 'K' ? 'block/' + cid + '?reason=' + encodeURIComponent(reason || 'other') : 'unblock/' + cid), 'POST');
+  const moderated = await stats(env, '/copy-moderate/' + (action === 'K' ? 'block/' + cid + reasonQuery(reason, note) : 'unblock/' + cid), 'POST');
   if (!moderated || !moderated.ok) {
     await answer('Не получилось, попробуй ещё раз', true);
     return;
@@ -172,14 +176,14 @@ function bansText(data) {
   const lines = ['🔐 Активные блокировки', ''];
   lines.push('Забаненные аккаунты (' + data.accounts.length + '):');
   if (data.accounts.length) {
-    data.accounts.forEach((ban) => lines.push('• ' + (ban.name || 'без имени') + ' · ' + when(ban.time) + ' · ' + reasonLabel(ban.reason)));
+    data.accounts.forEach((ban) => lines.push('• ' + (ban.name || 'без имени') + ' · ' + when(ban.time) + ' · ' + reasonLabel(ban.reason, ban.note)));
   } else {
     lines.push('нет');
   }
   lines.push('');
   lines.push('Заблокированные копии (' + data.copies.length + '):');
   if (data.copies.length) {
-    data.copies.forEach((copy) => lines.push('• ' + copyLabel(copy) + ' · ' + when(copy.time) + ' · ' + reasonLabel(copy.reason)));
+    data.copies.forEach((copy) => lines.push('• ' + copyLabel(copy) + ' · ' + when(copy.time) + ' · ' + reasonLabel(copy.reason, copy.note)));
   } else {
     lines.push('нет');
   }
@@ -222,20 +226,20 @@ async function banById(env, chatId, text) {
   await telegram(env, 'sendMessage', { chat_id: chatId, text: '✅ Разбанен ID ' + id + '.' });
 }
 
-async function banByIdWithReason(env, query, id, reason, answer) {
+async function banByIdWithReason(env, query, id, reason, answer, note) {
   const message = query.message;
   if (!/^[1-9][0-9]{0,19}$/.test(id || '')) {
     await answer('Неверный ID', true);
     return;
   }
-  const response = await stats(env, '/ban-id/ban/' + id + '?reason=' + encodeURIComponent(reason || 'other'), 'POST');
+  const response = await stats(env, '/ban-id/ban/' + id + reasonQuery(reason, note), 'POST');
   if (!response || !response.ok) {
     await answer('Не получилось, попробуй ещё раз', true);
     return;
   }
   const result = await response.json();
   const installed = result.installs ? 'AyuGram у него: ✅ найден (' + result.installs + ' устр.)' : 'AyuGram у него: ❌ не найден или выключена статистика';
-  const text = '⛔ Забанен ID ' + id + '. Причина: ' + reasonLabel(reason) + '. Сработает при следующем запуске AyuGram.\n' + installed;
+  const text = '⛔ Забанен ID ' + id + '. Причина: ' + reasonLabel(reason, note) + '. Сработает при следующем запуске AyuGram.\n' + installed;
   if (message) {
     await telegram(env, 'editMessageText', { chat_id: message.chat.id, message_id: message.message_id, text, reply_markup: { inline_keyboard: [[{ text: '✅ Разбанить', callback_data: 'V:' + id }]] } });
   }
@@ -272,20 +276,30 @@ async function handleBansCallback(env, query, action, id, answer) {
   }
 }
 
-async function handleCallback(env, query) {
+async function handleCallback(env, query, note) {
   const message = query.message;
   const [action, rid, reason] = String(query.data || '').split(':');
-  const answer = (text, alert) => telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: text || undefined, show_alert: Boolean(alert) });
+  const answer = (text, alert) => (query.id ? telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: text || undefined, show_alert: Boolean(alert) }) : null);
+  if (reason === 'custom' && !note && ['Z', 'K', 'B'].includes(action)) {
+    if (!message) {
+      await answer('Не получилось', true);
+      return;
+    }
+    await stats(env, '/pending', 'POST', { data: action + ':' + rid + ':custom', chat: message.chat.id, message: message.message_id });
+    await telegram(env, 'sendMessage', { chat_id: message.chat.id, text: 'Напиши причину одним сообщением, до 200 символов. Её увидит пользователь в окне блокировки. /cancel — отмена.', reply_parameters: { message_id: message.message_id } });
+    await answer();
+    return;
+  }
   if (['U', 'V', 'X', 'L'].includes(action)) {
     await handleBansCallback(env, query, action, rid, answer);
     return;
   }
   if (action === 'Z') {
-    await banByIdWithReason(env, query, rid, reason, answer);
+    await banByIdWithReason(env, query, rid, reason, answer, note);
     return;
   }
   if (['k', 'K', 'x', 'y'].includes(action)) {
-    await handleCopyCallback(env, query, action, rid, answer, reason);
+    await handleCopyCallback(env, query, action, rid, answer, reason, note);
     return;
   }
   const response = await stats(env, '/review/' + rid);
@@ -335,7 +349,7 @@ async function handleCallback(env, query) {
     await answer();
     return;
   }
-  const moderated = await stats(env, '/moderate/' + actions[action] + '/' + rid + (action === 'B' ? '?reason=' + encodeURIComponent(reason || 'other') : ''), 'POST');
+  const moderated = await stats(env, '/moderate/' + actions[action] + '/' + rid + (action === 'B' ? reasonQuery(reason, note) : ''), 'POST');
   if (!moderated || !moderated.ok) {
     await answer('Не получилось, попробуй ещё раз', true);
     return;
@@ -379,6 +393,18 @@ export async function handleBot(request, env, ctx) {
         await sendBans(env, owner);
       } else if (/^\/(un)?ban(\s|$)/.test(message.text)) {
         await banById(env, owner, message.text);
+      } else if (message.text.startsWith('/cancel')) {
+        const taken = await stats(env, '/pending/take', 'POST');
+        const pending = taken && taken.ok ? await taken.json() : null;
+        await telegram(env, 'sendMessage', { chat_id: owner, text: pending ? 'Отменено.' : 'Отменять нечего.' });
+      } else if (!message.text.startsWith('/')) {
+        const taken = await stats(env, '/pending/take', 'POST');
+        const pending = taken && taken.ok ? await taken.json() : null;
+        const note = reasonNote(message.text);
+        if (pending && note) {
+          await handleCallback(env, { data: pending.data, message: { chat: { id: pending.chat }, message_id: pending.message } }, note);
+          await telegram(env, 'sendMessage', { chat_id: owner, text: '⛔ Готово. Причина: ' + note });
+        }
       } else if (message.text.startsWith('/start')) {
         await telegram(env, 'sendMessage', { chat_id: owner, text: 'Готов. Жалобы на скам приходят сюда. /bans — список банов и блокировок с кнопками снятия.' });
       }

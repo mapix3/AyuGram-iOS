@@ -574,6 +574,25 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     await press('Z:777:abuse');
     assert.ok(calls.find((call) => call.method === 'editMessageText').body.text.includes('✅ найден (1 устр.)'), 'A direct ban reports whether AyuGram is installed');
     await sendText('/unban 777');
+    calls.length = 0;
+    await press('Z:777:custom');
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('Напиши причину'), 'A custom reason is asked for as text');
+    assert.equal((await status([hash777])).banned, false, 'Nothing is banned before the custom reason arrives');
+    calls.length = 0;
+    await sendText('слив  исходников\nв паблик');
+    const custom777 = await status([hash777]);
+    assert.equal(custom777.banned, true, 'The custom reason applies the ban');
+    assert.equal(custom777.banReason, 'слив исходников в паблик', 'The custom reason reaches the app as text');
+    calls.length = 0;
+    await sendText('/bans');
+    assert.ok(calls.find((call) => call.method === 'sendMessage').body.text.includes('слив исходников в паблик'), 'The ban list shows the custom reason');
+    await sendText('просто текст');
+    assert.equal((await status([hash777])).banReason, 'слив исходников в паблик', 'Text without a pending question changes nothing');
+    await sendText('/unban 777');
+    await press('Z:777:custom');
+    await sendText('/cancel');
+    await sendText('поздно');
+    assert.equal((await status([hash777])).banned, false, 'A cancelled custom reason bans nobody');
   } finally {
     globalThis.fetch = realFetch2;
   }

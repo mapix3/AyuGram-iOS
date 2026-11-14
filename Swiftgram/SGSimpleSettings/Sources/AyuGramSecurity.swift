@@ -247,18 +247,29 @@ public final class AyuGramSecurity {
 
     public static let reasonCodes: Set<String> = ["scam", "resale", "abuse", "testflight", "modified", "fork"]
 
-    public var banReason: String? {
-        guard self.isBanned, let reason = UserDefaults.standard.string(forKey: self.banReasonKey), AyuGramSecurity.reasonCodes.contains(reason) else {
+    public static func reasonText(_ value: String?) -> String? {
+        guard let value else {
             return nil
         }
-        return reason
+        let cleaned = value.components(separatedBy: .whitespacesAndNewlines).filter({ !$0.isEmpty }).joined(separator: " ")
+        guard !cleaned.isEmpty, cleaned != "other", cleaned != "custom" else {
+            return nil
+        }
+        return String(cleaned.prefix(200))
+    }
+
+    public var banReason: String? {
+        guard self.isBanned else {
+            return nil
+        }
+        return AyuGramSecurity.reasonText(UserDefaults.standard.string(forKey: self.banReasonKey))
     }
 
     public var blockReason: String? {
-        guard UserDefaults.standard.bool(forKey: self.flagsKey), let reason = UserDefaults.standard.string(forKey: self.blockReasonKey), AyuGramSecurity.reasonCodes.contains(reason) else {
+        guard UserDefaults.standard.bool(forKey: self.flagsKey) else {
             return nil
         }
-        return reason
+        return AyuGramSecurity.reasonText(UserDefaults.standard.string(forKey: self.blockReasonKey))
     }
 
     public var pendingWarning: String? {
