@@ -774,6 +774,30 @@ async function forwardAttachment(env, kind, extension, type, bytes, info) {
   return (await send(kind === 'photo' ? 'sendPhoto' : 'sendVideo', kind)) || send('sendDocument', 'document');
 }
 
+let moderationKeyPromise = null;
+
+function moderationKey(env) {
+  if (!env || !env.MODERATION_KEY) {
+    return null;
+  }
+  if (!moderationKeyPromise) {
+    const der = Uint8Array.from(atob(env.MODERATION_KEY.trim()), (ch) => ch.charCodeAt(0));
+    moderationKeyPromise = crypto.subtle.importKey('pkcs8', der, 'Ed25519', false, ['sign']).catch(() => null);
+  }
+  return moderationKeyPromise;
+}
+
+async function moderationSignature(env, id, banned, blocked, now) {
+  const key = env && env.MODERATION_KEY ? await moderationKey(env) : null;
+  if (!key) {
+    return null;
+  }
+  const ts = Math.floor(now / 1000);
+  const message = new TextEncoder().encode('ayugram-mod|' + id + '|' + (banned ? 1 : 0) + '|' + (blocked ? 1 : 0) + '|' + ts);
+  const signature = new Uint8Array(await crypto.subtle.sign('Ed25519', key, message));
+  return { ts, sig: btoa(String.fromCharCode(...signature)) };
+}
+
 export async function handleStats(request, env, url, ctx) {
   const stub = statsStub(env);
   if (!stub) {
@@ -843,6 +867,11 @@ export async function handleStats(request, env, url, ctx) {
       return response;
     }
     const { notify, ...result } = await response.json();
+    const signed = await moderationSignature(env, text(body.id, 64), result.banned, result.blocked, now);
+    if (signed) {
+      result.ts = signed.ts;
+      result.sig = signed.sig;
+    }
     if (notify) {
       const sent = notifyCopy(notify, env).catch((error) => console.log('copy not sent to Telegram: ' + error));
       if (ctx && typeof ctx.waitUntil === 'function') {

@@ -598,3 +598,44 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
   }
 }
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');
+
+await testModerationSignature();
+async function testModerationSignature() {
+  const data = new Map();
+  const storage = {
+    async get(k) { return Array.isArray(k) ? new Map(k.filter((key) => data.has(key)).map((key) => [key, data.get(key)])) : data.get(k); },
+    async put(k, v) { if (typeof k === 'object') { for (const [key, value] of Object.entries(k)) data.set(key, value); } else { data.set(k, v); } },
+    async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
+    async list({ prefix }) { return new Map([...data].filter(([k]) => k.startsWith(prefix)).sort()); },
+  };
+  const object = new Stats({ storage });
+  const STATS = { idFromName(name) { return name; }, get() { return { fetch: (url, init) => object.fetch(new Request(url, init)) }; } };
+  const kp = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']);
+  const pkcs8 = Buffer.from(new Uint8Array(await crypto.subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
+  const rawPub = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+  const pub = await crypto.subtle.importKey('raw', rawPub, 'Ed25519', true, ['verify']);
+  const env = { STATS, STATS_TOKEN: 'secret-token', REPORT_BOT_TOKEN: '1:a', REPORT_CHAT_ID: '1272887902', REPORT_WEBHOOK_SECRET: 'h', MODERATION_KEY: pkcs8 };
+  const id = 'install-sign-01';
+  const status = (accounts) => worker.fetch(new Request('https://relay.example/stats/status', { method: 'POST', body: JSON.stringify({ id, accounts }) }), env).then((r) => r.json());
+  const verify = (body) => {
+    const message = new TextEncoder().encode('ayugram-mod|' + id + '|' + (body.banned ? 1 : 0) + '|' + (body.blocked ? 1 : 0) + '|' + body.ts);
+    return crypto.subtle.verify('Ed25519', pub, Uint8Array.from(atob(body.sig), (ch) => ch.charCodeAt(0)), message);
+  };
+
+  const clean = await status([]);
+  assert.ok(typeof clean.ts === 'number' && typeof clean.sig === 'string', 'A signed relay stamps ts and sig');
+  assert.equal(await verify(clean), true, 'The raw public key verifies the relay signature the way the app will');
+
+  const scammer = await accountHash('42');
+  await object.fetch(new Request('https://stats.ayugram.invalid/ban-id/ban/42?reason=scam', { method: 'POST' }));
+  const banned = await status([scammer]);
+  assert.equal(banned.banned, true, 'The ban reaches the account');
+  assert.equal(await verify(banned), true, 'A ban is signed over its own banned flag');
+  const forged = { ...banned, banned: false };
+  assert.equal(await verify(forged), false, 'Flipping banned to false breaks the signature');
+
+  const noKey = await worker.fetch(new Request('https://relay.example/stats/status', { method: 'POST', body: JSON.stringify({ id, accounts: [] }) }), { STATS, STATS_TOKEN: 'secret-token' }).then((r) => r.json());
+  assert.equal(noKey.sig, undefined, 'Without a key the response stays unsigned (backward compatible)');
+  console.log('push relay: moderation responses are Ed25519-signed and verify with the raw public key');
+}
+
