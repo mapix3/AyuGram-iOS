@@ -132,7 +132,7 @@ public extension TelegramEngine {
                 let texts = copies.reversed().map { message -> (text: String, key: String) in
                     let author = message.author?.debugDisplayTitle ?? ""
                     let username = message.author?.addressName ?? ""
-                    let body = String(message.text.prefix(300))
+                    let body = String(ayuGramContentText(text: message.text, attributes: message.attributes).prefix(300))
                     let text = author.isEmpty ? body : author + ": " + body
                     return (text, (author + " @" + username + " " + body).lowercased())
                 }
@@ -150,7 +150,7 @@ public extension TelegramEngine {
         return self.account.postbox.transaction { transaction -> [AyuGramHistoryEntry] in
             let peerTitle = String((transaction.getPeer(peerId)?.debugDisplayTitle ?? "").prefix(256))
             return ayuGramDeletedCopies(transaction: transaction, peerId: peerId).reversed().map { message -> AyuGramHistoryEntry in
-                var text = message.text
+                var text = ayuGramContentText(text: message.text, attributes: message.attributes)
                 if text.isEmpty {
                     for media in message.media {
                         if media is TelegramMediaImage {
