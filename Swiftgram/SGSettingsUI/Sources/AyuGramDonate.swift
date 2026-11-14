@@ -32,12 +32,20 @@ private func ayuGramDonateMethods(locale: String) -> [AyuGramDonateMethod] {
 private func ayuGramDonateWalletIcon(side: CGFloat) -> UIImage {
     let size = CGSize(width: side, height: side)
     return UIGraphicsImageRenderer(size: size).image { _ in
-        UIColor(red: 0.0, green: 0.6, blue: 0.92, alpha: 1.0).setFill()
+        UIColor(red: 0.0, green: 0.596, blue: 0.918, alpha: 1.0).setFill()
         UIBezierPath(rect: CGRect(origin: .zero, size: size)).fill()
-        let configuration = UIImage.SymbolConfiguration(pointSize: side * 0.5, weight: .bold)
-        if let glyph = UIImage(systemName: "suit.diamond.fill", withConfiguration: configuration)?.withTintColor(.white, renderingMode: .alwaysOriginal) {
-            glyph.draw(in: CGRect(x: (side - glyph.size.width) / 2.0, y: (side - glyph.size.height) / 2.0, width: glyph.size.width, height: glyph.size.height))
-        }
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: side * 0.27, y: side * 0.31))
+        path.addLine(to: CGPoint(x: side * 0.73, y: side * 0.31))
+        path.addLine(to: CGPoint(x: side * 0.5, y: side * 0.74))
+        path.close()
+        path.move(to: CGPoint(x: side * 0.5, y: side * 0.31))
+        path.addLine(to: CGPoint(x: side * 0.5, y: side * 0.74))
+        path.lineWidth = side * 0.075
+        path.lineJoinStyle = .round
+        path.lineCapStyle = .round
+        UIColor.white.setStroke()
+        path.stroke()
     }
 }
 
