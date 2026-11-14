@@ -493,3 +493,12 @@
 "Ayu.AINeedKey" = "Цьому провайдеру потрібен API-ключ. Додайте його в налаштуваннях AyuGram.";
 "Ayu.AIEmpty" = "Поставте запитання, щоб почати.";
 "Ayu.AICopy" = "Скопіювати";
+"Ayu.AIBubble" = "Кнопка асистента у списку чатів";
+"Ayu.AIRecording" = "Запис… натисніть стоп, щоб надіслати";
+"Ayu.AIMicDenied" = "Дозвольте доступ до мікрофона в налаштуваннях iOS, щоб надсилати голос.";
+"Ayu.AISuggest1" = "Поясни щось простими словами";
+"Ayu.AISuggest2" = "Допоможи написати повідомлення";
+"Ayu.AISuggest3" = "Переклади текст";
+"Ayu.DisableLiquidGlass" = "Вимкнути Liquid Glass";
+"Ayu.DisableLiquidGlassInfo" = "Панелі та кнопки використовують класичне розмиття замість Liquid Glass.";
+"Ayu.RestartToApply" = "Перезапустіть AyuGram, щоб застосувати.";

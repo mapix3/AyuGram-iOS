@@ -522,3 +522,12 @@
 "Ayu.AINeedKey" = "Этому провайдеру нужен API-ключ. Добавьте его в настройках AyuGram.";
 "Ayu.AIEmpty" = "Задайте вопрос, чтобы начать.";
 "Ayu.AICopy" = "Скопировать";
+"Ayu.AIBubble" = "Кнопка ассистента в списке чатов";
+"Ayu.AIRecording" = "Запись… нажмите стоп, чтобы отправить";
+"Ayu.AIMicDenied" = "Разрешите доступ к микрофону в настройках iOS, чтобы отправлять голос.";
+"Ayu.AISuggest1" = "Объясни что-нибудь простыми словами";
+"Ayu.AISuggest2" = "Помоги написать сообщение";
+"Ayu.AISuggest3" = "Переведи текст";
+"Ayu.DisableLiquidGlass" = "Отключить Liquid Glass";
+"Ayu.DisableLiquidGlassInfo" = "Панели и кнопки используют классическое размытие вместо Liquid Glass.";
+"Ayu.RestartToApply" = "Перезапустите AyuGram, чтобы применить.";

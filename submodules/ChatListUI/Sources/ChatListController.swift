@@ -211,6 +211,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
     private var didSuggestLoginPasskeySetup = false
     
     private(set) var presentationData: PresentationData
+    private var ayuAssistantButton: UIButton?
     private let presentationDataValue = Promise<PresentationData>()
     private var presentationDataDisposable: Disposable?
     
@@ -3285,6 +3286,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         self.validLayout = layout
         
         self.updateLayout(layout: layout, transition: transition)
+        self.ayuUpdateAssistantButton(layout: layout, transition: transition)
         
         if layout.inVoiceOver != wasInVoiceOver {
             self.chatListDisplayNode.scrollToTop()
@@ -3666,6 +3668,42 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         self.chatListDisplayNode.scrollToStories(animated: true)
     }
     
+    private func ayuUpdateAssistantButton(layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
+        var visible = false
+        if case let .chatList(groupId) = self.location, groupId == .root, self.previewing == false, AyuGramSettings.shared.extra.assistantBubble, ayuGramOpenAssistant != nil {
+            visible = (layout.inputHeight ?? 0.0) <= 0.0
+        }
+        guard visible else {
+            self.ayuAssistantButton?.isHidden = true
+            return
+        }
+        let button: UIButton
+        if let current = self.ayuAssistantButton {
+            button = current
+        } else {
+            button = UIButton(type: .custom)
+            button.setImage(UIImage(systemName: "sparkles", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20.0, weight: .semibold)), for: .normal)
+            button.layer.cornerRadius = 24.0
+            button.layer.shadowColor = UIColor.black.cgColor
+            button.layer.shadowOpacity = 0.22
+            button.layer.shadowRadius = 8.0
+            button.layer.shadowOffset = CGSize(width: 0.0, height: 3.0)
+            button.addTarget(self, action: #selector(self.ayuAssistantPressed), for: .touchUpInside)
+            self.ayuAssistantButton = button
+            self.view.addSubview(button)
+        }
+        button.isHidden = false
+        button.backgroundColor = self.presentationData.theme.list.itemCheckColors.fillColor
+        button.tintColor = self.presentationData.theme.list.itemCheckColors.foregroundColor
+        self.view.bringSubviewToFront(button)
+        let frame = CGRect(x: layout.size.width - layout.safeInsets.right - 16.0 - 48.0, y: layout.size.height - layout.intrinsicInsets.bottom - 14.0 - 48.0, width: 48.0, height: 48.0)
+        transition.updateFrame(view: button, frame: frame)
+    }
+
+    @objc private func ayuAssistantPressed() {
+        ayuGramOpenAssistant?(self.context)
+    }
+
     private func updateLayout(layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
         var tabContainerOffset: CGFloat = 0.0
         if !self.displayNavigationBar {
