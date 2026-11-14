@@ -1501,6 +1501,12 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                         navigationController.view.endEditing(true)
                         navigationController.pushViewController(BrowserScreen(context: context, subject: .webPage(url: url)))
                     }
+                    ayuGramOpenAssistant = { context in
+                        guard let navigationController = context.sharedContext.mainWindow?.viewController as? NavigationController else {
+                            return
+                        }
+                        navigationController.pushViewController(ayuGramAssistantController(context: context))
+                    }
                     ayuGramArmTamperWatchdog()
 
                     self.mainWindow.debugAction = nil

@@ -497,3 +497,12 @@
 "Ayu.AINeedKey" = "This provider needs an API key. Add it in AyuGram settings.";
 "Ayu.AIEmpty" = "Ask a question to start.";
 "Ayu.AICopy" = "Copy";
+"Ayu.AIBubble" = "Assistant button in chat list";
+"Ayu.AIRecording" = "Recording… tap stop to send";
+"Ayu.AIMicDenied" = "Allow microphone access in iOS Settings to send voice.";
+"Ayu.AISuggest1" = "Explain something in simple words";
+"Ayu.AISuggest2" = "Help me write a message";
+"Ayu.AISuggest3" = "Translate a text";
+"Ayu.DisableLiquidGlass" = "Disable Liquid Glass";
+"Ayu.DisableLiquidGlassInfo" = "Bars and buttons use the classic blur instead of Liquid Glass.";
+"Ayu.RestartToApply" = "Restart AyuGram to apply.";

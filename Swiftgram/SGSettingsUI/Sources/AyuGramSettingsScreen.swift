@@ -22,7 +22,7 @@ private enum AyuScreenToggle: Equatable {
     case ignoreProtection, screenshots
     case history, premium
     case scheduleInGhost, disableAds, disableLinkWarning, disableGreeting, dimDeleted, repeatMessage, confirmStickers, confirmGifs, confirmRead
-    case anonymousStats
+    case anonymousStats, assistantBubble, disableLiquidGlass
 }
 
 private enum AyuScreenLink: Equatable {
@@ -170,10 +170,11 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.header(id: 440, section: .assistant, text: s("Ayu.AISection")))
     entries.append(.link(id: 441, section: .assistant, link: .searchEngine, symbol: "magnifyingglass", tint: .blue, title: s("Ayu.SearchEngine"), label: AyuGramSearchEngine.current.title))
     entries.append(.link(id: 442, section: .assistant, link: .assistant, symbol: "sparkles", tint: .purple, title: s("Ayu.Assistant"), label: ""))
+    entries.append(.toggle(id: 447, section: .assistant, key: .assistantBubble, symbol: "bubble.left.and.bubble.right.fill", tint: .pink, title: s("Ayu.AIBubble"), subtitle: nil, value: extra.assistantBubble, enabled: true))
     entries.append(.link(id: 443, section: .assistant, link: .aiProvider, symbol: "server.rack", tint: .teal, title: s("Ayu.AIProvider"), label: ai.provider.title))
     entries.append(.link(id: 444, section: .assistant, link: .aiKey, symbol: "key.fill", tint: .orange, title: s("Ayu.AIKey"), label: ai.key.isEmpty ? s("Ayu.AIKeyNone") : "••••"))
     entries.append(.link(id: 445, section: .assistant, link: .aiModel, symbol: "cpu", tint: .indigo, title: s("Ayu.AIModel"), label: ai.model))
-    entries.append(.footer(id: 446, section: .assistant, text: s("Ayu.AIFooter")))
+    entries.append(.footer(id: 448, section: .assistant, text: s("Ayu.AIFooter")))
 
     entries.append(.header(id: 500, section: .history, text: s("Ayu.History")))
     entries.append(.link(id: 520, section: .history, link: .history, symbol: "clock.fill", tint: .teal, title: s("Ayu.OpenHistory"), label: ""))
@@ -187,6 +188,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.toggle(id: 610, section: .client, key: .premium, symbol: "star.fill", tint: .purple, title: s("Ayu.LocalPremium"), subtitle: s("Ayu.LocalPremiumInfo"), value: client.localPremium, enabled: true))
     if hasAppearance {
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
+        entries.append(.toggle(id: 630, section: .client, key: .disableLiquidGlass, symbol: "drop.fill", tint: .teal, title: s("Ayu.DisableLiquidGlass"), subtitle: s("Ayu.DisableLiquidGlassInfo"), value: extra.disableLiquidGlass, enabled: true))
     }
     entries.append(.footer(id: 650, section: .client, text: s("Ayu.LocalOnly")))
 
@@ -254,6 +256,11 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .confirmGifs: settings.updateExtra { $0.confirmGifs = value }
         case .confirmRead: settings.updateExtra { $0.confirmReadReceipt = value }
         case .anonymousStats: settings.updateExtra { $0.anonymousStats = value }
+        case .assistantBubble: settings.updateExtra { $0.assistantBubble = value }
+        case .disableLiquidGlass:
+            settings.updateExtra { $0.disableLiquidGlass = value }
+            let data = context.sharedContext.currentPresentationData.with { $0 }
+            presentController?(textAlertController(context: context, title: nil, text: i18n("Ayu.RestartToApply", data.strings.baseLanguageCode), actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]))
         }
     }, open: { link in
         switch link {

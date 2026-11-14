@@ -398,6 +398,7 @@ private enum ChatListRecentEntry: Comparable, Identifiable {
 }
 
 public var ayuGramOpenWebSearch: ((AccountContext, String) -> Void)?
+public var ayuGramOpenAssistant: ((AccountContext) -> Void)?
 
 public enum ChatListSearchEntryStableId: Hashable {
     case threadId(Int64)

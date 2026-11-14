@@ -279,32 +279,63 @@ async function handleAssistant(request, env) {
   }
   let input;
   try {
-    input = JSON.parse((await request.text()).slice(0, 200000));
+    const raw = await request.text();
+    if (raw.length > 3500000) {
+      return aiAnswer(413, { error: { message: 'The request is too large' } });
+    }
+    input = JSON.parse(raw);
   } catch (error) {
     return aiAnswer(400, { error: { message: 'Bad request' } });
   }
   const source = Array.isArray(input && input.messages) ? input.messages.slice(-21) : [];
   const messages = [];
   let total = 0;
-  for (const item of source) {
+  let vision = false;
+  for (let index = 0; index < source.length; index++) {
+    const item = source[index];
     const role = item && ['system', 'user', 'assistant'].includes(item.role) ? item.role : null;
-    const content = item && typeof item.content === 'string' ? item.content.slice(0, 8000) : '';
-    if (!role || !content) {
+    if (!role) {
       continue;
     }
-    total += content.length;
+    let text = '';
+    let image = null;
+    if (typeof item.content === 'string') {
+      text = item.content;
+    } else if (Array.isArray(item.content)) {
+      for (const part of item.content) {
+        if (part && part.type === 'text' && typeof part.text === 'string') {
+          text += part.text;
+        } else if (part && part.type === 'image_url' && part.image_url && typeof part.image_url.url === 'string') {
+          const address = part.image_url.url;
+          if (role === 'user' && index === source.length - 1 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(address) && address.length <= 3000000) {
+            image = address;
+          }
+        }
+      }
+    }
+    text = text.slice(0, 8000);
+    if (!text && !image) {
+      continue;
+    }
+    total += text.length;
     if (total > 32000) {
       break;
     }
-    messages.push({ role, content });
+    if (image) {
+      vision = true;
+      messages.push({ role, content: [{ type: 'text', text: text || 'Describe this image.' }, { type: 'image_url', image_url: { url: image } }] });
+    } else {
+      messages.push({ role, content: text });
+    }
   }
   if (!messages.some((item) => item.role === 'user')) {
     return aiAnswer(400, { error: { message: 'Empty request' } });
   }
+  const model = vision ? (env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct') : (env.GROQ_MODEL || 'llama-3.3-70b-versatile');
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.GROQ_API_KEY },
-    body: JSON.stringify({ model: env.GROQ_MODEL || 'llama-3.3-70b-versatile', messages, max_tokens: 1500 }),
+    body: JSON.stringify({ model, messages, max_tokens: 1500 }),
   });
   let output = null;
   try {
@@ -320,11 +351,47 @@ async function handleAssistant(request, env) {
   return aiAnswer(busy ? 429 : 502, { error: { message: busy ? 'The assistant is busy, try again later' : 'The assistant is unavailable' } });
 }
 
+async function handleTranscription(request, env) {
+  if (!env || !env.GROQ_API_KEY) {
+    return aiAnswer(503, { error: { message: 'The assistant is not configured' } });
+  }
+  if (!aiAllowed(request.headers.get('cf-connecting-ip') || 'unknown')) {
+    return aiAnswer(429, { error: { message: 'Too many requests, wait a minute' } });
+  }
+  const audio = await request.arrayBuffer();
+  if (audio.byteLength === 0 || audio.byteLength > 4000000) {
+    return aiAnswer(413, { error: { message: 'The recording is too long' } });
+  }
+  const form = new FormData();
+  form.append('file', new Blob([audio], { type: 'audio/m4a' }), 'voice.m4a');
+  form.append('model', env.GROQ_SPEECH_MODEL || 'whisper-large-v3-turbo');
+  form.append('response_format', 'json');
+  const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + env.GROQ_API_KEY },
+    body: form,
+  });
+  let output = null;
+  try {
+    output = await response.json();
+  } catch (error) {
+    output = null;
+  }
+  if (output && typeof output.text === 'string') {
+    return aiAnswer(200, { text: output.text.trim() });
+  }
+  const busy = response.status === 429;
+  return aiAnswer(busy ? 429 : 502, { error: { message: busy ? 'The assistant is busy, try again later' : 'Transcription is unavailable' } });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === 'POST' && url.pathname === '/ai') {
       return handleAssistant(request, env);
+    }
+    if (request.method === 'POST' && url.pathname === '/ai/transcribe') {
+      return handleTranscription(request, env);
     }
     if (url.pathname === '/tg/hook') {
       return handleBot(request, env, ctx);
