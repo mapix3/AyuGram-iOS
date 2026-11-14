@@ -23,8 +23,7 @@ struct AyuGramAssistantProvider {
         AyuGramAssistantProvider(id: "pollinations", title: "Pollinations", endpoint: "https://text.pollinations.ai/openai", model: "openai", keyHint: "", needsKey: false),
         AyuGramAssistantProvider(id: "groq", title: "Groq", endpoint: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", keyHint: "gsk_...", needsKey: true),
         AyuGramAssistantProvider(id: "gemini", title: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-flash-latest", keyHint: "AIza...", needsKey: true),
-        AyuGramAssistantProvider(id: "openrouter", title: "OpenRouter", endpoint: "https://openrouter.ai/api/v1/chat/completions", model: "meta-llama/llama-3.3-70b-instruct:free", keyHint: "sk-or-...", needsKey: true),
-        AyuGramAssistantProvider(id: "ayugram-pro", title: "AyuGram Pro", endpoint: AyuGramPushRelay.baseURL + "/ai/pro", model: "pro", keyHint: "", needsKey: false)
+        AyuGramAssistantProvider(id: "openrouter", title: "OpenRouter", endpoint: "https://openrouter.ai/api/v1/chat/completions", model: "meta-llama/llama-3.3-70b-instruct:free", keyHint: "sk-or-...", needsKey: true)
     ]
 }
 
