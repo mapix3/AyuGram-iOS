@@ -129,14 +129,14 @@ func ayuGramIsHistoryCandidate(transaction: Transaction, id: MessageId) -> Bool 
     guard id.namespace == Namespaces.Message.Cloud, id.peerId.namespace != Namespaces.Peer.SecretChat,
           let message = transaction.getMessage(id), !message.isCopyProtected(), !message.containsSecretMedia,
           !message.attributes.contains(where: { $0 is AutoclearTimeoutMessageAttribute }) else { return false }
-    return !message.text.isEmpty || !message.media.isEmpty
+    return !message.text.isEmpty || !message.media.isEmpty || ayuGramHasRichText(message.attributes)
 }
 
 /// Messages Save Deleted Messages keeps in chats outside Message history.
 func ayuGramIsRetainable(transaction: Transaction, id: MessageId) -> Bool {
     guard id.namespace == Namespaces.Message.Cloud || id.peerId.namespace == Namespaces.Peer.SecretChat,
           let message = transaction.getMessage(id), !message.media.contains(where: { $0 is TelegramMediaAction }) else { return false }
-    return !message.text.isEmpty || !message.media.isEmpty
+    return !message.text.isEmpty || !message.media.isEmpty || ayuGramHasRichText(message.attributes)
 }
 
 @discardableResult
@@ -190,7 +190,7 @@ func ayuGramRecordHistory(transaction: Transaction, mediaBox: MediaBox, ids: [Me
                 }
             }
         }
-        let text = String(message.text.prefix(4096))
+        let text = String(ayuGramContentText(text: message.text, attributes: message.attributes).prefix(ayuGramHasRichText(message.attributes) ? 12000 : 4096))
         guard !text.isEmpty || source != nil else { continue }
         if let previous = history.entries.last(where: { $0.peerId == id.peerId.toInt64() && $0.messageId == id.id && $0.event == event }), previous.text == text, previous.photoResourceId == resourceId { recorded.insert(id); continue }
         var fileName: String?
@@ -221,7 +221,7 @@ func ayuGramRecordHistory(transaction: Transaction, mediaBox: MediaBox, ids: [Me
 
 func ayuGramCompleteEditSnapshot(transaction: Transaction, id: MessageId, updatedText: String) {
     guard var history = transaction.getPreferencesEntry(key: ayuGramHistoryKey)?.get(AyuGramHistory.self), let index = history.entries.lastIndex(where: { $0.peerId == id.peerId.toInt64() && $0.messageId == id.id && $0.event == "edited" }) else { return }
-    history.entries[index].updatedText = String(updatedText.prefix(4096))
+    history.entries[index].updatedText = String(updatedText.prefix(12000))
     transaction.setPreferencesEntry(key: ayuGramHistoryKey, value: PreferencesEntry(history))
 }
 
@@ -334,12 +334,12 @@ public extension TelegramEngine {
         |> map { entries, view -> [AyuGramHistoryEntry] in
             let records = entries.filter { $0.peerId == messageId.peerId.toInt64() && $0.messageId == messageId.id }
             guard !records.contains(where: { $0.event == "edited" }), let message = view.message, let history = message.ayuHistory,
-                  let editedAt = history.editedAt, !history.originalText.isEmpty, history.originalText != message.text else {
+                  let editedAt = history.editedAt, !history.originalText.isEmpty, history.originalText != ayuGramContentText(text: message.text, attributes: message.attributes) else {
                 return records
             }
             let peerTitle = message.peers[message.id.peerId].map { String($0.debugDisplayTitle.prefix(256)) } ?? ""
             let author = String((message.author?.debugDisplayTitle ?? "").prefix(256))
-            let original = AyuGramHistoryEntry(peerId: messageId.peerId.toInt64(), messageId: messageId.id, peerTitle: peerTitle, author: author, text: history.originalText, event: "edited", timestamp: editedAt, photoFileName: nil, photoResourceId: nil, authorId: message.author?.id.toInt64(), messageTimestamp: message.timestamp, mediaKind: nil, mediaTitle: nil, updatedText: message.text)
+            let original = AyuGramHistoryEntry(peerId: messageId.peerId.toInt64(), messageId: messageId.id, peerTitle: peerTitle, author: author, text: history.originalText, event: "edited", timestamp: editedAt, photoFileName: nil, photoResourceId: nil, authorId: message.author?.id.toInt64(), messageTimestamp: message.timestamp, mediaKind: nil, mediaTitle: nil, updatedText: ayuGramContentText(text: message.text, attributes: message.attributes))
             return [original] + records
         }
     }
