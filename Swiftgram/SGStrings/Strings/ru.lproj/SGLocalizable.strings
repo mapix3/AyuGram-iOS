@@ -531,3 +531,11 @@
 "Ayu.DisableLiquidGlass" = "Отключить Liquid Glass";
 "Ayu.DisableLiquidGlassInfo" = "Панели и кнопки используют классическое размытие вместо Liquid Glass.";
 "Ayu.RestartToApply" = "Перезапустите AyuGram, чтобы применить.";
+"Ayu.DonateSection" = "Поддержать проект";
+"Ayu.Donate" = "Донат";
+"Ayu.DonateFooter" = "AyuGram бесплатный и без рекламы. Донаты помогают развивать его дальше.";
+"Ayu.DonateIntro" = "Спасибо за поддержку AyuGram. Отсканируй код или открой ссылку.";
+"Ayu.DonateBotInfo" = "Любая монета, оплата с баланса бота.";
+"Ayu.DonateWallet" = "TON-кошелёк";
+"Ayu.DonateWalletInfo" = "TON, USDT и другие токены в сети TON.";
+"Ayu.DonateOpen" = "Открыть";

@@ -536,3 +536,11 @@
 "Ayu.DisableLiquidGlass" = "Disable Liquid Glass";
 "Ayu.DisableLiquidGlassInfo" = "Bars and buttons use the classic blur instead of Liquid Glass.";
 "Ayu.RestartToApply" = "Restart AyuGram to apply.";
+"Ayu.DonateSection" = "Support the project";
+"Ayu.Donate" = "Donate";
+"Ayu.DonateFooter" = "AyuGram is free and has no ads. Donations keep it going.";
+"Ayu.DonateIntro" = "Thanks for supporting AyuGram. Scan a code or open the link.";
+"Ayu.DonateBotInfo" = "Any coin, paid from the bot balance.";
+"Ayu.DonateWallet" = "TON wallet";
+"Ayu.DonateWalletInfo" = "TON, USDT and other tokens on the TON network.";
+"Ayu.DonateOpen" = "Open";

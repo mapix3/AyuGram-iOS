@@ -13,7 +13,7 @@ import SGSimpleSettings
 import SGStrings
 
 private enum AyuScreenSection: Int32 {
-    case hero, ghost, hide, behavior, content, chats, history, transfer, client, update, security, support, assistant
+    case hero, ghost, hide, behavior, content, chats, history, transfer, client, update, security, support, assistant, donate
 }
 
 private enum AyuScreenToggle: Equatable {
@@ -26,7 +26,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel
+    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate
 }
 
 private enum AyuScreenTint: Equatable {
@@ -204,6 +204,10 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 720, section: .support, link: .developer, symbol: "person.crop.circle.fill", tint: .purple, title: s("Ayu.SupportDeveloper"), label: ""))
     entries.append(.link(id: 730, section: .support, link: .sessionLog, symbol: "doc.text.fill", tint: .gray, title: s("Ayu.SessionLog"), label: ""))
     entries.append(.link(id: 740, section: .support, link: .checkUpdates, symbol: "arrow.triangle.2.circlepath", tint: .gray, title: s("Ayu.CheckUpdates"), label: ""))
+
+    entries.append(.header(id: 800, section: .donate, text: s("Ayu.DonateSection")))
+    entries.append(.link(id: 810, section: .donate, link: .donate, symbol: "heart.fill", tint: .pink, title: s("Ayu.Donate"), label: ""))
+    entries.append(.footer(id: 820, section: .donate, text: s("Ayu.DonateFooter")))
     return entries
 }
 
@@ -285,6 +289,8 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             }
         case .channel:
             ayuGramOpenLink(context: context, url: AyuGramUpdates.channelURL)
+        case .donate:
+            pushController?(ayuGramDonateController(context: context))
         case .developer:
             ayuGramOpenDeveloper(context: context)
         case .sessionLog:
