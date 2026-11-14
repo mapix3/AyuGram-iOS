@@ -1,6 +1,7 @@
 import Foundation
 import Postbox
 import SwiftSignalKit
+import SGSimpleSettings
 internal import TelegramApi
 
 private class AdMessagesHistoryContextImpl {
@@ -451,7 +452,7 @@ private class AdMessagesHistoryContextImpl {
 
         self.stateValue = State(interPostInterval: nil, messages: [])
 
-        if messageId == nil {
+        if messageId == nil && !AyuGramSettings.shared.extra.disableAds {
             self.state.set(CachedState.getCached(postbox: account.postbox, peerId: peerId)
             |> mapToSignal { cachedState -> Signal<State, NoError> in
                 if let cachedState = cachedState, cachedState.timestamp >= Int32(Date().timeIntervalSince1970) - 5 * 60 {
@@ -466,6 +467,10 @@ private class AdMessagesHistoryContextImpl {
             })
         }
 
+        if AyuGramSettings.shared.extra.disableAds {
+            self.state.set(.single(State(interPostInterval: nil, messages: [])))
+        }
+
         if !activateManually {
             self.activate()
         }
@@ -478,6 +483,10 @@ private class AdMessagesHistoryContextImpl {
     
     func activate() {
         if self.isActivated {
+            return
+        }
+        if AyuGramSettings.shared.extra.disableAds {
+            self.state.set(.single(State(interPostInterval: nil, messages: [])))
             return
         }
         self.isActivated = true

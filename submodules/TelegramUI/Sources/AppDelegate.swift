@@ -1,4 +1,6 @@
 // MARK: Swiftgram
+import ChatListUI
+import BrowserUI
 import StoreKit
 import SGIAP
 import SGAPI
@@ -1493,6 +1495,18 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                     print("Launch to ready took \((CFAbsoluteTimeGetCurrent() - launchStartTime) * 1000.0) ms")
                     // AyuGram: offer a newer build once the interface is up.
                     ayuGramPresentUpdateIfNeeded(context: context.context)
+                    ayuGramOpenWebSearch = { context, query in
+                        guard let navigationController = context.sharedContext.mainWindow?.viewController as? NavigationController else {
+                            return
+                        }
+                        var components = URLComponents(string: "https://www.google.com/search")
+                        components?.queryItems = [URLQueryItem(name: "q", value: query)]
+                        guard let url = components?.url else {
+                            return
+                        }
+                        navigationController.view.endEditing(true)
+                        navigationController.pushViewController(BrowserScreen(context: context, subject: .webPage(url: url.absoluteString)))
+                    }
                     ayuGramArmTamperWatchdog()
 
                     self.mainWindow.debugAction = nil

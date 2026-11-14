@@ -3,6 +3,7 @@ internal import TelegramApi
 import Postbox
 import SwiftSignalKit
 import MtProtoKit
+import SGSimpleSettings
 
 
 public final class PromoChatListItem: AdditionalChatListItem {
@@ -223,17 +224,18 @@ func _internal_fetchPromoInfo(accountPeerId: EnginePeer.Id, postbox: Postbox, ne
                 }
                 
                 var additionalChatListItems: [AdditionalChatListItem] = []
-                if let kind, let peer, let parsedPeer = transaction.getPeer(peer.peerId) {
+                let disableAds = AyuGramSettings.shared.extra.disableAds
+                if !disableAds, let kind, let peer, let parsedPeer = transaction.getPeer(peer.peerId) {
                     additionalChatListItems.append(PromoChatListItem(peerId: parsedPeer.id, kind: kind))
                 }
                 transaction.replaceAdditionalChatListItems(additionalChatListItems)
                 
                 var customItems: [ServerSuggestionInfo.Item] = []
-                if let customPendingSuggestion {
+                if !disableAds, let customPendingSuggestion {
                     customItems.append(ServerSuggestionInfo.Item(customPendingSuggestion))
                 }
                 let suggestionInfo = ServerSuggestionInfo(
-                    legacyItems: pendingSuggestions,
+                    legacyItems: disableAds ? pendingSuggestions.filter { !["PREMIUM_UPGRADE", "PREMIUM_ANNUAL", "PREMIUM_CHRISTMAS"].contains($0) } : pendingSuggestions,
                     items: customItems,
                     dismissedIds: dismissedSuggestions
                 )
