@@ -558,54 +558,104 @@ function resultAddress(href) {
   return href.startsWith('//') ? 'https:' + href : href;
 }
 
-async function searchDuckDuckGo(query) {
+const searchAgent = { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15', 'accept-language': 'en-US,en;q=0.8,ru;q=0.6' };
+
+async function searchPage(address, trace, name, headers) {
   try {
-    const response = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), {
-      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15', 'accept-language': 'en-US,en;q=0.8' },
-    });
-    if (!response.ok) {
-      return '';
+    const response = await fetch(address, { headers: headers || searchAgent });
+    const text = response.ok ? (await response.text()).slice(0, 250000) : '';
+    trace.push(name + ':' + response.status + ':' + text.length);
+    return text;
+  } catch (error) {
+    trace.push(name + ':error');
+    return '';
+  }
+}
+
+function searchLines(items) {
+  return items.filter((item) => item.title && item.address).slice(0, 6).map((item) => item.title + '\n' + item.address + '\n' + item.snippet).join('\n\n');
+}
+
+async function searchDuckDuckGo(query, trace) {
+  const html = await searchPage('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), trace, 'ddg');
+  const titles = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)];
+  const snippets = [...html.matchAll(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)];
+  const items = [];
+  for (let index = 0; index < titles.length; index++) {
+    const address = resultAddress(titles[index][1].replace(/&amp;/g, '&'));
+    if (address && !address.includes('duckduckgo.com/y.js')) {
+      items.push({ title: plainText(titles[index][2]), address, snippet: snippets[index] ? plainText(snippets[index][1]) : '' });
     }
-    const html = (await response.text()).slice(0, 250000);
-    const titles = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)];
-    const snippets = [...html.matchAll(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)];
-    const lines = [];
-    for (let index = 0; index < titles.length && lines.length < 6; index++) {
-      const address = resultAddress(titles[index][1].replace(/&amp;/g, '&'));
-      if (!address || address.includes('duckduckgo.com/y.js')) {
-        continue;
+  }
+  return searchLines(items);
+}
+
+async function searchBing(query, trace) {
+  const html = await searchPage('https://www.bing.com/search?q=' + encodeURIComponent(query), trace, 'bing');
+  const items = [];
+  for (const match of html.matchAll(/<li class="b_algo"[\s\S]*?<h2[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>\s*<\/h2>([\s\S]*?)<\/li>/g)) {
+    const snippet = /<p[^>]*>([\s\S]*?)<\/p>/.exec(match[3]);
+    items.push({ title: plainText(match[2]), address: match[1].replace(/&amp;/g, '&'), snippet: snippet ? plainText(snippet[1]) : '' });
+  }
+  return searchLines(items);
+}
+
+async function searchMojeek(query, trace) {
+  const html = await searchPage('https://www.mojeek.com/search?q=' + encodeURIComponent(query), trace, 'mojeek');
+  const items = [];
+  for (const match of html.matchAll(/<a([^>]*)>([\s\S]*?)<\/a>\s*(?:<[^p][^>]*>[\s\S]*?)?<p class="s">([\s\S]*?)<\/p>/g)) {
+    const address = /href="([^"]+)"/.exec(match[1]);
+    if (/class="title"/.test(match[1]) && address) {
+      items.push({ title: plainText(match[2]), address: address[1].replace(/&amp;/g, '&'), snippet: plainText(match[3]) });
+    }
+  }
+  return searchLines(items);
+}
+
+async function searchReader(query, trace) {
+  const text = await searchPage('https://r.jina.ai/https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), trace, 'reader', { accept: 'text/plain', 'x-return-format': 'markdown' });
+  return text.length > 400 && !/captcha|anomaly|unusual traffic/i.test(text.slice(0, 2000)) ? text.slice(0, 5000) : '';
+}
+
+async function searchWikipedia(query, trace) {
+  const languages = /[іїєґ]/i.test(query) ? ['uk', 'ru', 'en'] : (/[а-яё]/i.test(query) ? ['ru', 'en'] : ['en']);
+  const parts = [];
+  for (const language of languages) {
+    try {
+      const response = await fetch('https://' + language + '.wikipedia.org/w/api.php?action=query&generator=search&gsrlimit=3&prop=extracts&exintro=1&explaintext=1&exchars=1200&format=json&gsrsearch=' + encodeURIComponent(query), { headers: { 'user-agent': 'AyuGramRelay/1.0' } });
+      const output = await response.json();
+      const pages = output && output.query && output.query.pages ? Object.values(output.query.pages) : [];
+      trace.push('wiki-' + language + ':' + response.status + ':' + pages.length);
+      pages.sort((left, right) => (left.index || 0) - (right.index || 0));
+      for (const page of pages) {
+        parts.push(page.title + '\nhttps://' + language + '.wikipedia.org/wiki/' + encodeURIComponent(String(page.title).replace(/ /g, '_')) + '\n' + String(page.extract || '').trim());
       }
-      lines.push(plainText(titles[index][2]) + '\n' + address + '\n' + (snippets[index] ? plainText(snippets[index][1]) : ''));
+    } catch (error) {
+      trace.push('wiki-' + language + ':error');
     }
-    return lines.join('\n\n');
-  } catch (error) {
-    return '';
+    if (parts.length >= 3) {
+      break;
+    }
   }
+  return parts.join('\n\n');
 }
 
-async function searchWikipedia(query) {
-  try {
-    const response = await fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=4&srsearch=' + encodeURIComponent(query), { headers: { 'user-agent': 'AyuGramRelay/1.0' } });
-    const output = await response.json();
-    const found = output && output.query && Array.isArray(output.query.search) ? output.query.search : [];
-    return found.map((item) => item.title + '\nhttps://en.wikipedia.org/wiki/' + encodeURIComponent(String(item.title).replace(/ /g, '_')) + '\n' + plainText(String(item.snippet || ''))).join('\n\n');
-  } catch (error) {
-    return '';
-  }
-}
-
-async function searchWeb(key, query) {
-  const direct = await searchDuckDuckGo(query);
-  if (direct) {
-    return direct;
+async function searchWeb(key, query, trace) {
+  const log = trace || [];
+  for (const source of [searchDuckDuckGo, searchBing, searchMojeek, searchReader]) {
+    const found = await source(query, log);
+    if (found) {
+      return found;
+    }
   }
   for (const model of ['groq/compound-mini', 'groq/compound']) {
     const found = await groqChat(key, model, [{ role: 'user', content: 'Search the web and report the facts you find with source links, no commentary: ' + query }]);
+    log.push(model + ':' + found.status);
     if (found.content) {
       return found.content.slice(0, 6000);
     }
   }
-  return (await searchWikipedia(query)) || 'No results';
+  return await searchWikipedia(query, log);
 }
 
 async function groqRaw(key, body) {
@@ -667,7 +717,13 @@ async function groqSearchAnswer(key, model, messages, basePrompt) {
   }
   const found = [];
   for (const query of queries) {
-    found.push('Results for "' + query + '":\n' + (await searchWeb(key, query)).slice(0, 6000));
+    const results = (await searchWeb(key, query)).slice(0, 6000);
+    if (results) {
+      found.push('Results for "' + query + '":\n' + results);
+    }
+  }
+  if (!found.length) {
+    return '';
   }
   const last = messages[messages.length - 1];
   const question = typeof last.content === 'string' ? last.content : '';
@@ -748,6 +804,19 @@ export default {
       } catch (error) {
         return aiAnswer(502, { error: { message: 'The assistant failed: ' + String(error && error.message ? error.message : error).replace(/gsk_[A-Za-z0-9]+/g, '').slice(0, 200) } });
       }
+    }
+    if (request.method === 'GET' && url.pathname === '/ai/search') {
+      if (!env || !env.GROQ_API_KEY || !aiAllowed('search:' + (request.headers.get('cf-connecting-ip') || 'unknown'))) {
+        return aiAnswer(429, { error: { message: 'Unavailable' } });
+      }
+      const trace = [];
+      let found = '';
+      try {
+        found = await searchWeb(groqKey(env), String(url.searchParams.get('q') || 'weather in Kyiv').slice(0, 200), trace);
+      } catch (error) {
+        trace.push('failed:' + String(error && error.message ? error.message : error).slice(0, 120));
+      }
+      return aiAnswer(200, { trace, sample: found.slice(0, 600) });
     }
     if (request.method === 'POST' && url.pathname === '/ai/pro') {
       return handlePro(request, env);
