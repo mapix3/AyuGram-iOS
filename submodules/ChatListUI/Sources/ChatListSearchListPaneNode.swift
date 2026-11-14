@@ -3058,10 +3058,6 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                 var entries: [ChatListSearchEntry] = []
                 var index = 0
 
-                if case .chats = key, !peersFilter.contains(.excludeRecent), !finalQuery.isEmpty {
-                    entries.append(.webSearch(finalQuery, presentationData.theme, presentationData.strings))
-                }
-
                 for thread in allAndFoundThreads {
                     if let peer = thread.renderedPeer.peer, let threadData = thread.threadData, case let .forum(_, _, id, _, _) = thread.index {
                         entries.append(.topic(peer, ChatListItemContent.ThreadInfo(id: id, info: threadData.info, isOwnedByMe: threadData.isOwnedByMe, isClosed: threadData.isClosed, isHidden: threadData.isHidden, threadPeer: nil), index, presentationData.theme, presentationData.strings, .none))
@@ -3524,6 +3520,20 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
 
                 if case .chats = key, !peersFilter.contains(.excludeRecent), isViablePhoneNumber(finalQuery) {
                     entries.append(.addContact(finalQuery, presentationData.theme, presentationData.strings))
+                }
+
+                if case .chats = key, !peersFilter.contains(.excludeRecent), !finalQuery.isEmpty, !foundRemotePeers.3, !isViablePhoneNumber(finalQuery) {
+                    let hasPeers = entries.contains(where: { entry in
+                        switch entry {
+                        case .topic, .recentlySearchedPeer, .localPeer, .globalPeer, .adPeer:
+                            return true
+                        default:
+                            return false
+                        }
+                    })
+                    if !hasPeers {
+                        entries.insert(.webSearch(finalQuery, presentationData.theme, presentationData.strings), at: 0)
+                    }
                 }
 
                 return (entries, isSearching, query)
