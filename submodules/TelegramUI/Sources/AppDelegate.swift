@@ -1499,13 +1499,11 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                         guard let navigationController = context.sharedContext.mainWindow?.viewController as? NavigationController else {
                             return
                         }
-                        var components = URLComponents(string: "https://www.google.com/search")
-                        components?.queryItems = [URLQueryItem(name: "q", value: query)]
-                        guard let url = components?.url else {
+                        guard let url = AyuGramSearchEngine.current.url(query: query) else {
                             return
                         }
                         navigationController.view.endEditing(true)
-                        navigationController.pushViewController(BrowserScreen(context: context, subject: .webPage(url: url.absoluteString)))
+                        navigationController.pushViewController(BrowserScreen(context: context, subject: .webPage(url: url)))
                     }
                     ayuGramArmTamperWatchdog()
 
