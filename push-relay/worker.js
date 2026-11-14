@@ -331,24 +331,78 @@ async function handleAssistant(request, env) {
   if (!messages.some((item) => item.role === 'user')) {
     return aiAnswer(400, { error: { message: 'Empty request' } });
   }
-  const model = vision ? (env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct') : (env.GROQ_MODEL || 'llama-3.3-70b-versatile');
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.GROQ_API_KEY },
-    body: JSON.stringify({ model, messages, max_tokens: 1500 }),
-  });
+  const key = groqKey(env);
+  const preferred = vision ? (env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct') : (env.GROQ_MODEL || 'llama-3.3-70b-versatile');
+  const kind = vision ? 'vision' : 'text';
+  let result = await groqChat(key, groqPicked.get(kind) || preferred, messages);
+  if (!result.content && result.status !== 429 && result.status !== 401) {
+    const picked = await groqPickModel(key, vision);
+    if (picked && picked !== result.model) {
+      const retry = await groqChat(key, picked, messages);
+      if (retry.content) {
+        groqPicked.set(kind, picked);
+      }
+      result = retry;
+    }
+  }
+  if (result.content) {
+    return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: result.content } }] });
+  }
+  if (result.status === 429) {
+    return aiAnswer(429, { error: { message: 'The assistant is busy, try again later' } });
+  }
+  return aiAnswer(502, { error: { message: 'The assistant is unavailable' + (result.reason ? ': ' + result.reason : '') } });
+}
+
+const groqPicked = new Map();
+
+function groqKey(env) {
+  return String(env.GROQ_API_KEY).replace(/[\s"']/g, '');
+}
+
+function groqReason(status, output) {
+  const message = output && output.error && typeof output.error.message === 'string' ? output.error.message : '';
+  return (String(status) + ' ' + message).replace(/gsk_[A-Za-z0-9]+/g, '').trim().slice(0, 200);
+}
+
+async function groqChat(key, model, messages) {
+  let status = 0;
   let output = null;
   try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      body: JSON.stringify({ model, messages, max_tokens: 1500 }),
+    });
+    status = response.status;
     output = await response.json();
   } catch (error) {
     output = null;
   }
   const content = output && output.choices && output.choices[0] && output.choices[0].message && output.choices[0].message.content;
-  if (typeof content === 'string' && content) {
-    return aiAnswer(200, { choices: [{ message: { role: 'assistant', content } }] });
+  return { model, status, content: typeof content === 'string' && content ? content : '', reason: groqReason(status, output) };
+}
+
+async function groqModels(key) {
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/models', { headers: { authorization: 'Bearer ' + key } });
+    const output = await response.json();
+    return Array.isArray(output && output.data) ? output.data.filter((item) => item && typeof item.id === 'string' && item.active !== false).map((item) => item.id) : [];
+  } catch (error) {
+    return [];
   }
-  const busy = response.status === 429;
-  return aiAnswer(busy ? 429 : 502, { error: { message: busy ? 'The assistant is busy, try again later' : 'The assistant is unavailable' } });
+}
+
+async function groqPickModel(key, vision) {
+  const ids = (await groqModels(key)).filter((id) => !/whisper|guard|tts|orpheus|compound|safeguard|embed/i.test(id));
+  const wanted = vision ? [/scout/i, /maverick/i, /vision/i, /llama-4/i] : [/llama-3\.3-70b/i, /llama.*70b/i, /llama-4/i, /gpt-oss-120b/i, /kimi/i, /qwen/i, /llama/i];
+  for (const pattern of wanted) {
+    const found = ids.find((id) => pattern.test(id));
+    if (found) {
+      return found;
+    }
+  }
+  return vision ? '' : (ids[0] || '');
 }
 
 async function handleTranscription(request, env) {
@@ -368,7 +422,7 @@ async function handleTranscription(request, env) {
   form.append('response_format', 'json');
   const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
     method: 'POST',
-    headers: { authorization: 'Bearer ' + env.GROQ_API_KEY },
+    headers: { authorization: 'Bearer ' + groqKey(env) },
     body: form,
   });
   let output = null;
@@ -381,7 +435,7 @@ async function handleTranscription(request, env) {
     return aiAnswer(200, { text: output.text.trim() });
   }
   const busy = response.status === 429;
-  return aiAnswer(busy ? 429 : 502, { error: { message: busy ? 'The assistant is busy, try again later' : 'Transcription is unavailable' } });
+  return aiAnswer(busy ? 429 : 502, { error: { message: busy ? 'The assistant is busy, try again later' : 'Transcription is unavailable: ' + groqReason(response.status, output) } });
 }
 
 export default {
