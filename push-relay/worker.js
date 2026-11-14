@@ -335,14 +335,21 @@ async function handleAssistant(request, env) {
   const preferred = vision ? (env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct') : (env.GROQ_MODEL || 'llama-3.3-70b-versatile');
   const kind = vision ? 'vision' : 'text';
   let result = await groqChat(key, groqPicked.get(kind) || preferred, messages);
+  let tried = '';
   if (!result.content && result.status !== 429 && result.status !== 401) {
-    const picked = await groqPickModel(key, vision);
-    if (picked && picked !== result.model) {
-      const retry = await groqChat(key, picked, messages);
+    const candidates = (await groqCandidates(key, vision)).filter((id) => id !== result.model).slice(0, 8);
+    tried = candidates.join(', ');
+    for (const candidate of candidates) {
+      const retry = await groqChat(key, candidate, messages);
       if (retry.content) {
-        groqPicked.set(kind, picked);
+        groqPicked.set(kind, candidate);
+        result = retry;
+        break;
       }
-      result = retry;
+      if (retry.status === 429 || retry.status === 401) {
+        result = retry;
+        break;
+      }
     }
   }
   if (result.content) {
@@ -351,7 +358,7 @@ async function handleAssistant(request, env) {
   if (result.status === 429) {
     return aiAnswer(429, { error: { message: 'The assistant is busy, try again later' } });
   }
-  return aiAnswer(502, { error: { message: 'The assistant is unavailable' + (result.reason ? ': ' + result.reason : '') } });
+  return aiAnswer(502, { error: { message: 'The assistant is unavailable' + (result.reason ? ': ' + result.reason : '') + (tried ? ' (tried ' + tried.slice(0, 300) + ')' : '') } });
 }
 
 const groqPicked = new Map();
@@ -393,16 +400,23 @@ async function groqModels(key) {
   }
 }
 
-async function groqPickModel(key, vision) {
-  const ids = (await groqModels(key)).filter((id) => !/whisper|guard|tts|orpheus|compound|safeguard|embed/i.test(id));
-  const wanted = vision ? [/scout/i, /maverick/i, /vision/i, /llama-4/i] : [/llama-3\.3-70b/i, /llama.*70b/i, /llama-4/i, /gpt-oss-120b/i, /kimi/i, /qwen/i, /llama/i];
+async function groqCandidates(key, vision) {
+  const ids = (await groqModels(key)).filter((id) => !/whisper|guard|tts|orpheus|safeguard|embed|playai/i.test(id));
+  const wanted = vision ? [/scout/i, /maverick/i, /vision/i, /llama-4/i, /-vl/i, /pixtral/i, /gemma/i, /gpt/i, /qwen/i, /kimi/i] : [/llama-3\.3-70b/i, /llama.*70b/i, /llama-4/i, /gpt-oss-120b/i, /kimi/i, /qwen/i, /llama/i];
+  const ordered = [];
   for (const pattern of wanted) {
-    const found = ids.find((id) => pattern.test(id));
-    if (found) {
-      return found;
+    for (const id of ids) {
+      if (pattern.test(id) && !ordered.includes(id)) {
+        ordered.push(id);
+      }
     }
   }
-  return vision ? '' : (ids[0] || '');
+  for (const id of ids) {
+    if (!ordered.includes(id)) {
+      ordered.push(id);
+    }
+  }
+  return ordered;
 }
 
 async function handleTranscription(request, env) {
