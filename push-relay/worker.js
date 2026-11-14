@@ -334,6 +334,14 @@ async function handleAssistant(request, env) {
   const key = groqKey(env);
   const preferred = vision ? (env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct') : (env.GROQ_MODEL || 'llama-3.3-70b-versatile');
   const kind = vision ? 'vision' : 'text';
+  const now = new Date();
+  messages.unshift({ role: 'system', content: 'Current date and time: ' + now.toUTCString() + ' (UTC). Answer in the language of the user.' + (vision ? '' : ' You can search the internet with the web_search tool. Use it for news, weather, prices, recent events and any fact you are not sure about, then answer using the results and mention the sources briefly.') });
+  if (!vision) {
+    const searched = await groqSearchAnswer(key, groqPicked.get(kind) || preferred, messages);
+    if (searched) {
+      return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: searched } }] });
+    }
+  }
   let result = await groqChat(key, groqPicked.get(kind) || preferred, messages);
   let tried = '';
   if (!result.content && result.status !== 429 && result.status !== 401) {
@@ -388,6 +396,119 @@ async function groqChat(key, model, messages) {
   }
   const content = output && output.choices && output.choices[0] && output.choices[0].message && output.choices[0].message.content;
   return { model, status, content: typeof content === 'string' && content ? content : '', reason: groqReason(status, output) };
+}
+
+const groqSearchTool = {
+  type: 'function',
+  function: {
+    name: 'web_search',
+    description: 'Search the internet for current information',
+    parameters: { type: 'object', properties: { query: { type: 'string', description: 'Search query' } }, required: ['query'] },
+  },
+};
+
+function plainText(html) {
+  return html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function resultAddress(href) {
+  const wrapped = /[?&]uddg=([^&]+)/.exec(href);
+  if (wrapped) {
+    try {
+      return decodeURIComponent(wrapped[1]);
+    } catch (error) {
+      return '';
+    }
+  }
+  return href.startsWith('//') ? 'https:' + href : href;
+}
+
+async function searchDuckDuckGo(query) {
+  try {
+    const response = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), {
+      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15', 'accept-language': 'en-US,en;q=0.8' },
+    });
+    if (!response.ok) {
+      return '';
+    }
+    const html = await response.text();
+    const titles = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)];
+    const snippets = [...html.matchAll(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)];
+    const lines = [];
+    for (let index = 0; index < titles.length && lines.length < 6; index++) {
+      const address = resultAddress(titles[index][1].replace(/&amp;/g, '&'));
+      if (!address || address.includes('duckduckgo.com/y.js')) {
+        continue;
+      }
+      lines.push(plainText(titles[index][2]) + '\n' + address + '\n' + (snippets[index] ? plainText(snippets[index][1]) : ''));
+    }
+    return lines.join('\n\n');
+  } catch (error) {
+    return '';
+  }
+}
+
+async function searchWikipedia(query) {
+  try {
+    const response = await fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=4&srsearch=' + encodeURIComponent(query), { headers: { 'user-agent': 'AyuGramRelay/1.0' } });
+    const output = await response.json();
+    const found = output && output.query && Array.isArray(output.query.search) ? output.query.search : [];
+    return found.map((item) => item.title + '\nhttps://en.wikipedia.org/wiki/' + encodeURIComponent(String(item.title).replace(/ /g, '_')) + '\n' + plainText(String(item.snippet || ''))).join('\n\n');
+  } catch (error) {
+    return '';
+  }
+}
+
+async function searchWeb(key, query) {
+  const direct = await searchDuckDuckGo(query);
+  if (direct) {
+    return direct;
+  }
+  for (const model of ['groq/compound-mini', 'groq/compound']) {
+    const found = await groqChat(key, model, [{ role: 'user', content: 'Search the web and report the facts you find with source links, no commentary: ' + query }]);
+    if (found.content) {
+      return found.content.slice(0, 6000);
+    }
+  }
+  return (await searchWikipedia(query)) || 'No results';
+}
+
+async function groqRaw(key, body) {
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      body: JSON.stringify(body),
+    });
+    const output = await response.json();
+    return output && output.choices && output.choices[0] && output.choices[0].message ? output.choices[0].message : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function groqSearchAnswer(key, model, messages) {
+  const first = await groqRaw(key, { model, messages, max_tokens: 1500, tools: [groqSearchTool], tool_choice: 'auto' });
+  if (!first) {
+    return '';
+  }
+  const calls = Array.isArray(first.tool_calls) ? first.tool_calls.filter((call) => call && call.function && call.function.name === 'web_search').slice(0, 2) : [];
+  if (!calls.length) {
+    return typeof first.content === 'string' ? first.content : '';
+  }
+  const thread = messages.concat([{ role: 'assistant', content: first.content || '', tool_calls: calls }]);
+  for (const call of calls) {
+    let query = '';
+    try {
+      query = String(JSON.parse(call.function.arguments || '{}').query || '');
+    } catch (error) {
+      query = '';
+    }
+    const found = query ? await searchWeb(key, query.slice(0, 300)) : 'No results';
+    thread.push({ role: 'tool', tool_call_id: call.id, content: found.slice(0, 6000) });
+  }
+  const second = await groqRaw(key, { model, messages: thread, max_tokens: 1500 });
+  return second && typeof second.content === 'string' ? second.content : '';
 }
 
 async function groqModels(key) {
