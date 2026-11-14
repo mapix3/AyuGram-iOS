@@ -213,6 +213,133 @@ private func ayuGramAssistantPrepare(image: UIImage) -> (UIImage, String)? {
     return (scaled, "data:image/jpeg;base64," + data.base64EncodedString())
 }
 
+private func ayuGramAssistantInline(_ line: String, font: UIFont, color: UIColor) -> NSAttributedString {
+    let result = NSMutableAttributedString()
+    let chars = Array(line)
+    let bold = UIFont.systemFont(ofSize: font.pointSize, weight: .semibold)
+    let italic = UIFont.italicSystemFont(ofSize: font.pointSize)
+    let mono = UIFont.monospacedSystemFont(ofSize: font.pointSize - 1.0, weight: .regular)
+    var plain = ""
+    func flush() {
+        if !plain.isEmpty {
+            result.append(NSAttributedString(string: plain, attributes: [.font: font, .foregroundColor: color]))
+            plain = ""
+        }
+    }
+    func find(_ marker: [Character], from start: Int) -> Int? {
+        if marker.isEmpty || start >= chars.count {
+            return nil
+        }
+        var index = start
+        while index + marker.count <= chars.count {
+            if Array(chars[index ..< index + marker.count]) == marker {
+                return index
+            }
+            index += 1
+        }
+        return nil
+    }
+    var index = 0
+    while index < chars.count {
+        let char = chars[index]
+        if char == "`", let end = find(["`"], from: index + 1), end > index + 1 {
+            flush()
+            result.append(NSAttributedString(string: String(chars[index + 1 ..< end]), attributes: [.font: mono, .foregroundColor: color]))
+            index = end + 1
+            continue
+        }
+        if char == "*", index + 1 < chars.count, chars[index + 1] == "*", let end = find(["*", "*"], from: index + 2), end > index + 2 {
+            flush()
+            result.append(NSAttributedString(string: String(chars[index + 2 ..< end]), attributes: [.font: bold, .foregroundColor: color]))
+            index = end + 2
+            continue
+        }
+        if char == "_", index + 1 < chars.count, chars[index + 1] == "_", let end = find(["_", "_"], from: index + 2), end > index + 2 {
+            flush()
+            result.append(NSAttributedString(string: String(chars[index + 2 ..< end]), attributes: [.font: bold, .foregroundColor: color]))
+            index = end + 2
+            continue
+        }
+        if char == "*", index + 1 < chars.count, chars[index + 1] != " ", chars[index + 1] != "*", let end = find(["*"], from: index + 1), end > index + 1, chars[end - 1] != " " {
+            flush()
+            result.append(NSAttributedString(string: String(chars[index + 1 ..< end]), attributes: [.font: italic, .foregroundColor: color]))
+            index = end + 1
+            continue
+        }
+        if char == "~", index + 1 < chars.count, chars[index + 1] == "~", let end = find(["~", "~"], from: index + 2), end > index + 2 {
+            flush()
+            result.append(NSAttributedString(string: String(chars[index + 2 ..< end]), attributes: [.font: font, .foregroundColor: color, .strikethroughStyle: NSUnderlineStyle.single.rawValue]))
+            index = end + 2
+            continue
+        }
+        if char == "[", let middle = find(["]", "("], from: index + 1), middle > index + 1, let end = find([")"], from: middle + 2) {
+            flush()
+            result.append(NSAttributedString(string: String(chars[index + 1 ..< middle]), attributes: [.font: font, .foregroundColor: color, .underlineStyle: NSUnderlineStyle.single.rawValue]))
+            index = end + 1
+            continue
+        }
+        plain.append(char)
+        index += 1
+    }
+    flush()
+    return result
+}
+
+private func ayuGramAssistantFormatted(_ text: String, color: UIColor) -> NSAttributedString {
+    let result = NSMutableAttributedString()
+    let base = UIFont.systemFont(ofSize: 16.0)
+    let mono = UIFont.monospacedSystemFont(ofSize: 14.0, weight: .regular)
+    var inCode = false
+    var first = true
+    for rawLine in text.components(separatedBy: "\n") {
+        let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("```") {
+            inCode = !inCode
+            continue
+        }
+        if !first {
+            result.append(NSAttributedString(string: "\n", attributes: [.font: base, .foregroundColor: color]))
+        }
+        first = false
+        if inCode {
+            result.append(NSAttributedString(string: rawLine, attributes: [.font: mono, .foregroundColor: color]))
+            continue
+        }
+        var level = 0
+        for char in trimmed {
+            if char == "#" {
+                level += 1
+            } else {
+                break
+            }
+        }
+        if level > 0 && level <= 6 && trimmed.count > level && Array(trimmed)[level] == " " {
+            let size: CGFloat = level == 1 ? 20.0 : (level == 2 ? 18.0 : 17.0)
+            let content = String(trimmed.dropFirst(level + 1)).replacingOccurrences(of: "**", with: "")
+            result.append(ayuGramAssistantInline(content, font: UIFont.systemFont(ofSize: size, weight: .bold), color: color))
+            continue
+        }
+        if trimmed == "---" || trimmed == "***" || trimmed == "___" {
+            result.append(NSAttributedString(string: "—————", attributes: [.font: base, .foregroundColor: color.withAlphaComponent(0.4)]))
+            continue
+        }
+        let indent = String(rawLine.prefix(while: { $0 == " " || $0 == "\t" }))
+        if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("+ ") {
+            result.append(NSAttributedString(string: indent + "•  ", attributes: [.font: base, .foregroundColor: color]))
+            result.append(ayuGramAssistantInline(String(trimmed.dropFirst(2)), font: base, color: color))
+            continue
+        }
+        if trimmed.hasPrefix("> ") {
+            result.append(NSAttributedString(string: "▎ ", attributes: [.font: base, .foregroundColor: color.withAlphaComponent(0.5)]))
+            result.append(ayuGramAssistantInline(String(trimmed.dropFirst(2)), font: UIFont.italicSystemFont(ofSize: 16.0), color: color))
+            continue
+        }
+        result.append(NSAttributedString(string: indent, attributes: [.font: base, .foregroundColor: color]))
+        result.append(ayuGramAssistantInline(trimmed, font: base, color: color))
+    }
+    return result
+}
+
 private final class AyuGramAssistantCell: UITableViewCell {
     private let bubble = UIView()
     private let stack = UIStackView()
@@ -279,6 +406,9 @@ private final class AyuGramAssistantCell: UITableViewCell {
         } else {
             self.bubble.backgroundColor = theme.list.itemBlocksBackgroundColor
             self.label.textColor = message.failed ? theme.list.itemDestructiveColor : theme.list.itemPrimaryTextColor
+            if !message.failed && !message.text.isEmpty {
+                self.label.attributedText = ayuGramAssistantFormatted(message.text, color: theme.list.itemPrimaryTextColor)
+            }
         }
     }
 }
