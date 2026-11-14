@@ -349,14 +349,14 @@ async function handleAssistant(request, env) {
   const key = groqKey(env);
   const preferred = vision ? (env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct') : (env.GROQ_MODEL || 'llama-3.3-70b-versatile');
   const kind = vision ? 'vision' : 'text';
-  const now = new Date();
-  messages.unshift({ role: 'system', content: 'Current date and time: ' + now.toUTCString() + ' (UTC). Answer in the language of the user.' + (vision ? '' : ' You can search the internet with the web_search tool. Use it for news, weather, prices, recent events and any fact you are not sure about, then answer using the results and mention the sources briefly.') });
+  const basePrompt = 'Current date and time: ' + new Date().toUTCString() + ' (UTC). Answer in the language of the user.';
   if (!vision) {
-    const searched = await groqSearchAnswer(key, groqPicked.get(kind) || preferred, messages);
+    const searched = await groqSearchAnswer(key, groqPicked.get(kind) || preferred, messages, basePrompt);
     if (searched) {
       return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: searched } }] });
     }
   }
+  messages.unshift({ role: 'system', content: basePrompt });
   let result = await groqChat(key, groqPicked.get(kind) || preferred, messages);
   let tried = '';
   if (!result.content && result.status !== 429 && result.status !== 401) {
@@ -600,44 +600,65 @@ async function groqRaw(key, body) {
       body: JSON.stringify(body),
     });
     const output = await response.json();
-    return output && output.choices && output.choices[0] && output.choices[0].message ? output.choices[0].message : null;
+    const message = output && output.choices && output.choices[0] && output.choices[0].message ? output.choices[0].message : null;
+    const failed = output && output.error && typeof output.error.failed_generation === 'string' ? output.error.failed_generation : '';
+    return { message, failed };
   } catch (error) {
-    return null;
+    return { message: null, failed: '' };
   }
 }
 
-async function groqSearchAnswer(key, model, messages) {
-  const first = await groqRaw(key, { model, messages, max_tokens: 1500, tools: [groqSearchTool], tool_choice: 'auto' });
-  if (!first) {
-    return '';
-  }
-  const calls = Array.isArray(first.tool_calls) ? first.tool_calls.filter((call) => call && call.function && call.function.name === 'web_search').slice(0, 2) : [];
-  if (!calls.length) {
-    return typeof first.content === 'string' ? first.content : '';
-  }
-  const thread = messages.concat([{ role: 'assistant', content: first.content || '', tool_calls: calls }]);
+function looksLikeToolCall(text) {
+  return /<tool_call>|<\/tool_call>|<function=|<parameter=|"name"\s*:\s*"web_search"|^\s*web_search\s*\(/.test(text);
+}
+
+function searchQueries(message, failed) {
+  const queries = [];
+  const calls = message && Array.isArray(message.tool_calls) ? message.tool_calls : [];
   for (const call of calls) {
-    let query = '';
-    try {
-      query = String(JSON.parse(call.function.arguments || '{}').query || '');
-    } catch (error) {
-      query = '';
+    if (call && call.function && call.function.name === 'web_search') {
+      try {
+        queries.push(String(JSON.parse(call.function.arguments || '{}').query || ''));
+      } catch (error) {
+        queries.push('');
+      }
     }
-    const found = query ? await searchWeb(key, query.slice(0, 300)) : 'No results';
-    thread.push({ role: 'tool', tool_call_id: call.id, content: found.slice(0, 6000) });
   }
-  const second = await groqRaw(key, { model, messages: thread, max_tokens: 1500 });
-  return second && typeof second.content === 'string' ? second.content : '';
+  const text = (message && typeof message.content === 'string' ? message.content : '') + '\n' + failed;
+  if (!queries.some(Boolean) && looksLikeToolCall(text)) {
+    const tagged = /<parameter=query>\s*([\s\S]*?)\s*<\/parameter>/.exec(text);
+    const quoted = /"query"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(text);
+    if (tagged) {
+      queries.push(tagged[1]);
+    } else if (quoted) {
+      try {
+        queries.push(JSON.parse('"' + quoted[1] + '"'));
+      } catch (error) {
+        queries.push(quoted[1]);
+      }
+    }
+  }
+  return queries.map((query) => query.replace(/\s+/g, ' ').trim().slice(0, 300)).filter(Boolean).slice(0, 2);
 }
 
-async function groqModels(key) {
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/models', { headers: { authorization: 'Bearer ' + key } });
-    const output = await response.json();
-    return Array.isArray(output && output.data) ? output.data.filter((item) => item && typeof item.id === 'string' && item.active !== false).map((item) => item.id) : [];
-  } catch (error) {
-    return [];
+async function groqSearchAnswer(key, model, messages, basePrompt) {
+  const toolPrompt = basePrompt + ' You can search the internet with the web_search tool. Use it for news, weather, prices, recent events and any fact you are not sure about.';
+  const first = await groqRaw(key, { model, messages: [{ role: 'system', content: toolPrompt }].concat(messages), max_tokens: 1500, tools: [groqSearchTool], tool_choice: 'auto' });
+  const queries = searchQueries(first.message, first.failed);
+  if (!queries.length) {
+    const direct = first.message && typeof first.message.content === 'string' ? first.message.content : '';
+    return looksLikeToolCall(direct) ? '' : direct;
   }
+  const found = [];
+  for (const query of queries) {
+    found.push('Results for "' + query + '":\n' + (await searchWeb(key, query)).slice(0, 6000));
+  }
+  const last = messages[messages.length - 1];
+  const question = typeof last.content === 'string' ? last.content : '';
+  const thread = [{ role: 'system', content: basePrompt + ' You have just searched the internet. Answer using the search results given in the last message, mention the sources briefly, and never write tool calls.' }].concat(messages.slice(0, -1), [{ role: 'user', content: question + '\n\n[Internet search results]\n' + found.join('\n\n') }]);
+  const second = await groqRaw(key, { model, messages: thread, max_tokens: 1500 });
+  const answer = second.message && typeof second.message.content === 'string' ? second.message.content : '';
+  return looksLikeToolCall(answer) ? '' : answer;
 }
 
 async function groqCandidates(key, vision) {
