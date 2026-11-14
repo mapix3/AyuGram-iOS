@@ -490,7 +490,7 @@
 "Ayu.AIKey" = "API key";
 "Ayu.AIKeyNone" = "Not set";
 "Ayu.AIModel" = "Model";
-"Ayu.AIFooter" = "The search engine is used for the web search row in chat search. The assistant talks to the selected provider directly from your device. Pollinations works without a key but may be slow or unavailable; Groq, Gemini and OpenRouter give free keys on their sites.";
+"Ayu.AIFooter" = "The search engine is used for the web search row in chat search. The assistant talks to the selected provider directly from your device. AyuGram and Pollinations work without a key; Groq, Gemini and OpenRouter give free keys on their sites.";
 "Ayu.AIPlaceholder" = "Ask anything";
 "Ayu.AIClear" = "Clear";
 "Ayu.AIError" = "Error";
