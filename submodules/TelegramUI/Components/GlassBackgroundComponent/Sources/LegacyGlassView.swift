@@ -154,6 +154,9 @@ final class LegacyGlassView: UIView {
                 case .normal:
                     blurFilter.setValue(2.0 as NSNumber, forKey: "inputRadius")
                 }
+                if GlassBackgroundView.useFlatImpl {
+                    blurFilter.setValue(20.0 as NSNumber, forKey: "inputRadius")
+                }
                 
                 var matrix: [Float32] = [
                     2.6705, -1.1087999, -0.1117, 0.0, 0.049999997,
@@ -195,7 +198,7 @@ final class LegacyGlassView: UIView {
         }
         transition.setFrame(layer: backdropLayer, frame: CGRect(origin: CGPoint(), size: size))
         
-        if #available(iOS 17.0, *), DeviceMetrics.performance.isGraphicallyCapable {
+        if #available(iOS 17.0, *), DeviceMetrics.performance.isGraphicallyCapable, !GlassBackgroundView.useFlatImpl {
             let size = CGSize(width: max(1.0, size.width), height: max(1.0, size.height))
             let cornerRadius = min(min(size.width, size.height) * 0.5, shape.maximumCornerRadius(for: size))
             let displacementMagnitudePoints: CGFloat = 20.0

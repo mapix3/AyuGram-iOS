@@ -588,6 +588,7 @@ public class GlassBackgroundView: UIView {
     public private(set) var params: Params?
 
     public static var useCustomGlassImpl: Bool = false
+    public static var useFlatImpl: Bool = false
 
     /// The backdrop luminance native glass sees (`EffectSettingsContainerView`'s limits, applied to every luma UIKit
     /// reports by the `backdropLayer:didChangeLuma:` override in UIKitRuntimeUtils): the whole range on the theme's
@@ -834,9 +835,9 @@ public class GlassBackgroundView: UIView {
                 case .panel, .untinted:
                     borderWidthFactor = 1.0
                     if isDark {
-                        fillColor = UIColor(white: 1.0, alpha: 1.0).mixedWith(.black, alpha: 1.0 - 0.11).withAlphaComponent(0.85)
+                        fillColor = UIColor(white: 1.0, alpha: 1.0).mixedWith(.black, alpha: 1.0 - 0.11).withAlphaComponent(GlassBackgroundView.useFlatImpl ? 0.92 : 0.85)
                     } else {
-                        fillColor = UIColor(white: 1.0, alpha: 0.7)
+                        fillColor = UIColor(white: 1.0, alpha: GlassBackgroundView.useFlatImpl ? 0.88 : 0.7)
                     }
                 case .clear:
                     borderWidthFactor = 2.0
@@ -1266,6 +1267,23 @@ public extension GlassBackgroundView {
         size.width += inset * 2.0
         size.height += inset * 2.0
         
+        if GlassBackgroundView.useFlatImpl {
+            let flatRect = CGRect(origin: CGPoint(x: inset, y: inset), size: innerSize)
+            let flatRadius = min(flatRect.width, flatRect.height) * 0.5
+            return UIGraphicsImageRenderer(size: size).image { ctx in
+                let context = ctx.cgContext
+                context.clear(CGRect(origin: CGPoint(), size: size))
+                context.setFillColor(fillColor.cgColor)
+                context.addPath(UIBezierPath(roundedRect: flatRect, cornerRadius: flatRadius).cgPath)
+                context.fillPath()
+                let lineWidth: CGFloat = 1.0 / UIScreen.main.scale
+                context.setLineWidth(lineWidth)
+                context.setStrokeColor((isDark ? UIColor(white: 1.0, alpha: 0.12) : UIColor(white: 0.0, alpha: 0.12)).cgColor)
+                context.addPath(UIBezierPath(roundedRect: flatRect.insetBy(dx: lineWidth * 0.5, dy: lineWidth * 0.5), cornerRadius: max(0.0, flatRadius - lineWidth * 0.5)).cgPath)
+                context.strokePath()
+            }.stretchableImage(withLeftCapWidth: Int(size.width * 0.5), topCapHeight: Int(size.height * 0.5))
+        }
+
         return UIGraphicsImageRenderer(size: size).image { ctx in
             let context = ctx.cgContext
             
@@ -1454,6 +1472,21 @@ public extension GlassBackgroundView {
         let metrics = legacyResizableImageMetrics(cornerRadii: cornerRadii, inset: inset)
         let size = metrics.imageSize
         let innerRect = metrics.innerRect
+
+        if GlassBackgroundView.useFlatImpl {
+            return UIGraphicsImageRenderer(size: size).image { ctx in
+                let context = ctx.cgContext
+                context.clear(CGRect(origin: CGPoint(), size: size))
+                context.setFillColor(fillColor.cgColor)
+                context.addPath(GlassBackgroundView.generateRoundedRectPath(rect: innerRect, cornerRadii: cornerRadii))
+                context.fillPath()
+                let lineWidth: CGFloat = 1.0 / UIScreen.main.scale
+                context.setLineWidth(lineWidth)
+                context.setStrokeColor((isDark ? UIColor(white: 1.0, alpha: 0.12) : UIColor(white: 0.0, alpha: 0.12)).cgColor)
+                context.addPath(GlassBackgroundView.generateRoundedRectPath(rect: innerRect.insetBy(dx: lineWidth * 0.5, dy: lineWidth * 0.5), cornerRadii: cornerRadii.insetBy(lineWidth * 0.5)))
+                context.strokePath()
+            }.stretchableImage(withLeftCapWidth: metrics.leftCapWidth, topCapHeight: metrics.topCapHeight)
+        }
 
         return UIGraphicsImageRenderer(size: size).image { ctx in
             let context = ctx.cgContext
