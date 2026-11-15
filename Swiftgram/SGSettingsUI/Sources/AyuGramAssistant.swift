@@ -463,6 +463,8 @@ private final class AyuGramAssistantCell: UITableViewCell {
     private let stack = UIStackView()
     private let picture = UIImageView()
     private let label = UILabel()
+    private let dots = UIView()
+    private var dotLayers: [CALayer] = []
     private var leading: NSLayoutConstraint?
     private var trailing: NSLayoutConstraint?
 
@@ -470,6 +472,14 @@ private final class AyuGramAssistantCell: UITableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         self.backgroundColor = .clear
         self.selectionStyle = .none
+        for index in 0 ..< 3 {
+            let dot = CALayer()
+            dot.frame = CGRect(x: CGFloat(index) * 13.0, y: 5.0, width: 8.0, height: 8.0)
+            dot.cornerRadius = 4.0
+            self.dots.layer.addSublayer(dot)
+            self.dotLayers.append(dot)
+        }
+        self.dots.isHidden = true
         self.bubble.layer.cornerRadius = 18.0
         self.bubble.layer.cornerCurve = .continuous
         self.bubble.translatesAutoresizingMaskIntoConstraints = false
@@ -486,6 +496,12 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.bubble.addSubview(self.stack)
         self.stack.addArrangedSubview(self.picture)
         self.stack.addArrangedSubview(self.label)
+        self.stack.addArrangedSubview(self.dots)
+        let dotsWidth = self.dots.widthAnchor.constraint(equalToConstant: 34.0)
+        dotsWidth.priority = UILayoutPriority(999.0)
+        let dotsHeight = self.dots.heightAnchor.constraint(equalToConstant: 18.0)
+        dotsHeight.priority = UILayoutPriority(999.0)
+        NSLayoutConstraint.activate([dotsWidth, dotsHeight])
         let leading = self.bubble.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 12.0)
         let trailing = self.bubble.trailingAnchor.constraint(equalTo: self.contentView.trailingAnchor, constant: -12.0)
         self.leading = leading
@@ -511,7 +527,58 @@ private final class AyuGramAssistantCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func showTyping(theme: PresentationTheme) {
+        self.label.isHidden = true
+        self.picture.isHidden = true
+        self.dots.isHidden = false
+        self.trailing?.isActive = false
+        self.leading?.isActive = true
+        self.bubble.backgroundColor = theme.list.itemBlocksBackgroundColor
+        for (index, dot) in self.dotLayers.enumerated() {
+            dot.backgroundColor = theme.list.itemSecondaryTextColor.cgColor
+            dot.removeAllAnimations()
+            let jump = CAKeyframeAnimation(keyPath: "transform.translation.y")
+            jump.values = [0.0, -5.0, 0.0, 0.0]
+            jump.keyTimes = [0.0, 0.25, 0.5, 1.0]
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0.35, 1.0, 0.35, 0.35]
+            fade.keyTimes = [0.0, 0.25, 0.5, 1.0]
+            let group = CAAnimationGroup()
+            group.animations = [jump, fade]
+            group.duration = 1.1
+            group.repeatCount = .infinity
+            group.beginTime = CACurrentMediaTime() + Double(index) * 0.16
+            group.isRemovedOnCompletion = false
+            dot.opacity = 0.35
+            dot.add(group, forKey: "typing")
+        }
+    }
+
+    func setWriting(_ text: NSAttributedString) {
+        self.label.attributedText = text
+    }
+
+    func animateAppearance() {
+        self.contentView.alpha = 0.0
+        self.contentView.transform = CGAffineTransform(translationX: 0.0, y: 14.0)
+        UIView.animate(withDuration: 0.35, delay: 0.0, usingSpringWithDamping: 0.82, initialSpringVelocity: 0.0, options: [.allowUserInteraction], animations: {
+            self.contentView.alpha = 1.0
+            self.contentView.transform = .identity
+        }, completion: nil)
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+
+        self.contentView.alpha = 1.0
+        self.contentView.transform = .identity
+    }
+
     func update(message: AyuGramAssistantMessage, theme: PresentationTheme) {
+        self.dots.isHidden = true
+        for dot in self.dotLayers {
+            dot.removeAllAnimations()
+        }
         self.label.text = message.text
         self.label.isHidden = message.text.isEmpty
         self.picture.image = message.image
@@ -522,7 +589,7 @@ private final class AyuGramAssistantCell: UITableViewCell {
             self.bubble.backgroundColor = theme.list.itemCheckColors.fillColor
             self.label.textColor = theme.list.itemCheckColors.foregroundColor
         } else {
-            self.bubble.backgroundColor = theme.list.itemBlocksBackgroundColor
+            self.bubble.backgroundColor = message.failed ? theme.list.itemBlocksBackgroundColor : .clear
             self.label.textColor = message.failed ? theme.list.itemDestructiveColor : theme.list.itemPrimaryTextColor
             if !message.failed && !message.text.isEmpty {
                 self.label.attributedText = ayuGramAssistantFormatted(message.text, color: theme.list.itemPrimaryTextColor)
@@ -754,6 +821,13 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     private let emptyLabel = UILabel()
     private var suggestionButtons: [UIButton] = []
     private var loading = false
+    private var typingChat: AyuGramAssistantChat?
+    private var writingChat: AyuGramAssistantChat?
+    private var writingRow = 0
+    private var writingFull: NSAttributedString?
+    private var writingShown = 0
+    private var writingTimer: Foundation.Timer?
+    private var appearingRow: Int?
     private var attachment: (UIImage, String)?
     private var recorder: AVAudioRecorder?
     private var recordingFile: URL?
@@ -868,7 +942,18 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     }
 
     private func reloadMessages() {
-        self.emptyView.isHidden = !ayuGramAssistantMessages.isEmpty
+        self.stopWriting()
+        self.appearingRow = nil
+        let empty = ayuGramAssistantMessages.isEmpty && !self.showsTyping
+        if empty && self.emptyView.isHidden {
+            self.emptyView.alpha = 0.0
+            self.emptyView.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+            UIView.animate(withDuration: 0.3, delay: 0.0, options: [.curveEaseOut], animations: {
+                self.emptyView.alpha = 1.0
+                self.emptyView.transform = .identity
+            }, completion: nil)
+        }
+        self.emptyView.isHidden = !empty
         self.tableView.reloadData()
         self.tableView.layoutIfNeeded()
         self.scrollToBottom(animated: false)
@@ -908,6 +993,7 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     }
 
     deinit {
+        self.writingTimer?.invalidate()
         self.recorder?.stop()
         if let recordingFile = self.recordingFile {
             try? FileManager.default.removeItem(at: recordingFile)
@@ -1004,8 +1090,16 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         }
     }
 
+    private var showsTyping: Bool {
+        return self.typingChat != nil && self.typingChat === AyuGramAssistantStore.shared.current
+    }
+
+    private var rowCount: Int {
+        return ayuGramAssistantMessages.count + (self.showsTyping ? 1 : 0)
+    }
+
     private func scrollToBottom(animated: Bool) {
-        let count = ayuGramAssistantMessages.count
+        let count = self.rowCount
         if count > 0 && self.tableView.numberOfRows(inSection: 0) == count {
             self.tableView.scrollToRow(at: IndexPath(row: count - 1, section: 0), at: .bottom, animated: animated)
         }
@@ -1018,6 +1112,84 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
             self.indicator.startAnimating()
         } else {
             self.indicator.stopAnimating()
+        }
+    }
+
+    private func setTyping(_ chat: AyuGramAssistantChat?) {
+        self.typingChat = chat
+        guard chat == nil || chat === AyuGramAssistantStore.shared.current else {
+            return
+        }
+        if chat != nil {
+            self.appearingRow = self.rowCount - 1
+        }
+        self.tableView.reloadData()
+        self.tableView.layoutIfNeeded()
+        self.scrollToBottom(animated: chat != nil)
+    }
+
+    private func stopWriting() {
+        self.writingTimer?.invalidate()
+        self.writingTimer = nil
+        self.writingChat = nil
+        self.writingFull = nil
+        self.writingShown = 0
+    }
+
+    private func writingPrefix() -> NSAttributedString? {
+        guard let full = self.writingFull else {
+            return nil
+        }
+        let result = NSMutableAttributedString(attributedString: full.attributedSubstring(from: NSRange(location: 0, length: min(self.writingShown, full.length))))
+        if self.writingShown < full.length {
+            result.append(NSAttributedString(string: " ●", attributes: [.font: UIFont.systemFont(ofSize: 11.0), .foregroundColor: self.presentationData.theme.list.itemAccentColor]))
+        }
+        return result
+    }
+
+    private func startWriting(text: String, chat: AyuGramAssistantChat) {
+        self.stopWriting()
+        let full = ayuGramAssistantFormatted(text, color: self.presentationData.theme.list.itemPrimaryTextColor)
+        guard full.length > 0, chat === AyuGramAssistantStore.shared.current, !UIAccessibility.isReduceMotionEnabled else {
+            return
+        }
+        self.writingChat = chat
+        self.writingRow = chat.messages.count - 1
+        self.writingFull = full
+        self.writingShown = 0
+        let step = max(2, full.length / 110)
+        let timer = Foundation.Timer(timeInterval: 1.0 / 40.0, repeats: true, block: { [weak self] _ in
+            self?.writeStep(step)
+        })
+        self.writingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func writeStep(_ step: Int) {
+        guard let full = self.writingFull, self.writingChat === AyuGramAssistantStore.shared.current else {
+            self.stopWriting()
+            return
+        }
+        var next = min(full.length, self.writingShown + step)
+        if next > 0 && next < full.length {
+            next = NSMaxRange((full.string as NSString).rangeOfComposedCharacterSequence(at: next - 1))
+        }
+        self.writingShown = next
+        let indexPath = IndexPath(row: self.writingRow, section: 0)
+        let finished = next >= full.length
+        let nearBottom = self.tableView.contentOffset.y + self.tableView.bounds.height >= self.tableView.contentSize.height - 80.0
+        if let cell = self.tableView.cellForRow(at: indexPath) as? AyuGramAssistantCell, let prefix = self.writingPrefix() {
+            cell.setWriting(prefix)
+        }
+        UIView.performWithoutAnimation {
+            self.tableView.beginUpdates()
+            self.tableView.endUpdates()
+        }
+        if nearBottom && self.tableView.numberOfRows(inSection: 0) > indexPath.row {
+            self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
+        }
+        if finished {
+            self.stopWriting()
         }
     }
 
@@ -1039,7 +1211,14 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         guard chat === AyuGramAssistantStore.shared.current else {
             return
         }
-        self.emptyView.isHidden = true
+        if !self.emptyView.isHidden {
+            self.emptyView.isHidden = true
+        }
+        self.appearingRow = chat.messages.count - 1
+        if !message.outgoing && !message.failed {
+            self.appearingRow = nil
+            self.startWriting(text: message.text, chat: chat)
+        }
         self.tableView.reloadData()
         self.tableView.layoutIfNeeded()
         self.scrollToBottom(animated: true)
@@ -1054,13 +1233,21 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.field.text = ""
         self.setAttachment(nil)
         let chat = AyuGramAssistantStore.shared.current
+        self.stopWriting()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        self.sendButton.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
+        UIView.animate(withDuration: 0.4, delay: 0.0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0.0, options: [], animations: {
+            self.sendButton.transform = .identity
+        }, completion: nil)
         self.append(AyuGramAssistantMessage(outgoing: true, text: text, failed: false, image: attachment?.0, imagePayload: attachment?.1), to: chat)
         self.setLoading(true)
+        self.setTyping(chat)
         ayuGramAssistantRequest(messages: chat.messages, locale: self.locale, completion: { [weak self] reply, failure in
             guard let self else {
                 return
             }
             self.setLoading(false)
+            self.typingChat = nil
             if let reply {
                 self.append(AyuGramAssistantMessage(outgoing: false, text: reply, failed: false), to: chat)
             } else {
@@ -1183,15 +1370,30 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return ayuGramAssistantMessages.count
+        return self.rowCount
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "message", for: indexPath)
-        if let cell = cell as? AyuGramAssistantCell, indexPath.row < ayuGramAssistantMessages.count {
-            cell.update(message: ayuGramAssistantMessages[indexPath.row], theme: self.presentationData.theme)
+        if let cell = cell as? AyuGramAssistantCell {
+            if indexPath.row < ayuGramAssistantMessages.count {
+                cell.update(message: ayuGramAssistantMessages[indexPath.row], theme: self.presentationData.theme)
+                if self.writingChat === AyuGramAssistantStore.shared.current, indexPath.row == self.writingRow, let prefix = self.writingPrefix() {
+                    cell.setWriting(prefix)
+                }
+            } else {
+                cell.update(message: AyuGramAssistantMessage(outgoing: false, text: "", failed: false), theme: self.presentationData.theme)
+                cell.showTyping(theme: self.presentationData.theme)
+            }
         }
         return cell
+    }
+
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        if self.appearingRow == indexPath.row, let cell = cell as? AyuGramAssistantCell {
+            self.appearingRow = nil
+            cell.animateAppearance()
+        }
     }
 
     func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
