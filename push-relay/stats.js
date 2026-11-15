@@ -187,6 +187,10 @@ async function shortHash(value) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 12);
 }
 
+export async function reporterTag(id) {
+  return (await shortHash('ayugram-reporter|' + id)).slice(0, 6).toUpperCase();
+}
+
 export function cleanReport(body, country, now) {
   if (!body || typeof body !== 'object') {
     return null;
@@ -605,12 +609,36 @@ export class Stats {
       };
     }
     let reporterInstall = null;
+    const reporterAccounts = reporter ? reporter.accounts || [] : [];
     if (reporter) {
       const { id, accounts, ...rest } = reporter;
       reporterInstall = rest;
     }
+    const history = [];
+    for (const [, value] of await storage.list({ prefix: 'r:' })) {
+      if (value && value.id === report.id) {
+        history.push({ rid: value.rid, time: value.time, targetName: value.targetName || '', target: value.target || '' });
+      }
+    }
+    history.sort((a, b) => b.time - a.time);
+    let reporterBanned = false;
+    for (const hash of reporterAccounts) {
+      if (await storage.get('ban:' + hash)) {
+        reporterBanned = true;
+      }
+    }
+    const profile = {
+      tag: await reporterTag(report.id),
+      reports: history.length,
+      others: history.filter((item) => item.rid !== report.rid).slice(0, 5),
+      accounts: reporterAccounts.length,
+      banned: reporterBanned,
+      self: Boolean(target && reporterAccounts.includes(target.hash)),
+    };
     const { id, ...publicReport } = report;
-    return { report: publicReport, reporter: reporterInstall, target };
+    publicReport.tag = profile.tag;
+    publicReport.reports = profile.reports;
+    return { report: publicReport, reporter: reporterInstall, target, profile };
   }
 }
 
@@ -650,6 +678,9 @@ export function reportMessage(report) {
     lines.push('На кого: ' + (report.targetName || '-') + (report.target ? ' (ID ' + report.target + ')' : ''));
   }
   lines.push(['Сборка ' + (report.build || '?'), report.status, report.source, report.country].join(' · '));
+  if (report.tag) {
+    lines.push('Жалобщик: #' + report.tag + (report.reports > 1 ? ' · жалоб: ' + report.reports : ''));
+  }
   if (report.team) {
     lines.push('Сертификат: ' + report.team + (report.teamName ? ' (' + report.teamName + ')' : ''));
   }
@@ -821,6 +852,7 @@ export async function handleStats(request, env, url, ctx) {
     if (response.ok) {
       const stored = await response.clone().json().catch(() => ({}));
       report.rid = stored.rid || '';
+      report.tag = await reporterTag(report.id);
       const notify = notifyReport(report, env).catch((error) => console.log('report not sent to Telegram: ' + error));
       if (ctx && typeof ctx.waitUntil === 'function') {
         ctx.waitUntil(notify);

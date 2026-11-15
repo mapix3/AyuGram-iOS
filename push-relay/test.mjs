@@ -360,6 +360,7 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
     assert.equal(notice.method, 'sendMessage');
     assert.equal(notice.body.chat_id, '1272887902');
     assert.ok(notice.body.text.includes('На кого: @scam Scam (ID 555)'));
+    assert.ok(/Жалобщик: #[0-9A-F]{6}/.test(notice.body.text), 'A report carries a stable reporter tag');
     const rid = notice.body.reply_markup.inline_keyboard[0][0].callback_data.slice(2);
     assert.match(rid, /^[0-9a-f]{12}$/);
     assert.equal((await hook({ message: { from: { id: 1272887902 }, chat: { id: 1272887902 }, text: '/start' } }, 'wrong-secret')).status, 403, 'Updates without the webhook secret are refused');

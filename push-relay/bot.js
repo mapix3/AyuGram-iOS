@@ -85,6 +85,21 @@ function menu(review) {
   };
 }
 
+function profileLines(profile) {
+  if (!profile) {
+    return [];
+  }
+  const lines = ['Метка: #' + profile.tag + ' · жалоб с этой установки: ' + profile.reports + ' · аккаунтов: ' + profile.accounts];
+  if (profile.banned) {
+    lines.push('⛔ Сам жалобщик в бане');
+  }
+  if (profile.self) {
+    lines.push('⚠️ Жалоба на собственный аккаунт');
+  }
+  profile.others.forEach((item) => lines.push('  ранее: ' + when(item.time) + ' → ' + (item.targetName || (item.target ? 'ID ' + item.target : 'без цели'))));
+  return lines;
+}
+
 export function detailsText(review) {
   const report = review.report;
   const lines = ['📋 Жалоба ' + report.rid, 'Время: ' + when(report.time), 'Текст: ' + report.text, 'Вложений: ' + (report.received || 0) + ' из ' + (report.attachments || 0), ''];
@@ -102,6 +117,9 @@ export function detailsText(review) {
   }
   lines.push('');
   lines.push('📨 Кто пожаловался');
+  for (const line of profileLines(review.profile)) {
+    lines.push(line);
+  }
   if (review.reporter) {
     lines.push('Установка: ✅ найдена');
     lines.push('1. ' + installLine(review.reporter));
