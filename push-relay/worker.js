@@ -573,7 +573,7 @@ async function searchPage(address, trace, name, headers) {
 }
 
 function searchLines(items) {
-  return items.filter((item) => item.title && item.address).slice(0, 6).map((item) => item.title + '\n' + item.address + '\n' + item.snippet).join('\n\n');
+  return items.filter((item) => item.title && /^https?:\/\//.test(item.address) && !/(^https?:\/\/([a-z0-9-]+\.)*(bing|microsoft|msn|live)\.com)/i.test(item.address)).slice(0, 6).map((item) => item.title + '\n' + item.address + '\n' + item.snippet).join('\n\n');
 }
 
 async function searchDuckDuckGo(query, trace) {
@@ -640,9 +640,65 @@ async function searchWikipedia(query, trace) {
   return parts.join('\n\n');
 }
 
+const weatherWords = /погод|температур|прогноз|дожд|снег|weather|forecast|temperature|rain|погода|температура|дощ|сніг/i;
+const weatherCodes = { 0: 'ясно', 1: 'преимущественно ясно', 2: 'переменная облачность', 3: 'пасмурно', 45: 'туман', 48: 'изморозь', 51: 'морось', 53: 'морось', 55: 'сильная морось', 61: 'небольшой дождь', 63: 'дождь', 65: 'сильный дождь', 66: 'ледяной дождь', 67: 'ледяной дождь', 71: 'небольшой снег', 73: 'снег', 75: 'сильный снег', 77: 'снежные зёрна', 80: 'ливень', 81: 'ливень', 82: 'сильный ливень', 85: 'снегопад', 86: 'сильный снегопад', 95: 'гроза', 96: 'гроза с градом', 99: 'гроза с градом' };
+
+const weatherStop = new Set(['какая', 'какой', 'какую', 'сейчас', 'сегодня', 'завтра', 'в', 'во', 'на', 'у', 'the', 'in', 'at', 'now', 'today', 'tomorrow', 'what', 'is', 'яка', 'який', 'зараз', 'сьогодні', 'там', 'будет', 'буде', 'будет?']);
+
+function weatherPlace(query) {
+  return query.toLowerCase().replace(/[?!.,:;"'«»()]/g, ' ').split(/\s+/).filter((word) => word.length > 1 && !weatherStop.has(word) && !weatherWords.test(word)).slice(0, 3).join(' ');
+}
+
+function placeStems(place) {
+  const variants = [place];
+  const stems = place.replace(/(е|у|ом|ой|и|і|ах|ях)$/i, '');
+  if (stems !== place) {
+    variants.push(stems, stems + 'а', stems + 'в');
+  }
+  return variants;
+}
+
+async function searchWeather(query, trace) {
+  if (!weatherWords.test(query)) {
+    return '';
+  }
+  const place = weatherPlace(query);
+  if (!place) {
+    return '';
+  }
+  try {
+    let hit = null;
+    for (const name of placeStems(place)) {
+      const geo = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=ru&name=' + encodeURIComponent(name)).then((r) => r.json()).catch(() => null);
+      if (geo && geo.results && geo.results.length) {
+        hit = geo.results[0];
+        break;
+      }
+    }
+    trace.push('weather:' + (hit ? hit.name : 'no-place'));
+    if (!hit) {
+      return '';
+    }
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + hit.latitude + '&longitude=' + hit.longitude + '&timezone=auto&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,precipitation&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&forecast_days=3';
+    const data = await fetch(url).then((r) => r.json()).catch(() => null);
+    if (!data || !data.current) {
+      return '';
+    }
+    const c = data.current;
+    const lines = ['Источник: Open-Meteo (open-meteo.com), данные на ' + c.time + ' по местному времени', 'Место: ' + hit.name + (hit.country ? ', ' + hit.country : ''), 'Сейчас: ' + Math.round(c.temperature_2m) + '°C, ощущается как ' + Math.round(c.apparent_temperature) + '°C, ' + (weatherCodes[c.weather_code] || 'код ' + c.weather_code) + ', влажность ' + c.relative_humidity_2m + '%, ветер ' + Math.round(c.wind_speed_10m) + ' км/ч, осадки ' + c.precipitation + ' мм'];
+    if (data.daily && data.daily.time) {
+      data.daily.time.forEach((day, i) => lines.push(day + ': от ' + Math.round(data.daily.temperature_2m_min[i]) + ' до ' + Math.round(data.daily.temperature_2m_max[i]) + '°C, ' + (weatherCodes[data.daily.weather_code[i]] || '') + ', вероятность осадков ' + data.daily.precipitation_probability_max[i] + '%'));
+    }
+    return lines.join('\n');
+  } catch (error) {
+    trace.push('weather:error');
+    return '';
+  }
+}
+
 async function searchWeb(key, query, trace) {
   const log = trace || [];
-  for (const source of [searchDuckDuckGo, searchBing, searchMojeek, searchReader]) {
+  for (const source of [searchWeather, searchDuckDuckGo, searchBing, searchMojeek, searchReader]) {
     const found = await source(query, log);
     if (found) {
       return found;
