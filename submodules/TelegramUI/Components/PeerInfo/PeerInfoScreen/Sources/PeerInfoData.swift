@@ -2761,7 +2761,7 @@ func peerInfoCanReportUser(_ user: TelegramUser, accountPeerId: EnginePeer.Id) -
 /// Whether a user's (or a secret chat's) profile header has the More button. The profile's list offers what the menu
 /// would otherwise hold (Report) when it has none.
 func peerInfoUserHeaderHasMore(_ user: TelegramUser, isSecretChat: Bool, isContact: Bool) -> Bool {
-    return !(isSecretChat && !isContact) && !user.flags.contains(.isSupport)
+    return !user.flags.contains(.isSupport)
 }
 
 func peerInfoHeaderButtons(peer: EnginePeer?, cachedData: EngineCachedPeerData?, isOpenedFromChat: Bool, isExpanded: Bool, videoCallsEnabled: Bool, isSecretChat: Bool, isContact: Bool, threadInfo: EngineMessageHistoryThread.Info?) -> [PeerInfoHeaderButtonKey] {
