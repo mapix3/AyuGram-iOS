@@ -574,6 +574,8 @@
 "Ayu.SupporterWaiting" = "Not confirmed yet. Payments are checked by hand, it can take a while.";
 "Ayu.SupporterFailed" = "Could not reach the server. Try again later.";
 "Ayu.SupporterCopied" = "Code copied";
+"Ayu.SupporterPayIntro" = "Pay $%@ any way you like. After paying, go back and tap the button to get your code.";
+"Ayu.SupporterPayCode" = "Your code: %@. Put it in the payment comment.";
 "Ayu.BadgeSupported" = "**%@** supported the development of **AyuGram iOS**";
 "Ayu.BadgeResource" = "**%@** is the official resource of **AyuGram iOS**";
 "Ayu.BadgeDeveloper" = "**%@** is the developer of **AyuGram iOS**";

@@ -540,6 +540,8 @@
 "Ayu.SupporterWaiting" = "Поки не підтверджено. Платежі перевіряються вручну, це може зайняти час.";
 "Ayu.SupporterFailed" = "Не вдалося зв’язатися з сервером. Спробуй пізніше.";
 "Ayu.SupporterCopied" = "Код скопійовано";
+"Ayu.SupporterPayIntro" = "Сплати $%@ будь-яким зручним способом. Після оплати повернись назад і натисни кнопку, щоб отримати код.";
+"Ayu.SupporterPayCode" = "Твій код: %@. Вкажи його в коментарі до платежу.";
 "Ayu.BadgeSupported" = "**%@** підтримав(ла) розробку **AyuGram iOS**";
 "Ayu.BadgeResource" = "**%@** — офіційний ресурс **AyuGram iOS**";
 "Ayu.BadgeDeveloper" = "**%@** — розробник **AyuGram iOS**";

@@ -21,7 +21,14 @@ private struct AyuGramDonateMethod {
 
 private let ayuGramDonateWallet = "UQCvj3aWiCCzawOO5OeRM9C3Ts5n4hc1tep1ZZ7aBYG33Glp"
 
-private func ayuGramDonateMethods(locale: String) -> [AyuGramDonateMethod] {
+private func ayuGramDonateMethods(locale: String, badge: Bool) -> [AyuGramDonateMethod] {
+    if badge {
+        return [
+            AyuGramDonateMethod(title: "Crypto Bot", subtitle: i18n("Ayu.DonateBotInfo", locale), payload: "https://t.me/send?start=IVIFp5xQTKS4", openUrl: "https://t.me/send?start=IVIFp5xQTKS4", copyText: "https://t.me/send?start=IVIFp5xQTKS4", iconName: "AyuDonateCryptoBot", external: false),
+            AyuGramDonateMethod(title: "xRocket", subtitle: i18n("Ayu.DonateBotInfo", locale), payload: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", openUrl: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", copyText: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", iconName: "AyuDonateRocket", external: false),
+            AyuGramDonateMethod(title: i18n("Ayu.DonateWallet", locale), subtitle: i18n("Ayu.DonateWalletInfo", locale), payload: "ton://transfer/" + ayuGramDonateWallet, openUrl: "https://app.tonkeeper.com/transfer/" + ayuGramDonateWallet, copyText: ayuGramDonateWallet, iconName: nil, external: true)
+        ]
+    }
     return [
         AyuGramDonateMethod(title: "Crypto Bot", subtitle: i18n("Ayu.DonateBotInfo", locale), payload: "https://t.me/send?start=IVM3XypxxOuG", openUrl: "https://t.me/send?start=IVM3XypxxOuG", copyText: "https://t.me/send?start=IVM3XypxxOuG", iconName: "AyuDonateCryptoBot", external: false),
         AyuGramDonateMethod(title: "xRocket", subtitle: i18n("Ayu.DonateBotInfo", locale), payload: "https://t.me/xrocket?start=inv_4ocP4c7VH8hZgu4", openUrl: "https://t.me/xrocket?start=inv_4ocP4c7VH8hZgu4", copyText: "https://t.me/xrocket?start=inv_4ocP4c7VH8hZgu4", iconName: "AyuDonateRocket", external: false),
@@ -212,17 +219,17 @@ private final class AyuGramDonateNode: ASDisplayNode {
     private let introLabel = UILabel()
     private let cards: [AyuGramDonateCard]
 
-    init(presentationData: PresentationData, open: @escaping (AyuGramDonateMethod) -> Void) {
+    init(presentationData: PresentationData, intro: String?, open: @escaping (AyuGramDonateMethod) -> Void) {
         self.presentationData = presentationData
         let locale = presentationData.strings.baseLanguageCode
-        self.cards = ayuGramDonateMethods(locale: locale).map { AyuGramDonateCard(method: $0, locale: locale, open: open) }
+        self.cards = ayuGramDonateMethods(locale: locale, badge: intro != nil).map { AyuGramDonateCard(method: $0, locale: locale, open: open) }
 
         super.init()
 
         self.introLabel.font = UIFont.systemFont(ofSize: 15.0)
         self.introLabel.textAlignment = .center
         self.introLabel.numberOfLines = 0
-        self.introLabel.text = i18n("Ayu.DonateIntro", locale)
+        self.introLabel.text = intro ?? i18n("Ayu.DonateIntro", locale)
     }
 
     override func didLoad() {
@@ -278,15 +285,18 @@ private final class AyuGramDonateController: ViewController {
         return self.displayNode as! AyuGramDonateNode
     }
 
-    init(context: AccountContext) {
+    private let intro: String?
+
+    init(context: AccountContext, intro: String? = nil) {
         self.context = context
+        self.intro = intro
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
         self.presentationData = presentationData
 
         super.init(navigationBarPresentationData: NavigationBarPresentationData(presentationData: presentationData))
 
         self.statusBar.statusBarStyle = presentationData.theme.rootController.statusBarStyle.style
-        self.title = i18n("Ayu.Donate", presentationData.strings.baseLanguageCode)
+        self.title = i18n(intro == nil ? "Ayu.Donate" : "Ayu.SupporterBadge", presentationData.strings.baseLanguageCode)
         self.navigationItem.backBarButtonItem = UIBarButtonItem(title: presentationData.strings.Common_Back, style: .plain, target: nil, action: nil)
 
         self.presentationDataDisposable = (context.sharedContext.presentationData
@@ -316,7 +326,7 @@ private final class AyuGramDonateController: ViewController {
 
     override func loadDisplayNode() {
         let context = self.context
-        self.displayNode = AyuGramDonateNode(presentationData: self.presentationData, open: { method in
+        self.displayNode = AyuGramDonateNode(presentationData: self.presentationData, intro: self.intro, open: { method in
             if method.external {
                 context.sharedContext.applicationBindings.openUrl(method.openUrl)
             } else {
@@ -335,4 +345,8 @@ private final class AyuGramDonateController: ViewController {
 
 func ayuGramDonateController(context: AccountContext) -> ViewController {
     return AyuGramDonateController(context: context)
+}
+
+func ayuGramBadgePaymentController(context: AccountContext, intro: String) -> ViewController {
+    return AyuGramDonateController(context: context, intro: intro)
 }

@@ -467,8 +467,14 @@ private final class AyuGramSupporterView: UIView {
         self.setNeedsLayout()
     }
 
+    var push: ((ViewController) -> Void)?
+
     @objc private func payPressed() {
-        self.context.sharedContext.applicationBindings.openUrl(AyuGramBadgeSync.shared.payURL)
+        var intro = i18n("Ayu.SupporterPayIntro", self.locale, AyuGramBadgeSync.shared.price)
+        if case let .pending(code) = self.state {
+            intro += "\n\n" + i18n("Ayu.SupporterPayCode", self.locale, code)
+        }
+        self.push?(ayuGramBadgePaymentController(context: self.context, intro: intro))
     }
 
     @objc private func paidPressed() {
@@ -525,5 +531,9 @@ public func ayuGramSupporterController(context: AccountContext) -> ViewControlle
     let locale = presentationData.strings.baseLanguageCode
     AyuGramBadgeSync.shared.start()
     let view = AyuGramSupporterView(context: context, theme: presentationData.theme, locale: locale)
-    return AyuGramHostController(context: context, title: i18n("Ayu.SupporterBadge", locale), content: view)
+    let controller = AyuGramHostController(context: context, title: i18n("Ayu.SupporterBadge", locale), content: view)
+    view.push = { [weak controller] next in
+        (controller?.navigationController as? NavigationController)?.pushViewController(next)
+    }
+    return controller
 }
