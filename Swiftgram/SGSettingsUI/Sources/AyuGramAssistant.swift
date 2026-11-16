@@ -47,20 +47,20 @@ struct AyuGramAssistantConfig {
 
     static var current: AyuGramAssistantConfig {
         let provider = AyuGramAssistantProvider.all[providerIndex]
-        let key = UserDefaults.standard.string(forKey: "ayugram.assistant.key." + provider.id) ?? ""
+        let key = ayuGramAssistantClean(UserDefaults.standard.string(forKey: "ayugram.assistant.key." + provider.id) ?? "")
         let model = UserDefaults.standard.string(forKey: "ayugram.assistant.model." + provider.id) ?? ""
         return AyuGramAssistantConfig(provider: provider, key: key, model: model.isEmpty ? provider.model : model)
     }
 
     static func setKey(_ value: String) {
         let provider = AyuGramAssistantProvider.all[providerIndex]
-        UserDefaults.standard.set(value, forKey: "ayugram.assistant.key." + provider.id)
+        UserDefaults.standard.set(ayuGramAssistantClean(value), forKey: "ayugram.assistant.key." + provider.id)
         NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
     }
 
     static func setModel(_ value: String) {
         let provider = AyuGramAssistantProvider.all[providerIndex]
-        UserDefaults.standard.set(value, forKey: "ayugram.assistant.model." + provider.id)
+        UserDefaults.standard.set(value.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "ayugram.assistant.model." + provider.id)
         NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
     }
 }
@@ -201,7 +201,15 @@ private func ayuGramAssistantIcon(_ name: String, color: UIColor) -> UIImage? {
     }
 }
 
+func ayuGramAssistantClean(_ value: String) -> String {
+    return String(value.unicodeScalars.filter({ !CharacterSet.whitespacesAndNewlines.contains($0) && $0 != "\"" && $0 != "'" && $0.value >= 0x21 && $0.value < 0x7f }))
+}
+
 private func ayuGramAssistantFailure(data: Data?, response: URLResponse?, error: Error?, locale: String) -> String {
+    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+    if let data, let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]], let first = list.first, let details = first["error"] as? [String: Any], let message = details["message"] as? String {
+        return status != 0 ? "\(message) (HTTP \(status))" : message
+    }
     if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
         if let details = object["error"] as? [String: Any], let message = details["message"] as? String {
             return message
