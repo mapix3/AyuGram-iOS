@@ -279,6 +279,9 @@ print("History migration, direction/unread flags, path containment, record cap, 
         sdk_badge = output / 'BadgeCompatibility.swift'
         sdk_badge.write_text(badge.read_text().replace('import SGSimpleSettings\n', ''))
         badge_inputs = [icon_settings, sdk_badge]
+        personalization = source / 'Swiftgram/SGSimpleSettings/Sources/AyuGramPersonalization.swift'
+        if personalization.exists():
+            badge_inputs.append(personalization)
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-warnings-as-errors', '-target', 'arm64-apple-ios13.0', '-sdk', sdk, '-typecheck', *badge_inputs], check=True)
     print('Badge artwork typechecked against the native iOS 13 SDK')
     owner_badge = output / 'OwnerBadgeCompatibility.swift'
