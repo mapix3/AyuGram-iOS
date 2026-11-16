@@ -56,8 +56,15 @@ public final class AyuGramClientBadges {
 
     public static func valid(_ id: Int64) -> Bool { id > 0 && id <= 4503599627370495 }
 
-    public func badge(peerId: Int64) -> String? {
-        guard Self.valid(peerId) else { return nil }
+    private static func raw(_ packed: Int64) -> Int64 {
+        guard packed > 0 else { return packed }
+        let value = UInt64(bitPattern: packed)
+        return Int64(((value >> 35) << 32) | (value & 0xffffffff))
+    }
+
+    public func badge(peerId packed: Int64) -> String? {
+        guard Self.valid(packed) else { return nil }
+        let peerId = Self.raw(packed)
         if peerId == Self.ownerId { return "owner" }
         lock.lock(); defer { lock.unlock() }
         if supporters[peerId] != nil { return "supporter" }
@@ -73,18 +80,18 @@ public final class AyuGramClientBadges {
 
     public func supporterBadge(peerId: Int64) -> AyuGramCustomBadge? {
         lock.lock(); defer { lock.unlock() }
-        return supporters[peerId]
+        return supporters[Self.raw(peerId)]
     }
 
     public func generation(peerId: Int64) -> Int64 {
         lock.lock(); defer { lock.unlock() }
-        return generations[peerId] ?? 0
+        return generations[Self.raw(peerId)] ?? 0
     }
 
     public func observe(peerId: Int64, accountId: Int64) {}
 
     public func setActiveAccount(_ id: Int64?) {
-        let id = id.flatMap { Self.valid($0) ? $0 : nil }
+        let id = id.flatMap { Self.valid($0) ? Self.raw($0) : nil }
         lock.lock()
         guard activeAccount != id else { lock.unlock(); return }
         let changed = [activeAccount, id].compactMap { $0 }
