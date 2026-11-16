@@ -61,6 +61,7 @@ struct AyuGramAssistantConfig {
     static func setModel(_ value: String) {
         let provider = AyuGramAssistantProvider.all[providerIndex]
         UserDefaults.standard.set(value.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "ayugram.assistant.model." + provider.id)
+        UserDefaults.standard.removeObject(forKey: "ayugram.assistant.gemini.working")
         NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
     }
 }
@@ -227,23 +228,32 @@ private func ayuGramAssistantFailure(data: Data?, response: URLResponse?, error:
     return i18n("Ayu.AIError", locale)
 }
 
-func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, locale: String, completion: @escaping (String?, String?) -> Void) {
-    let config = AyuGramAssistantConfig.current
-    if config.provider.needsKey && config.key.isEmpty {
-        completion(nil, i18n("Ayu.AINeedKey", locale))
+private let ayuGramGeminiFallbacks = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+private let ayuGramGeminiWorkingKey = "ayugram.assistant.gemini.working"
+
+private func ayuGramAssistantModels(_ config: AyuGramAssistantConfig) -> [String] {
+    guard config.provider.id == "gemini" else {
+        return [config.model]
+    }
+    var result: [String] = []
+    for model in [UserDefaults.standard.string(forKey: ayuGramGeminiWorkingKey) ?? "", config.model] + ayuGramGeminiFallbacks where !model.isEmpty && !result.contains(model) {
+        result.append(model)
+    }
+    return result
+}
+
+private func ayuGramAssistantPost(config: AyuGramAssistantConfig, url: URL, body: [String: Any], timeout: Double, locale: String, models: [String], completion: @escaping (String?, String?) -> Void) {
+    guard let model = models.first else {
+        DispatchQueue.main.async {
+            completion(nil, i18n("Ayu.AIError", locale))
+        }
         return
     }
-    guard let url = URL(string: config.provider.endpoint) else {
-        completion(nil, i18n("Ayu.AIError", locale))
-        return
-    }
-    var body: [String: Any] = ["model": config.model, "messages": [["role": "system", "content": system], ["role": "user", "content": prompt]], "max_tokens": maxTokens, "temperature": 0.8]
-    if config.provider.id == "ayugram" {
-        body["ayugram_mode"] = "copilot"
-    }
+    var body = body
+    body["model"] = model
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
-    request.timeoutInterval = 60.0
+    request.timeoutInterval = timeout
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     if !config.key.isEmpty {
         request.setValue("Bearer " + config.key, forHTTPHeaderField: "Authorization")
@@ -264,11 +274,36 @@ func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, lo
         if text?.isEmpty == true {
             text = nil
         }
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if text == nil && models.count > 1 && (error != nil || [404, 408, 429, 500, 502, 503, 504].contains(status)) {
+            ayuGramAssistantPost(config: config, url: url, body: body, timeout: timeout, locale: locale, models: Array(models.dropFirst()), completion: completion)
+            return
+        }
+        if text != nil && config.provider.id == "gemini" {
+            UserDefaults.standard.set(model, forKey: ayuGramGeminiWorkingKey)
+        }
         let failure = text == nil ? ayuGramAssistantFailure(data: data, response: response, error: error, locale: locale) : nil
         DispatchQueue.main.async {
             completion(text, failure)
         }
     }).resume()
+}
+
+func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, locale: String, completion: @escaping (String?, String?) -> Void) {
+    let config = AyuGramAssistantConfig.current
+    if config.provider.needsKey && config.key.isEmpty {
+        completion(nil, i18n("Ayu.AINeedKey", locale))
+        return
+    }
+    guard let url = URL(string: config.provider.endpoint) else {
+        completion(nil, i18n("Ayu.AIError", locale))
+        return
+    }
+    var body: [String: Any] = ["messages": [["role": "system", "content": system], ["role": "user", "content": prompt]], "max_tokens": maxTokens, "temperature": 0.8]
+    if config.provider.id == "ayugram" {
+        body["ayugram_mode"] = "copilot"
+    }
+    ayuGramAssistantPost(config: config, url: url, body: body, timeout: 60.0, locale: locale, models: ayuGramAssistantModels(config), completion: completion)
 }
 
 private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale: String, completion: @escaping (String?, String?) -> Void) {
@@ -294,35 +329,7 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
             payload.append(["role": role, "content": message.text.isEmpty ? "[image]" : message.text])
         }
     }
-    let body: [String: Any] = ["model": config.model, "messages": payload]
-    var request = URLRequest(url: url)
-    request.httpMethod = "POST"
-    request.timeoutInterval = 90.0
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    if !config.key.isEmpty {
-        request.setValue("Bearer " + config.key, forHTTPHeaderField: "Authorization")
-        if config.provider.id == "gemini" {
-            request.setValue(config.key, forHTTPHeaderField: "x-goog-api-key")
-        }
-    }
-    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-    URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
-        var text: String?
-        if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let choices = object["choices"] as? [[String: Any]], let message = choices.first?["message"] as? [String: Any], let content = message["content"] as? String {
-                text = content.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        } else if let data, let raw = String(data: data, encoding: .utf8), (response as? HTTPURLResponse)?.statusCode == 200 {
-            text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if text?.isEmpty == true {
-            text = nil
-        }
-        let failure = text == nil ? ayuGramAssistantFailure(data: data, response: response, error: error, locale: locale) : nil
-        DispatchQueue.main.async {
-            completion(text, failure)
-        }
-    }).resume()
+    ayuGramAssistantPost(config: config, url: url, body: ["messages": payload], timeout: 90.0, locale: locale, models: ayuGramAssistantModels(config), completion: completion)
 }
 
 private func ayuGramAssistantTranscribe(file: URL, locale: String, completion: @escaping (String?, String?) -> Void) {

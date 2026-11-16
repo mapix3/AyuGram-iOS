@@ -548,12 +548,30 @@ function groqReason(status, output) {
   return (String(status) + ' ' + message).replace(/gsk_[A-Za-z0-9]+/g, '').trim().slice(0, 200);
 }
 
+let geminiWorking = '';
+
 async function geminiChat(env, messages, maxTokens) {
+  const preferred = env && env.GEMINI_MODEL ? env.GEMINI_MODEL : 'gemini-2.5-flash';
+  const models = [...new Set([geminiWorking, preferred, 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'].filter(Boolean))];
+  let last = null;
+  for (const model of models) {
+    last = await geminiChatModel(env, model, messages, maxTokens);
+    if (last.content) {
+      geminiWorking = model;
+      return last;
+    }
+    if (![0, 404, 408, 429, 500, 502, 503, 504].includes(last.status) || last.reason === 'no key') {
+      return last;
+    }
+  }
+  return last;
+}
+
+async function geminiChatModel(env, model, messages, maxTokens) {
   const key = String(env && env.GEMINI_API_KEY || '').replace(/[^\x21-\x7e]|["']/g, '');
   if (!key) {
     return { model: 'gemini', status: 0, content: '', reason: 'no key' };
   }
-  const model = env.GEMINI_MODEL || 'gemini-flash-latest';
   let status = 0;
   let output = null;
   try {
