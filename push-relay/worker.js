@@ -604,7 +604,11 @@ async function geminiChat(env, messages, maxTokens, extra) {
   const ready = all.filter((model) => !(geminiCooldown.get(model) > now));
   const models = ready.length ? ready : all;
   let last = null;
+  const deadline = Date.now() + 24000;
   for (const model of models) {
+    if (last && Date.now() > deadline) {
+      break;
+    }
     last = await geminiChatModel(env, model, messages, maxTokens, extra);
     if (last.content || last.calls) {
       geminiWorking = model;
@@ -637,6 +641,15 @@ async function geminiChatModel(env, model, messages, maxTokens, extra) {
   return geminiRequest(env, model, messages, maxTokens, extra);
 }
 
+function geminiNamed(model, messages) {
+  const note = ' You run on the Google Gemini model "' + model + '" inside AyuGram. If asked which model you are, say exactly that and do not refuse; if the name is an alias like "latest", say it is the newest Gemini Flash and that the exact version number is not known to you.';
+  const index = messages.findIndex((item) => item.role === 'system' && typeof item.content === 'string');
+  if (index < 0) {
+    return [{ role: 'system', content: note.trim() }].concat(messages);
+  }
+  return messages.map((item, position) => (position === index ? { role: 'system', content: item.content + note } : item));
+}
+
 async function geminiRequest(env, model, messages, maxTokens, extra) {
   const key = String(env && env.GEMINI_API_KEY || '').replace(/[^\x21-\x7e]|["']/g, '');
   if (!key) {
@@ -648,8 +661,8 @@ async function geminiRequest(env, model, messages, maxTokens, extra) {
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key, 'x-goog-api-key': key },
-      body: JSON.stringify(Object.assign({ model, messages, max_tokens: maxTokens || 1500 }, extra || {})),
-      signal: AbortSignal.timeout(20000),
+      body: JSON.stringify(Object.assign({ model, messages: geminiNamed(model, messages), max_tokens: maxTokens || 1500 }, extra || {})),
+      signal: AbortSignal.timeout(14000),
     });
     status = response.status;
     output = await response.json();
