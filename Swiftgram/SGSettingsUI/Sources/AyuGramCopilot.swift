@@ -41,45 +41,45 @@ func ayuGramCopilotMediaTag(_ message: EngineMessage) -> String? {
             return nil
         }
         if media is TelegramMediaImage {
-            return "[фото]"
+            return "[photo]"
         }
         if let file = media as? TelegramMediaFile {
             if file.isSticker || file.isAnimatedSticker || file.isVideoSticker {
                 for attribute in file.attributes {
                     if case let .Sticker(displayText, _, _) = attribute, !displayText.isEmpty {
-                        return "[стикер \(displayText)]"
+                        return "[sticker \(displayText)]"
                     }
                 }
-                return "[стикер]"
+                return "[sticker]"
             }
             if file.isVoice {
-                return "[голосовое]"
+                return "[voice]"
             }
             if file.isInstantVideo {
-                return "[кружок]"
+                return "[video message]"
             }
             if file.isAnimated {
                 return "[gif]"
             }
             if file.isVideo {
-                return "[видео]"
+                return "[video]"
             }
             if file.isMusic {
-                return "[музыка]"
+                return "[music]"
             }
-            return "[файл]"
+            return "[file]"
         }
         if media is TelegramMediaPoll {
-            return "[опрос]"
+            return "[poll]"
         }
         if media is TelegramMediaMap {
-            return "[геопозиция]"
+            return "[location]"
         }
         if media is TelegramMediaContact {
-            return "[контакт]"
+            return "[contact]"
         }
         if media is TelegramMediaDice {
-            return "[кубик]"
+            return "[dice]"
         }
     }
     return ""
@@ -118,7 +118,7 @@ private func ayuGramCopilotTranscript(messages: [EngineMessage], accountPeerId: 
             continue
         }
         let outgoing = !message.flags.contains(.Incoming) || message.author?.id == accountPeerId
-        var speaker = "Я"
+        var speaker = "Me"
         if !outgoing {
             if let author = message.author {
                 if case let .user(user) = author {
@@ -127,10 +127,10 @@ private func ayuGramCopilotTranscript(messages: [EngineMessage], accountPeerId: 
                     speaker = ayuGramCopilotLine(author.debugDisplayTitle)
                 }
             } else {
-                speaker = isGroup ? "?" : "Собеседник"
+                speaker = isGroup ? "?" : "Them"
             }
-            if speaker.isEmpty || speaker == "Я" {
-                speaker = "Собеседник"
+            if speaker.isEmpty || speaker == "Me" {
+                speaker = "Them"
             }
         }
         if let last = lines.last, last.0 == speaker {
@@ -149,11 +149,56 @@ private func ayuGramCopilotTranscript(messages: [EngineMessage], accountPeerId: 
         }
         picked.append(String(line.prefix(ayuGramCopilotBudget)))
         total += line.count + 1
-        if speaker == "Я" {
+        if speaker == "Me" {
             mine += 1
         }
     }
     return (picked.reversed().joined(separator: "\n"), mine, mineTotal == 0 ? 0.0 : Double(mineEmoji) / Double(mineTotal))
+}
+
+func ayuGramDialogLanguage(_ messages: [EngineMessage]) -> String {
+    var cyrillic = 0
+    var latin = 0
+    var ukrainian = 0
+    var other = 0
+    for message in messages.suffix(15) {
+        for scalar in message.text.unicodeScalars where scalar.properties.isAlphabetic {
+            switch scalar.value {
+            case 0x0456, 0x0457, 0x0454, 0x0491, 0x0406, 0x0407, 0x0404, 0x0490:
+                ukrainian += 1
+                cyrillic += 1
+            case 0x0400 ... 0x04FF:
+                cyrillic += 1
+            case 0x0041 ... 0x024F:
+                latin += 1
+            default:
+                other += 1
+            }
+        }
+    }
+    if cyrillic == 0 && latin == 0 && other == 0 {
+        return "the language of the latest messages"
+    }
+    if latin > cyrillic && latin > other {
+        return "the Latin-script language of the latest messages (most likely English)"
+    }
+    if cyrillic >= latin && cyrillic >= other {
+        return ukrainian * 20 > cyrillic ? "Ukrainian" : "Russian"
+    }
+    return "the language of the latest messages"
+}
+
+func ayuGramLocaleLanguage(_ locale: String) -> String {
+    switch locale.prefix(2) {
+    case "ru":
+        return "Russian"
+    case "uk":
+        return "Ukrainian"
+    case "en":
+        return "English"
+    default:
+        return Locale(identifier: "en").localizedString(forLanguageCode: String(locale.prefix(2))) ?? "English"
+    }
 }
 
 private func ayuGramCopilotParse(_ text: String) -> (String, [String]) {
@@ -273,6 +318,7 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
     private var loading = false
     private var asking = false
     private var transcript: String?
+    private var dialogLanguage = "the language of the latest messages"
     private var errorText: String?
     private var answer: String?
     private var anchor = CGPoint()
@@ -602,6 +648,7 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
             }
             let built = ayuGramCopilotTranscript(messages: messages, accountPeerId: accountPeerId, isGroup: isGroup)
             self.transcript = built.text
+            self.dialogLanguage = ayuGramDialogLanguage(messages)
             if !force, let cached = ayuGramCopilotCache[peerId], cached.lastId == last.id {
                 self.show(summary: cached.summary, replies: cached.replies)
                 return
@@ -617,9 +664,11 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
         self.summaryLabel.text = i18n("Ayu.CopilotThinking", self.locale)
         self.relayout()
         self.startShimmer()
-        let style = mine < 3 ? " Я wrote little, so keep the reply plain and casual." : ""
-        let emojiRule = emojiShare >= 0.5 ? "At most one emoji, only if it fits the meaning; never repeat the emoji Я used last." : "No emoji at all."
-        let system = "You are a sharp conversation analyst inside Telegram. The user is Я; speak to the user as \"ты\", call the others by name. First analyze the dialog: what is going on, the other side's mood and intent, the subtext, and what Я should do next. Then write ONE quick reply Я could send right now. The reply must read like a real person typing fast, not like an AI: no greetings, no filler, no polished grammar if Я does not write that way, same letter case and slang as Я, as short as Я's usual messages, under 120 characters, never repeat letters or laughter endlessly. " + emojiRule + style + " Format strictly, nothing else:\nA: <analysis, 2-4 short sentences, in the dialog language>\nR: <the reply>"
+        let style = mine < 3 ? " Me wrote little, so keep the reply plain and casual." : ""
+        let emojiRule = emojiShare >= 0.5 ? "At most one emoji, only if it fits the meaning; never repeat the emoji Me used last." : "No emoji at all."
+        let analysisLanguage = ayuGramLocaleLanguage(self.locale)
+        let replyLanguage = self.dialogLanguage
+        let system = "You are a sharp conversation analyst inside Telegram. The user is Me in the dialog. First analyze the dialog: what is going on, the other side's mood and intent, the subtext, and what Me should do next; write the analysis in " + analysisLanguage + ", speaking to the user directly as you (informal), calling the others by name. Then write ONE quick reply Me could send right now, written in " + replyLanguage + ", the language Me and the others actually use in the latest messages, never translated into another language. The reply must read like a real person typing fast, not like an AI: no greetings, no filler, no polished grammar if Me does not write that way, same letter case and slang as Me, as short as Me's usual messages, under 120 characters, never repeat letters or laughter endlessly. " + emojiRule + style + " Format strictly, nothing else:\nA: <analysis in " + analysisLanguage + ", 2-4 short sentences>\nR: <the reply in " + replyLanguage + ">"
         let prompt = "Dialog, oldest first:\n" + transcript
         let peerId = self.peerId
         ayuGramAssistantComplete(system: system, prompt: prompt, maxTokens: 300, locale: self.locale, completion: { [weak self] reply, failure in
@@ -726,7 +775,7 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
         self.renderAnswer()
         self.relayout()
         self.headerGhost.lookTarget = CGPoint(x: -0.9, y: 0.6)
-        let system = "You analyze a Telegram dialog for the user (Я) and answer their question about it. Be brief: at most 4 sentences, in the language of the question. If asked what to write, give one ready message in Я's style."
+        let system = "You analyze a Telegram dialog for the user (Me) and answer their question about it. Be brief: at most 4 sentences, in the language of the question. If asked what to write, give one ready message in Me's style, written in " + self.dialogLanguage + ", the language of the dialog."
         let prompt = "Dialog, oldest first:\n" + transcript + "\n\nQuestion: " + String(question.prefix(500))
         ayuGramAssistantComplete(system: system, prompt: prompt, maxTokens: 380, locale: self.locale, completion: { [weak self] reply, failure in
             guard let self else {
