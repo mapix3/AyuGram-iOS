@@ -379,6 +379,23 @@ async function handleAssistant(request, env) {
     }
     return aiAnswer(answer.status === 429 ? 429 : 502, { error: { message: answer.status === 429 ? 'The assistant is busy, try again later' : 'The assistant is unavailable' + (answer.reason ? ': ' + answer.reason : '') } });
   }
+  let geminiTried = false;
+  if (env.GEMINI_API_KEY) {
+    geminiTried = true;
+    let primary = '';
+    try {
+      primary = vision ? (await geminiChat(env, [{ role: 'system', content: basePrompt }].concat(messages), 4096)).content : await geminiSearchAnswer(env, key, messages, basePrompt);
+    } catch (error) {
+      console.log('assistant gemini failed: ' + error);
+      primary = '';
+    }
+    if (primary) {
+      return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: primary } }] });
+    }
+  }
+  if (!env.GROQ_API_KEY) {
+    return aiAnswer(502, { error: { message: 'The assistant is unavailable' } });
+  }
   if (!vision) {
     let searched = '';
     try {
@@ -420,7 +437,7 @@ async function handleAssistant(request, env) {
       }
     }
   }
-  if (!result.content) {
+  if (!result.content && !geminiTried) {
     const gemini = await geminiChat(env, messages);
     if (gemini.content) {
       result = gemini;
@@ -552,13 +569,39 @@ function groqReason(status, output) {
 
 let geminiWorking = '';
 
-async function geminiChat(env, messages, maxTokens) {
+async function geminiSearchAnswer(env, key, messages, basePrompt) {
+  const toolPrompt = basePrompt + ' You can search the internet with the web_search tool. Use it for news, weather, prices, recent events and any fact you are not sure about.';
+  const first = await geminiChat(env, [{ role: 'system', content: toolPrompt }].concat(messages), 4096, { tools: [groqSearchTool], tool_choice: 'auto' });
+  const queries = searchQueries(first && first.message, '');
+  if (!queries.length) {
+    const direct = first && first.content ? first.content : '';
+    return looksLikeToolCall(direct) ? '' : direct;
+  }
+  const found = [];
+  for (const query of queries) {
+    const results = (await searchWeb(key, query)).slice(0, 6000);
+    if (results) {
+      found.push('Results for "' + query + '":\n' + results);
+    }
+  }
+  if (!found.length) {
+    const plain = await geminiChat(env, [{ role: 'system', content: basePrompt }].concat(messages), 4096);
+    return plain && !looksLikeToolCall(plain.content) ? plain.content : '';
+  }
+  const last = messages[messages.length - 1];
+  const question = typeof last.content === 'string' ? last.content : '';
+  const thread = [{ role: 'system', content: basePrompt + ' You have just searched the internet. Answer using the search results given in the last message, mention the sources briefly, and never write tool calls.' }].concat(messages.slice(0, -1), [{ role: 'user', content: question + '\n\n[Internet search results]\n' + found.join('\n\n') }]);
+  const second = await geminiChat(env, thread, 4096);
+  return second && !looksLikeToolCall(second.content) ? second.content : '';
+}
+
+async function geminiChat(env, messages, maxTokens, extra) {
   const preferred = env && env.GEMINI_MODEL ? env.GEMINI_MODEL : 'gemini-2.5-flash';
   const models = [...new Set([geminiWorking, preferred, 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'].filter(Boolean))];
   let last = null;
   for (const model of models) {
-    last = await geminiChatModel(env, model, messages, maxTokens);
-    if (last.content) {
+    last = await geminiChatModel(env, model, messages, maxTokens, extra);
+    if (last.content || last.calls) {
       geminiWorking = model;
       return last;
     }
@@ -569,7 +612,7 @@ async function geminiChat(env, messages, maxTokens) {
   return last;
 }
 
-async function geminiChatModel(env, model, messages, maxTokens) {
+async function geminiChatModel(env, model, messages, maxTokens, extra) {
   const key = String(env && env.GEMINI_API_KEY || '').replace(/[^\x21-\x7e]|["']/g, '');
   if (!key) {
     return { model: 'gemini', status: 0, content: '', reason: 'no key' };
@@ -580,7 +623,7 @@ async function geminiChatModel(env, model, messages, maxTokens) {
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key, 'x-goog-api-key': key },
-      body: JSON.stringify({ model, messages, max_tokens: maxTokens || 1500 }),
+      body: JSON.stringify(Object.assign({ model, messages, max_tokens: maxTokens || 1500 }, extra || {})),
     });
     status = response.status;
     output = await response.json();
@@ -590,9 +633,10 @@ async function geminiChatModel(env, model, messages, maxTokens) {
   } catch (error) {
     output = null;
   }
-  const content = output && output.choices && output.choices[0] && output.choices[0].message && output.choices[0].message.content;
+  const message = output && output.choices && output.choices[0] && output.choices[0].message ? output.choices[0].message : null;
+  const content = message && message.content;
   const reason = output && output.error ? String(output.error.message || output.error.status || '').replace(/AIza[0-9A-Za-z_-]+/g, '').slice(0, 160) : '';
-  return { model, status, content: typeof content === 'string' && content ? content.trim() : '', reason: reason || (status ? 'HTTP ' + status : 'network error') };
+  return { model, status, message, calls: Boolean(message && Array.isArray(message.tool_calls) && message.tool_calls.length), content: typeof content === 'string' && content ? content.trim() : '', reason: reason || (status ? 'HTTP ' + status : 'network error') };
 }
 
 async function groqChat(key, model, messages, maxTokens) {
