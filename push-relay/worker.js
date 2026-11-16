@@ -612,7 +612,21 @@ async function geminiChat(env, messages, maxTokens, extra) {
   return last;
 }
 
+const geminiPlain = new Set();
+
 async function geminiChatModel(env, model, messages, maxTokens, extra) {
+  if (geminiPlain.has(model)) {
+    return geminiRequest(env, model, messages, maxTokens, extra);
+  }
+  const fast = await geminiRequest(env, model, messages, maxTokens, Object.assign({ reasoning_effort: 'none' }, extra || {}));
+  if (fast.status !== 400) {
+    return fast;
+  }
+  geminiPlain.add(model);
+  return geminiRequest(env, model, messages, maxTokens, extra);
+}
+
+async function geminiRequest(env, model, messages, maxTokens, extra) {
   const key = String(env && env.GEMINI_API_KEY || '').replace(/[^\x21-\x7e]|["']/g, '');
   if (!key) {
     return { model: 'gemini', status: 0, content: '', reason: 'no key' };
@@ -624,6 +638,7 @@ async function geminiChatModel(env, model, messages, maxTokens, extra) {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key, 'x-goog-api-key': key },
       body: JSON.stringify(Object.assign({ model, messages, max_tokens: maxTokens || 1500 }, extra || {})),
+      signal: AbortSignal.timeout(20000),
     });
     status = response.status;
     output = await response.json();
