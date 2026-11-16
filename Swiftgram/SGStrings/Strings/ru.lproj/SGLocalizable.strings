@@ -527,12 +527,14 @@
 "Ayu.AIRename" = "Переименовать";
 "Ayu.AIDelete" = "Удалить";
 "Ayu.AIBubble" = "Кнопка ассистента в списке чатов";
-"Ayu.Copilot" = "ИИ-подсказки";
+"Ayu.Copilot" = "ИИ-анализ";
 "Ayu.CopilotAsk" = "Спросить про этот чат…";
 "Ayu.CopilotEmpty" = "Пока нечего читать.";
 "Ayu.CopilotThinking" = "Читаю переписку…";
 "Ayu.CopilotCopied" = "Скопировано. Нажми на подсказку, чтобы вставить её в поле ввода.";
 "Ayu.CopilotToggle" = "ИИ-подсказки в чатах";
+"Ayu.FloatChat" = "Открыть в окне";
+"Ayu.FloatPlaceholder" = "Сообщение";
 "Ayu.AIIntroTagline" = "карманный призрак";
 "Ayu.AIIntro1" = "просыпаюсь";
 "Ayu.AIIntro2" = "гружу модули";

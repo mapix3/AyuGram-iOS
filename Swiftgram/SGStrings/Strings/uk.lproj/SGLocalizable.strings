@@ -498,12 +498,14 @@
 "Ayu.AIRename" = "Перейменувати";
 "Ayu.AIDelete" = "Видалити";
 "Ayu.AIBubble" = "Кнопка асистента у списку чатів";
-"Ayu.Copilot" = "ШІ-підказки";
+"Ayu.Copilot" = "ШІ-аналіз";
 "Ayu.CopilotAsk" = "Запитати про цей чат…";
 "Ayu.CopilotEmpty" = "Поки нічого читати.";
 "Ayu.CopilotThinking" = "Читаю листування…";
 "Ayu.CopilotCopied" = "Скопійовано. Натисни на підказку, щоб вставити її в поле вводу.";
 "Ayu.CopilotToggle" = "ШІ-підказки в чатах";
+"Ayu.FloatChat" = "Відкрити у вікні";
+"Ayu.FloatPlaceholder" = "Повідомлення";
 "Ayu.AIIntroTagline" = "кишеньковий привид";
 "Ayu.AIIntro1" = "прокидаюсь";
 "Ayu.AIIntro2" = "вантажу модулі";

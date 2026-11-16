@@ -27,7 +27,7 @@ private func ayuGramCopilotLine(_ text: String) -> String {
     return flat
 }
 
-private func ayuGramCopilotMediaTag(_ message: EngineMessage) -> String? {
+func ayuGramCopilotMediaTag(_ message: EngineMessage) -> String? {
     for media in message.media {
         if media is TelegramMediaAction {
             return nil
@@ -77,7 +77,29 @@ private func ayuGramCopilotMediaTag(_ message: EngineMessage) -> String? {
     return ""
 }
 
-private func ayuGramCopilotTranscript(messages: [EngineMessage], accountPeerId: EnginePeer.Id, isGroup: Bool) -> (text: String, mine: Int) {
+func ayuGramHasEmoji(_ text: String) -> Bool {
+    return text.unicodeScalars.contains(where: { $0.properties.isEmojiPresentation || ($0.properties.isEmoji && $0.value > 0x238C) })
+}
+
+func ayuGramStripEmoji(_ text: String) -> String {
+    var result = ""
+    for character in text {
+        if !ayuGramHasEmoji(String(character)) && !character.unicodeScalars.allSatisfy({ $0.value == 0xFE0F || $0.value == 0x200D }) {
+            result.append(character)
+        }
+    }
+    return result.components(separatedBy: .whitespaces).filter({ !$0.isEmpty }).joined(separator: " ")
+}
+
+private func ayuGramCopilotTranscript(messages: [EngineMessage], accountPeerId: EnginePeer.Id, isGroup: Bool) -> (text: String, mine: Int, emojiShare: Double) {
+    var mineTotal = 0
+    var mineEmoji = 0
+    for message in messages.suffix(20) where !message.flags.contains(.Incoming) && !message.text.isEmpty {
+        mineTotal += 1
+        if ayuGramHasEmoji(message.text) {
+            mineEmoji += 1
+        }
+    }
     var lines: [(String, String)] = []
     for message in messages {
         guard let tag = ayuGramCopilotMediaTag(message) else {
@@ -123,7 +145,7 @@ private func ayuGramCopilotTranscript(messages: [EngineMessage], accountPeerId: 
             mine += 1
         }
     }
-    return (picked.reversed().joined(separator: "\n"), mine)
+    return (picked.reversed().joined(separator: "\n"), mine, mineTotal == 0 ? 0.0 : Double(mineEmoji) / Double(mineTotal))
 }
 
 private func ayuGramCopilotParse(_ text: String) -> (String, [String]) {
@@ -136,8 +158,19 @@ private func ayuGramCopilotParse(_ text: String) -> (String, [String]) {
             continue
         }
         let upper = line.uppercased()
-        if upper.hasPrefix("S:") || upper.hasPrefix("SUMMARY:") || upper.hasPrefix("СИТУАЦИЯ:") {
-            summary = line.components(separatedBy: ":").dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespaces)
+        if upper.hasPrefix("R:") || upper.hasPrefix("REPLY:") || upper.hasPrefix("ОТВЕТ:") {
+            var reply = line.components(separatedBy: ":").dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespaces)
+            if reply.hasPrefix("\"") && reply.hasSuffix("\"") && reply.count > 1 {
+                reply = String(reply.dropFirst().dropLast())
+            }
+            if !reply.isEmpty {
+                replies.append(reply)
+            }
+            continue
+        }
+        if upper.hasPrefix("A:") || upper.hasPrefix("S:") || upper.hasPrefix("ANALYSIS:") || upper.hasPrefix("SUMMARY:") || upper.hasPrefix("АНАЛИЗ:") {
+            let part = line.components(separatedBy: ":").dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespaces)
+            summary = summary.isEmpty ? part : summary + " " + part
             continue
         }
         if let first = line.first, first.isNumber, line.count > 2 {
@@ -154,11 +187,11 @@ private func ayuGramCopilotParse(_ text: String) -> (String, [String]) {
                 continue
             }
         }
-        if summary.isEmpty && replies.isEmpty {
-            summary = line
+        if replies.isEmpty {
+            summary = summary.isEmpty ? line : summary + " " + line
         }
     }
-    return (summary, Array(replies.prefix(3)))
+    return (summary, Array(replies.prefix(1)))
 }
 
 private final class AyuGramCopilotSuggestion: UIControl {
@@ -288,7 +321,7 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
         self.closeButton.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14.0, weight: .semibold)), for: .normal)
         self.closeButton.addTarget(self, action: #selector(self.collapsePressed), for: .touchUpInside)
         self.summaryLabel.font = UIFont.systemFont(ofSize: 13.0)
-        self.summaryLabel.numberOfLines = 3
+        self.summaryLabel.numberOfLines = 0
         self.answerLabel.numberOfLines = 0
         for _ in 0 ..< 3 {
             let bar = UIView()
@@ -565,29 +598,33 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
                 self.show(summary: cached.summary, replies: cached.replies)
                 return
             }
-            self.request(transcript: built.text, mine: built.mine, lastId: last.id)
+            self.request(transcript: built.text, mine: built.mine, emojiShare: built.emojiShare, lastId: last.id)
         }))
     }
 
-    private func request(transcript: String, mine: Int, lastId: EngineMessage.Id) {
+    private func request(transcript: String, mine: Int, emojiShare: Double, lastId: EngineMessage.Id) {
         self.loading = true
         self.headerGhost.squint = false
         self.headerGhost.lookTarget = CGPoint(x: 0.9, y: -0.4)
         self.summaryLabel.text = i18n("Ayu.CopilotThinking", self.locale)
         self.relayout()
         self.startShimmer()
-        let style = mine < 3 ? " If there are few Я lines, write naturally and casually." : ""
-        let system = "You help the user (Я) reply in a Telegram chat. Read the dialog, understand the situation, and copy Я's writing style exactly: language, length, letter case, slang, emoji, punctuation." + style + " Reply strictly in this format and nothing else:\nS: <one short line: what is going on and what the other side wants, in the dialog language>\n1: <next message from Я>\n2: <different variant>\n3: <different variant>\nEach variant is one message Я would actually send now, as short as Я's usual messages, no quotes."
+        let style = mine < 3 ? " Я wrote little, so keep the reply plain and casual." : ""
+        let emojiRule = emojiShare >= 0.5 ? "At most one emoji, only if it fits the meaning; never repeat the emoji Я used last." : "No emoji at all."
+        let system = "You are a sharp conversation analyst inside Telegram. The user is Я; speak to the user as \"ты\", call the others by name. First analyze the dialog: what is going on, the other side's mood and intent, the subtext, and what Я should do next. Then write ONE quick reply Я could send right now. The reply must read like a real person typing fast, not like an AI: no greetings, no filler, no polished grammar if Я does not write that way, same letter case and slang as Я, as short as Я's usual messages. " + emojiRule + style + " Format strictly, nothing else:\nA: <analysis, 2-4 short sentences, in the dialog language>\nR: <the reply>"
         let prompt = "Dialog, oldest first:\n" + transcript
         let peerId = self.peerId
-        ayuGramAssistantComplete(system: system, prompt: prompt, maxTokens: 320, locale: self.locale, completion: { [weak self] reply, failure in
+        ayuGramAssistantComplete(system: system, prompt: prompt, maxTokens: 300, locale: self.locale, completion: { [weak self] reply, failure in
             guard let self else {
                 return
             }
             self.loading = false
             self.headerGhost.lookTarget = nil
             if let reply {
-                let parsed = ayuGramCopilotParse(reply)
+                var parsed = ayuGramCopilotParse(reply)
+                if emojiShare < 0.5 {
+                    parsed.1 = parsed.1.map(ayuGramStripEmoji).filter({ !$0.isEmpty })
+                }
                 if parsed.1.isEmpty {
                     self.show(summary: parsed.0.isEmpty ? reply : parsed.0, replies: [])
                 } else {

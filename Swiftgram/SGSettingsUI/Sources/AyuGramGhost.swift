@@ -405,7 +405,7 @@ public final class AyuGramGhostIntroView: UIView {
         self.link = link
 
         UIView.animate(withDuration: 0.35, animations: {
-            self.backdrop.alpha = 0.94
+            self.backdrop.alpha = 1.0
         })
         self.fade(self.glow, to: 0.9, duration: 1.0)
         self.fade(self.warm, to: 0.9, duration: 1.2)

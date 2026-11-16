@@ -1336,6 +1336,53 @@ extension PeerInfoScreenNode {
                         items.append(exportItem)
                     }
                 }
+                var floatIsGroup = false
+                var canFloat = true
+                switch chatPeer {
+                case let .channel(channel):
+                    if case .broadcast = channel.info {
+                        canFloat = false
+                    } else {
+                        floatIsGroup = true
+                    }
+                case .legacyGroup:
+                    floatIsGroup = true
+                case let .user(user):
+                    canFloat = user.id != strongSelf.context.account.peerId
+                default:
+                    break
+                }
+                if canFloat {
+                    let floatPeer = chatPeer
+                    let floatTitle = peer.debugDisplayTitle
+                    let floatItem: ContextMenuItem = .action(ContextMenuActionItem(text: i18n("Ayu.FloatChat", presentationData.strings.baseLanguageCode), icon: { theme in
+                        generateTintedImage(image: UIImage(systemName: "rectangle.on.rectangle"), color: theme.contextMenu.primaryColor)
+                    }, action: { [weak self] _, f in
+                        f(.dismissWithoutContent)
+                        guard let self else {
+                            return
+                        }
+                        let context = self.context
+                        let navigationController = self.controller?.navigationController as? NavigationController
+                        ayuGramOpenFloatingChat(context: context, peerId: floatPeer.id, title: floatTitle, isGroup: floatIsGroup, openChat: { [weak navigationController] in
+                            guard let navigationController else {
+                                return
+                            }
+                            context.sharedContext.navigateToChatController(NavigateToChatControllerParams(navigationController: navigationController, context: context, chatLocation: .peer(floatPeer), keepStack: .default))
+                        })
+                    }))
+                    if let separatorIndex = items.firstIndex(where: { item in
+                        if case .separator = item {
+                            return true
+                        } else {
+                            return false
+                        }
+                    }) {
+                        items.insert(floatItem, at: separatorIndex)
+                    } else {
+                        items.append(floatItem)
+                    }
+                }
                 if case let .user(peekUser) = chatPeer, peekUser.botInfo == nil, peekUser.id != strongSelf.context.account.peerId {
                     let peekPeerId = peekUser.id
                     let peekItem: ContextMenuItem = .action(ContextMenuActionItem(text: i18n("Ayu.PeekOnline", presentationData.strings.baseLanguageCode), icon: { theme in
