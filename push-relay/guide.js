@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 1;
+export const GUIDE_VERSION = 2;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -25,6 +25,6 @@ Client: Local Premium (premium features shown locally), Disable Liquid Glass (fl
 Security: Report a scam (with screenshots or videos), Anonymous stats.
 Support: AyuGram channel, developer, AyuGram log, Check for updates. Donate is at the very bottom of AyuGram (Crypto Bot, xRocket, TON wallet with QR codes).
 
-Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode.
+Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode. At the bottom of Appearance, "Font and badge": Font (system styles: rounded, serif, monospaced; iOS fonts like Avenir Next, Futura, Georgia; or import your own .ttf/.otf; applies after restarting the app) and Badge (your own badge next to your name: icon or emoji, shape, color; only you see it).
 
 Updates come from the @ayugramiosupdates channel; the IPA is installed with a signing app.`;
