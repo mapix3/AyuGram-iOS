@@ -1,0 +1,30 @@
+export const GUIDE_VERSION = 1;
+
+export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
+
+Main menu: Telegram Settings > AyuGram. At the top: Ghost Mode state and how many things are hidden.
+
+Ghost Mode: AyuGram > Ghost Mode. Turns on every "Hide" switch below while keeping their own values. Quick switch: hold the Chats tab (needs "Switch in the Chats tab" on).
+Hide: read receipts, online status, typing, recording voice/video, uploading, story views (AyuGram > Hide).
+Behavior (AyuGram > Behavior): Offline after sending; Read chat when replying; Silent sending (off / in Ghost Mode / always); Send as scheduled while in Ghost Mode; Confirm sending a read receipt.
+Content: Bypass copy protection (save, copy, forward protected content); Allow screenshots of protected and secret content.
+
+Deleted and edited messages: deleted messages stay in the chat where they were, marked as deleted; "Dim deleted messages" (AyuGram > Chats) makes them semi-transparent. Edit and deletion history: AyuGram > Message history > Open history (only chosen chats, 30 days, up to 200 entries, no secret chats or one-time media). Chats deleted as a whole: AyuGram > Message history > Open history > Deleted chats.
+Chats section: Disable ads, Disable link warning, Disable greeting sticker, Dim deleted messages, "Repeat" in the message menu, Confirm sending stickers, Confirm sending GIFs. These are local only.
+
+In a chat:
+- AI analysis: the round ghost button at the top right under the avatar. Tap it: analysis of the chat plus one quick reply (tap inserts it, hold copies), and a field to ask about the chat. Switch: AyuGram > AI > AI hints in chats.
+- Export chat: open the chat profile > More (three dots) > Export chat. Works for private chats, groups, channels and secret chats; text only or with media; the archive can be imported back.
+- Open in floating window: chat profile > More > Open in floating window. The window floats over the whole app, shows live messages and lets you reply; drag by the header, "-" minimizes to a bubble, double tap on the header opens the full chat. Only inside AyuGram.
+- Peek online: user profile > More > Peek online.
+Import chat: AyuGram > Chat import (ZIP or TXT from WhatsApp, LINE, KakaoTalk or AyuGram export).
+
+AI: AyuGram > AI. AI assistant (also the sparkles button in the chat list), Search engine, Assistant button in the chat list, AI hints in chats, AI provider (AyuGram free, Pollinations, Groq, Google Gemini, OpenRouter), API key and model for the chosen provider. Gemini switches to another model by itself when one is overloaded. The assistant has chats on the left (the sidebar button at the top right), history is saved.
+
+Client: Local Premium (premium features shown locally), Disable Liquid Glass (flat panels, needs an app restart).
+Security: Report a scam (with screenshots or videos), Anonymous stats.
+Support: AyuGram channel, developer, AyuGram log, Check for updates. Donate is at the very bottom of AyuGram (Crypto Bot, xRocket, TON wallet with QR codes).
+
+Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode.
+
+Updates come from the @ayugramiosupdates channel; the IPA is installed with a signing app.`;

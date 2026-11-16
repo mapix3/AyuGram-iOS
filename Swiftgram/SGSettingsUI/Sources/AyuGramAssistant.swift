@@ -228,6 +228,47 @@ private func ayuGramAssistantFailure(data: Data?, response: URLResponse?, error:
     return i18n("Ayu.AIError", locale)
 }
 
+final class AyuGramAssistantGuide {
+    static let shared = AyuGramAssistantGuide()
+
+    private let textKey = "ayugram.assistant.guide.text"
+    private let timeKey = "ayugram.assistant.guide.time"
+    private var loading = false
+
+    var text: String {
+        return UserDefaults.standard.string(forKey: self.textKey) ?? ""
+    }
+
+    func refresh() {
+        let last = UserDefaults.standard.double(forKey: self.timeKey)
+        guard !self.loading, Date().timeIntervalSince1970 - last > 3.0 * 3600.0 || self.text.isEmpty, let url = URL(string: AyuGramPushRelay.baseURL + "/ai/guide") else {
+            return
+        }
+        self.loading = true
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20.0)
+        request.httpMethod = "GET"
+        URLSession.shared.dataTask(with: request, completionHandler: { [weak self] data, response, _ in
+            DispatchQueue.main.async {
+                guard let self else {
+                    return
+                }
+                self.loading = false
+                guard (response as? HTTPURLResponse)?.statusCode == 200, let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let text = object["text"] as? String, !text.isEmpty else {
+                    return
+                }
+                UserDefaults.standard.set(String(text.prefix(12000)), forKey: self.textKey)
+                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: self.timeKey)
+            }
+        }).resume()
+    }
+
+    func relevant(_ question: String) -> Bool {
+        let lower = question.lowercased()
+        let words = ["ayu", "аюг", "аю ", "сборк", "настро", "где ", "как вкл", "как выкл", "как найти", "как сделать", "как открыть", "функци", "удал", "призрак", "ghost", "онлайн", "online", "прочит", "прочт", "набор", "экспорт", "импорт", "окн", "скрин", "бейдж", "шрифт", "фон", "оформлен", "обнов", "liquid", "premium", "премиум", "ассистент", "assistant", "подсказ", "анализ", "провайдер", "ключ", "модел", "донат", "скам", "журнал", "истори", "чат", "кнопк", "меню", "налашт", "де ", "видал", "where", "how do", "how to", "setting", "delete", "feature"]
+        return words.contains(where: { lower.contains($0) })
+    }
+}
+
 private let ayuGramGeminiFallbacks = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
 private let ayuGramGeminiWorkingKey = "ayugram.assistant.gemini.working"
 
@@ -317,7 +358,12 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
         return
     }
     let history = Array(messages.filter({ !$0.failed }).suffix(20))
-    var payload: [[String: Any]] = [["role": "system", "content": "You are a helpful assistant built into AyuGram, a Telegram client. Answer in the language of the user. Use plain text without markdown."]]
+    var system = "You are a helpful assistant built into AyuGram, a Telegram client. Answer in the language of the user."
+    let guide = AyuGramAssistantGuide.shared.text
+    if !guide.isEmpty, let question = history.last(where: { $0.outgoing })?.text, AyuGramAssistantGuide.shared.relevant(question) {
+        system += "\n\n" + guide
+    }
+    var payload: [[String: Any]] = [["role": "system", "content": system]]
     for (index, message) in history.enumerated() {
         let role = message.outgoing ? "user" : "assistant"
         if let imagePayload = message.imagePayload, index == history.count - 1 {
@@ -530,7 +576,9 @@ private final class AyuGramAssistantCell: UITableViewCell {
     private let label = UILabel()
     private let dots = UIView()
     private let thinkingGhost = AyuGramGhostView()
+    private let avatar = AyuGramGhostView()
     private var dotLayers: [CALayer] = []
+    private var avatarLeading: NSLayoutConstraint?
     private var leading: NSLayoutConstraint?
     private var trailing: NSLayoutConstraint?
 
@@ -571,6 +619,18 @@ private final class AyuGramAssistantCell: UITableViewCell {
         let dotsHeight = self.dots.heightAnchor.constraint(equalToConstant: 22.0)
         dotsHeight.priority = UILayoutPriority(999.0)
         NSLayoutConstraint.activate([dotsWidth, dotsHeight])
+        self.avatar.translatesAutoresizingMaskIntoConstraints = false
+        self.avatar.idle = false
+        self.avatar.isHidden = true
+        self.contentView.addSubview(self.avatar)
+        NSLayoutConstraint.activate([
+            self.avatar.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 10.0),
+            self.avatar.topAnchor.constraint(equalTo: self.contentView.topAnchor, constant: 8.0),
+            self.avatar.widthAnchor.constraint(equalToConstant: 26.0),
+            self.avatar.heightAnchor.constraint(equalToConstant: 26.0)
+        ])
+        self.avatarLeading = self.bubble.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 42.0)
+        self.bubble.layer.borderWidth = 1.0 / UIScreen.main.scale
         let leading = self.bubble.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 12.0)
         let trailing = self.bubble.trailingAnchor.constraint(equalTo: self.contentView.trailingAnchor, constant: -12.0)
         self.leading = leading
@@ -602,10 +662,13 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.dots.isHidden = false
         let accent = theme.list.itemAccentColor
         self.thinkingGhost.colors = (theme.overallDarkAppearance ? .white : accent.ayuMix(.white, alpha: 0.55), accent)
-        self.thinkingGhost.eyeColor = theme.list.itemBlocksBackgroundColor
+        self.thinkingGhost.eyeColor = theme.list.blocksBackgroundColor
+        self.avatar.isHidden = true
+        self.avatarLeading?.isActive = false
         self.trailing?.isActive = false
         self.leading?.isActive = true
-        self.bubble.backgroundColor = theme.list.itemBlocksBackgroundColor
+        self.bubble.backgroundColor = theme.list.itemPrimaryTextColor.withAlphaComponent(theme.overallDarkAppearance ? 0.07 : 0.045)
+        self.bubble.layer.borderColor = theme.list.itemAccentColor.withAlphaComponent(0.18).cgColor
         for (index, dot) in self.dotLayers.enumerated() {
             dot.backgroundColor = theme.list.itemSecondaryTextColor.cgColor
             dot.removeAllAnimations()
@@ -655,13 +718,30 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.label.isHidden = message.text.isEmpty
         self.picture.image = message.image
         self.picture.isHidden = message.image == nil
-        self.leading?.isActive = !message.outgoing
-        self.trailing?.isActive = message.outgoing
+        let showsAvatar = !message.outgoing && !message.failed
+        self.avatar.isHidden = !showsAvatar
+        if showsAvatar {
+            let accent = theme.list.itemAccentColor
+            self.avatar.colors = (theme.overallDarkAppearance ? .white : accent.ayuMix(.white, alpha: 0.55), accent)
+            self.avatar.eyeColor = theme.list.blocksBackgroundColor
+        }
+        self.leading?.isActive = false
+        self.avatarLeading?.isActive = false
+        self.trailing?.isActive = false
+        if message.outgoing {
+            self.trailing?.isActive = true
+        } else if showsAvatar {
+            self.avatarLeading?.isActive = true
+        } else {
+            self.leading?.isActive = true
+        }
         if message.outgoing {
             self.bubble.backgroundColor = theme.list.itemCheckColors.fillColor
+            self.bubble.layer.borderColor = UIColor.clear.cgColor
             self.label.textColor = theme.list.itemCheckColors.foregroundColor
         } else {
-            self.bubble.backgroundColor = message.failed ? theme.list.itemBlocksBackgroundColor : .clear
+            self.bubble.backgroundColor = message.failed ? theme.list.itemBlocksBackgroundColor : theme.list.itemPrimaryTextColor.withAlphaComponent(theme.overallDarkAppearance ? 0.07 : 0.045)
+            self.bubble.layer.borderColor = (message.failed ? theme.list.itemDestructiveColor.withAlphaComponent(0.4) : theme.list.itemAccentColor.withAlphaComponent(0.18)).cgColor
             self.label.textColor = message.failed ? theme.list.itemDestructiveColor : theme.list.itemPrimaryTextColor
             if !message.failed && !message.text.isEmpty {
                 self.label.attributedText = ayuGramAssistantFormatted(message.text, color: theme.list.itemPrimaryTextColor)
@@ -880,6 +960,9 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     private let drawer: AyuGramAssistantDrawer
     private let tableView = UITableView(frame: CGRect(), style: .plain)
     private let inputBar = UIView()
+    private let glow = CAGradientLayer()
+    private let barFade = CAGradientLayer()
+    private let capsule = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
     private let separator = UIView()
     private let field = UITextField()
     private let attachButton = UIButton(type: .system)
@@ -913,6 +996,8 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.titleUpdated = titleUpdated
         self.drawer = AyuGramAssistantDrawer(theme: presentationData.theme, locale: presentationData.strings.baseLanguageCode)
         super.init()
+
+        AyuGramAssistantGuide.shared.refresh()
 
         self.tableView.dataSource = self
         self.tableView.delegate = self
@@ -976,6 +1061,16 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.removeButton.addTarget(self, action: #selector(self.removePressed), for: .touchUpInside)
         self.removeButton.isHidden = true
 
+        self.glow.type = .radial
+        self.glow.startPoint = CGPoint(x: 0.5, y: 0.0)
+        self.glow.endPoint = CGPoint(x: 1.0, y: 1.0)
+        self.view.layer.insertSublayer(self.glow, at: 0)
+        self.inputBar.layer.addSublayer(self.barFade)
+        self.capsule.clipsToBounds = true
+        self.capsule.layer.cornerCurve = .continuous
+        self.capsule.layer.borderWidth = 1.0 / UIScreen.main.scale
+        self.capsule.isUserInteractionEnabled = false
+        self.inputBar.addSubview(self.capsule)
         self.inputBar.addSubview(self.separator)
         self.inputBar.addSubview(self.preview)
         self.inputBar.addSubview(self.removeButton)
@@ -1092,10 +1187,14 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     private func applyTheme() {
         let theme = self.presentationData.theme
         self.backgroundColor = theme.list.blocksBackgroundColor
-        self.tableView.backgroundColor = theme.list.blocksBackgroundColor
-        self.inputBar.backgroundColor = theme.list.blocksBackgroundColor
-        self.separator.backgroundColor = theme.list.itemBlocksSeparatorColor
-        self.field.backgroundColor = theme.list.itemBlocksBackgroundColor
+        self.tableView.backgroundColor = .clear
+        self.inputBar.backgroundColor = .clear
+        self.separator.backgroundColor = .clear
+        self.field.backgroundColor = .clear
+        self.glow.colors = [theme.list.itemAccentColor.withAlphaComponent(theme.overallDarkAppearance ? 0.22 : 0.14).cgColor, theme.list.itemAccentColor.withAlphaComponent(0.0).cgColor]
+        self.barFade.colors = [theme.list.blocksBackgroundColor.withAlphaComponent(0.0).cgColor, theme.list.blocksBackgroundColor.cgColor]
+        self.capsule.effect = UIBlurEffect(style: theme.overallDarkAppearance ? .systemThinMaterialDark : .systemThinMaterialLight)
+        self.capsule.layer.borderColor = theme.list.itemAccentColor.withAlphaComponent(0.25).cgColor
         self.field.textColor = theme.list.itemPrimaryTextColor
         self.field.tintColor = theme.list.itemAccentColor
         self.field.keyboardAppearance = theme.overallDarkAppearance ? .dark : .light
@@ -1139,11 +1238,19 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.preview.frame = CGRect(x: side + 14.0, y: 8.0, width: 56.0, height: 56.0)
         self.removeButton.frame = CGRect(x: side + 14.0 + 56.0 - 14.0, y: 0.0, width: 28.0, height: 28.0)
         let row = previewHeight + 6.0
-        self.attachButton.frame = CGRect(x: side + 6.0, y: row, width: 40.0, height: 40.0)
-        self.sendButton.frame = CGRect(x: size.width - side - 46.0, y: row, width: 40.0, height: 40.0)
+        self.attachButton.frame = CGRect(x: side + 12.0, y: row, width: 40.0, height: 40.0)
+        self.sendButton.frame = CGRect(x: size.width - side - 52.0, y: row, width: 40.0, height: 40.0)
         self.micButton.frame = CGRect(x: self.sendButton.frame.minX - 40.0, y: row, width: 40.0, height: 40.0)
         self.indicator.center = self.sendButton.center
         self.field.frame = CGRect(x: self.attachButton.frame.maxX + 4.0, y: row + 2.0, width: max(0.0, self.micButton.frame.minX - self.attachButton.frame.maxX - 8.0), height: 36.0)
+        let capsuleFrame = CGRect(x: side + 8.0, y: row - 2.0, width: size.width - side * 2.0 - 16.0, height: 44.0)
+        self.capsule.frame = capsuleFrame
+        self.capsule.layer.cornerRadius = 22.0
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        self.barFade.frame = CGRect(x: 0.0, y: -24.0, width: size.width, height: 24.0 + row)
+        self.glow.frame = CGRect(x: -size.width * 0.25, y: navigationHeight - 160.0, width: size.width * 1.5, height: 380.0)
+        CATransaction.commit()
         let tableFrame = CGRect(x: 0.0, y: navigationHeight, width: size.width, height: max(0.0, barFrame.minY - navigationHeight))
         transition.updateFrame(view: self.tableView, frame: tableFrame)
         self.emptyView.frame = tableFrame

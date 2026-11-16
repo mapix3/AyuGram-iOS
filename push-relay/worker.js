@@ -6,6 +6,7 @@
 // Bark device key, so the worker stores nothing: it decrypts the push (RFC 8291) and forwards
 // the title and text to Bark, which shows the notification.
 
+import { GUIDE, GUIDE_VERSION } from './guide.js';
 import { handleStats } from './stats.js';
 import { handleBot } from './bot.js';
 
@@ -951,6 +952,9 @@ export default {
         trace.push('failed:' + String(error && error.message ? error.message : error).slice(0, 120));
       }
       return aiAnswer(200, { trace, sample: found.slice(0, 600) });
+    }
+    if (request.method === 'GET' && url.pathname === '/ai/guide') {
+      return new Response(JSON.stringify({ version: GUIDE_VERSION, text: GUIDE }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=600' } });
     }
     if (request.method === 'POST' && url.pathname === '/ai/pro') {
       return handlePro(request, env);
