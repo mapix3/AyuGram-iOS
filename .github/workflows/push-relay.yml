@@ -28,6 +28,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PRO_API_KEY: ${{ secrets.PRO_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MODERATION_KEY: ${{ secrets.MODERATION_KEY }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
@@ -44,6 +45,9 @@ jobs:
           fi
           if [ -n "$PRO_API_KEY" ]; then
             printf '%s' "$PRO_API_KEY" | npx --yes wrangler@4.26.0 secret put PRO_API_KEY
+          fi
+          if [ -n "$GEMINI_API_KEY" ]; then
+            printf '%s' "$GEMINI_API_KEY" | npx --yes wrangler@4.26.0 secret put GEMINI_API_KEY
           fi
           if [ -n "$MODERATION_KEY" ]; then
             printf '%s' "$MODERATION_KEY" | npx --yes wrangler@4.26.0 secret put MODERATION_KEY
