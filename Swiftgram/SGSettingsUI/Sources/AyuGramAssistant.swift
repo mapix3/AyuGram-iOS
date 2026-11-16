@@ -247,6 +247,9 @@ func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, lo
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     if !config.key.isEmpty {
         request.setValue("Bearer " + config.key, forHTTPHeaderField: "Authorization")
+        if config.provider.id == "gemini" {
+            request.setValue(config.key, forHTTPHeaderField: "x-goog-api-key")
+        }
     }
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
     URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
@@ -298,6 +301,9 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     if !config.key.isEmpty {
         request.setValue("Bearer " + config.key, forHTTPHeaderField: "Authorization")
+        if config.provider.id == "gemini" {
+            request.setValue(config.key, forHTTPHeaderField: "x-goog-api-key")
+        }
     }
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
     URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
@@ -336,6 +342,9 @@ private func ayuGramAssistantTranscribe(file: URL, locale: String, completion: @
         request = URLRequest(url: url)
         request.setValue("multipart/form-data; boundary=" + boundary, forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer " + config.key, forHTTPHeaderField: "Authorization")
+        if config.provider.id == "gemini" {
+            request.setValue(config.key, forHTTPHeaderField: "x-goog-api-key")
+        }
         request.httpBody = form
     } else if let url = URL(string: AyuGramPushRelay.baseURL + "/ai/transcribe") {
         request = URLRequest(url: url)
