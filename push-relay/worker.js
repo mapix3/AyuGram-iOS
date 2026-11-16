@@ -549,7 +549,7 @@ function groqReason(status, output) {
 }
 
 async function geminiChat(env, messages, maxTokens) {
-  const key = String(env && env.GEMINI_API_KEY || '').replace(/[\s"']/g, '');
+  const key = String(env && env.GEMINI_API_KEY || '').replace(/[^\x21-\x7e]|["']/g, '');
   if (!key) {
     return { model: 'gemini', status: 0, content: '', reason: 'no key' };
   }
@@ -559,11 +559,14 @@ async function geminiChat(env, messages, maxTokens) {
   try {
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key, 'x-goog-api-key': key },
       body: JSON.stringify({ model, messages, max_tokens: maxTokens || 1500 }),
     });
     status = response.status;
     output = await response.json();
+    if (Array.isArray(output)) {
+      output = output[0] || null;
+    }
   } catch (error) {
     output = null;
   }
