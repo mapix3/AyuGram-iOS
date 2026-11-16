@@ -19,8 +19,16 @@ private var ayuGramCopilotCache: [EnginePeer.Id: AyuGramCopilotResult] = [:]
 private let ayuGramCopilotBudget = 2000
 private let ayuGramCopilotLineLimit = 220
 
+func ayuGramCollapseRepeats(_ text: String) -> String {
+    guard let regex = try? NSRegularExpression(pattern: "(.{1,4}?)\\1{3,}", options: [.dotMatchesLineSeparators]) else {
+        return text
+    }
+    let range = NSRange(text.startIndex..., in: text)
+    return regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "$1$1$1")
+}
+
 private func ayuGramCopilotLine(_ text: String) -> String {
-    let flat = text.components(separatedBy: .whitespacesAndNewlines).filter({ !$0.isEmpty }).joined(separator: " ")
+    let flat = ayuGramCollapseRepeats(text.components(separatedBy: .whitespacesAndNewlines).filter({ !$0.isEmpty }).joined(separator: " "))
     if flat.count > ayuGramCopilotLineLimit {
         return String(flat.prefix(ayuGramCopilotLineLimit)) + "…"
     }
@@ -611,7 +619,7 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
         self.startShimmer()
         let style = mine < 3 ? " Я wrote little, so keep the reply plain and casual." : ""
         let emojiRule = emojiShare >= 0.5 ? "At most one emoji, only if it fits the meaning; never repeat the emoji Я used last." : "No emoji at all."
-        let system = "You are a sharp conversation analyst inside Telegram. The user is Я; speak to the user as \"ты\", call the others by name. First analyze the dialog: what is going on, the other side's mood and intent, the subtext, and what Я should do next. Then write ONE quick reply Я could send right now. The reply must read like a real person typing fast, not like an AI: no greetings, no filler, no polished grammar if Я does not write that way, same letter case and slang as Я, as short as Я's usual messages. " + emojiRule + style + " Format strictly, nothing else:\nA: <analysis, 2-4 short sentences, in the dialog language>\nR: <the reply>"
+        let system = "You are a sharp conversation analyst inside Telegram. The user is Я; speak to the user as \"ты\", call the others by name. First analyze the dialog: what is going on, the other side's mood and intent, the subtext, and what Я should do next. Then write ONE quick reply Я could send right now. The reply must read like a real person typing fast, not like an AI: no greetings, no filler, no polished grammar if Я does not write that way, same letter case and slang as Я, as short as Я's usual messages, under 120 characters, never repeat letters or laughter endlessly. " + emojiRule + style + " Format strictly, nothing else:\nA: <analysis, 2-4 short sentences, in the dialog language>\nR: <the reply>"
         let prompt = "Dialog, oldest first:\n" + transcript
         let peerId = self.peerId
         ayuGramAssistantComplete(system: system, prompt: prompt, maxTokens: 300, locale: self.locale, completion: { [weak self] reply, failure in
@@ -625,6 +633,8 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
                 if emojiShare < 0.5 {
                     parsed.1 = parsed.1.map(ayuGramStripEmoji).filter({ !$0.isEmpty })
                 }
+                parsed.0 = String(ayuGramCollapseRepeats(parsed.0).prefix(600))
+                parsed.1 = parsed.1.map({ String(ayuGramCollapseRepeats($0).prefix(160)) })
                 if parsed.1.isEmpty {
                     self.show(summary: parsed.0.isEmpty ? reply : parsed.0, replies: [])
                 } else {
