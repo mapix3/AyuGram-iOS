@@ -1,5 +1,6 @@
 import Foundation
 import SGSimpleSettings
+import SGSettingsUI
 import UIKit
 import AsyncDisplayKit
 import Postbox
@@ -2710,6 +2711,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         listInsets.bottom += floatingTopicsPanelInsets.top
         
         childContentInsets.top = listInsets.bottom
+        self.ayuUpdateCopilot(layout: layout, top: childContentInsets.top, bottomInset: childContentInsets.bottom)
         
         var emptyNodeInsets = insets
         emptyNodeInsets.bottom += inputPanelsHeight
@@ -3866,6 +3868,61 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         return result
     }
     
+    private var ayuCopilot: AyuGramCopilotView?
+
+    private func ayuUpdateCopilot(layout: ContainerViewLayout, top: CGFloat, bottomInset: CGFloat) {
+        var target: (EnginePeer.Id, Bool)?
+        if AyuGramSettings.shared.extra.chatCopilot, case .standard(.default) = self.chatPresentationInterfaceState.mode, self.chatPresentationInterfaceState.search == nil, case let .peer(peerId) = self.chatPresentationInterfaceState.chatLocation, peerId != self.context.account.peerId, let peer = self.chatPresentationInterfaceState.renderedPeer?.peer {
+            if let channel = peer as? TelegramChannel {
+                if case .group = channel.info {
+                    target = (peerId, true)
+                }
+            } else if peer is TelegramGroup {
+                target = (peerId, true)
+            } else if let user = peer as? TelegramUser {
+                if user.botInfo == nil {
+                    target = (peerId, false)
+                }
+            } else if peer is TelegramSecretChat {
+                target = (peerId, false)
+            }
+        }
+        guard let (peerId, isGroup) = target else {
+            if let copilot = self.ayuCopilot {
+                self.ayuCopilot = nil
+                copilot.removeFromSuperview()
+            }
+            return
+        }
+        let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+        let locale = presentationData.strings.baseLanguageCode
+        let copilot: AyuGramCopilotView
+        if let current = self.ayuCopilot {
+            copilot = current
+            copilot.update(theme: self.chatPresentationInterfaceState.theme, locale: locale)
+        } else {
+            copilot = AyuGramCopilotView(context: self.context, peerId: peerId, isGroup: isGroup, theme: self.chatPresentationInterfaceState.theme, locale: locale, insert: { [weak self] text in
+                guard let self else {
+                    return
+                }
+                self.requestUpdateChatInterfaceState(.animated(duration: 0.3, curve: .spring), true, { state in
+                    return state.withUpdatedComposeInputState(ChatTextInputState(inputText: NSAttributedString(string: text)))
+                })
+                self.ensureInputViewFocused()
+            })
+            self.ayuCopilot = copilot
+            self.view.addSubview(copilot)
+        }
+        if copilot.superview === self.view {
+            self.view.bringSubviewToFront(copilot)
+        }
+        copilot.frame = CGRect(origin: CGPoint(), size: layout.size)
+        let size: CGFloat = 40.0
+        let anchor = CGPoint(x: layout.size.width - layout.safeInsets.right - 10.0, y: top + 6.0)
+        let maxHeight = max(160.0, layout.size.height - bottomInset - anchor.y - 10.0)
+        copilot.layout(anchor: anchor, buttonSize: size, maxWidth: layout.size.width - layout.safeInsets.left - layout.safeInsets.right - 20.0, maxHeight: maxHeight)
+    }
+
     func updateChatPresentationInterfaceState(_ chatPresentationInterfaceState: ChatPresentationInterfaceState, transition: ContainedViewLayoutTransition, interactive: Bool, forceLayout: Bool, completion: @escaping (ContainedViewLayoutTransition) -> Void) {
         self.selectedMessages = chatPresentationInterfaceState.interfaceState.selectionState?.selectedIds
         

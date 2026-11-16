@@ -219,6 +219,47 @@ private func ayuGramAssistantFailure(data: Data?, response: URLResponse?, error:
     return i18n("Ayu.AIError", locale)
 }
 
+func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, locale: String, completion: @escaping (String?, String?) -> Void) {
+    let config = AyuGramAssistantConfig.current
+    if config.provider.needsKey && config.key.isEmpty {
+        completion(nil, i18n("Ayu.AINeedKey", locale))
+        return
+    }
+    guard let url = URL(string: config.provider.endpoint) else {
+        completion(nil, i18n("Ayu.AIError", locale))
+        return
+    }
+    var body: [String: Any] = ["model": config.model, "messages": [["role": "system", "content": system], ["role": "user", "content": prompt]], "max_tokens": maxTokens, "temperature": 0.8]
+    if config.provider.id == "ayugram" {
+        body["ayugram_mode"] = "copilot"
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.timeoutInterval = 60.0
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    if !config.key.isEmpty {
+        request.setValue("Bearer " + config.key, forHTTPHeaderField: "Authorization")
+    }
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
+        var text: String?
+        if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let choices = object["choices"] as? [[String: Any]], let message = choices.first?["message"] as? [String: Any], let content = message["content"] as? String {
+                text = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        } else if let data, let raw = String(data: data, encoding: .utf8), (response as? HTTPURLResponse)?.statusCode == 200 {
+            text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if text?.isEmpty == true {
+            text = nil
+        }
+        let failure = text == nil ? ayuGramAssistantFailure(data: data, response: response, error: error, locale: locale) : nil
+        DispatchQueue.main.async {
+            completion(text, failure)
+        }
+    }).resume()
+}
+
 private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale: String, completion: @escaping (String?, String?) -> Void) {
     let config = AyuGramAssistantConfig.current
     if config.provider.needsKey && config.key.isEmpty {
@@ -403,7 +444,7 @@ private func ayuGramAssistantInline(_ line: String, font: UIFont, color: UIColor
     return result
 }
 
-private func ayuGramAssistantFormatted(_ text: String, color: UIColor) -> NSAttributedString {
+func ayuGramAssistantFormatted(_ text: String, color: UIColor) -> NSAttributedString {
     let result = NSMutableAttributedString()
     let base = UIFont.systemFont(ofSize: 16.0)
     let mono = UIFont.monospacedSystemFont(ofSize: 14.0, weight: .regular)
@@ -464,6 +505,7 @@ private final class AyuGramAssistantCell: UITableViewCell {
     private let picture = UIImageView()
     private let label = UILabel()
     private let dots = UIView()
+    private let thinkingGhost = AyuGramGhostView()
     private var dotLayers: [CALayer] = []
     private var leading: NSLayoutConstraint?
     private var trailing: NSLayoutConstraint?
@@ -474,11 +516,14 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.selectionStyle = .none
         for index in 0 ..< 3 {
             let dot = CALayer()
-            dot.frame = CGRect(x: CGFloat(index) * 13.0, y: 5.0, width: 8.0, height: 8.0)
+            dot.frame = CGRect(x: 30.0 + CGFloat(index) * 13.0, y: 7.0, width: 8.0, height: 8.0)
             dot.cornerRadius = 4.0
             self.dots.layer.addSublayer(dot)
             self.dotLayers.append(dot)
         }
+        self.thinkingGhost.frame = CGRect(x: 0.0, y: 0.0, width: 22.0, height: 22.0)
+        self.thinkingGhost.lookTarget = CGPoint(x: 0.9, y: -0.3)
+        self.dots.addSubview(self.thinkingGhost)
         self.dots.isHidden = true
         self.bubble.layer.cornerRadius = 18.0
         self.bubble.layer.cornerCurve = .continuous
@@ -497,9 +542,9 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.stack.addArrangedSubview(self.picture)
         self.stack.addArrangedSubview(self.label)
         self.stack.addArrangedSubview(self.dots)
-        let dotsWidth = self.dots.widthAnchor.constraint(equalToConstant: 34.0)
+        let dotsWidth = self.dots.widthAnchor.constraint(equalToConstant: 64.0)
         dotsWidth.priority = UILayoutPriority(999.0)
-        let dotsHeight = self.dots.heightAnchor.constraint(equalToConstant: 18.0)
+        let dotsHeight = self.dots.heightAnchor.constraint(equalToConstant: 22.0)
         dotsHeight.priority = UILayoutPriority(999.0)
         NSLayoutConstraint.activate([dotsWidth, dotsHeight])
         let leading = self.bubble.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 12.0)
@@ -531,6 +576,9 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.label.isHidden = true
         self.picture.isHidden = true
         self.dots.isHidden = false
+        let accent = theme.list.itemAccentColor
+        self.thinkingGhost.colors = (theme.overallDarkAppearance ? .white : accent.ayuMix(.white, alpha: 0.55), accent)
+        self.thinkingGhost.eyeColor = theme.list.itemBlocksBackgroundColor
         self.trailing?.isActive = false
         self.leading?.isActive = true
         self.bubble.backgroundColor = theme.list.itemBlocksBackgroundColor
@@ -818,6 +866,8 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     private let removeButton = UIButton(type: .system)
     private let emptyView = UIView()
     private let emptyIcon = UIImageView()
+    private let emptyGhost = AyuGramGhostView()
+    private let emptyGhostButton = UIButton(type: .custom)
     private let emptyLabel = UILabel()
     private var suggestionButtons: [UIButton] = []
     private var loading = false
@@ -857,6 +907,10 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.emptyLabel.numberOfLines = 0
         self.emptyLabel.font = UIFont.systemFont(ofSize: 15.0)
         self.emptyView.addSubview(self.emptyIcon)
+        self.emptyIcon.isHidden = true
+        self.emptyView.addSubview(self.emptyGhost)
+        self.emptyGhostButton.addTarget(self, action: #selector(self.ghostPetted), for: .touchUpInside)
+        self.emptyView.addSubview(self.emptyGhostButton)
         self.emptyView.addSubview(self.emptyLabel)
         for index in 0 ..< 3 {
             let button = UIButton(type: .system)
@@ -1026,6 +1080,8 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.removeButton.tintColor = theme.list.itemSecondaryTextColor
         self.indicator.color = theme.list.itemAccentColor
         self.emptyIcon.tintColor = theme.list.itemAccentColor
+        self.emptyGhost.colors = (theme.overallDarkAppearance ? .white : theme.list.itemAccentColor.ayuMix(.white, alpha: 0.55), theme.list.itemAccentColor)
+        self.emptyGhost.eyeColor = theme.list.blocksBackgroundColor
         self.emptyLabel.textColor = theme.list.itemSecondaryTextColor
         self.emptyLabel.text = i18n("Ayu.AIEmpty", self.locale)
         for (index, button) in self.suggestionButtons.enumerated() {
@@ -1074,6 +1130,8 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         var y = max(8.0, floor((tableFrame.height - contentHeight) / 2.0))
         let x = floor((tableFrame.width - width) / 2.0)
         self.emptyIcon.frame = CGRect(x: x, y: y, width: width, height: 60.0)
+        self.emptyGhost.frame = CGRect(x: floor((tableFrame.width - 64.0) / 2.0), y: y - 4.0, width: 64.0, height: 64.0)
+        self.emptyGhostButton.frame = self.emptyGhost.frame.insetBy(dx: -10.0, dy: -10.0)
         y += 72.0
         self.emptyLabel.frame = CGRect(x: x, y: y, width: width, height: 44.0)
         y += 60.0
@@ -1254,6 +1312,11 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
                 self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
             }
         })
+    }
+
+    @objc private func ghostPetted() {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        self.emptyGhost.hop()
     }
 
     @objc private func sendPressed() {
@@ -1481,8 +1544,30 @@ private final class AyuGramAssistantController: ViewController {
         super.containerLayoutUpdated(layout, transition: transition)
 
         self.node.containerLayoutUpdated(layout, navigationHeight: self.navigationLayout(layout: layout).navigationFrame.maxY, transition: transition)
+        self.intro?.frame = self.view.bounds
+    }
+
+    private var intro: AyuGramGhostIntroView?
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        guard !ayuGramAssistantIntroShown, !UIAccessibility.isReduceMotionEnabled else {
+            return
+        }
+        ayuGramAssistantIntroShown = true
+        let locale = self.presentationData.strings.baseLanguageCode
+        let intro = AyuGramGhostIntroView(accent: self.presentationData.theme.list.itemAccentColor, word: "ayugram ai", tagline: i18n("Ayu.AIIntroTagline", locale), steps: [i18n("Ayu.AIIntro1", locale), i18n("Ayu.AIIntro2", locale), i18n("Ayu.AIIntro3", locale), i18n("Ayu.AIIntro4", locale)], completion: { [weak self] in
+            self?.intro = nil
+        })
+        intro.frame = self.view.bounds
+        self.view.addSubview(intro)
+        self.intro = intro
+        intro.play()
     }
 }
+
+private var ayuGramAssistantIntroShown = false
 
 public func ayuGramAssistantController(context: AccountContext) -> ViewController {
     return AyuGramAssistantController(context: context)

@@ -350,6 +350,29 @@ async function handleAssistant(request, env) {
   const preferred = vision ? (env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct') : (env.GROQ_MODEL || 'llama-3.3-70b-versatile');
   const kind = vision ? 'vision' : 'text';
   const basePrompt = 'Current date and time: ' + new Date().toUTCString() + ' (UTC). Answer in the language of the user.';
+  const copilot = input && input.ayugram_mode === 'copilot';
+  const copilotTokens = Math.max(64, Math.min(500, Number(input && input.max_tokens) || 320));
+  if (copilot && !vision) {
+    let answer = await groqChat(key, groqPicked.get(kind) || preferred, messages, copilotTokens);
+    if (!answer.content && answer.status !== 429 && answer.status !== 401) {
+      for (const candidate of (await groqCandidates(key, false)).filter((id) => id !== answer.model).slice(0, 4)) {
+        const retry = await groqChat(key, candidate, messages, copilotTokens);
+        if (retry.content) {
+          groqPicked.set(kind, candidate);
+          answer = retry;
+          break;
+        }
+        if (retry.status === 429 || retry.status === 401) {
+          answer = retry;
+          break;
+        }
+      }
+    }
+    if (answer.content) {
+      return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: answer.content } }] });
+    }
+    return aiAnswer(answer.status === 429 ? 429 : 502, { error: { message: answer.status === 429 ? 'The assistant is busy, try again later' : 'The assistant is unavailable' + (answer.reason ? ': ' + answer.reason : '') } });
+  }
   if (!vision) {
     let searched = '';
     try {
@@ -515,14 +538,14 @@ function groqReason(status, output) {
   return (String(status) + ' ' + message).replace(/gsk_[A-Za-z0-9]+/g, '').trim().slice(0, 200);
 }
 
-async function groqChat(key, model, messages) {
+async function groqChat(key, model, messages, maxTokens) {
   let status = 0;
   let output = null;
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
-      body: JSON.stringify({ model, messages, max_tokens: 1500 }),
+      body: JSON.stringify({ model, messages, max_tokens: maxTokens || 1500 }),
     });
     status = response.status;
     output = await response.json();

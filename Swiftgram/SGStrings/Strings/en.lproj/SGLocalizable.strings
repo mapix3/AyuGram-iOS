@@ -532,6 +532,17 @@
 "Ayu.AIRename" = "Rename";
 "Ayu.AIDelete" = "Delete";
 "Ayu.AIBubble" = "Assistant button in chat list";
+"Ayu.Copilot" = "AI hints";
+"Ayu.CopilotAsk" = "Ask about this chat…";
+"Ayu.CopilotEmpty" = "No messages to read yet.";
+"Ayu.CopilotThinking" = "Reading the chat…";
+"Ayu.CopilotCopied" = "Copied. Tap a hint to put it into the message field.";
+"Ayu.CopilotToggle" = "AI hints in chats";
+"Ayu.AIIntroTagline" = "your pocket ghost";
+"Ayu.AIIntro1" = "waking up";
+"Ayu.AIIntro2" = "loading modules";
+"Ayu.AIIntro3" = "tuning the assistant";
+"Ayu.AIIntro4" = "ready";
 "Ayu.AIRecording" = "Recording… tap stop to send";
 "Ayu.AIMicDenied" = "Allow microphone access in iOS Settings to send voice.";
 "Ayu.AISuggest1" = "Explain something in simple words";

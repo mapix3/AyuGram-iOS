@@ -89,4 +89,19 @@ public extension TelegramEngine {
             return messages.map(EngineMessage.init)
         }
     }
+    func ayuGramRecentMessages(peerId: EnginePeer.Id, limit: Int) -> Signal<[EngineMessage], NoError> {
+        return self.account.postbox.transaction { transaction -> [EngineMessage] in
+            var messages: [Message] = []
+            for namespace in [Namespaces.Message.Cloud, Namespaces.Message.Local, Namespaces.Message.SecretIncoming] {
+                var count = 0
+                transaction.withAllMessages(peerId: peerId, namespace: namespace, reversed: true, { message in
+                    messages.append(message)
+                    count += 1
+                    return count < limit
+                })
+            }
+            messages.sort(by: { $0.index < $1.index })
+            return Array(messages.suffix(limit)).map(EngineMessage.init)
+        }
+    }
 }

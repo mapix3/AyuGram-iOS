@@ -22,7 +22,7 @@ private enum AyuScreenToggle: Equatable {
     case ignoreProtection, screenshots
     case history, premium
     case scheduleInGhost, disableAds, disableLinkWarning, disableGreeting, dimDeleted, repeatMessage, confirmStickers, confirmGifs, confirmRead
-    case anonymousStats, assistantBubble, disableLiquidGlass
+    case anonymousStats, assistantBubble, disableLiquidGlass, chatCopilot
 }
 
 private enum AyuScreenLink: Equatable {
@@ -171,6 +171,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 441, section: .assistant, link: .searchEngine, symbol: "magnifyingglass", tint: .blue, title: s("Ayu.SearchEngine"), label: AyuGramSearchEngine.current.title))
     entries.append(.link(id: 442, section: .assistant, link: .assistant, symbol: "sparkles", tint: .purple, title: s("Ayu.Assistant"), label: ""))
     entries.append(.toggle(id: 447, section: .assistant, key: .assistantBubble, symbol: "bubble.left.and.bubble.right.fill", tint: .pink, title: s("Ayu.AIBubble"), subtitle: nil, value: extra.assistantBubble, enabled: true))
+    entries.append(.toggle(id: 449, section: .assistant, key: .chatCopilot, symbol: "cloud.fill", tint: .blue, title: s("Ayu.CopilotToggle"), subtitle: nil, value: extra.chatCopilot, enabled: true))
     entries.append(.link(id: 443, section: .assistant, link: .aiProvider, symbol: "server.rack", tint: .teal, title: s("Ayu.AIProvider"), label: ai.provider.title))
     entries.append(.link(id: 444, section: .assistant, link: .aiKey, symbol: "key.fill", tint: .orange, title: s("Ayu.AIKey"), label: ai.key.isEmpty ? s("Ayu.AIKeyNone") : "••••"))
     entries.append(.link(id: 445, section: .assistant, link: .aiModel, symbol: "cpu", tint: .indigo, title: s("Ayu.AIModel"), label: ai.model))
@@ -261,6 +262,7 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .confirmRead: settings.updateExtra { $0.confirmReadReceipt = value }
         case .anonymousStats: settings.updateExtra { $0.anonymousStats = value }
         case .assistantBubble: settings.updateExtra { $0.assistantBubble = value }
+        case .chatCopilot: settings.updateExtra { $0.chatCopilot = value }
         case .disableLiquidGlass:
             settings.updateExtra { $0.disableLiquidGlass = value }
             let data = context.sharedContext.currentPresentationData.with { $0 }

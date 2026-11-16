@@ -498,6 +498,17 @@
 "Ayu.AIRename" = "Перейменувати";
 "Ayu.AIDelete" = "Видалити";
 "Ayu.AIBubble" = "Кнопка асистента у списку чатів";
+"Ayu.Copilot" = "ШІ-підказки";
+"Ayu.CopilotAsk" = "Запитати про цей чат…";
+"Ayu.CopilotEmpty" = "Поки нічого читати.";
+"Ayu.CopilotThinking" = "Читаю листування…";
+"Ayu.CopilotCopied" = "Скопійовано. Натисни на підказку, щоб вставити її в поле вводу.";
+"Ayu.CopilotToggle" = "ШІ-підказки в чатах";
+"Ayu.AIIntroTagline" = "кишеньковий привид";
+"Ayu.AIIntro1" = "прокидаюсь";
+"Ayu.AIIntro2" = "вантажу модулі";
+"Ayu.AIIntro3" = "налаштовую асистента";
+"Ayu.AIIntro4" = "готово";
 "Ayu.AIRecording" = "Запис… натисніть стоп, щоб надіслати";
 "Ayu.AIMicDenied" = "Дозвольте доступ до мікрофона в налаштуваннях iOS, щоб надсилати голос.";
 "Ayu.AISuggest1" = "Поясни щось простими словами";
