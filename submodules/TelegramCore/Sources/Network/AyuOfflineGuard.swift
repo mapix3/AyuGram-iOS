@@ -50,7 +50,7 @@ final class AyuOfflineGuard {
             return
         }
         self.pending = true
-        let delay = max(0.5, self.lastSent + 3.0 - CFAbsoluteTimeGetCurrent())
+        let delay = max(0.0, self.lastSent + 1.0 - CFAbsoluteTimeGetCurrent())
         Logger.shared.log("AyuGhost", "offline after \(name) in \(delay)")
         self.queue.after(delay) { [weak self] in
             self?.fire()
@@ -60,6 +60,13 @@ final class AyuOfflineGuard {
     private func fire() {
         self.pending = false
         self.send()
+        let sent = self.lastSent
+        self.queue.after(1.5) { [weak self] in
+            guard let self, self.lastSent == sent, !self.pending else {
+                return
+            }
+            self.send()
+        }
     }
 
     private func send() {

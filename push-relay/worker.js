@@ -286,7 +286,7 @@ function aiAnswer(status, body) {
 }
 
 async function handleAssistant(request, env) {
-  if (!env || !env.GROQ_API_KEY) {
+  if (!env || (!env.GROQ_API_KEY && !env.GEMINI_API_KEY)) {
     return aiAnswer(503, { error: { message: 'The assistant is not configured' } });
   }
   if (!aiAllowed(request.headers.get('cf-connecting-ip') || 'unknown')) {
@@ -353,6 +353,10 @@ async function handleAssistant(request, env) {
   const copilot = input && input.ayugram_mode === 'copilot';
   const copilotTokens = Math.max(64, Math.min(500, Number(input && input.max_tokens) || 320));
   if (copilot && !vision) {
+    const gemini = await geminiChat(env, messages, copilotTokens);
+    if (gemini.content) {
+      return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: gemini.content } }] });
+    }
     let answer = await groqChat(key, groqPicked.get(kind) || preferred, messages, copilotTokens);
     if (!answer.content && answer.status !== 429 && answer.status !== 401) {
       for (const candidate of (await groqCandidates(key, false)).filter((id) => id !== answer.model).slice(0, 4)) {
@@ -412,6 +416,12 @@ async function handleAssistant(request, env) {
         result = retry;
         break;
       }
+    }
+  }
+  if (!result.content) {
+    const gemini = await geminiChat(env, messages);
+    if (gemini.content) {
+      result = gemini;
     }
   }
   if (result.content) {
@@ -536,6 +546,30 @@ function groqKey(env) {
 function groqReason(status, output) {
   const message = output && output.error && typeof output.error.message === 'string' ? output.error.message : '';
   return (String(status) + ' ' + message).replace(/gsk_[A-Za-z0-9]+/g, '').trim().slice(0, 200);
+}
+
+async function geminiChat(env, messages, maxTokens) {
+  const key = String(env && env.GEMINI_API_KEY || '').replace(/[\s"']/g, '');
+  if (!key) {
+    return { model: 'gemini', status: 0, content: '', reason: 'no key' };
+  }
+  const model = env.GEMINI_MODEL || 'gemini-flash-latest';
+  let status = 0;
+  let output = null;
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      body: JSON.stringify({ model, messages, max_tokens: maxTokens || 1500 }),
+    });
+    status = response.status;
+    output = await response.json();
+  } catch (error) {
+    output = null;
+  }
+  const content = output && output.choices && output.choices[0] && output.choices[0].message && output.choices[0].message.content;
+  const reason = output && output.error ? String(output.error.message || output.error.status || '').replace(/AIza[0-9A-Za-z_-]+/g, '').slice(0, 160) : '';
+  return { model, status, content: typeof content === 'string' && content ? content.trim() : '', reason: reason || (status ? 'HTTP ' + status : 'network error') };
 }
 
 async function groqChat(key, model, messages, maxTokens) {
