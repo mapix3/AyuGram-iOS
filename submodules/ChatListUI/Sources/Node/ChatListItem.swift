@@ -3761,12 +3761,14 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
             }
             
             var ayuBadge: String?
-            if case let .chat(itemPeer) = contentPeer, let peer = itemPeer.chatOrMonoforumMainPeer, peer.id.namespace == Namespaces.Peer.CloudUser {
-                ayuBadge = AyuGramClientBadges.shared.badge(peerId: peer.id.toInt64())
-                AyuGramClientBadges.shared.observe(peerId: peer.id.toInt64(), accountId: item.context.account.peerId.toInt64())
+            var ayuBadgePeerId: Int64 = 0
+            if case let .chat(itemPeer) = contentPeer, let peer = itemPeer.chatOrMonoforumMainPeer {
+                ayuBadgePeerId = peer.id.namespace == Namespaces.Peer.CloudUser ? peer.id.toInt64() : 0
+                ayuBadge = AyuGramClientBadges.shared.badge(peerId: ayuBadgePeerId, username: peer.addressName)
             }
             let ayuOwner = ayuBadge != nil
-            let ayuMember = ayuBadge == "member"
+            let ayuBadgeKind = ayuBadge
+            let ayuBadgeKindPeerId = ayuBadgePeerId
             var titleIconsWidth: CGFloat = ayuOwner ? 22 : 0
             if let currentHiddenIconImage = currentHiddenIconImage {
                 if titleIconsWidth.isZero {
@@ -5635,7 +5637,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                         verifiedIconView.removeFromSuperview()
                     }
                     
-                    strongSelf.ayuOwnerBadge.image = ayuMember ? ayuGramMemberBadgeImage() : ayuGramOwnerBadgeImage()
+                    strongSelf.ayuOwnerBadge.image = ayuGramBadgeImage(kind: ayuBadgeKind, peerId: ayuBadgeKindPeerId)
                     strongSelf.ayuOwnerBadge.isHidden = !ayuOwner
                     if ayuOwner {
                         strongSelf.mainContentContainerNode.view.addSubview(strongSelf.ayuOwnerBadge)

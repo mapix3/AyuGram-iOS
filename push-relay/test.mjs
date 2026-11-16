@@ -600,6 +600,52 @@ assert.equal(stashRecord({ loc_key: 'MESSAGE_TEXT', loc_args: ['A', 'x'], custom
 }
 console.log('push relay: aes128gcm and aesgcm pushes reach Bark');
 
+await testBadges();
+async function testBadges() {
+  const data = new Map();
+  const storage = {
+    async get(k) { return Array.isArray(k) ? new Map(k.filter((key) => data.has(key)).map((key) => [key, data.get(key)])) : data.get(k); },
+    async put(k, v) { if (typeof k === 'object') { for (const [key, value] of Object.entries(k)) data.set(key, value); } else { data.set(k, v); } },
+    async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
+    async list({ prefix }) { return new Map([...data].filter(([k]) => k.startsWith(prefix)).sort()); },
+  };
+  const object = new Stats({ storage });
+  const STATS = { idFromName(name) { return name; }, get() { return { fetch: (url, init) => object.fetch(new Request(url, init)) }; } };
+  const env = { STATS, REPORT_BOT_TOKEN: '1:a', REPORT_CHAT_ID: '1272887902', REPORT_WEBHOOK_SECRET: 'h' };
+  const sent = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { sent.push(JSON.parse(init.body)); return new Response('{"ok":true}'); };
+  try {
+    const post = (path, body) => worker.fetch(new Request('https://relay.example' + path, { method: 'POST', body: JSON.stringify(body) }), env);
+    const list = async () => (await (await worker.fetch(new Request('https://relay.example/badges'), env)).json()).items;
+    const hook = (update) => worker.fetch(new Request('https://relay.example/tg/hook', { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': 'h' }, body: JSON.stringify(update) }), env);
+    const secret = 'a'.repeat(32);
+    const thief = 'b'.repeat(32);
+    assert.equal((await post('/badges/set', { id: '500', secret, badge: { symbol: 'crown.fill' } })).status, 403, 'Nobody sets a badge before it is granted');
+    assert.deepEqual(await list(), [], 'No supporters yet');
+    const requested = await (await post('/badges/request', { id: '500', secret, name: 'Payer' })).json();
+    assert.match(requested.code, /^[A-Z0-9]{6}$/, 'A request gets a code');
+    assert.ok(sent[0].text.includes(requested.code) && sent[0].reply_markup.inline_keyboard[0][0].callback_data === 'G:' + requested.code, 'The owner is asked to grant');
+    assert.equal((await (await post('/badges/request', { id: '500', secret })).json()).code, requested.code, 'Asking again keeps the code');
+    assert.equal((await (await post('/badges/status', { id: '500', secret })).json()).granted, false);
+    await hook({ callback_query: { id: 'q', from: { id: 999 }, data: 'G:' + requested.code, message: { message_id: 1, chat: { id: 999 } } } });
+    assert.deepEqual(await list(), [], 'Only the owner grants');
+    await hook({ callback_query: { id: 'q', from: { id: 1272887902 }, data: 'G:' + requested.code, message: { message_id: 1, chat: { id: 1272887902 } } } });
+    assert.equal((await list()).length, 1, 'A granted supporter is listed');
+    assert.equal((await post('/badges/set', { id: '500', secret: thief, badge: { symbol: 'crown.fill' } })).status, 403, 'Another install cannot change the badge');
+    assert.equal((await (await post('/badges/status', { id: '500', secret: thief })).json()).granted, false, 'Another install is not the owner of the badge');
+    assert.equal((await post('/badges/set', { id: '500', secret, badge: { symbol: 'crown.fill', emoji: '<b>', shape: 9, top: 'zzzzzz', bottom: 'ff0000', darkGlyph: true } })).status, 200);
+    assert.deepEqual((await list())[0], { id: '500', b: { symbol: 'crown.fill', emoji: '', shape: 0, top: '8E61F2', bottom: 'FF0000', darkGlyph: true } }, 'The stored badge is sanitized');
+    await hook({ message: { from: { id: 1272887902 }, chat: { id: 1272887902 }, text: '/unbadge 500' } });
+    assert.deepEqual(await list(), [], 'The owner can take a badge back');
+    await hook({ message: { from: { id: 1272887902 }, chat: { id: 1272887902 }, text: '/badge 501' } });
+    assert.equal((await post('/badges/set', { id: '501', secret, badge: {} })).status, 200, 'A badge granted by id is claimed by the first install');
+    assert.equal((await post('/badges/set', { id: '501', secret: thief, badge: {} })).status, 403, 'and locked to it afterwards');
+    console.log('push relay: supporter badges are granted by the owner and locked to the paying install');
+  } finally {
+    globalThis.fetch = real;
+  }
+}
 await testModerationSignature();
 async function testModerationSignature() {
   const data = new Map();

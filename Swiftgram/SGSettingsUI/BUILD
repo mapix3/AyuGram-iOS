@@ -24,6 +24,8 @@ swift_library(
         "//Swiftgram/SGAPIToken:SGAPIToken",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
         "//submodules/Display:Display",
+        "//submodules/ComponentFlow:ComponentFlow",
+        "//submodules/TelegramUI/Components/GlassBackgroundComponent",
         "//submodules/AsyncDisplayKit:AsyncDisplayKit",
         "//submodules/Postbox:Postbox",
         "//submodules/TelegramCore:TelegramCore",

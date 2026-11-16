@@ -308,6 +308,27 @@ async function handleCallback(env, query, note) {
     await answer();
     return;
   }
+  if (action === 'G' || action === 'D') {
+    const done = await stats(env, '/badge-' + (action === 'G' ? 'grant' : 'deny') + '/' + rid, 'POST');
+    if (!done || !done.ok) {
+      await answer('Запрос не найден или уже обработан', true);
+      return;
+    }
+    const result = await done.json();
+    if (message) {
+      await telegram(env, 'editMessageText', { chat_id: message.chat.id, message_id: message.message_id, text: (action === 'G' ? '✅ Бейдж выдан: ID ' : '❌ Отклонено: ID ') + result.id + (result.name ? ' · ' + result.name : ''), reply_markup: action === 'G' ? { inline_keyboard: [[{ text: 'Забрать бейдж', callback_data: 'R:' + result.id }]] } : undefined });
+    }
+    await answer(action === 'G' ? 'Выдан' : 'Отклонён');
+    return;
+  }
+  if (action === 'R') {
+    const done = await stats(env, '/badge-revoke/' + rid, 'POST');
+    if (message && done && done.ok) {
+      await telegram(env, 'editMessageText', { chat_id: message.chat.id, message_id: message.message_id, text: '🚫 Бейдж забран: ID ' + rid });
+    }
+    await answer(done && done.ok ? 'Забран' : 'Не получилось', !(done && done.ok));
+    return;
+  }
   if (['U', 'V', 'X', 'L'].includes(action)) {
     await handleBansCallback(env, query, action, rid, answer);
     return;
@@ -409,6 +430,16 @@ export async function handleBot(request, env, ctx) {
     } else if (message && message.chat && String(message.chat.id) === owner && typeof message.text === 'string') {
       if (message.text.startsWith('/bans') || message.text.startsWith('/blocks')) {
         await sendBans(env, owner);
+      } else if (/^\/(un)?badge(\s|$)/.test(message.text)) {
+        const [command, raw] = message.text.trim().split(/\s+/);
+        const id = String(raw || '').replace(/^ID/i, '');
+        if (!/^[1-9][0-9]{0,15}$/.test(id)) {
+          await telegram(env, 'sendMessage', { chat_id: owner, text: 'Напиши числовой ID: ' + command + ' 123456789' });
+        } else {
+          const revoke = command.startsWith('/unbadge');
+          const done = await stats(env, (revoke ? '/badge-revoke/' : '/badge-grant-id/') + id, 'POST');
+          await telegram(env, 'sendMessage', { chat_id: owner, text: done && done.ok ? (revoke ? '🚫 Бейдж забран: ID ' : '✅ Бейдж выдан: ID ') + id : 'Не получилось, попробуй ещё раз' });
+        }
       } else if (/^\/(un)?ban(\s|$)/.test(message.text)) {
         await banById(env, owner, message.text);
       } else if (message.text.startsWith('/cancel')) {

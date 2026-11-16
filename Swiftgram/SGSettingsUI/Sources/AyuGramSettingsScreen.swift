@@ -26,7 +26,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate
+    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, supporter
 }
 
 private enum AyuScreenTint: Equatable {
@@ -175,6 +175,8 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 443, section: .assistant, link: .aiProvider, symbol: "server.rack", tint: .teal, title: s("Ayu.AIProvider"), label: ai.provider.title))
     entries.append(.link(id: 444, section: .assistant, link: .aiKey, symbol: "key.fill", tint: .orange, title: s("Ayu.AIKey"), label: ai.key.isEmpty ? s("Ayu.AIKeyNone") : "••••"))
     entries.append(.link(id: 445, section: .assistant, link: .aiModel, symbol: "cpu", tint: .indigo, title: s("Ayu.AIModel"), label: ai.model))
+    entries.append(.link(id: 446, section: .assistant, link: .aiLanguage, symbol: "globe", tint: .green, title: s("Ayu.AILanguage"), label: AyuGramAssistantPreferences.language.isEmpty ? s("Ayu.AILanguageAuto") : AyuGramAssistantPreferences.language))
+    entries.append(.link(id: 450, section: .assistant, link: .aiPersona, symbol: "person.fill", tint: .purple, title: s("Ayu.AIPersona"), label: AyuGramAssistantPreferences.persona.isEmpty ? "" : "✓"))
     entries.append(.footer(id: 448, section: .assistant, text: s("Ayu.AIFooter")))
 
     entries.append(.header(id: 500, section: .history, text: s("Ayu.History")))
@@ -186,6 +188,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.footer(id: 570, section: .transfer, text: s("Ayu.ImportChatFooter")))
 
     entries.append(.header(id: 600, section: .client, text: s("Ayu.ClientSection")))
+    entries.append(.link(id: 605, section: .client, link: .supporter, symbol: "heart.circle.fill", tint: .red, title: s("Ayu.SupporterBadge"), label: ""))
     entries.append(.toggle(id: 610, section: .client, key: .premium, symbol: "star.fill", tint: .purple, title: s("Ayu.LocalPremium"), subtitle: s("Ayu.LocalPremiumInfo"), value: client.localPremium, enabled: true))
     if hasAppearance {
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
@@ -355,6 +358,22 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
                     AyuGramAssistantConfig.setKey(value.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
             }))
+        case .aiLanguage:
+            let data = context.sharedContext.currentPresentationData.with { $0 }
+            presentController?(promptController(context: context, text: i18n("Ayu.AILanguageInfo", data.strings.baseLanguageCode), value: AyuGramAssistantPreferences.language, placeholder: "English", characterLimit: 40, apply: { value in
+                if let value {
+                    AyuGramAssistantPreferences.language = value
+                }
+            }))
+        case .aiPersona:
+            let data = context.sharedContext.currentPresentationData.with { $0 }
+            presentController?(promptController(context: context, text: i18n("Ayu.AIPersonaInfo", data.strings.baseLanguageCode), value: AyuGramAssistantPreferences.persona, placeholder: i18n("Ayu.AIPersonaHint", data.strings.baseLanguageCode), characterLimit: 600, apply: { value in
+                if let value {
+                    AyuGramAssistantPreferences.persona = value
+                }
+            }))
+        case .supporter:
+            pushController?(ayuGramSupporterController(context: context))
         case .aiModel:
             let data = context.sharedContext.currentPresentationData.with { $0 }
             let config = AyuGramAssistantConfig.current

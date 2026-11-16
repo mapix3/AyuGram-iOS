@@ -1,22 +1,16 @@
 import Foundation
 
-public struct AyuGramCustomBadge: Codable, Equatable {
-    public var enabled: Bool = false
-    public var symbol: String = "sparkles"
-    public var emoji: String = ""
-    public var shape: Int32 = 0
-    public var top: String = "8E61F2"
-    public var bottom: String = "C9B3FF"
-    public var darkGlyph: Bool = false
-
-    public init() {}
-}
-
 public struct AyuGramPersonalizationSettings: Codable, Equatable {
     public var fontFamily: String = ""
     public var customFontFile: String = ""
     public var customFontFamily: String = ""
-    public var badge = AyuGramCustomBadge()
+    public var appBadgeEnabled: Bool = false
+    public var appBadgeText: String = "AYUGRAM"
+    public var appBadgeShowsIcon: Bool = true
+    public var appBadgeImageFile: String = ""
+    public var appBadgeTop: String = "30264A"
+    public var appBadgeBottom: String = "30264A"
+    public var appBadgeDarkText: Bool = false
 
     public init() {}
 
@@ -26,7 +20,13 @@ public struct AyuGramPersonalizationSettings: Codable, Equatable {
         self.fontFamily = try container.decodeIfPresent(String.self, forKey: .fontFamily) ?? defaults.fontFamily
         self.customFontFile = try container.decodeIfPresent(String.self, forKey: .customFontFile) ?? defaults.customFontFile
         self.customFontFamily = try container.decodeIfPresent(String.self, forKey: .customFontFamily) ?? defaults.customFontFamily
-        self.badge = try container.decodeIfPresent(AyuGramCustomBadge.self, forKey: .badge) ?? defaults.badge
+        self.appBadgeEnabled = try container.decodeIfPresent(Bool.self, forKey: .appBadgeEnabled) ?? defaults.appBadgeEnabled
+        self.appBadgeText = try container.decodeIfPresent(String.self, forKey: .appBadgeText) ?? defaults.appBadgeText
+        self.appBadgeShowsIcon = try container.decodeIfPresent(Bool.self, forKey: .appBadgeShowsIcon) ?? defaults.appBadgeShowsIcon
+        self.appBadgeImageFile = try container.decodeIfPresent(String.self, forKey: .appBadgeImageFile) ?? defaults.appBadgeImageFile
+        self.appBadgeTop = try container.decodeIfPresent(String.self, forKey: .appBadgeTop) ?? defaults.appBadgeTop
+        self.appBadgeBottom = try container.decodeIfPresent(String.self, forKey: .appBadgeBottom) ?? defaults.appBadgeBottom
+        self.appBadgeDarkText = try container.decodeIfPresent(Bool.self, forKey: .appBadgeDarkText) ?? defaults.appBadgeDarkText
     }
 }
 
@@ -63,6 +63,15 @@ public final class AyuGramPersonalization {
 
     public static var fontsDirectory: URL? {
         return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("AyuFonts", isDirectory: true)
+    }
+
+    public var appBadgeImageURL: URL? {
+        let file = self.settings.appBadgeImageFile
+        guard !file.isEmpty, let directory = AyuGramPersonalization.fontsDirectory else {
+            return nil
+        }
+        let url = directory.appendingPathComponent(file)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     public var customFontURL: URL? {

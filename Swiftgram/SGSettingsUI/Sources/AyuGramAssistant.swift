@@ -9,6 +9,8 @@ import AccountContext
 import TelegramPresentationData
 import SGSimpleSettings
 import SGStrings
+import ComponentFlow
+import GlassBackgroundComponent
 
 struct AyuGramAssistantProvider {
     let id: String
@@ -347,8 +349,67 @@ func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, lo
     ayuGramAssistantPost(config: config, url: url, body: body, timeout: 60.0, locale: locale, models: ayuGramAssistantModels(config), completion: completion)
 }
 
+enum AyuGramAssistantPreferences {
+    private static let languageKey = "ayugram.assistant.language"
+    private static let personaKey = "ayugram.assistant.persona"
+
+    static var language: String {
+        get {
+            return UserDefaults.standard.string(forKey: languageKey) ?? ""
+        }
+        set {
+            UserDefaults.standard.set(String(newValue.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40)), forKey: languageKey)
+            NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
+        }
+    }
+
+    static var persona: String {
+        get {
+            return UserDefaults.standard.string(forKey: personaKey) ?? ""
+        }
+        set {
+            UserDefaults.standard.set(String(newValue.trimmingCharacters(in: .whitespacesAndNewlines).prefix(600)), forKey: personaKey)
+            NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
+        }
+    }
+
+    static var promptSuffix: String {
+        var result = ""
+        if !language.isEmpty {
+            result += " Always answer in " + language + ", whatever language the question is in."
+        }
+        if !persona.isEmpty {
+            result += " The user set these preferences, follow them: " + persona
+        }
+        return result
+    }
+}
+
+func ayuGramRemoveEmoji(_ text: String) -> String {
+    var result = ""
+    for character in text {
+        if character.unicodeScalars.contains(where: { $0.properties.isEmojiPresentation || ($0.properties.isEmoji && $0.value > 0x238C) }) {
+            continue
+        }
+        result.append(character)
+    }
+    return result.replacingOccurrences(of: "  ", with: " ")
+}
+
+private func ayuGramNeedsWeb(_ question: String) -> Bool {
+    let lower = question.lowercased()
+    let words = ["интернет", "поищи", "найди", "загугли", "погугли", "новост", "сегодня", "сейчас", "вчера", "завтра", "погод", "курс", "цена", "стоит", "актуальн", "последн", "свеж", "расписан", "счёт", "счет матча", "вышел", "вышла", "релиз", "search", "google", "internet", "news", "today", "latest", "current", "weather", "price", "score", "release", "пошукай", "знайди", "новин", "сьогодні", "зараз", "погода", "http://", "https://", "202"]
+    return words.contains(where: { lower.contains($0) })
+}
+
 private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale: String, completion: @escaping (String?, String?) -> Void) {
-    let config = AyuGramAssistantConfig.current
+    var config = AyuGramAssistantConfig.current
+    var fallback: AyuGramAssistantConfig?
+    if config.provider.id == "gemini", !config.key.isEmpty, let question = messages.last(where: { $0.outgoing && !$0.failed }), question.imagePayload == nil, ayuGramNeedsWeb(question.text) {
+        fallback = config
+        let relay = AyuGramAssistantProvider.all[0]
+        config = AyuGramAssistantConfig(provider: relay, key: "", model: relay.model)
+    }
     if config.provider.needsKey && config.key.isEmpty {
         completion(nil, i18n("Ayu.AINeedKey", locale))
         return
@@ -358,7 +419,7 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
         return
     }
     let history = Array(messages.filter({ !$0.failed }).suffix(20))
-    var system = "You are a helpful assistant built into AyuGram, a Telegram client. Answer in the language of the user."
+    var system = "You are the assistant built into AyuGram, a Telegram client. Answer in the language of the user's last message. Be direct and concrete: lead with the answer, no filler, no restating the question. Never use emoji or emoticons. Formatting: short paragraphs, bold for key terms, bullet lists for several items; never use tables." + AyuGramAssistantPreferences.promptSuffix
     let guide = AyuGramAssistantGuide.shared.text
     if !guide.isEmpty, let question = history.last(where: { $0.outgoing })?.text, AyuGramAssistantGuide.shared.relevant(question) {
         system += "\n\n" + guide
@@ -375,7 +436,16 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
             payload.append(["role": role, "content": message.text.isEmpty ? "[image]" : message.text])
         }
     }
-    ayuGramAssistantPost(config: config, url: url, body: ["messages": payload], timeout: 90.0, locale: locale, models: ayuGramAssistantModels(config), completion: completion)
+    let body: [String: Any] = ["messages": payload]
+    ayuGramAssistantPost(config: config, url: url, body: body, timeout: 90.0, locale: locale, models: ayuGramAssistantModels(config), completion: { text, failure in
+        if text == nil, let fallback, let fallbackUrl = URL(string: fallback.provider.endpoint) {
+            ayuGramAssistantPost(config: fallback, url: fallbackUrl, body: body, timeout: 90.0, locale: locale, models: ayuGramAssistantModels(fallback), completion: { text, failure in
+                completion(text.map(ayuGramRemoveEmoji), failure)
+            })
+            return
+        }
+        completion(text.map(ayuGramRemoveEmoji), failure)
+    })
 }
 
 private func ayuGramAssistantTranscribe(file: URL, locale: String, completion: @escaping (String?, String?) -> Void) {
@@ -520,12 +590,36 @@ func ayuGramAssistantFormatted(_ text: String, color: UIColor) -> NSAttributedSt
     let mono = UIFont.monospacedSystemFont(ofSize: 14.0, weight: .regular)
     var inCode = false
     var first = true
+    var tableHeaders: [String]?
     for rawLine in text.components(separatedBy: "\n") {
         let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
         if trimmed.hasPrefix("```") {
             inCode = !inCode
             continue
         }
+        if !inCode && trimmed.count > 2 && trimmed.hasPrefix("|") && trimmed.hasSuffix("|") {
+            let cells = String(trimmed.dropFirst().dropLast()).components(separatedBy: "|").map({ $0.trimmingCharacters(in: .whitespaces) })
+            if cells.allSatisfy({ cell in !cell.isEmpty && cell.allSatisfy({ $0 == "-" || $0 == ":" }) }) {
+                continue
+            }
+            guard let headers = tableHeaders else {
+                tableHeaders = cells
+                continue
+            }
+            if !first {
+                result.append(NSAttributedString(string: "\n", attributes: [.font: base, .foregroundColor: color]))
+            }
+            first = false
+            result.append(NSAttributedString(string: "•  ", attributes: [.font: base, .foregroundColor: color]))
+            result.append(ayuGramAssistantInline(cells.first ?? "", font: UIFont.systemFont(ofSize: 16.0, weight: .semibold), color: color))
+            for (index, cell) in cells.enumerated() where index > 0 && !cell.isEmpty {
+                let header = index < headers.count ? headers[index].replacingOccurrences(of: "**", with: "") : ""
+                result.append(NSAttributedString(string: "\n     " + (header.isEmpty ? "" : header + ": "), attributes: [.font: UIFont.systemFont(ofSize: 14.0), .foregroundColor: color.withAlphaComponent(0.55)]))
+                result.append(ayuGramAssistantInline(cell, font: UIFont.systemFont(ofSize: 15.0), color: color))
+            }
+            continue
+        }
+        tableHeaders = nil
         if !first {
             result.append(NSAttributedString(string: "\n", attributes: [.font: base, .foregroundColor: color]))
         }
@@ -962,7 +1056,8 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     private let inputBar = UIView()
     private let glow = CAGradientLayer()
     private let barFade = CAGradientLayer()
-    private let capsule = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+    private let capsule = GlassBackgroundView()
+    private var capsuleSize = CGSize()
     private let separator = UIView()
     private let field = UITextField()
     private let attachButton = UIButton(type: .system)
@@ -1066,9 +1161,6 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.glow.endPoint = CGPoint(x: 1.0, y: 1.0)
         self.view.layer.insertSublayer(self.glow, at: 0)
         self.inputBar.layer.addSublayer(self.barFade)
-        self.capsule.clipsToBounds = true
-        self.capsule.layer.cornerCurve = .continuous
-        self.capsule.layer.borderWidth = 1.0 / UIScreen.main.scale
         self.capsule.isUserInteractionEnabled = false
         self.inputBar.addSubview(self.capsule)
         self.inputBar.addSubview(self.separator)
@@ -1193,8 +1285,9 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.field.backgroundColor = .clear
         self.glow.colors = [theme.list.itemAccentColor.withAlphaComponent(theme.overallDarkAppearance ? 0.22 : 0.14).cgColor, theme.list.itemAccentColor.withAlphaComponent(0.0).cgColor]
         self.barFade.colors = [theme.list.blocksBackgroundColor.withAlphaComponent(0.0).cgColor, theme.list.blocksBackgroundColor.cgColor]
-        self.capsule.effect = UIBlurEffect(style: theme.overallDarkAppearance ? .systemThinMaterialDark : .systemThinMaterialLight)
-        self.capsule.layer.borderColor = theme.list.itemAccentColor.withAlphaComponent(0.25).cgColor
+        if self.capsuleSize.width > 0.0 {
+            self.capsule.update(size: self.capsuleSize, cornerRadius: self.capsuleSize.height / 2.0, isDark: theme.overallDarkAppearance, tintColor: .init(kind: .panel), transition: .immediate)
+        }
         self.field.textColor = theme.list.itemPrimaryTextColor
         self.field.tintColor = theme.list.itemAccentColor
         self.field.keyboardAppearance = theme.overallDarkAppearance ? .dark : .light
@@ -1245,7 +1338,8 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.field.frame = CGRect(x: self.attachButton.frame.maxX + 4.0, y: row + 2.0, width: max(0.0, self.micButton.frame.minX - self.attachButton.frame.maxX - 8.0), height: 36.0)
         let capsuleFrame = CGRect(x: side + 8.0, y: row - 2.0, width: size.width - side * 2.0 - 16.0, height: 44.0)
         self.capsule.frame = capsuleFrame
-        self.capsule.layer.cornerRadius = 22.0
+        self.capsuleSize = capsuleFrame.size
+        self.capsule.update(size: capsuleFrame.size, cornerRadius: capsuleFrame.height / 2.0, isDark: self.presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), transition: .immediate)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         self.barFade.frame = CGRect(x: 0.0, y: -24.0, width: size.width, height: 24.0 + row)

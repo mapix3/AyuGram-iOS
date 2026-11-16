@@ -278,7 +278,7 @@ print("History migration, direction/unread flags, path containment, record cap, 
     if icon_settings.exists():
         sdk_badge = output / 'BadgeCompatibility.swift'
         sdk_badge.write_text(badge.read_text().replace('import SGSimpleSettings\n', ''))
-        badge_inputs = [icon_settings, sdk_badge]
+        badge_inputs = [icon_settings, sdk_badge, source / 'Swiftgram/SGSimpleSettings/Sources/AyuGramClientBadges.swift']
         personalization = source / 'Swiftgram/SGSimpleSettings/Sources/AyuGramPersonalization.swift'
         if personalization.exists():
             badge_inputs.append(personalization)

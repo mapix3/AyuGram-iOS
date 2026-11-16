@@ -665,10 +665,14 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
         self.relayout()
         self.startShimmer()
         let style = mine < 3 ? " Me wrote little, so keep the reply plain and casual." : ""
-        let emojiRule = emojiShare >= 0.5 ? "At most one emoji, only if it fits the meaning; never repeat the emoji Me used last." : "No emoji at all."
-        let analysisLanguage = ayuGramLocaleLanguage(self.locale)
+        let preferred = AyuGramAssistantPreferences.language
+        let analysisLanguage = preferred.isEmpty ? ayuGramLocaleLanguage(self.locale) : preferred
         let replyLanguage = self.dialogLanguage
-        let system = "You are a sharp conversation analyst inside Telegram. The user is Me in the dialog. First analyze the dialog: what is going on, the other side's mood and intent, the subtext, and what Me should do next; write the analysis in " + analysisLanguage + ", speaking to the user directly as you (informal), calling the others by name. Then write ONE quick reply Me could send right now, written in " + replyLanguage + ", the language Me and the others actually use in the latest messages, never translated into another language. The reply must read like a real person typing fast, not like an AI: no greetings, no filler, no polished grammar if Me does not write that way, same letter case and slang as Me, as short as Me's usual messages, under 120 characters, never repeat letters or laughter endlessly. " + emojiRule + style + " Format strictly, nothing else:\nA: <analysis in " + analysisLanguage + ", 2-4 short sentences>\nR: <the reply in " + replyLanguage + ">"
+        var system = "You are a perceptive conversation analyst inside Telegram. The user is Me in the dialog; everyone else is another person. Work in two steps.\nStep 1, analysis, written in " + analysisLanguage + ", addressed to the user as you (informal), others called by name. Cover, concretely and without retelling the messages: what the other side actually wants right now, their mood and attitude toward Me, any subtext, pressure, joke or test, whether something is unanswered or expected from Me, and the best next move with a reason. Base every claim on the latest messages, weigh recent ones more, do not invent facts, and if the situation is unclear say what is unclear.\nStep 2, one reply Me can send right now, written in " + replyLanguage + ", the language actually used in the latest messages, never translated. It must follow the best next move from the analysis and answer the last message directly. It must sound exactly like Me typing fast, not like an AI: copy Me's letter case, punctuation habits, slang, swearing level and typical length; no greetings, no filler, no explanations, no quotation marks, under 120 characters, never repeat letters or laughter endlessly. Never use emoji or emoticons anywhere." + style
+        if !AyuGramAssistantPreferences.persona.isEmpty {
+            system += " User preferences: " + AyuGramAssistantPreferences.persona
+        }
+        system += " Output format, strictly, nothing else:\nA: <analysis, 2-4 short sentences in " + analysisLanguage + ">\nR: <the reply in " + replyLanguage + ">"
         let prompt = "Dialog, oldest first:\n" + transcript
         let peerId = self.peerId
         ayuGramAssistantComplete(system: system, prompt: prompt, maxTokens: 300, locale: self.locale, completion: { [weak self] reply, failure in
@@ -679,10 +683,8 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
             self.headerGhost.lookTarget = nil
             if let reply {
                 var parsed = ayuGramCopilotParse(reply)
-                if emojiShare < 0.5 {
-                    parsed.1 = parsed.1.map(ayuGramStripEmoji).filter({ !$0.isEmpty })
-                }
-                parsed.0 = String(ayuGramCollapseRepeats(parsed.0).prefix(600))
+                parsed.1 = parsed.1.map(ayuGramStripEmoji).filter({ !$0.isEmpty })
+                parsed.0 = String(ayuGramCollapseRepeats(ayuGramRemoveEmoji(parsed.0)).prefix(600))
                 parsed.1 = parsed.1.map({ String(ayuGramCollapseRepeats($0).prefix(160)) })
                 if parsed.1.isEmpty {
                     self.show(summary: parsed.0.isEmpty ? reply : parsed.0, replies: [])
@@ -775,7 +777,7 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
         self.renderAnswer()
         self.relayout()
         self.headerGhost.lookTarget = CGPoint(x: -0.9, y: 0.6)
-        let system = "You analyze a Telegram dialog for the user (Me) and answer their question about it. Be brief: at most 4 sentences, in the language of the question. If asked what to write, give one ready message in Me's style, written in " + self.dialogLanguage + ", the language of the dialog."
+        let system = "You analyze a Telegram dialog for the user (Me) and answer their question about it. Be brief and concrete: at most 4 sentences, in the language of the question, grounded in the messages. Never use emoji. If asked what to write, give one ready message in Me's style, written in " + self.dialogLanguage + ", the language of the dialog."
         let prompt = "Dialog, oldest first:\n" + transcript + "\n\nQuestion: " + String(question.prefix(500))
         ayuGramAssistantComplete(system: system, prompt: prompt, maxTokens: 380, locale: self.locale, completion: { [weak self] reply, failure in
             guard let self else {
@@ -783,7 +785,7 @@ public final class AyuGramCopilotView: UIView, UITextFieldDelegate {
             }
             self.asking = false
             self.headerGhost.lookTarget = nil
-            self.answer = reply ?? failure ?? i18n("Ayu.AIError", self.locale)
+            self.answer = reply.map(ayuGramRemoveEmoji) ?? failure ?? i18n("Ayu.AIError", self.locale)
             self.renderAnswer()
             self.relayout()
             self.answerLabel.alpha = 0.0

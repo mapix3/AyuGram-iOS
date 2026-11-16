@@ -1,3 +1,4 @@
+import { badgeStorage } from './badges.js';
 const INSTALL_TTL_MS = 60 * 24 * 60 * 60 * 1000;
 const REPORT_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 const REPORTS_PER_DAY = 5;
@@ -283,6 +284,10 @@ export class Stats {
     const url = new URL(request.url);
     const storage = this.state.storage;
     const now = Date.now();
+    const badge = await badgeStorage(storage, request, url, now);
+    if (badge) {
+      return badge;
+    }
     if (request.method === 'POST' && url.pathname === '/ping') {
       const install = await request.json();
       const previous = await storage.get('i:' + install.id);

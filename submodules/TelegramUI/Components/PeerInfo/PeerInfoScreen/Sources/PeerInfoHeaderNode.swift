@@ -139,6 +139,26 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     let avatarOverlayNode: PeerInfoEditingAvatarOverlayNode
     private let ayuOwnerBadge = UIImageView(image: ayuGramOwnerBadgeImage())
     private let ayuExpandedOwnerBadge = UIImageView(image: ayuGramOwnerBadgeImage())
+    private var ayuBadgeKind: String?
+    private var ayuBadgeName = ""
+
+    @objc private func ayuBadgeTapped() {
+        let locale = self.presentationData?.strings.baseLanguageCode ?? "en"
+        let text: String
+        switch self.ayuBadgeKind {
+        case "supporter":
+            text = i18n("Ayu.BadgeSupported", locale, self.ayuBadgeName)
+        case "updates":
+            text = i18n("Ayu.BadgeResource", locale, "AyuGram iOS Updates")
+        case "peek":
+            text = i18n("Ayu.BadgeResource", locale, "AyuGram iOS sneakpeek")
+        case "owner":
+            text = i18n("Ayu.BadgeDeveloper", locale, self.ayuBadgeName)
+        default:
+            return
+        }
+        ayuGramShowBadgeToast(markdown: text, from: self.view)
+    }
     let titleNodeContainer: ASDisplayNode
     let titleNodeRawContainer: ASDisplayNode
     let titleNode: MultiScaleTextNode
@@ -403,6 +423,10 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         self.view.addSubview(self.backgroundBannerView)
         self.titleNode.stateNode(forKey: TitleNodeStateRegular)?.view.addSubview(self.ayuOwnerBadge)
         self.titleNode.stateNode(forKey: TitleNodeStateExpanded)?.view.addSubview(self.ayuExpandedOwnerBadge)
+        for badge in [self.ayuOwnerBadge, self.ayuExpandedOwnerBadge] {
+            badge.isUserInteractionEnabled = true
+            badge.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.ayuBadgeTapped)))
+        }
         self.titleNodeContainer.addSubnode(self.titleNode)
         self.subtitleNodeContainer.addSubnode(self.subtitleNode)
         self.subtitleNodeContainer.addSubnode(self.panelSubtitleNode)
@@ -1809,12 +1833,12 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         }
         
-        let ayuBadge = peer.flatMap { $0.id.namespace == Namespaces.Peer.CloudUser ? AyuGramClientBadges.shared.badge(peerId: $0.id.toInt64()) : nil }
+        let ayuBadgePeerId: Int64 = peer.flatMap({ $0.id.namespace == Namespaces.Peer.CloudUser ? $0.id.toInt64() : nil }) ?? 0
+        let ayuBadge = peer.flatMap { AyuGramClientBadges.shared.badge(peerId: ayuBadgePeerId, username: $0.addressName) }
         let ayuOwner = ayuBadge != nil
-        if let peer, peer.id.namespace == Namespaces.Peer.CloudUser {
-            AyuGramClientBadges.shared.observe(peerId: peer.id.toInt64(), accountId: self.context.account.peerId.toInt64())
-        }
-        let ayuBadgeImage = ayuBadge == "member" ? ayuGramMemberBadgeImage() : ayuGramOwnerBadgeImage()
+        self.ayuBadgeKind = ayuBadge
+        self.ayuBadgeName = peer.flatMap({ $0.debugDisplayTitle }) ?? ""
+        let ayuBadgeImage = ayuGramBadgeImage(kind: ayuBadge, peerId: ayuBadgePeerId)
         self.ayuOwnerBadge.image = ayuBadgeImage
         self.ayuExpandedOwnerBadge.image = ayuBadgeImage
         self.ayuOwnerBadge.isHidden = !ayuOwner
@@ -3002,6 +3026,12 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             return self.avatarListNode.listContainerNode.setByYouNode.view
         }
         
+        if !(self.state?.isEditing ?? false), self.ayuBadgeKind != nil {
+            let badge = self.isAvatarExpanded ? self.ayuExpandedOwnerBadge : self.ayuOwnerBadge
+            if !badge.isHidden, badge.convert(badge.bounds, to: self.view).insetBy(dx: -8.0, dy: -8.0).contains(point) {
+                return badge
+            }
+        }
         if !(self.state?.isEditing ?? false) {
             switch self.currentCredibilityIcon {
             case .premium:

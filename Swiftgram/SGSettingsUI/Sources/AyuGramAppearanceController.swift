@@ -4,7 +4,6 @@ import PhotosUI
 import Display
 import SwiftSignalKit
 import AccountContext
-import TelegramCore
 import TelegramPresentationData
 import ItemListUI
 import SGItemListUI
@@ -150,14 +149,7 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
         case .font:
             pushController?(ayuGramFontController(context: context))
         case .badge:
-            let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
-            |> deliverOnMainQueue).startStandalone(next: { peer in
-                var name = "AyuGram"
-                if case let .user(user) = peer {
-                    name = user.firstName ?? user.lastName ?? name
-                }
-                pushController?(ayuGramBadgeEditorController(context: context, name: name))
-            })
+            pushController?(ayuGramAppBadgeEditorController(context: context))
         }
     })
     let signal = combineLatest(context.sharedContext.presentationData, changes, kindsExpanded.get())
@@ -236,7 +228,7 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             settingsEntries += [
                 .header(id: 60, section: .personal, text: i18n("Ayu.Personalize", locale), badge: nil),
                 .action(id: 61, section: .personal, actionType: .font, text: i18n("Ayu.Font", locale) + ": " + fontName, kind: .generic),
-                .action(id: 62, section: .personal, actionType: .badge, text: i18n("Ayu.Badge", locale) + (personal.badge.enabled ? " ✓" : ""), kind: .generic)
+                .action(id: 62, section: .personal, actionType: .badge, text: i18n("Ayu.AppBadge", locale) + (personal.appBadgeEnabled ? " ✓" : ""), kind: .generic)
             ]
         }
         let entries: [AyuAppearanceEntry] = ([.preview(scope, settings)] + settingsEntries.map(AyuAppearanceEntry.setting) + kindOptions).sorted(by: { $0.stableId < $1.stableId })

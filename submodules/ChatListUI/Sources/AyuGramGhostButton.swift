@@ -4,20 +4,12 @@ import Display
 
 private func ayuGhostPath() -> UIBezierPath {
     let path = UIBezierPath()
-    path.move(to: CGPoint(x: 8.0, y: 23.5))
-    path.addLine(to: CGPoint(x: 8.0, y: 13.5))
-    path.addArc(withCenter: CGPoint(x: 15.0, y: 13.5), radius: 7.0, startAngle: .pi, endAngle: 0.0, clockwise: true)
-    path.addLine(to: CGPoint(x: 22.0, y: 23.5))
-    let points: [CGPoint] = [
-        CGPoint(x: 19.667, y: 21.5),
-        CGPoint(x: 17.333, y: 23.5),
-        CGPoint(x: 15.0, y: 21.5),
-        CGPoint(x: 12.667, y: 23.5),
-        CGPoint(x: 10.333, y: 21.5),
-        CGPoint(x: 8.0, y: 23.5)
-    ]
-    for point in points {
-        path.addLine(to: point)
+    path.move(to: CGPoint(x: 8.4, y: 21.0))
+    path.addLine(to: CGPoint(x: 8.4, y: 13.4))
+    path.addArc(withCenter: CGPoint(x: 15.0, y: 13.4), radius: 6.6, startAngle: .pi, endAngle: 0.0, clockwise: true)
+    path.addLine(to: CGPoint(x: 21.6, y: 21.0))
+    for x in [19.4, 15.0, 10.6] as [CGFloat] {
+        path.addArc(withCenter: CGPoint(x: x, y: 21.0), radius: 2.2, startAngle: 0.0, endAngle: .pi, clockwise: true)
     }
     path.close()
     path.lineJoinStyle = .round
@@ -27,8 +19,8 @@ private func ayuGhostPath() -> UIBezierPath {
 
 private func ayuGhostEyes() -> [CGRect] {
     return [
-        CGRect(x: 11.4, y: 12.2, width: 2.4, height: 3.0),
-        CGRect(x: 16.2, y: 12.2, width: 2.4, height: 3.0)
+        CGRect(x: 11.8, y: 12.2, width: 2.4, height: 3.6),
+        CGRect(x: 16.2, y: 12.2, width: 2.4, height: 3.6)
     ]
 }
 

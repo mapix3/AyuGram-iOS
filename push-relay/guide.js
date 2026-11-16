@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 2;
+export const GUIDE_VERSION = 3;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -19,12 +19,13 @@ In a chat:
 - Peek online: user profile > More > Peek online.
 Import chat: AyuGram > Chat import (ZIP or TXT from WhatsApp, LINE, KakaoTalk or AyuGram export).
 
-AI: AyuGram > AI. AI assistant (also the sparkles button in the chat list), Search engine, Assistant button in the chat list, AI hints in chats, AI provider (AyuGram free, Pollinations, Groq, Google Gemini, OpenRouter), API key and model for the chosen provider. Gemini switches to another model by itself when one is overloaded. The assistant has chats on the left (the sidebar button at the top right), history is saved.
+AI: AyuGram > AI. AI assistant (also the sparkles button in the chat list), Search engine, Assistant button in the chat list, AI hints in chats, AI provider (AyuGram free, Pollinations, Groq, Google Gemini, OpenRouter), API key and model for the chosen provider. Gemini switches to another model by itself when one is overloaded, and questions that need the internet go through the AyuGram provider. Answer language and Personalization (tell the assistant about yourself and how to answer) are in the same section. The assistant has chats on the left (the sidebar button at the top right), history is saved.
 
+Supporter badge: AyuGram > Client > Supporter badge, above Local Premium. For a $3 donation you get your own badge next to your name that every AyuGram user sees on any build: pay, tap "I have paid", put the shown code in the payment comment; after the developer confirms the payment a badge editor opens there (icon or emoji, shape, color). Tapping a badge in a profile shows what it means.
 Client: Local Premium (premium features shown locally), Disable Liquid Glass (flat panels, needs an app restart).
 Security: Report a scam (with screenshots or videos), Anonymous stats.
 Support: AyuGram channel, developer, AyuGram log, Check for updates. Donate is at the very bottom of AyuGram (Crypto Bot, xRocket, TON wallet with QR codes).
 
-Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode. At the bottom of Appearance, "Font and badge": Font (system styles: rounded, serif, monospaced; iOS fonts like Avenir Next, Futura, Georgia; or import your own .ttf/.otf; applies after restarting the app) and Badge (your own badge next to your name: icon or emoji, shape, color; only you see it).
+Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode. At the bottom of Appearance, "Font and badge": Font (system styles: rounded, serif, monospaced; iOS fonts like Avenir Next, Futura, Georgia; or import your own .ttf/.otf; applies after restarting the app) and App badge (the AYUGRAM pill under the Dynamic Island: your own text, picture and colors).
 
 Updates come from the @ayugramiosupdates channel; the IPA is installed with a signing app.`;

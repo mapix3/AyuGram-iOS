@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 import CoreText
 import UniformTypeIdentifiers
+import PhotosUI
 import AsyncDisplayKit
 import Display
 import SwiftSignalKit
@@ -9,40 +10,6 @@ import AccountContext
 import TelegramPresentationData
 import SGSimpleSettings
 import SGStrings
-
-private class AyuGramHostController: ViewController {
-    let context: AccountContext
-    var presentationData: PresentationData
-    let content: UIView
-
-    init(context: AccountContext, title: String, content: UIView) {
-        self.context = context
-        self.presentationData = context.sharedContext.currentPresentationData.with { $0 }
-        self.content = content
-        super.init(navigationBarPresentationData: NavigationBarPresentationData(presentationData: self.presentationData))
-        self.title = title
-        self.statusBar.statusBarStyle = self.presentationData.theme.rootController.statusBarStyle.style
-        self.navigationItem.backBarButtonItem = UIBarButtonItem(title: self.presentationData.strings.Common_Back, style: .plain, target: nil, action: nil)
-    }
-
-    required init(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func loadDisplayNode() {
-        self.displayNode = ASDisplayNode()
-        self.displayNode.backgroundColor = self.presentationData.theme.list.blocksBackgroundColor
-        self.displayNodeDidLoad()
-        self.displayNode.view.addSubview(self.content)
-    }
-
-    override func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
-        super.containerLayoutUpdated(layout, transition: transition)
-
-        let top = self.navigationLayout(layout: layout).navigationFrame.maxY
-        self.content.frame = CGRect(x: 0.0, y: top, width: layout.size.width, height: max(0.0, layout.size.height - top))
-    }
-}
 
 private struct AyuGramFontOption {
     let id: String
@@ -212,97 +179,84 @@ public func ayuGramFontController(context: AccountContext) -> ViewController {
     return controller
 }
 
-private let ayuGramBadgeSymbols = ["sparkles", "star.fill", "heart.fill", "flame.fill", "bolt.fill", "crown.fill", "moon.stars.fill", "sun.max.fill", "leaf.fill", "pawprint.fill", "gamecontroller.fill", "music.note", "airplane", "eye.fill", "theatermasks.fill", "wand.and.stars", "diamond.fill", "shield.fill", "checkmark.seal.fill", "hare.fill", "tortoise.fill", "ant.fill", "ladybug.fill", "fish.fill", "snowflake", "drop.fill", "cloud.fill", "atom", "infinity", "hand.peace.fill"]
-
-private let ayuGramBadgePalettes: [(String, String)] = [("8E61F2", "C9B3FF"), ("FF4D6D", "FF9EAE"), ("FF7A00", "FFC266"), ("FFD60A", "FFF3A3"), ("2ECC71", "A8F0C6"), ("00B4D8", "90E0EF"), ("3A86FF", "9DBEFF"), ("FF006E", "8338EC"), ("111111", "555555"), ("F1F1F1", "BDBDBD"), ("00F5D4", "9B5DE5"), ("E63946", "1D3557")]
-
-private final class AyuGramBadgeView: UIView, UITextFieldDelegate {
+private final class AyuGramAppBadgeView: UIView, UITextFieldDelegate, PHPickerViewControllerDelegate {
     private let theme: PresentationTheme
     private let locale: String
     private let scroll = UIScrollView()
     private let previewBack = UIView()
     private let preview = UIImageView()
-    private let sampleName = UILabel()
-    private let sampleBadge = UIImageView()
     private let enabledLabel = UILabel()
     private let enabledSwitch = UISwitch()
-    private let shapeControl = UISegmentedControl()
-    private let iconsTitle = UILabel()
-    private var iconButtons: [UIButton] = []
-    private let emojiField = UITextField()
+    private let textField = UITextField()
+    private let iconLabel = UILabel()
+    private let iconSwitch = UISwitch()
+    private let pickButton = UIButton(type: .system)
+    private let removeButton = UIButton(type: .system)
     private let colorsTitle = UILabel()
     private var colorButtons: [UIButton] = []
     private let darkLabel = UILabel()
     private let darkSwitch = UISwitch()
     private let hint = UILabel()
+    private let palettes: [(String, String)] = [("30264A", "30264A")] + ayuGramBadgePalettes
+    var present: ((UIViewController) -> Void)?
 
-    init(theme: PresentationTheme, locale: String, name: String) {
+    init(theme: PresentationTheme, locale: String) {
         self.theme = theme
         self.locale = locale
         super.init(frame: CGRect())
 
         self.scroll.alwaysBounceVertical = true
+        self.scroll.keyboardDismissMode = .interactive
         self.addSubview(self.scroll)
-
-        self.previewBack.backgroundColor = theme.list.itemBlocksBackgroundColor
+        self.previewBack.backgroundColor = .black
         self.previewBack.layer.cornerRadius = 22.0
         self.previewBack.layer.cornerCurve = .continuous
         self.scroll.addSubview(self.previewBack)
-        self.preview.contentMode = .scaleAspectFit
+        self.preview.contentMode = .center
         self.previewBack.addSubview(self.preview)
-        self.sampleName.text = name
-        self.sampleName.font = UIFont.systemFont(ofSize: 17.0, weight: .semibold)
-        self.sampleName.textColor = theme.list.itemPrimaryTextColor
-        self.previewBack.addSubview(self.sampleName)
-        self.previewBack.addSubview(self.sampleBadge)
 
-        self.enabledLabel.text = i18n("Ayu.BadgeShow", locale)
-        self.enabledLabel.textColor = theme.list.itemPrimaryTextColor
-        self.enabledSwitch.onTintColor = theme.list.itemAccentColor
-        self.enabledSwitch.addTarget(self, action: #selector(self.enabledChanged), for: .valueChanged)
-        self.scroll.addSubview(self.enabledLabel)
-        self.scroll.addSubview(self.enabledSwitch)
-
-        for (index, key) in ["Ayu.BadgeSquircle", "Ayu.BadgeCircle", "Ayu.BadgeSeal", "Ayu.BadgeNoBackground"].enumerated() {
-            self.shapeControl.insertSegment(withTitle: i18n(key, locale), at: index, animated: false)
-        }
-        self.shapeControl.addTarget(self, action: #selector(self.shapeChanged), for: .valueChanged)
-        self.scroll.addSubview(self.shapeControl)
-
-        for label in [self.iconsTitle, self.colorsTitle] {
-            label.font = UIFont.systemFont(ofSize: 13.0, weight: .semibold)
-            label.textColor = theme.list.sectionHeaderTextColor
+        for (label, key) in [(self.enabledLabel, "Ayu.AppBadgeCustom"), (self.iconLabel, "Ayu.AppBadgeIcon"), (self.darkLabel, "Ayu.AppBadgeDarkText")] {
+            label.text = i18n(key, locale)
+            label.textColor = theme.list.itemPrimaryTextColor
             self.scroll.addSubview(label)
         }
-        self.iconsTitle.text = i18n("Ayu.BadgeIcon", locale).uppercased()
-        self.colorsTitle.text = i18n("Ayu.BadgeColor", locale).uppercased()
+        for control in [self.enabledSwitch, self.iconSwitch, self.darkSwitch] {
+            control.onTintColor = theme.list.itemAccentColor
+            control.addTarget(self, action: #selector(self.switchChanged(_:)), for: .valueChanged)
+            self.scroll.addSubview(control)
+        }
+        self.textField.placeholder = i18n("Ayu.AppBadgeText", locale)
+        self.textField.backgroundColor = theme.list.itemBlocksBackgroundColor
+        self.textField.textColor = theme.list.itemPrimaryTextColor
+        self.textField.layer.cornerRadius = 12.0
+        self.textField.layer.cornerCurve = .continuous
+        self.textField.leftView = UIView(frame: CGRect(x: 0.0, y: 0.0, width: 14.0, height: 1.0))
+        self.textField.leftViewMode = .always
+        self.textField.returnKeyType = .done
+        self.textField.autocorrectionType = .no
+        self.textField.delegate = self
+        self.textField.keyboardAppearance = theme.overallDarkAppearance ? .dark : .light
+        self.textField.addTarget(self, action: #selector(self.textChanged), for: .editingChanged)
+        self.scroll.addSubview(self.textField)
 
-        for (index, symbol) in ayuGramBadgeSymbols.enumerated() {
-            let button = UIButton(type: .system)
-            button.tag = index
-            button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 18.0, weight: .semibold)), for: .normal)
-            button.tintColor = theme.list.itemPrimaryTextColor
+        for (button, key) in [(self.pickButton, "Ayu.AppBadgePick"), (self.removeButton, "Ayu.AppBadgeRemove")] {
+            button.setTitle(i18n(key, locale), for: .normal)
+            button.titleLabel?.font = UIFont.systemFont(ofSize: 16.0, weight: .medium)
             button.backgroundColor = theme.list.itemBlocksBackgroundColor
             button.layer.cornerRadius = 12.0
             button.layer.cornerCurve = .continuous
-            button.addTarget(self, action: #selector(self.iconPressed(_:)), for: .touchUpInside)
-            self.iconButtons.append(button)
             self.scroll.addSubview(button)
         }
-        self.emojiField.placeholder = i18n("Ayu.BadgeEmoji", locale)
-        self.emojiField.backgroundColor = theme.list.itemBlocksBackgroundColor
-        self.emojiField.textColor = theme.list.itemPrimaryTextColor
-        self.emojiField.layer.cornerRadius = 12.0
-        self.emojiField.layer.cornerCurve = .continuous
-        self.emojiField.leftView = UIView(frame: CGRect(x: 0.0, y: 0.0, width: 14.0, height: 1.0))
-        self.emojiField.leftViewMode = .always
-        self.emojiField.returnKeyType = .done
-        self.emojiField.delegate = self
-        self.emojiField.keyboardAppearance = theme.overallDarkAppearance ? .dark : .light
-        self.emojiField.addTarget(self, action: #selector(self.emojiChanged), for: .editingChanged)
-        self.scroll.addSubview(self.emojiField)
+        self.pickButton.tintColor = theme.list.itemAccentColor
+        self.removeButton.tintColor = theme.list.itemDestructiveColor
+        self.pickButton.addTarget(self, action: #selector(self.pickPressed), for: .touchUpInside)
+        self.removeButton.addTarget(self, action: #selector(self.removePressed), for: .touchUpInside)
 
-        for (index, palette) in ayuGramBadgePalettes.enumerated() {
+        self.colorsTitle.font = UIFont.systemFont(ofSize: 13.0, weight: .semibold)
+        self.colorsTitle.textColor = theme.list.sectionHeaderTextColor
+        self.colorsTitle.text = i18n("Ayu.BadgeColor", locale).uppercased()
+        self.scroll.addSubview(self.colorsTitle)
+        for (index, palette) in self.palettes.enumerated() {
             let button = UIButton(type: .custom)
             button.tag = index
             var badge = AyuGramCustomBadge()
@@ -317,66 +271,38 @@ private final class AyuGramBadgeView: UIView, UITextFieldDelegate {
             self.colorButtons.append(button)
             self.scroll.addSubview(button)
         }
-
-        self.darkLabel.text = i18n("Ayu.BadgeDarkIcon", locale)
-        self.darkLabel.textColor = theme.list.itemPrimaryTextColor
-        self.darkSwitch.onTintColor = theme.list.itemAccentColor
-        self.darkSwitch.addTarget(self, action: #selector(self.darkChanged), for: .valueChanged)
-        self.scroll.addSubview(self.darkLabel)
-        self.scroll.addSubview(self.darkSwitch)
-
-        self.hint.text = i18n("Ayu.BadgeHint", locale)
+        self.hint.text = i18n("Ayu.AppBadgeHint", locale)
         self.hint.font = UIFont.systemFont(ofSize: 13.0)
         self.hint.textColor = theme.list.freeTextColor
         self.hint.numberOfLines = 0
         self.scroll.addSubview(self.hint)
 
-        self.refresh(animated: false)
+        self.textField.text = AyuGramPersonalization.shared.settings.appBadgeText
+        self.refresh()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private var badge: AyuGramCustomBadge {
-        return AyuGramPersonalization.shared.settings.badge
+    private func change(_ f: (inout AyuGramPersonalizationSettings) -> Void) {
+        AyuGramPersonalization.shared.update(f)
+        self.refresh()
     }
 
-    private func change(_ f: (inout AyuGramCustomBadge) -> Void) {
-        AyuGramPersonalization.shared.update { settings in
-            f(&settings.badge)
-        }
-        UISelectionFeedbackGenerator().selectionChanged()
-        self.refresh(animated: true)
-    }
-
-    private func refresh(animated: Bool) {
-        let badge = self.badge
-        var shown = badge
-        shown.enabled = true
-        self.preview.image = ayuGramCustomBadgeImage(shown, size: 96.0)
-        self.sampleBadge.image = ayuGramCustomBadgeImage(shown, size: 22.0)
-        if animated {
-            self.preview.transform = CGAffineTransform(scaleX: 0.88, y: 0.88)
-            UIView.animate(withDuration: 0.4, delay: 0.0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0.0, options: [.allowUserInteraction], animations: {
-                self.preview.transform = .identity
-            })
-        }
-        self.enabledSwitch.isOn = badge.enabled
-        self.shapeControl.selectedSegmentIndex = Int(max(0, min(3, badge.shape)))
-        self.darkSwitch.isOn = badge.darkGlyph
-        for (index, button) in self.iconButtons.enumerated() {
-            let selected = badge.emoji.isEmpty && ayuGramBadgeSymbols[index] == badge.symbol
-            button.backgroundColor = selected ? self.theme.list.itemAccentColor.withAlphaComponent(0.2) : self.theme.list.itemBlocksBackgroundColor
-            button.tintColor = selected ? self.theme.list.itemAccentColor : self.theme.list.itemPrimaryTextColor
-        }
-        if !self.emojiField.isFirstResponder {
-            self.emojiField.text = badge.emoji
-        }
+    private func refresh() {
+        let settings = AyuGramPersonalization.shared.settings
+        var shown = settings
+        shown.appBadgeEnabled = true
+        self.preview.image = ayuGramCustomAppBadgeImage(shown, scale: 3.0)
+        self.enabledSwitch.isOn = settings.appBadgeEnabled
+        self.iconSwitch.isOn = settings.appBadgeShowsIcon
+        self.darkSwitch.isOn = settings.appBadgeDarkText
+        self.removeButton.isEnabled = !settings.appBadgeImageFile.isEmpty
+        self.removeButton.alpha = settings.appBadgeImageFile.isEmpty ? 0.4 : 1.0
         for (index, button) in self.colorButtons.enumerated() {
-            let palette = ayuGramBadgePalettes[index]
-            let selected = palette.0 == badge.top && palette.1 == badge.bottom
-            button.layer.borderColor = selected ? self.theme.list.itemAccentColor.cgColor : UIColor.clear.cgColor
+            let palette = self.palettes[index]
+            button.layer.borderColor = (palette.0 == settings.appBadgeTop && palette.1 == settings.appBadgeBottom) ? self.theme.list.itemAccentColor.cgColor : UIColor.clear.cgColor
         }
     }
 
@@ -388,84 +314,61 @@ private final class AyuGramBadgeView: UIView, UITextFieldDelegate {
         let inner = width - side * 2.0
         self.scroll.frame = self.bounds
         var y: CGFloat = 16.0
-        self.previewBack.frame = CGRect(x: side, y: y, width: inner, height: 170.0)
-        self.preview.frame = CGRect(x: (inner - 96.0) / 2.0, y: 18.0, width: 96.0, height: 96.0)
-        let nameSize = self.sampleName.sizeThatFits(CGSize(width: inner - 60.0, height: 24.0))
-        let nameWidth = min(nameSize.width, inner - 60.0)
-        let nameX = (inner - nameWidth - 26.0) / 2.0
-        self.sampleName.frame = CGRect(x: nameX, y: 128.0, width: nameWidth, height: 24.0)
-        self.sampleBadge.frame = CGRect(x: nameX + nameWidth + 4.0, y: 129.0, width: 22.0, height: 22.0)
-        y += 170.0 + 16.0
-        let switchSize = self.enabledSwitch.sizeThatFits(.zero)
-        self.enabledSwitch.frame = CGRect(x: width - side - switchSize.width, y: y, width: switchSize.width, height: switchSize.height)
-        self.enabledLabel.frame = CGRect(x: side, y: y, width: inner - switchSize.width - 8.0, height: switchSize.height)
-        y += switchSize.height + 16.0
-        self.shapeControl.frame = CGRect(x: side, y: y, width: inner, height: 34.0)
-        y += 34.0 + 22.0
-        self.iconsTitle.frame = CGRect(x: side + 4.0, y: y, width: inner, height: 16.0)
-        y += 24.0
-        let columns = 6
-        let spacing: CGFloat = 8.0
-        let cell = floor((inner - spacing * CGFloat(columns - 1)) / CGFloat(columns))
-        for (index, button) in self.iconButtons.enumerated() {
-            let column = index % columns
-            let row = index / columns
-            button.frame = CGRect(x: side + CGFloat(column) * (cell + spacing), y: y + CGFloat(row) * (cell + spacing), width: cell, height: cell)
+        self.previewBack.frame = CGRect(x: side, y: y, width: inner, height: 90.0)
+        self.preview.frame = self.previewBack.bounds
+        y += 90.0 + 16.0
+        func row(_ label: UILabel, _ control: UISwitch) {
+            let size = control.sizeThatFits(.zero)
+            control.frame = CGRect(x: width - side - size.width, y: y, width: size.width, height: size.height)
+            label.frame = CGRect(x: side, y: y, width: inner - size.width - 8.0, height: size.height)
+            y += size.height + 14.0
         }
-        let rows = (self.iconButtons.count + columns - 1) / columns
-        y += CGFloat(rows) * (cell + spacing) + 2.0
-        self.emojiField.frame = CGRect(x: side, y: y, width: inner, height: 44.0)
+        row(self.enabledLabel, self.enabledSwitch)
+        self.textField.frame = CGRect(x: side, y: y, width: inner, height: 44.0)
+        y += 44.0 + 14.0
+        row(self.iconLabel, self.iconSwitch)
+        let half = floor((inner - 10.0) / 2.0)
+        self.pickButton.frame = CGRect(x: side, y: y, width: half, height: 44.0)
+        self.removeButton.frame = CGRect(x: side + half + 10.0, y: y, width: half, height: 44.0)
         y += 44.0 + 22.0
         self.colorsTitle.frame = CGRect(x: side + 4.0, y: y, width: inner, height: 16.0)
         y += 24.0
-        let colorColumns = 6
-        let colorCell: CGFloat = 40.0
-        let colorSpacing = floor((inner - colorCell * CGFloat(colorColumns)) / CGFloat(colorColumns - 1))
+        let columns = 6
+        let cell: CGFloat = 40.0
+        let spacing = floor((inner - cell * CGFloat(columns)) / CGFloat(columns - 1))
         for (index, button) in self.colorButtons.enumerated() {
-            let column = index % colorColumns
-            let row = index / colorColumns
-            button.frame = CGRect(x: side + CGFloat(column) * (colorCell + colorSpacing), y: y + CGFloat(row) * (colorCell + 10.0), width: colorCell, height: colorCell)
+            button.frame = CGRect(x: side + CGFloat(index % columns) * (cell + spacing), y: y + CGFloat(index / columns) * (cell + 10.0), width: cell, height: cell)
         }
-        let colorRows = (self.colorButtons.count + colorColumns - 1) / colorColumns
-        y += CGFloat(colorRows) * (colorCell + 10.0) + 8.0
-        let darkSize = self.darkSwitch.sizeThatFits(.zero)
-        self.darkSwitch.frame = CGRect(x: width - side - darkSize.width, y: y, width: darkSize.width, height: darkSize.height)
-        self.darkLabel.frame = CGRect(x: side, y: y, width: inner - darkSize.width - 8.0, height: darkSize.height)
-        y += darkSize.height + 14.0
+        y += CGFloat((self.colorButtons.count + columns - 1) / columns) * (cell + 10.0) + 8.0
+        row(self.darkLabel, self.darkSwitch)
         let hintHeight = ceil(self.hint.sizeThatFits(CGSize(width: inner - 8.0, height: .greatestFiniteMagnitude)).height)
         self.hint.frame = CGRect(x: side + 4.0, y: y, width: inner - 8.0, height: hintHeight)
         y += hintHeight + 30.0
         self.scroll.contentSize = CGSize(width: width, height: y)
     }
 
-    @objc private func enabledChanged() {
-        let value = self.enabledSwitch.isOn
-        self.change { $0.enabled = value }
-    }
-
-    @objc private func shapeChanged() {
-        let value = Int32(self.shapeControl.selectedSegmentIndex)
-        self.change { $0.shape = value }
-    }
-
-    @objc private func iconPressed(_ sender: UIButton) {
-        let symbol = ayuGramBadgeSymbols[sender.tag]
-        self.emojiField.text = ""
-        self.emojiField.resignFirstResponder()
-        self.change { badge in
-            badge.symbol = symbol
-            badge.emoji = ""
-            badge.enabled = true
+    @objc private func switchChanged(_ sender: UISwitch) {
+        let value = sender.isOn
+        if sender === self.enabledSwitch {
+            self.change { $0.appBadgeEnabled = value }
+        } else if sender === self.iconSwitch {
+            self.change { settings in
+                settings.appBadgeShowsIcon = value
+                settings.appBadgeEnabled = true
+            }
+        } else {
+            self.change { settings in
+                settings.appBadgeDarkText = value
+                settings.appBadgeEnabled = true
+            }
         }
     }
 
-    @objc private func emojiChanged() {
-        let text = String((self.emojiField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(2))
-        self.change { badge in
-            badge.emoji = text
-            if !text.isEmpty {
-                badge.enabled = true
-            }
+    @objc private func textChanged() {
+        let text = String((self.textField.text ?? "").prefix(18))
+        self.change { settings in
+            settings.appBadgeText = text
+            settings.appBadgeEnabled = true
         }
     }
 
@@ -475,23 +378,82 @@ private final class AyuGramBadgeView: UIView, UITextFieldDelegate {
     }
 
     @objc private func colorPressed(_ sender: UIButton) {
-        let palette = ayuGramBadgePalettes[sender.tag]
-        self.change { badge in
-            badge.top = palette.0
-            badge.bottom = palette.1
-            badge.enabled = true
+        let palette = self.palettes[sender.tag]
+        UISelectionFeedbackGenerator().selectionChanged()
+        self.change { settings in
+            settings.appBadgeTop = palette.0
+            settings.appBadgeBottom = palette.1
+            settings.appBadgeEnabled = true
         }
     }
 
-    @objc private func darkChanged() {
-        let value = self.darkSwitch.isOn
-        self.change { $0.darkGlyph = value }
+    @objc private func pickPressed() {
+        var configuration = PHPickerConfiguration()
+        configuration.filter = .images
+        configuration.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = self
+        self.present?(picker)
+    }
+
+    @objc private func removePressed() {
+        let old = AyuGramPersonalization.shared.appBadgeImageURL
+        self.change { $0.appBadgeImageFile = "" }
+        if let old {
+            try? FileManager.default.removeItem(at: old)
+        }
+    }
+
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else {
+            return
+        }
+        let _ = provider.loadObject(ofClass: UIImage.self, completionHandler: { [weak self] object, _ in
+            guard let image = object as? UIImage, let directory = AyuGramPersonalization.fontsDirectory else {
+                return
+            }
+            let side: CGFloat = 96.0
+            let scale = side / max(1.0, min(image.size.width, image.size.height))
+            let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1.0
+            let resized = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { _ in
+                image.draw(in: CGRect(x: (side - size.width) / 2.0, y: (side - size.height) / 2.0, width: size.width, height: size.height))
+            }
+            guard let data = resized.pngData() else {
+                return
+            }
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let name = "appbadge-" + String(UUID().uuidString.prefix(8)) + ".png"
+            guard (try? data.write(to: directory.appendingPathComponent(name), options: .atomic)) != nil else {
+                return
+            }
+            DispatchQueue.main.async {
+                guard let self else {
+                    return
+                }
+                let old = AyuGramPersonalization.shared.appBadgeImageURL
+                self.change { settings in
+                    settings.appBadgeImageFile = name
+                    settings.appBadgeShowsIcon = true
+                    settings.appBadgeEnabled = true
+                }
+                if let old {
+                    try? FileManager.default.removeItem(at: old)
+                }
+            }
+        })
     }
 }
 
-public func ayuGramBadgeEditorController(context: AccountContext, name: String) -> ViewController {
+public func ayuGramAppBadgeEditorController(context: AccountContext) -> ViewController {
     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
     let locale = presentationData.strings.baseLanguageCode
-    let view = AyuGramBadgeView(theme: presentationData.theme, locale: locale, name: name)
-    return AyuGramHostController(context: context, title: i18n("Ayu.Badge", locale), content: view)
+    let view = AyuGramAppBadgeView(theme: presentationData.theme, locale: locale)
+    let controller = AyuGramHostController(context: context, title: i18n("Ayu.AppBadge", locale), content: view)
+    view.present = { [weak controller] next in
+        controller?.present(next, animated: true)
+    }
+    return controller
 }

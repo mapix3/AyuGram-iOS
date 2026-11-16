@@ -890,6 +890,15 @@ public class Window1 {
         self.ayuIconObserver = NotificationCenter.default.addObserver(forName: Notification.Name("AyuGram.AppIcon.didChange"), object: nil, queue: .main) { [weak self] _ in
             self?.badgeView.image = ayuGramAppBadgeImage()
         }
+        let _ = NotificationCenter.default.addObserver(forName: AyuGramPersonalization.didChange, object: nil, queue: .main) { [weak self] _ in
+            guard let self else {
+                return
+            }
+            self.badgeView.image = ayuGramAppBadgeImage()
+            if let image = self.badgeView.image {
+                self.badgeView.frame = CGRect(origin: CGPoint(x: floorToScreenPixels((self.windowLayout.size.width - image.size.width) / 2.0), y: self.badgeView.frame.minY), size: image.size)
+            }
+        }
     }
             
     public required init(coder aDecoder: NSCoder) {

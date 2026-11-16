@@ -1039,12 +1039,13 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
         }
         
         var ayuBadge: String?
-        if case let .peer(peerData, _, _, _, _, _, _, _, _) = self.titleContent, let peer = peerData.peer, peer.id.namespace == Namespaces.Peer.CloudUser {
-            ayuBadge = AyuGramClientBadges.shared.badge(peerId: peer.id.toInt64())
-            AyuGramClientBadges.shared.observe(peerId: peer.id.toInt64(), accountId: self.context.account.peerId.toInt64())
+        var ayuBadgePeerId: Int64 = 0
+        if case let .peer(peerData, _, _, _, _, _, _, _, _) = self.titleContent, let peer = peerData.peer {
+            ayuBadgePeerId = peer.id.namespace == Namespaces.Peer.CloudUser ? peer.id.toInt64() : 0
+            ayuBadge = AyuGramClientBadges.shared.badge(peerId: ayuBadgePeerId, username: peer.addressName)
         }
         let ayuOwner = ayuBadge != nil
-        self.ayuOwnerBadge.image = ayuBadge == "member" ? ayuGramMemberBadgeImage() : ayuGramOwnerBadgeImage()
+        self.ayuOwnerBadge.image = ayuGramBadgeImage(kind: ayuBadge, peerId: ayuBadgePeerId)
         self.ayuOwnerBadge.isHidden = !ayuOwner
         if ayuOwner { self.titleTextNode.view.addSubview(self.ayuOwnerBadge) }
         let ayuOwnerWidth: CGFloat = ayuOwner ? 21 : 0
