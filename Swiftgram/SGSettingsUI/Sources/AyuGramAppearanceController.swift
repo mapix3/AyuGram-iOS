@@ -4,16 +4,17 @@ import PhotosUI
 import Display
 import SwiftSignalKit
 import AccountContext
+import TelegramCore
 import TelegramPresentationData
 import ItemListUI
 import SGItemListUI
 import SGSimpleSettings
 import SGStrings
 
-private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, size, reset }
+private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, size, reset, personal }
 private enum AyuAppearanceToggle: Hashable { case enabled, motion, newYear, newYearAuto, particles, particlesInChats, seasonal, drift, fireworks, parallax }
 private enum AyuAppearanceSlider: Hashable { case dim, blur, rows, amount, size }
-private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind, particleMix, selectKind(Int32), previewKind(Int32) }
+private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind, particleMix, selectKind(Int32), previewKind(Int32), font, badge }
 private enum AyuAppearanceUnused: Hashable { case unused }
 private typealias AyuAppearanceSettingEntry = SGItemListUIEntry<AyuAppearanceSection, AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>
 private enum AyuAppearanceEntry: ItemListNodeEntry {
@@ -45,10 +46,15 @@ private enum AyuAppearanceEntry: ItemListNodeEntry {
 public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramAppearanceScope = .chatList) -> ViewController {
     let mediaPicker = AyuGramAppearanceMediaPicker(context: context, scope: scope)
     var openWallpaper: (() -> Void)?
+    var pushController: ((ViewController) -> Void)?
     let changes = Signal<Int, NoError> { subscriber in
         subscriber.putNext(0)
         let observer = NotificationCenter.default.addObserver(forName: AyuGramAppearance.didChange, object: nil, queue: .main) { _ in subscriber.putNext(0) }
-        return ActionDisposable { NotificationCenter.default.removeObserver(observer) }
+        let personal = NotificationCenter.default.addObserver(forName: AyuGramPersonalization.didChange, object: nil, queue: .main) { _ in subscriber.putNext(0) }
+        return ActionDisposable {
+            NotificationCenter.default.removeObserver(observer)
+            NotificationCenter.default.removeObserver(personal)
+        }
     }
     let kindsExpanded = ValuePromise<Bool>(false, ignoreRepeated: true)
     var kindsExpandedValue = false
@@ -141,6 +147,17 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             kindsExpanded.set(false)
         case let .previewKind(kind):
             AyuGramEffectsView.shared?.preview(kind: kind < 0 ? AyuGramAppearanceSettings.seasonalParticleKind() : kind)
+        case .font:
+            pushController?(ayuGramFontController(context: context))
+        case .badge:
+            let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
+            |> deliverOnMainQueue).startStandalone(next: { peer in
+                var name = "AyuGram"
+                if case let .user(user) = peer {
+                    name = user.firstName ?? user.lastName ?? name
+                }
+                pushController?(ayuGramBadgeEditorController(context: context, name: name))
+            })
         }
     })
     let signal = combineLatest(context.sharedContext.presentationData, changes, kindsExpanded.get())
@@ -199,6 +216,29 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             }
         }
         settingsEntries.append(.action(id: 51, section: .reset, actionType: .reset, text: data.strings.AutoDownloadSettings_Reset, kind: .destructive))
+        if scope == .chatList {
+            let personal = AyuGramPersonalization.shared.settings
+            var fontName = i18n("Ayu.FontDefault", locale)
+            switch personal.fontFamily {
+            case "":
+                break
+            case "rounded":
+                fontName = i18n("Ayu.FontRounded", locale)
+            case "serif":
+                fontName = i18n("Ayu.FontSerif", locale)
+            case "mono":
+                fontName = i18n("Ayu.FontMono", locale)
+            case "custom":
+                fontName = personal.customFontFamily
+            default:
+                fontName = personal.fontFamily
+            }
+            settingsEntries += [
+                .header(id: 60, section: .personal, text: i18n("Ayu.Personalize", locale), badge: nil),
+                .action(id: 61, section: .personal, actionType: .font, text: i18n("Ayu.Font", locale) + ": " + fontName, kind: .generic),
+                .action(id: 62, section: .personal, actionType: .badge, text: i18n("Ayu.Badge", locale) + (personal.badge.enabled ? " ✓" : ""), kind: .generic)
+            ]
+        }
         let entries: [AyuAppearanceEntry] = ([.preview(scope, settings)] + settingsEntries.map(AyuAppearanceEntry.setting) + kindOptions).sorted(by: { $0.stableId < $1.stableId })
         let state = ItemListControllerState(presentationData: ItemListPresentationData(data), title: .text(scope == .chatList ? data.strings.Appearance_Title : data.strings.Wallpaper_Title), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: data.strings.Common_Back))
         return (state, (ItemListNodeState(presentationData: ItemListPresentationData(data), entries: entries, style: .blocks), arguments))
@@ -239,6 +279,9 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
     let holdBox = AyuGramObserverBox(holdObserver)
     controller.didDisappear = { _ in
         let _ = holdBox
+    }
+    pushController = { [weak controller] next in
+        (controller?.navigationController as? NavigationController)?.pushViewController(next)
     }
     openWallpaper = { [weak controller] in
         (controller?.navigationController as? NavigationController)?.pushViewController(ayuGramAppearanceController(context: context, scope: .conversation))

@@ -174,7 +174,81 @@ public func ayuGramLargeIcon(size: CGFloat) -> UIImage {
     }
 }
 
+private func ayuHexColor(_ hex: String) -> UIColor {
+    var value: UInt64 = 0
+    Scanner(string: hex.trimmingCharacters(in: CharacterSet(charactersIn: "# "))).scanHexInt64(&value)
+    return UIColor(red: CGFloat((value >> 16) & 0xff) / 255.0, green: CGFloat((value >> 8) & 0xff) / 255.0, blue: CGFloat(value & 0xff) / 255.0, alpha: 1.0)
+}
+
+private var ayuCustomBadgeCache: (AyuGramCustomBadge, CGFloat, UIImage)?
+private let ayuCustomBadgeLock = NSLock()
+
+public func ayuGramCustomBadgeImage(_ badge: AyuGramCustomBadge, size: CGFloat = 22.0) -> UIImage {
+    ayuCustomBadgeLock.lock()
+    let cached = ayuCustomBadgeCache
+    ayuCustomBadgeLock.unlock()
+    if let cached, cached.0 == badge, cached.1 == size {
+        return cached.2
+    }
+    let scale = size / 22.0
+    let top = ayuHexColor(badge.top)
+    let bottom = ayuHexColor(badge.bottom)
+    let image = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { context in
+        let rect = CGRect(x: 1.5 * scale, y: 1.5 * scale, width: 19.0 * scale, height: 19.0 * scale)
+        var path: UIBezierPath?
+        switch badge.shape {
+        case 1:
+            path = UIBezierPath(ovalIn: rect)
+        case 2:
+            let seal = UIBezierPath()
+            for index in 0 ..< 32 {
+                let angle = CGFloat(index) * .pi / 16.0 - .pi / 2.0
+                let radius = (index % 2 == 0 ? 10.8 : 9.6) * scale
+                let point = CGPoint(x: size / 2.0 + cos(angle) * radius, y: size / 2.0 + sin(angle) * radius)
+                if index == 0 { seal.move(to: point) } else { seal.addLine(to: point) }
+            }
+            seal.close()
+            path = seal
+        case 3:
+            path = nil
+        default:
+            path = UIBezierPath(roundedRect: rect, cornerRadius: 6.0 * scale)
+        }
+        if let path {
+            context.cgContext.saveGState()
+            path.addClip()
+            let colors = [top.cgColor, bottom.cgColor] as CFArray
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0.0, 1.0]) {
+                context.cgContext.drawLinearGradient(gradient, start: CGPoint(x: 0.0, y: 0.0), end: CGPoint(x: 0.0, y: size), options: [])
+            }
+            context.cgContext.restoreGState()
+        }
+        let glyphColor: UIColor = path == nil ? top : (badge.darkGlyph ? UIColor(white: 0.08, alpha: 1.0) : .white)
+        let emoji = badge.emoji.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !emoji.isEmpty {
+            let font = UIFont.systemFont(ofSize: (path == nil ? 17.0 : 12.5) * scale)
+            let text = NSAttributedString(string: String(emoji.prefix(2)), attributes: [.font: font])
+            let bounds = text.boundingRect(with: CGSize(width: size * 2.0, height: size * 2.0), options: [.usesLineFragmentOrigin], context: nil)
+            text.draw(at: CGPoint(x: (size - bounds.width) / 2.0, y: (size - bounds.height) / 2.0))
+        } else {
+            let pointSize = (path == nil ? 16.0 : 11.0) * scale
+            if let symbol = UIImage(systemName: badge.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: pointSize, weight: .bold))?.withTintColor(glyphColor, renderingMode: .alwaysOriginal) {
+                let symbolSize = symbol.size
+                symbol.draw(in: CGRect(x: (size - symbolSize.width) / 2.0, y: (size - symbolSize.height) / 2.0, width: symbolSize.width, height: symbolSize.height))
+            }
+        }
+    }
+    ayuCustomBadgeLock.lock()
+    ayuCustomBadgeCache = (badge, size, image)
+    ayuCustomBadgeLock.unlock()
+    return image
+}
+
 public func ayuGramMemberBadgeImage() -> UIImage {
+    let custom = AyuGramPersonalization.shared.settings.badge
+    if custom.enabled {
+        return ayuGramCustomBadgeImage(custom)
+    }
     return UIGraphicsImageRenderer(size: CGSize(width: 22, height: 22)).image { _ in
         let outline = UIBezierPath(roundedRect: CGRect(x: 2, y: 2, width: 18, height: 18), cornerRadius: 6)
         UIColor(red: 0.76, green: 0.65, blue: 1, alpha: 1).setStroke()

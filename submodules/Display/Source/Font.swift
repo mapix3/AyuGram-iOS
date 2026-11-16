@@ -165,6 +165,10 @@ public struct Font {
         if let cachedFont = self.cache.get(key) {
             return cachedFont
         }
+        if case .regular = design, let font = AyuGramFontOverride.font(size: size, weight: weight.weight, italic: traits.contains(.italic)) {
+            self.cache.set(font, key: key)
+            return font
+        }
         if #available(iOS 13.0, *), design != .camera {
             let descriptor: UIFontDescriptor
             if #available(iOS 14.0, *) {
@@ -289,18 +293,30 @@ public struct Font {
     }
     
     public static func regular(_ size: CGFloat) -> UIFont {
+        if let font = AyuGramFontOverride.font(size: size, weight: .regular) {
+            return font
+        }
         return UIFont.systemFont(ofSize: size)
     }
     
     public static func medium(_ size: CGFloat) -> UIFont {
+        if let font = AyuGramFontOverride.font(size: size, weight: .medium) {
+            return font
+        }
         return UIFont.systemFont(ofSize: size, weight: UIFont.Weight.medium)
     }
     
     public static func semibold(_ size: CGFloat) -> UIFont {
+        if let font = AyuGramFontOverride.font(size: size, weight: .semibold) {
+            return font
+        }
         return UIFont.systemFont(ofSize: size, weight: UIFont.Weight.semibold)
     }
     
     public static func bold(_ size: CGFloat) -> UIFont {
+        if let font = AyuGramFontOverride.font(size: size, weight: .bold) {
+            return font
+        }
         if #available(iOS 8.2, *) {
             return UIFont.boldSystemFont(ofSize: size)
         } else {
@@ -313,10 +329,16 @@ public struct Font {
     }
     
     public static func light(_ size: CGFloat) -> UIFont {
+        if let font = AyuGramFontOverride.font(size: size, weight: .light) {
+            return font
+        }
         return UIFont.systemFont(ofSize: size, weight: UIFont.Weight.light)
     }
     
     public static func semiboldItalic(_ size: CGFloat) -> UIFont {
+        if let font = AyuGramFontOverride.font(size: size, weight: .semibold, italic: true) {
+            return font
+        }
         if let descriptor = UIFont.systemFont(ofSize: size).fontDescriptor.withSymbolicTraits([.traitBold, .traitItalic]) {
             return UIFont(descriptor: descriptor, size: size)
         } else {
@@ -325,6 +347,9 @@ public struct Font {
     }
     
     public static func mediumItalic(_ size: CGFloat) -> UIFont {
+        if let font = AyuGramFontOverride.font(size: size, weight: .medium, italic: true) {
+            return font
+        }
         if let descriptor = UIFont.systemFont(ofSize: size, weight: .medium).fontDescriptor.withSymbolicTraits([.traitItalic]) {
             return UIFont(descriptor: descriptor, size: size)
         } else {
@@ -349,6 +374,9 @@ public struct Font {
     }
     
     public static func italic(_ size: CGFloat) -> UIFont {
+        if let font = AyuGramFontOverride.font(size: size, weight: .regular, italic: true) {
+            return font
+        }
         return UIFont.italicSystemFont(ofSize: size)
     }
 }
