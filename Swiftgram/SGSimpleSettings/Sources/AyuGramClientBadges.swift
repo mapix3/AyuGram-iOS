@@ -67,8 +67,7 @@ public final class AyuGramClientBadges {
         let peerId = Self.raw(packed)
         if peerId == Self.ownerId { return "owner" }
         lock.lock(); defer { lock.unlock() }
-        if supporters[peerId] != nil { return "supporter" }
-        return activeAccount == peerId ? "member" : nil
+        return supporters[peerId] != nil ? "supporter" : nil
     }
 
     public func badge(peerId: Int64, username: String?) -> String? {
