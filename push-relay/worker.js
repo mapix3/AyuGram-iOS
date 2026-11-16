@@ -595,19 +595,30 @@ async function geminiSearchAnswer(env, key, messages, basePrompt) {
   return second && !looksLikeToolCall(second.content) ? second.content : '';
 }
 
+const geminiCooldown = new Map();
+
 async function geminiChat(env, messages, maxTokens, extra) {
-  const preferred = env && env.GEMINI_MODEL ? env.GEMINI_MODEL : 'gemini-2.5-flash';
-  const models = [...new Set([geminiWorking, preferred, 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'].filter(Boolean))];
+  const preferred = env && env.GEMINI_MODEL ? env.GEMINI_MODEL : 'gemini-flash-latest';
+  const all = [...new Set([geminiWorking, preferred, 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'].filter(Boolean))];
+  const now = Date.now();
+  const ready = all.filter((model) => !(geminiCooldown.get(model) > now));
+  const models = ready.length ? ready : all;
   let last = null;
   for (const model of models) {
     last = await geminiChatModel(env, model, messages, maxTokens, extra);
     if (last.content || last.calls) {
       geminiWorking = model;
+      geminiCooldown.delete(model);
       return last;
     }
-    if (![0, 404, 408, 429, 500, 502, 503, 504].includes(last.status) || last.reason === 'no key') {
+    if (last.reason === 'no key' || [401, 403].includes(last.status)) {
       return last;
     }
+    geminiCooldown.set(model, Date.now() + (last.status === 404 ? 3600000 : 300000));
+    if (geminiWorking === model) {
+      geminiWorking = '';
+    }
+    console.log('gemini ' + model + ' failed: ' + last.status + ' ' + last.reason);
   }
   return last;
 }
