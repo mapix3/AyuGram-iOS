@@ -2,6 +2,7 @@ import Foundation
 
 public struct AyuGramBadgePayment: Equatable {
     public var cryptoBot: String
+    public var xRocket: String
     public var tonAddress: String
     public var tonAmount: String
     public var tonComment: String
@@ -122,7 +123,7 @@ public final class AyuGramBadgeSync {
         guard let pay = object["pay"] as? [String: Any] else {
             return nil
         }
-        var payment = AyuGramBadgePayment(cryptoBot: self.link(pay["cryptobot"], schemes: ["https://t.me/"]), tonAddress: "", tonAmount: "", tonComment: code, tonURL: "", tonOpen: "")
+        var payment = AyuGramBadgePayment(cryptoBot: self.link(pay["cryptobot"], schemes: ["https://t.me/"]), xRocket: self.link(pay["xrocket"], schemes: ["https://t.me/"]), tonAddress: "", tonAmount: "", tonComment: code, tonURL: "", tonOpen: "")
         if let ton = pay["ton"] as? [String: Any], let address = ton["address"] as? String, address.count == 48, let amount = ton["amount"] as? String, amount.count <= 16, amount.allSatisfy({ $0.isNumber || $0 == "." }) {
             payment.tonAddress = address
             payment.tonAmount = amount

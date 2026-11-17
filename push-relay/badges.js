@@ -113,6 +113,64 @@ async function createInvoice(env, code) {
   return { id: result.invoice_id, url: link, exp: Date.now() + INVOICE_LIFE * 1000 };
 }
 
+function rocketToken(env) {
+  return env && env.XROCKET_TOKEN ? String(env.XROCKET_TOKEN).replace(/[\s"']/g, '') : '';
+}
+
+async function rocketPay(env, method, path, payload) {
+  const token = rocketToken(env);
+  if (!token) {
+    return null;
+  }
+  try {
+    const response = await fetch((env.XROCKET_API || 'https://pay.xrocket.tg') + path, {
+      method,
+      headers: { 'content-type': 'application/json', accept: 'application/json', 'Rocket-Pay-Key': token },
+      body: payload ? JSON.stringify(payload) : undefined,
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await response.json();
+    return data && data.success !== false && data.data ? data.data : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function createRocketInvoice(env, code) {
+  const result = await rocketPay(env, 'POST', '/tg-invoices', {
+    amount: priceOf(env),
+    numPayments: 1,
+    currency: env.XROCKET_CURRENCY || 'USDT',
+    description: 'AyuGram iOS supporter badge · ' + code,
+    hiddenMessage: 'Thank you! Go back to AyuGram, the badge unlocks by itself.',
+    payload: code,
+    expiredIn: INVOICE_LIFE,
+  });
+  const link = result && result.link;
+  if (!result || !result.id || typeof link !== 'string' || !link.startsWith('https://t.me/')) {
+    return null;
+  }
+  return { id: result.id, url: link, exp: Date.now() + INVOICE_LIFE * 1000 };
+}
+
+function rocketResult(invoice, code, id) {
+  if (!invoice || String(invoice.id) !== String(id) || (invoice.payload && invoice.payload !== code)) {
+    return null;
+  }
+  const paid = invoice.status === 'paid' || Number(invoice.activatedCount || 0) >= 1 || (Array.isArray(invoice.payments) && invoice.payments.length > 0);
+  if (paid) {
+    return { key: 'xr:' + invoice.id, via: 'xRocket', amount: [invoice.amount, invoice.currency].filter(Boolean).join(' ') };
+  }
+  return invoice.status === 'expired' ? { expired: true, rocket: true } : null;
+}
+
+async function rocketCheck(env, code, pending) {
+  if (!pending.rocket || !pending.rocket.id) {
+    return null;
+  }
+  return rocketResult(await rocketPay(env, 'GET', '/tg-invoices/' + encodeURIComponent(pending.rocket.id)), code, pending.rocket.id);
+}
+
 async function tonRate(env) {
   if (rateCache.rate > 0 && Date.now() - rateCache.time < 600000) {
     return rateCache.rate;
@@ -230,6 +288,10 @@ async function findPayments(env, code, pending) {
       found.push(outcome);
     }
   }
+  const rocket = await rocketCheck(env, code, pending);
+  if (rocket) {
+    found.push(rocket);
+  }
   if (pending.ton) {
     found.push(...tonMatches(await tonTransactions(env), code, pending));
   }
@@ -249,7 +311,7 @@ async function grantFirst(env, call, code, payments) {
 }
 
 function payView(env, code, pending) {
-  const view = { cryptobot: pending.invoice && pending.invoice.url ? pending.invoice.url : '' };
+  const view = { cryptobot: pending.invoice && pending.invoice.url ? pending.invoice.url : '', xrocket: pending.rocket && pending.rocket.url ? pending.rocket.url : '' };
   if (pending.ton && pending.ton.nano) {
     const address = walletOf(env);
     const query = '?amount=' + pending.ton.nano + '&text=' + encodeURIComponent(code);
@@ -280,15 +342,25 @@ async function settle(env, call, status) {
     if (granted) {
       return { granted: true, badge: granted.badge };
     }
-    if (payments.some((paid) => paid.expired)) {
+    if (payments.some((paid) => paid.expired && !paid.rocket)) {
       pending.invoice = null;
       update.invoice = null;
+    }
+    if (payments.some((paid) => paid.expired && paid.rocket)) {
+      pending.rocket = null;
+      update.rocket = null;
     }
   }
   if (cryptoToken(env) && (!pending.invoice || !pending.invoice.exp || pending.invoice.exp < now + 86400000)) {
     const invoice = await createInvoice(env, code);
     if (invoice) {
       update.invoice = invoice;
+    }
+  }
+  if (rocketToken(env) && (!pending.rocket || !pending.rocket.exp || pending.rocket.exp < now + 86400000)) {
+    const rocket = await createRocketInvoice(env, code);
+    if (rocket) {
+      update.rocket = rocket;
     }
   }
   if (!pending.ton || !pending.ton.time || now - pending.ton.time > QUOTE_EVERY) {
@@ -347,6 +419,50 @@ export async function handleCryptoPayHook(request, env) {
   return new Response('ok\n');
 }
 
+function findCode(value, depth) {
+  if (!value || typeof value !== 'object' || depth > 3) {
+    return null;
+  }
+  if (typeof value.payload === 'string' && /^[A-Z0-9]{6}$/.test(value.payload) && (value.id || value.invoiceId)) {
+    return { code: value.payload, id: value.invoiceId || value.id };
+  }
+  for (const child of Object.values(value)) {
+    const found = findCode(child, depth + 1);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
+
+export async function handleRocketHook(request, env) {
+  if (request.method !== 'POST') {
+    return new Response('not found\n', { status: 404 });
+  }
+  const raw = await request.text();
+  let update = null;
+  try {
+    update = raw.length > 16384 ? null : JSON.parse(raw);
+  } catch (error) {
+    update = null;
+  }
+  const found = findCode(update, 0);
+  const stub = statsStub(env);
+  if (!found || !stub || !rocketToken(env)) {
+    return new Response('ok\n');
+  }
+  const call = badgeCall(stub);
+  const response = await call('/badge-pending-get/' + found.code);
+  const pending = response.ok ? await response.json() : null;
+  if (pending && pending.rocket && String(pending.rocket.id) === String(found.id)) {
+    const paid = await rocketCheck(env, found.code, pending);
+    if (paid && paid.key) {
+      await grantPaid(env, call, found.code, paid);
+    }
+  }
+  return new Response('ok\n');
+}
+
 export async function checkBadgePayments(env) {
   const stub = statsStub(env);
   if (!stub) {
@@ -367,9 +483,14 @@ export async function checkBadgePayments(env) {
   }
   const list = items.some((item) => item.ton) ? await tonTransactions(env) : [];
   let granted = 0;
-  for (const item of items) {
+  let rocketChecks = 0;
+  for (const item of items.slice().reverse()) {
     const invoice = item.invoice ? invoices.get(String(item.invoice.id)) : null;
     const payments = [invoice && invoice.payload === item.code ? invoiceResult(invoice) : null, ...tonMatches(list, item.code, item)];
+    if (!payments.some((paid) => paid && paid.key) && item.rocket && rocketToken(env) && rocketChecks < 20) {
+      rocketChecks += 1;
+      payments.push(await rocketCheck(env, item.code, item));
+    }
     if (await grantFirst(env, call, item.code, payments)) {
       granted += 1;
     }
@@ -416,7 +537,7 @@ export async function handleBadges(request, env, url, ctx) {
     const response = await call('/badge-request', { id, lock, name, limit: REQUESTS_PER_DAY });
     const result = await response.json().catch(() => ({}));
     if (response.ok && result.fresh) {
-      const notice = notifyOwner(env, '💎 Запрос бейджа поддержки\nID ' + id + (name ? ' · ' + name : '') + '\nКод: ' + result.code + '\nCrypto Bot и TON проверятся сами. Если оплатили через xRocket или иначе, проверь код в комментарии и выдай вручную.', { inline_keyboard: [[{ text: '✅ Выдать', callback_data: 'G:' + result.code }, { text: '❌ Отклонить', callback_data: 'D:' + result.code }]] });
+      const notice = notifyOwner(env, '💎 Запрос бейджа поддержки\nID ' + id + (name ? ' · ' + name : '') + '\nКод: ' + result.code + '\nCrypto Bot, xRocket и TON проверятся сами. Если оплатили иначе, проверь код в комментарии и выдай вручную.', { inline_keyboard: [[{ text: '✅ Выдать', callback_data: 'G:' + result.code }, { text: '❌ Отклонить', callback_data: 'D:' + result.code }]] });
       if (ctx && typeof ctx.waitUntil === 'function') {
         ctx.waitUntil(notice);
       } else {
@@ -445,8 +566,8 @@ export async function badgeStorage(storage, request, url, now) {
   if (request.method === 'GET' && url.pathname === '/badge-pending-list') {
     const items = [];
     for (const [key, value] of await storage.list({ prefix: 'breq:' })) {
-      if (now - (value.time || 0) < PENDING_DAYS * 86400000 && (value.invoice || value.ton)) {
-        items.push({ code: key.slice(5), time: value.time, invoice: value.invoice || null, ton: value.ton || null });
+      if (now - (value.time || 0) < PENDING_DAYS * 86400000 && (value.invoice || value.rocket || value.ton)) {
+        items.push({ code: key.slice(5), time: value.time, invoice: value.invoice || null, rocket: value.rocket || null, ton: value.ton || null });
       }
     }
     return Response.json({ items: items.slice(-200) });
@@ -454,7 +575,7 @@ export async function badgeStorage(storage, request, url, now) {
   if (request.method === 'GET' && url.pathname.startsWith('/badge-pending-get/')) {
     const code = url.pathname.split('/')[2];
     const pending = /^[A-Z0-9]{6}$/.test(code || '') ? await storage.get('breq:' + code) : null;
-    return pending ? Response.json({ time: pending.time, invoice: pending.invoice || null, ton: pending.ton || null }) : new Response('not found\n', { status: 404 });
+    return pending ? Response.json({ time: pending.time, invoice: pending.invoice || null, rocket: pending.rocket || null, ton: pending.ton || null }) : new Response('not found\n', { status: 404 });
   }
   if (request.method !== 'POST' || !url.pathname.startsWith('/badge-')) {
     return null;
@@ -501,7 +622,7 @@ export async function badgeStorage(storage, request, url, now) {
       return new Response('not found\n', { status: 404 });
     }
     if (url.pathname.startsWith('/badge-pay/')) {
-      for (const field of ['checked', 'invoice', 'ton']) {
+      for (const field of ['checked', 'invoice', 'rocket', 'ton']) {
         if (field in input) {
           pending[field] = input[field];
         }
@@ -529,7 +650,7 @@ export async function badgeStorage(storage, request, url, now) {
     const code = await storage.get('bpend:' + input.id);
     const pending = code ? await storage.get('breq:' + code) : null;
     const mine = pending && pending.lock === input.lock;
-    return Response.json({ granted: false, code: mine ? code : '', pending: mine ? { time: pending.time, checked: pending.checked || 0, invoice: pending.invoice || null, ton: pending.ton || null } : null, taken: Boolean(supporter) });
+    return Response.json({ granted: false, code: mine ? code : '', pending: mine ? { time: pending.time, checked: pending.checked || 0, invoice: pending.invoice || null, rocket: pending.rocket || null, ton: pending.ton || null } : null, taken: Boolean(supporter) });
   }
   if (url.pathname === '/badge-request') {
     if (supporter && (supporter.lock === input.lock || !supporter.lock)) {

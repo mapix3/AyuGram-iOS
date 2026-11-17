@@ -7,7 +7,7 @@
 // the title and text to Bark, which shows the notification.
 
 import { GUIDE, GUIDE_VERSION } from './guide.js';
-import { handleBadges, handleCryptoPayHook, checkBadgePayments } from './badges.js';
+import { handleBadges, handleCryptoPayHook, handleRocketHook, checkBadgePayments } from './badges.js';
 import { handleStats } from './stats.js';
 import { handleBot } from './bot.js';
 
@@ -1054,6 +1054,9 @@ export default {
     }
     if (url.pathname === '/pay/cryptobot') {
       return handleCryptoPayHook(request, env);
+    }
+    if (url.pathname === '/pay/xrocket') {
+      return handleRocketHook(request, env);
     }
     if (url.pathname.startsWith('/stats/')) {
       return handleStats(request, env, url, ctx);

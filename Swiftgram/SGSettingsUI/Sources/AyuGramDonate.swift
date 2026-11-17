@@ -36,7 +36,12 @@ private func ayuGramDonateMethods(locale: String, badge: Bool, payment: AyuGramB
         } else {
             wallet = AyuGramDonateMethod(title: i18n("Ayu.DonateWallet", locale), subtitle: i18n("Ayu.DonateWalletInfo", locale), payload: "ton://transfer/" + ayuGramDonateWallet, openUrl: "https://app.tonkeeper.com/transfer/" + ayuGramDonateWallet, copyText: ayuGramDonateWallet, iconName: nil, external: true)
         }
-        let rocket = AyuGramDonateMethod(title: "xRocket", subtitle: i18n(payment == nil ? "Ayu.DonateBotInfo" : "Ayu.SupporterRocketManual", locale), payload: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", openUrl: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", copyText: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", iconName: "AyuDonateRocket", external: false)
+        let rocket: AyuGramDonateMethod
+        if let payment, !payment.xRocket.isEmpty {
+            rocket = AyuGramDonateMethod(title: "xRocket", subtitle: i18n("Ayu.SupporterBotAuto", locale), payload: payment.xRocket, openUrl: payment.xRocket, copyText: payment.xRocket, iconName: "AyuDonateRocket", external: false)
+        } else {
+            rocket = AyuGramDonateMethod(title: "xRocket", subtitle: i18n(payment == nil ? "Ayu.DonateBotInfo" : "Ayu.SupporterRocketManual", locale), payload: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", openUrl: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", copyText: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", iconName: "AyuDonateRocket", external: false)
+        }
         return [bot, wallet, rocket]
     }
     return [

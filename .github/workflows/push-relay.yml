@@ -32,6 +32,7 @@ jobs:
           MODERATION_KEY: ${{ secrets.MODERATION_KEY }}
           CRYPTOPAY_TOKEN: ${{ secrets.CRYPTOPAY_TOKEN }}
           TONCENTER_KEY: ${{ secrets.TONCENTER_KEY }}
+          XROCKET_TOKEN: ${{ secrets.XROCKET_TOKEN }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "::error::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to the repository secrets"
@@ -59,6 +60,9 @@ jobs:
           fi
           if [ -n "$TONCENTER_KEY" ]; then
             printf '%s' "$TONCENTER_KEY" | npx --yes wrangler@4.26.0 secret put TONCENTER_KEY
+          fi
+          if [ -n "$XROCKET_TOKEN" ]; then
+            printf '%s' "$XROCKET_TOKEN" | npx --yes wrangler@4.26.0 secret put XROCKET_TOKEN
           fi
 
       - name: Connect the scam report bot

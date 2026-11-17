@@ -662,6 +662,7 @@ async function testBadgePayments() {
   const invoices = new Map();
   let nextInvoice = 70;
   let tonList = [];
+  const rocketInvoices = new Map();
   const owner = [];
   const real = globalThis.fetch;
   const realNow = Date.now;
@@ -687,6 +688,17 @@ async function testBadgePayments() {
       if (method === 'getExchangeRates') {
         return Response.json({ ok: true, result: [{ is_valid: true, source: 'TON', target: 'USD', rate: '2.5' }] });
       }
+    }
+    if (link.startsWith('https://pay.xrocket.tg/')) {
+      assert.equal(init.headers['Rocket-Pay-Key'], 'rocket-test');
+      if (init.method === 'POST' && link === 'https://pay.xrocket.tg/tg-invoices') {
+        assert.deepEqual([body.amount, body.currency, body.numPayments], [3, 'USDT', 1]);
+        const invoice = { id: 900 + rocketInvoices.size, amount: body.amount, currency: body.currency, payload: body.payload, status: 'active', link: 'https://t.me/xrocket?start=inv_test' + rocketInvoices.size };
+        rocketInvoices.set(String(invoice.id), invoice);
+        return Response.json({ success: true, data: invoice });
+      }
+      const invoice = rocketInvoices.get(link.split('/').pop());
+      return invoice ? Response.json({ success: true, data: invoice }) : Response.json({ success: false }, { status: 404 });
     }
     if (link.startsWith('https://toncenter.com/api/v2/getTransactions')) {
       assert.ok(link.includes('UQCvj3aWiCCzawOO5OeRM9C3Ts5n4hc1tep1ZZ7aBYG33Glp'));
@@ -753,11 +765,28 @@ async function testBadgePayments() {
     assert.equal(await checkBadgePayments(env), 1, 'The scheduled check grants a paid invoice when the app is closed');
     assert.deepEqual((await list()).sort(), ['600', '601', '602']);
     assert.equal(await checkBadgePayments(env), 0, 'Nothing is left to check');
+    const rocketEnv = { ...env, XROCKET_TOKEN: 'rocket-test' };
+    const rocketPost = (path, body) => worker.fetch(new Request('https://relay.example' + path, { method: 'POST', body: JSON.stringify(body) }), rocketEnv);
+    const rocketSecret = 'g'.repeat(32);
+    const rocket = await (await rocketPost('/badges/request', { id: '604', secret: rocketSecret, name: 'Rocket' })).json();
+    assert.ok(rocket.pay.xrocket.startsWith('https://t.me/xrocket?start=inv_test'), 'A request gets its own xRocket invoice');
+    const rocketInvoice = [...rocketInvoices.values()].find((item) => item.payload === rocket.code);
+    const rocketHook = () => worker.fetch(new Request('https://relay.example/pay/xrocket', { method: 'POST', body: JSON.stringify({ type: 'invoicePay', data: { id: rocketInvoice.id, payload: rocket.code, status: 'paid' } }) }), rocketEnv);
+    assert.equal((await rocketHook()).status, 200);
+    assert.ok(!(await list()).includes('604'), 'A webhook alone grants nothing while the invoice is unpaid');
+    rocketInvoice.status = 'paid';
+    assert.equal((await rocketHook()).status, 200);
+    assert.ok((await list()).includes('604'), 'A paid xRocket invoice grants the badge');
+    assert.ok(owner.at(-1).text.includes('xRocket') && owner.at(-1).text.includes('3 USDT'));
+    const rocketCron = await (await rocketPost('/badges/request', { id: '605', secret: 'h'.repeat(32) })).json();
+    [...rocketInvoices.values()].find((item) => item.payload === rocketCron.code).activatedCount = 1;
+    assert.equal(await checkBadgePayments(rocketEnv), 1, 'The scheduled check finds paid xRocket invoices too');
     shift += 10000;
     const tonOnly = { ...env, CRYPTOPAY_TOKEN: '' };
     const plain = await (await worker.fetch(new Request('https://relay.example/badges/request', { method: 'POST', body: JSON.stringify({ id: '603', secret: 'f'.repeat(32) }) }), tonOnly)).json();
     assert.equal(plain.pay.cryptobot, '', 'Without a Crypto Pay token there is no invoice');
-    console.log('push relay: supporter badges unlock by themselves after Crypto Bot and TON payments');
+    assert.equal(plain.pay.xrocket, '', 'and without an xRocket token no xRocket invoice');
+    console.log('push relay: supporter badges unlock by themselves after Crypto Bot, xRocket and TON payments');
   } finally {
     globalThis.fetch = real;
     Date.now = realNow;

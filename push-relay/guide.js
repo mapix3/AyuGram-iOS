@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 4;
+export const GUIDE_VERSION = 5;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -21,7 +21,7 @@ Import chat: AyuGram > Chat import (ZIP or TXT from WhatsApp, LINE, KakaoTalk or
 
 AI: AyuGram > AI. AI assistant (also the sparkles button in the chat list), Search engine, Assistant button in the chat list, AI hints in chats, AI provider (AyuGram free, Pollinations, Groq, Google Gemini, OpenRouter), API key and model for the chosen provider. Gemini switches to another model by itself when one is overloaded, and questions that need the internet go through the AyuGram provider. Answer language and Personalization (tell the assistant about yourself and how to answer) are in the same section. The assistant has chats on the left (the sidebar button at the top right), history is saved.
 
-Supporter badge: AyuGram > Client > Supporter badge, above Local Premium. For a $3 donation you get your own badge next to your name that every AyuGram user sees on any build: tap "Support", the app gets a personal Crypto Bot invoice and a TON amount with a code; Crypto Bot and TON wallet payments are confirmed automatically within a minute (even with the app closed), xRocket payments need the code in the comment and are checked by the developer by hand; then a badge editor opens there (icon or emoji, shape, color). Tapping a badge in a profile shows what it means.
+Supporter badge: AyuGram > Client > Supporter badge, above Local Premium. For a $3 donation you get your own badge next to your name that every AyuGram user sees on any build: tap "Support", the app gets personal Crypto Bot and xRocket invoices and a TON amount with a code for the comment; all three are confirmed automatically within a couple of minutes (even with the app closed); then a badge editor opens there (icon or emoji, shape, color). Tapping a badge in a profile shows what it means.
 Client: Local Premium (premium features shown locally), Disable Liquid Glass (flat panels, needs an app restart).
 Security: Report a scam (with screenshots or videos), Anonymous stats.
 Support: AyuGram channel, developer, AyuGram log, Check for updates. Donate is at the very bottom of AyuGram (Crypto Bot, xRocket, TON wallet with QR codes).
