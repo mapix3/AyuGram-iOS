@@ -18,6 +18,7 @@ import AnimatedStickerNode
 import TelegramAnimatedStickerNode
 import HierarchyTrackingLayer
 import EdgeEffect
+import AyuGramEffects
 
 private let motionAmount: CGFloat = 32.0
 
@@ -1186,6 +1187,8 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
     private var NYNode: WallpaperNYNode?
     //
 
+    private var ayuEffects: AyuGramWallpaperEffectsController?
+
     private var imageContentMode: UIView.ContentMode {
         didSet {
             self.contentNode.contentMode = self.imageContentMode
@@ -1261,6 +1264,36 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
         self.layer.addSublayer(self.patternImageLayer)
         
         self.layer.addSublayer(self.dimLayer)
+
+        self.ayuEffects = AyuGramWallpaperEffectsController(livePatternBlendUpdated: { [weak self] in
+            guard let self, case let .file(file) = self.wallpaper, file.isPattern else {
+                return
+            }
+            self.updatePatternPresentation()
+            if !(self.ayuEffects?.needsLivePatternBlend ?? false), let image = self.patternImageLayer.patternContentImage {
+                self.patternImageLayer.patternContentImage = nil
+                self.patternImageLayer.patternContentImage = image
+            }
+        })
+    }
+
+    private func ayuUpdateEffects() {
+        guard let ayuEffects = self.ayuEffects else {
+            return
+        }
+        var colors: [UInt32] = []
+        if let gradientBackgroundNode = self.gradientBackgroundNode, gradientBackgroundNode.isNodeLoaded {
+            switch self.wallpaper {
+            case let .gradient(gradient):
+                colors = gradient.colors
+            case let .file(file) where file.isPattern:
+                colors = file.settings.colors
+            default:
+                break
+            }
+        }
+        let gradientBackgroundNode = colors.isEmpty ? nil : self.gradientBackgroundNode
+        ayuEffects.update(hostView: self.view, gradientView: gradientBackgroundNode?.view, gradientContentView: gradientBackgroundNode?.contentView, patternLayer: gradientBackgroundNode == nil ? nil : self.patternImageLayer, colors: colors, size: self.validLayout?.0 ?? CGSize())
     }
 
     deinit {
@@ -1482,6 +1515,7 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
         }
         self.updateBubbles()
         self.updateDimming()
+        self.ayuUpdateEffects()
         
         for edgeEffectNode in self.edgeEffectNodes {
             if let edgeEffectNode = edgeEffectNode.value {
@@ -1520,7 +1554,7 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
                     self.patternImageLayer.softlightMode = .never
                 } else {
                     if self.useSharedAnimationPhase && file.settings.colors.count > 2 {
-                        self.patternImageLayer.softlightMode = .whileAnimating
+                        self.patternImageLayer.softlightMode = (self.ayuEffects?.needsLivePatternBlend ?? false) ? .always : .whileAnimating
                     } else {
                         self.patternImageLayer.softlightMode = .always
                     }
@@ -1868,6 +1902,7 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
             /* MARK: Swiftgram */ if SGSimpleSettings.shared.isNYEnabled && self.NYNode == nil { let nYNode = WallpaperNYNode(); self.addSubnode(nYNode); self.NYNode = nYNode }
         }
         /* MARK: Swiftgram */ self.NYNode?.frame = CGRect(origin: CGPoint(), size: size); self.NYNode?.updateLayout(size: size)
+        self.ayuUpdateEffects()
     }
 
     private var isAnimating = false

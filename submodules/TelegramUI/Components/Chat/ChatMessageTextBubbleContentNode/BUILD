@@ -40,6 +40,7 @@ swift_library(
         "//submodules/TelegramUI/Components/InteractiveTextComponent",
         "//submodules/TelegramUI/Components/ShimmeringMask",
         "//submodules/TelegramUI/Components/StreamingTextReveal:StreamingTextReveal",
+        "//Swiftgram/AyuGramEffects:AyuGramEffects",
     ],
     visibility = [
         "//visibility:public",

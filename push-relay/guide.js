@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 5;
+export const GUIDE_VERSION = 6;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -25,6 +25,12 @@ Supporter badge: AyuGram > Client > Supporter badge, above Local Premium. For a 
 Client: Local Premium (premium features shown locally), Disable Liquid Glass (flat panels, needs an app restart).
 Security: Report a scam (with screenshots or videos), Anonymous stats.
 Support: AyuGram channel, developer, AyuGram log, Check for updates. Donate is at the very bottom of AyuGram (Crypto Bot, xRocket, TON wallet with QR codes).
+
+Visual effects: Telegram Settings > Appearance > Effects, also AyuGram > Client > Effects (and in the custom build at the bottom of AyuGram > Client > Appearance). A master switch turns all of them off at once; they pause by themselves with Reduce Motion or Low Power Mode.
+- Chat background: particles over the wallpaper (snow, stars, fireflies, petals, bubbles) with density and speed sliders and "React to touch"; Aurora gradient (more drifting colours on gradient wallpapers); Grain slider (film grain on gradient wallpapers); Deep parallax (gradient and pattern move at different depths when you tilt the phone); Water ripple (tap or drag on empty background).
+- Bubbles: Glow around your own bubbles; Glass bubbles (translucent, the wallpaper shows through).
+- Animations: Delete style (standard, dust, burn, shatter, implode); Send style (standard, spring, sparkles, warp; sparkles and warp only for messages from the text field); Incoming text reveal (new incoming messages appear word by word).
+- Interface: Avatar rings (rotating gradient ring around avatars of people who are online, in the chat list).
 
 Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode. At the bottom of Appearance, "Font and badge": Font (system styles: rounded, serif, monospaced; iOS fonts like Avenir Next, Futura, Georgia; or import your own .ttf/.otf; applies after restarting the app) and App badge (the AYUGRAM pill under the Dynamic Island: your own text, picture and colors).
 

@@ -30,6 +30,7 @@ import MultilineTextComponent
 import MultilineTextWithEntitiesComponent
 import ShimmerEffect
 import GlassBackgroundComponent
+import AyuGramEffects
 
 public enum ChatListItemContent {
     public final class ThreadInfo: Equatable {
@@ -1572,6 +1573,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
     private var customAnimationInProgress: Bool = false
     
     private var onlineIsVoiceChat: Bool = false
+    private var ayuRingNode: AyuGramAvatarRingNode?
     private var currentOnline: Bool?
     
     /// State the row shows only as icons (pin, muted bell), read out after the title.
@@ -4730,6 +4732,21 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                         onlineFrame = CGRect(origin: CGPoint(x: avatarFrame.width - onlineLayout.width - 2.0, y: avatarFrame.height - onlineLayout.height - 2.0), size: onlineLayout)
                     }
                     transition.updateFrame(node: strongSelf.onlineNode, frame: onlineFrame)
+                    if online && !onlineIsVoiceChat && item.interaction.inlineNavigationLocation == nil && AyuGramAvatarRingNode.isEnabled {
+                        let ringNode: AyuGramAvatarRingNode
+                        if let current = strongSelf.ayuRingNode {
+                            ringNode = current
+                        } else {
+                            ringNode = AyuGramAvatarRingNode()
+                            strongSelf.ayuRingNode = ringNode
+                            strongSelf.avatarContainerNode.insertSubnode(ringNode, belowSubnode: strongSelf.avatarNode)
+                        }
+                        let ringFrame = CGRect(origin: CGPoint(), size: avatarFrame.size).insetBy(dx: -3.5, dy: -3.5)
+                        ringNode.frame = ringFrame
+                        ringNode.update(size: ringFrame.size, lineWidth: 2.0, accentColor: item.presentationData.theme.list.itemAccentColor, isOnline: true)
+                    } else if let ringNode = strongSelf.ayuRingNode {
+                        ringNode.update(size: ringNode.bounds.size, lineWidth: 2.0, accentColor: item.presentationData.theme.list.itemAccentColor, isOnline: false)
+                    }
                     
                     if let avatarLiveBadge = strongSelf.avatarLiveBadge, let iconImage = avatarLiveBadge.foreground.image, let outlineImage = avatarLiveBadge.outline.image {
                         let outlineInset = (outlineImage.size.height - iconImage.size.height) * 0.5

@@ -21,6 +21,9 @@ import ChatEmptyNode
 import ChatMediaInputStickerGridItem
 import AccountContext
 import ChatInputAccessoryPanel
+import TelegramPresentationData
+import ChatMessageItemView
+import AyuGramEffects
 
 /// The eased progress `animation` will be at when the frame this runloop turn is composing hits the
 /// screen — 0.0 for one that has not started yet.
@@ -318,6 +321,25 @@ private final class OverlayTransitionContainerController: ViewController, Standa
     }
 }
 
+private func ayuGramSendEffectColors(itemNode: ChatMessageItemNodeProtocol) -> (bubble: UIColor, accent: UIColor) {
+    let theme: PresentationTheme?
+    if let itemNode = itemNode as? ChatMessageBubbleItemNode {
+        theme = itemNode.item?.presentationData.theme.theme
+    } else if let itemNode = itemNode as? ChatMessageAnimatedStickerItemNode {
+        theme = itemNode.item?.presentationData.theme.theme
+    } else if let itemNode = itemNode as? ChatMessageStickerItemNode {
+        theme = itemNode.item?.presentationData.theme.theme
+    } else {
+        theme = nil
+    }
+    guard let theme else {
+        return (UIColor(rgb: 0x5ac8fa), .white)
+    }
+    let outgoing = theme.chat.message.outgoing
+    let bubble = outgoing.bubble.withWallpaper.fill.first ?? outgoing.accentControlColor
+    return (bubble, outgoing.accentControlColor)
+}
+
 private func chatMessageTransitionAnimationDuration(_ duration: Double) -> Double {
     #if DEBUG && false
     return 3.0
@@ -342,6 +364,9 @@ public final class ChatMessageTransitionNodeImpl: ASDisplayNode, ChatMessageTran
         public let verticalListCurve: ListViewAnimationCurve
         /// Whether a text message squashes to `scaleDipScale` and springs back on its way up.
         public let textScaleDip: Bool
+        public var textScaleDipScale: CGFloat = ChatMessageTransitionNodeImpl.scaleDipScale
+        public var textScaleDownCurve: ContainedViewLayoutTransitionCurve = ChatMessageTransitionNodeImpl.scaleDownAnimationCurve
+        public var textScaleUpCurve: ContainedViewLayoutTransitionCurve = ChatMessageTransitionNodeImpl.scaleUpAnimationCurve
 
         public static let bezier: AnimationParameters = {
             let duration = chatMessageTransitionAnimationDuration(0.3)
@@ -367,6 +392,21 @@ public final class ChatMessageTransitionNodeImpl: ASDisplayNode, ChatMessageTran
                 horizontalCurve: ChatMessageTransitionNodeImpl.horizontalSpring.curve,
                 verticalListCurve: ChatMessageTransitionNodeImpl.verticalSpring.listCurve(duration: duration),
                 textScaleDip: true
+            )
+        }()
+
+        public static let ayuGramSpring: AnimationParameters = {
+            let duration = chatMessageTransitionAnimationDuration(0.6)
+            let verticalSpring = SpringParameters(stiffness: 320.0, damping: 21.0)
+            return AnimationParameters(
+                duration: duration,
+                textHorizontalDuration: duration * 0.5,
+                verticalCurve: verticalSpring.curve,
+                horizontalCurve: ChatMessageTransitionNodeImpl.horizontalSpring.curve,
+                verticalListCurve: verticalSpring.listCurve(duration: duration),
+                textScaleDip: true,
+                textScaleDipScale: 0.88,
+                textScaleUpCurve: SpringParameters(stiffness: 420.0, damping: 15.0).curve
             )
         }()
     }
@@ -799,11 +839,11 @@ public final class ChatMessageTransitionNodeImpl: ASDisplayNode, ChatMessageTran
                     let isLeftAligned = targetAbsoluteRect.midX < self.itemNode.bounds.width * 0.5
                     let scaleAnchor = CGPoint(x: contentRect.minX + (isLeftAligned ? 0.0 : contentRect.width), y: contentRect.maxY)
                     let scaleCenter = CGPoint(x: contentRect.width * 0.5, y: contentRect.height * 0.5)
-                    let scaleDip = 1.0 - ChatMessageTransitionNodeImpl.scaleDipScale
+                    let scaleDip = 1.0 - self.parameters.textScaleDipScale
                     let scaleDownDuration = verticalDuration * ChatMessageTransitionNodeImpl.scaleDipFraction
                     let scaleUpDuration = verticalDuration - scaleDownDuration
-                    let scaleDownCurve = ChatMessageTransitionNodeImpl.scaleDownAnimationCurve
-                    let scaleUpCurve = ChatMessageTransitionNodeImpl.scaleUpAnimationCurve
+                    let scaleDownCurve = self.parameters.textScaleDownCurve
+                    let scaleUpCurve = self.parameters.textScaleUpCurve
                     let anchorCompensation = CGPoint(x: (scaleAnchor.x - scaleCenter.x) * scaleDip, y: (scaleAnchor.y - scaleCenter.y) * scaleDip)
                     // All four animations keep their final values (`removeOnCompletion: false`) and are removed
                     // together once the last one completes. If Core Animation removed one phase on its own, the other
@@ -822,6 +862,25 @@ public final class ChatMessageTransitionNodeImpl: ASDisplayNode, ChatMessageTran
                             containerLayer.removeAnimation(forKey: key)
                         }
                     }, key: scaleAnimationKeys[3])
+                }
+
+                let ayuGramSendStyle = AyuGramSendAnimation.currentStyle
+                if ayuGramSendStyle == .sparkles || ayuGramSendStyle == .warp {
+                    let hostLayer = self.itemNode.layer
+                    let flight = AyuGramSendFlight(
+                        targetFrame: self.view.layer.convert(targetAbsoluteRect, to: hostLayer),
+                        startOffset: CGPoint(x: sourceAbsoluteRect.minX - targetAbsoluteRect.minX, y: sourceAbsoluteRect.maxY - targetAbsoluteRect.maxY),
+                        verticalDuration: verticalDuration,
+                        verticalCurve: verticalCurve,
+                        horizontalDuration: textHorizontalDuration,
+                        horizontalCurve: horizontalCurve
+                    )
+                    let colors = ayuGramSendEffectColors(itemNode: self.itemNode)
+                    if ayuGramSendStyle == .warp {
+                        AyuGramSendAnimation.addWarp(bubbleLayer: self.containerNode.layer, bubbleRect: self.contextSourceNode.contentRect, hostLayer: hostLayer, flight: flight, color: colors.bubble, accentColor: colors.accent)
+                    } else {
+                        AyuGramSendAnimation.addSparkles(hostLayer: hostLayer, flight: flight, color: colors.bubble, accentColor: colors.accent)
+                    }
                 }
 
 
@@ -1321,6 +1380,12 @@ public final class ChatMessageTransitionNodeImpl: ASDisplayNode, ChatMessageTran
     private let onTransitionEvent: (ContainedViewLayoutTransition) -> Void
     /// Timing of every send transition in this chat, and of the history scroll that accompanies it.
     let animationParameters: AnimationParameters
+    var currentAnimationParameters: AnimationParameters {
+        if case .spring = AyuGramSendAnimation.currentStyle {
+            return .ayuGramSpring
+        }
+        return self.animationParameters
+    }
 
     private var currentPendingItems: [Int64: (Source, () -> Void)] = [:]
 
@@ -1428,7 +1493,7 @@ public final class ChatMessageTransitionNodeImpl: ASDisplayNode, ChatMessageTran
         }
 
         if let contextSourceNode = contextSourceNode {
-            let animatingItemNode = AnimatingItemNode(itemNode: itemNode, contextSourceNode: contextSourceNode, source: source, parameters: self.animationParameters, overlayContainerNode: self.overlayContainerNode, getContentAreaInScreenSpace: self.getContentAreaInScreenSpace)
+            let animatingItemNode = AnimatingItemNode(itemNode: itemNode, contextSourceNode: contextSourceNode, source: source, parameters: self.currentAnimationParameters, overlayContainerNode: self.overlayContainerNode, getContentAreaInScreenSpace: self.getContentAreaInScreenSpace)
             animatingItemNode.updateLayout(size: self.bounds.size)
             
             self.animatingItemNodes.append(animatingItemNode)
@@ -1465,7 +1530,7 @@ public final class ChatMessageTransitionNodeImpl: ASDisplayNode, ChatMessageTran
 
             animatingItemNode.beginAnimation()
 
-            self.onTransitionEvent(.animated(duration: self.animationParameters.duration, curve: self.animationParameters.verticalCurve))
+            self.onTransitionEvent(.animated(duration: self.currentAnimationParameters.duration, curve: self.currentAnimationParameters.verticalCurve))
         }
     }
 

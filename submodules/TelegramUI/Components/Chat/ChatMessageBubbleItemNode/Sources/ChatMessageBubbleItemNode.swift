@@ -1271,6 +1271,12 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         }
         
         process(node: self)
+        
+        if let item = self.item, item.message.effectivelyIncoming(item.context.account.peerId) {
+            for case let contentNode as ChatMessageTextBubbleContentNode in self.contentNodes {
+                contentNode.ayuGramRevealIncomingText()
+            }
+        }
     }
     
     override public func animateRemoved(_ currentTimestamp: Double, duration: Double) {
@@ -4572,6 +4578,7 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         strongSelf.backgroundNode.setType(type: backgroundType, highlighted: false, graphics: graphics, maskMode: strongSelf.backgroundMaskMode, hasWallpaper: hasWallpaper, transition: legacyTransition, backgroundNode: presentationContext.backgroundNode)
         strongSelf.backgroundWallpaperNode.setType(type: backgroundType, theme: item.presentationData.theme, essentialGraphics: graphics, maskMode: strongSelf.backgroundMaskMode, backgroundNode: presentationContext.backgroundNode)
         strongSelf.shadowNode.setType(type: backgroundType, hasWallpaper: hasWallpaper, graphics: graphics)
+        strongSelf.backgroundNode.updateAyuGramEffects(theme: item.presentationData.theme.theme)
         
         strongSelf.backgroundType = backgroundType
         

@@ -42,6 +42,7 @@ apple_resource_bundle(
 
 sgdeps = [
     "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+    "//Swiftgram/AyuGramEffects:AyuGramEffects",
 ]
 
 sgsrcs = [

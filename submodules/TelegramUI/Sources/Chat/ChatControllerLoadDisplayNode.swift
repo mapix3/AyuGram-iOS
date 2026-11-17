@@ -927,7 +927,7 @@ extension ChatControllerImpl {
                         isScheduledMessages = false
                     }
                     let hasScheduledTransitions = strongSelf.chatDisplayNode.messageTransitionNode.hasScheduledTransitions
-                    let sendAnimationParameters = strongSelf.chatDisplayNode.messageTransitionNode.animationParameters
+                    let sendAnimationParameters = strongSelf.chatDisplayNode.messageTransitionNode.currentAnimationParameters
                     let duration: Double = hasScheduledTransitions ? sendAnimationParameters.duration : 0.18
                     let curve: ContainedViewLayoutTransitionCurve = hasScheduledTransitions ? sendAnimationParameters.verticalCurve : .easeInOut
                     // The list scrolls on the bubble's own vertical curve, or the new bubble drifts against its neighbours.

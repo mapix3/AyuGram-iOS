@@ -17,6 +17,7 @@ swift_library(
     	"//submodules/TelegramPresentationData:TelegramPresentationData",
     	"//submodules/WallpaperBackgroundNode:WallpaperBackgroundNode",
     	"//submodules/AppBundle:AppBundle",
+        "//Swiftgram/AyuGramEffects:AyuGramEffects",
     ],
     visibility = [
         "//visibility:public",

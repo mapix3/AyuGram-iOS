@@ -26,7 +26,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, supporter
+    case history, appearance, effects, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, supporter
 }
 
 private enum AyuScreenTint: Equatable {
@@ -190,6 +190,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.header(id: 600, section: .client, text: s("Ayu.ClientSection")))
     entries.append(.link(id: 605, section: .client, link: .supporter, symbol: "heart.circle.fill", tint: .red, title: s("Ayu.SupporterBadge"), label: ""))
     entries.append(.toggle(id: 610, section: .client, key: .premium, symbol: "star.fill", tint: .purple, title: s("Ayu.LocalPremium"), subtitle: s("Ayu.LocalPremiumInfo"), value: client.localPremium, enabled: true))
+    entries.append(.link(id: 615, section: .client, link: .effects, symbol: "sparkles", tint: .purple, title: s("Ayu.Effects.Title"), label: ""))
     if hasAppearance {
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
         entries.append(.toggle(id: 630, section: .client, key: .disableLiquidGlass, symbol: "drop.fill", tint: .teal, title: s("Ayu.DisableLiquidGlass"), subtitle: s("Ayu.DisableLiquidGlassInfo"), value: extra.disableLiquidGlass, enabled: true))
@@ -279,6 +280,8 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             if let controller = ayuGramAppearanceEntryController(context: context) {
                 pushController?(controller)
             }
+        case .effects:
+            pushController?(ayuGramEffectsController(context: context))
         case .update:
             if let info = AyuGramUpdates.shared.availableUpdate {
                 presentController?(ayuGramUpdateAlert(context: context, info: info))

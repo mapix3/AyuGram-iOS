@@ -36,6 +36,7 @@ import ChatMessageBubbleItemNode
 import ChatMessageTransitionNode
 import ChatControllerInteraction
 import DustEffect
+import AyuGramEffects
 import UrlHandling
 import TextFormat
 import ChatNewThreadInfoItem
@@ -807,6 +808,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
     
     private var allowDustEffect: Bool = true
     private var dustEffectLayer: DustEffectLayer?
+    private var ayuDeleteEffectLayer: AyuGramDeleteEffectLayer?
     
     var frozenMessageForScrollingReset: EngineMessage.Id?
     
@@ -4324,7 +4326,9 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         self.currentDeleteAnimationCorrelationIds.formUnion(expiredMessageStableIds)
         
         var appliedDeleteAnimationCorrelationIds = Set<UInt32>()
-        if !self.currentDeleteAnimationCorrelationIds.isEmpty && self.allowDustEffect {
+        let ayuDeleteStyle = AyuGramDeleteEffect.currentStyle
+        let ayuUsesCustomDeleteLayer = AyuGramDeleteEffect.usesCustomLayer(ayuDeleteStyle)
+        if !self.currentDeleteAnimationCorrelationIds.isEmpty && (self.allowDustEffect || ayuDeleteStyle != .standard) {
             var foundItemNodes: [ChatMessageItemView] = []
             self.forEachItemNode { itemNode in
                 if let itemNode = itemNode as? ChatMessageItemView, let item = itemNode.item {
@@ -4344,7 +4348,9 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                 }
             }
             if !foundItemNodes.isEmpty && foundItemNodes.allSatisfy({ $0.bounds.height <= 1800.0 }) {
-                if self.dustEffectLayer == nil {
+                if ayuUsesCustomDeleteLayer {
+                    self.ayuApplyDeleteEffect(itemNodes: foundItemNodes, style: ayuDeleteStyle)
+                } else if self.dustEffectLayer == nil {
                     let dustEffectLayer = DustEffectLayer()
                     dustEffectLayer.position = self.bounds.center
                     dustEffectLayer.bounds = CGRect(origin: CGPoint(), size: self.bounds.size)
@@ -4362,7 +4368,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                         self.dustEffectLayer = nil
                     }
                 }
-                if let dustEffectLayer = self.dustEffectLayer {
+                if !ayuUsesCustomDeleteLayer, let dustEffectLayer = self.dustEffectLayer {
                     for itemNode in foundItemNodes {
                         guard let (image, subFrame) = itemNode.makeContentSnapshot() else {
                             continue
@@ -5819,4 +5825,43 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         self.listView.scrollGestureHostView.addGestureRecognizer(recognizer)
     }
 
+}
+
+private extension ChatHistoryListNodeImpl {
+    func ayuApplyDeleteEffect(itemNodes: [ChatMessageItemView], style: AyuGramEffectsSettings.DeleteStyle) {
+        let effectLayer: AyuGramDeleteEffectLayer
+        if let current = self.ayuDeleteEffectLayer {
+            effectLayer = current
+        } else {
+            effectLayer = AyuGramDeleteEffectLayer()
+            effectLayer.position = self.bounds.center
+            effectLayer.bounds = CGRect(origin: CGPoint(), size: self.bounds.size)
+            effectLayer.zPosition = 10.0
+            if self.rotated {
+                effectLayer.transform = CATransform3DMakeRotation(CGFloat(Double.pi), 0.0, 0.0, 1.0)
+            }
+            self.layer.addSublayer(effectLayer)
+            effectLayer.becameEmpty = { [weak self] in
+                guard let self else {
+                    return
+                }
+                self.ayuDeleteEffectLayer?.removeFromSuperlayer()
+                self.ayuDeleteEffectLayer = nil
+            }
+            self.ayuDeleteEffectLayer = effectLayer
+        }
+        for itemNode in itemNodes {
+            guard let (image, subFrame) = itemNode.makeContentSnapshot() else {
+                continue
+            }
+            let itemFrame = itemNode.layer.convert(subFrame, to: effectLayer)
+            if effectLayer.addItem(frame: itemFrame, image: image, style: style) {
+                itemNode.isHidden = true
+            }
+        }
+        if !effectLayer.hasActiveItems {
+            effectLayer.removeFromSuperlayer()
+            self.ayuDeleteEffectLayer = nil
+        }
+    }
 }

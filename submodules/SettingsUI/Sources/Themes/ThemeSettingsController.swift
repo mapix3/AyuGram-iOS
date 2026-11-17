@@ -14,6 +14,7 @@ import PresentationDataUtils
 import MediaResources
 import WallpaperResources
 import SGStrings
+import SGSettingsUI
 
 import AccountContext
 import ContextUI
@@ -41,6 +42,7 @@ private final class ThemeSettingsControllerArguments {
     let openBubbleSettings: () -> Void
     let openPowerSavingSettings: () -> Void
     let openStickersAndEmoji: () -> Void
+    let openAyuEffects: () -> Void
     let toggleSendWithCmdEnter: (Bool) -> Void
     let toggleShowNextMediaOnTap: (Bool) -> Void
     let selectAppIcon: (PresentationAppIcon) -> Void
@@ -63,6 +65,7 @@ private final class ThemeSettingsControllerArguments {
         openBubbleSettings: @escaping () -> Void,
         openPowerSavingSettings: @escaping () -> Void,
         openStickersAndEmoji: @escaping () -> Void,
+        openAyuEffects: @escaping () -> Void,
         toggleSendWithCmdEnter: @escaping (Bool) -> Void,
         toggleShowNextMediaOnTap: @escaping (Bool) -> Void,
         selectAppIcon: @escaping (PresentationAppIcon) -> Void,
@@ -84,6 +87,7 @@ private final class ThemeSettingsControllerArguments {
         self.openBubbleSettings = openBubbleSettings
         self.openPowerSavingSettings = openPowerSavingSettings
         self.openStickersAndEmoji = openStickersAndEmoji
+        self.openAyuEffects = openAyuEffects
         self.toggleSendWithCmdEnter = toggleSendWithCmdEnter
         self.toggleShowNextMediaOnTap = toggleShowNextMediaOnTap
         self.selectAppIcon = selectAppIcon
@@ -132,6 +136,7 @@ private enum ThemeSettingsControllerEntry: ItemListNodeEntry {
     case chatTheme(PresentationTheme, String)
     case wallpaper(PresentationTheme, String)
     case nameColor(PresentationTheme, String, String, PeerNameColors.Colors?, PeerNameColors.Colors?)
+    case ayuEffects(PresentationTheme, String)
     case bubbleMode(PresentationTheme, String, Bool)
     case autoNight(PresentationTheme, String, Bool, Bool)
     case autoNightTheme(PresentationTheme, String, String)
@@ -148,7 +153,7 @@ private enum ThemeSettingsControllerEntry: ItemListNodeEntry {
     
     var section: ItemListSectionId {
         switch self {
-        case .themeListHeader, .chatPreview, .themes, .chatTheme, .wallpaper, .nameColor:
+        case .themeListHeader, .chatPreview, .themes, .chatTheme, .wallpaper, .nameColor, .ayuEffects:
                 return ThemeSettingsControllerSection.chatPreview.rawValue
             case .bubbleMode, .autoNight, .autoNightTheme:
                 return ThemeSettingsControllerSection.nightMode.rawValue
@@ -177,32 +182,34 @@ private enum ThemeSettingsControllerEntry: ItemListNodeEntry {
             return 4
         case .nameColor:
             return 5
-        case .bubbleMode:
+        case .ayuEffects:
             return 6
-        case .autoNight:
+        case .bubbleMode:
             return 7
-        case .autoNightTheme:
+        case .autoNight:
             return 8
-        case .textSize:
+        case .autoNightTheme:
             return 9
-        case .bubbleSettings:
+        case .textSize:
             return 10
-        case .powerSaving:
+        case .bubbleSettings:
             return 11
-        case .stickersAndEmoji:
+        case .powerSaving:
             return 12
-        case .iconHeader:
+        case .stickersAndEmoji:
             return 13
-        case .iconItem:
+        case .iconHeader:
             return 14
-        case .otherHeader:
+        case .iconItem:
             return 15
-        case .sendWithCmdEnter:
+        case .otherHeader:
             return 16
-        case .showNextMediaOnTap:
+        case .sendWithCmdEnter:
             return 17
-        case .showNextMediaOnTapInfo:
+        case .showNextMediaOnTap:
             return 18
+        case .showNextMediaOnTapInfo:
+            return 19
         }
     }
     
@@ -286,6 +293,12 @@ private enum ThemeSettingsControllerEntry: ItemListNodeEntry {
                 } else {
                     return false
                 }
+            case let .ayuEffects(lhsTheme, lhsText):
+                if case let .ayuEffects(rhsTheme, rhsText) = rhs, lhsTheme === rhsTheme, lhsText == rhsText {
+                    return true
+                } else {
+                    return false
+                }
             case .powerSaving:
                 if case .powerSaving = rhs {
                     return true
@@ -363,6 +376,10 @@ private enum ThemeSettingsControllerEntry: ItemListNodeEntry {
             
                 return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: "", labelStyle: .image(image: colorImage, size: colorImage.size), sectionId: self.section, style: .blocks, action: {
                     arguments.openNameColorSettings()
+                })
+            case let .ayuEffects(_, text):
+                return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: text, label: "", sectionId: self.section, style: .blocks, action: {
+                    arguments.openAyuEffects()
                 })
             case let .bubbleMode(_, title, value):
                 return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, sectionId: self.section, style: .blocks, updated: { value in
@@ -471,6 +488,7 @@ private func themeSettingsControllerEntries(
     }
     let profileColors = profileColor.flatMap { nameColors.getProfile($0, dark: presentationData.theme.overallDarkAppearance, subject: .palette) }
     entries.append(.nameColor(presentationData.theme, presentationData.strings.Settings_YourColor, accountPeer?.compactDisplayTitle ?? "", colors, profileColors))
+    entries.append(.ayuEffects(presentationData.theme, i18n("Ayu.Effects.Title", presentationData.strings.baseLanguageCode)))
     
     if showsBubbleModeSwitch {
         entries.append(.bubbleMode(presentationData.theme, strings.Appearance_BubbleMode, bubbleMode))
@@ -643,6 +661,8 @@ public func themeSettingsController(context: AccountContext, focusOnItemTag: The
             pushControllerImpl?(installedStickerPacksController(context: context, mode: .general, archivedPacks: archivedStickerPacks, updatedPacks: { _ in
             }))
         })
+    }, openAyuEffects: {
+        pushControllerImpl?(ayuGramEffectsController(context: context))
     }, toggleSendWithCmdEnter: { value in
         let _ = updateChatSettingsInteractively(accountManager: context.sharedContext.accountManager, { current in
             return current.withUpdatedSendWithCmdEnter(value)
