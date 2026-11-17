@@ -542,6 +542,12 @@ export async function paymentHealth(env) {
         const response = await fetch((env.XROCKET_API || 'https://pay.xrocket.tg') + '/app/info', { headers: { accept: 'application/json', 'Rocket-Pay-Key': rocketToken(env) }, signal: AbortSignal.timeout(10000) });
         const text = (await response.text()).split(rocketToken(env)).join('***');
         result.xrocket.error = response.status + ' ' + text.replace(/\s+/g, ' ').slice(0, 300);
+        const token = rocketToken(env);
+        const hook = env.XROCKET_WEBHOOK_TOKEN ? String(env.XROCKET_WEBHOOK_TOKEN).replace(/[\s"']/g, '') : '';
+        const raw = String(env.XROCKET_TOKEN);
+        result.xrocket.shape = { length: token.length, rawLength: raw.length, sameAsWebhook: Boolean(hook) && hook === token, kinds: [/[a-z]/.test(token) ? 'a' : '', /[A-Z]/.test(token) ? 'A' : '', /[0-9]/.test(token) ? '0' : '', /[^A-Za-z0-9]/.test(token) ? '#' : ''].join('') };
+        const dev = await fetch('https://dev-pay.ton-rocket.com/app/info', { headers: { accept: 'application/json', 'Rocket-Pay-Key': token }, signal: AbortSignal.timeout(10000) }).catch(() => null);
+        result.xrocket.testnet = dev ? dev.status : 0;
       } catch (error) {
         result.xrocket.error = String(error).slice(0, 200);
       }

@@ -125,6 +125,7 @@ jobs:
           print("TON: " + ("toncenter ok" if h["ton"].get("ok") else "toncenter failed") + ", rate $" + str(h["ton"].get("rate")) + ", quote " + str(h["ton"].get("quote")) + " TON" + (", keyed" if h["ton"].get("keyed") else ", no key"))
           if h["xrocket"].get("error"):
               print("xRocket answer: " + h["xrocket"]["error"])
+              print("xRocket key shape: " + json.dumps(h["xrocket"].get("shape")) + ", testnet status " + str(h["xrocket"].get("testnet")))
           print("Pending requests: " + str(h.get("pending")))
           for name in ("cryptobot", "xrocket"):
               if h[name].get("configured") and not h[name].get("ok"):
