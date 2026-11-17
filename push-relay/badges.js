@@ -1,4 +1,4 @@
-import { statsStub } from './stats.js';
+import { sameToken, statsStub } from './stats.js';
 
 export const BADGE_SYMBOLS = ['sparkles', 'star.fill', 'heart.fill', 'flame.fill', 'bolt.fill', 'crown.fill', 'moon.stars.fill', 'sun.max.fill', 'leaf.fill', 'pawprint.fill', 'gamecontroller.fill', 'music.note', 'airplane', 'eye.fill', 'theatermasks.fill', 'wand.and.stars', 'diamond.fill', 'shield.fill', 'checkmark.seal.fill', 'hare.fill', 'tortoise.fill', 'ant.fill', 'ladybug.fill', 'fish.fill', 'snowflake', 'drop.fill', 'cloud.fill', 'atom', 'infinity', 'hand.peace.fill'];
 
@@ -526,6 +526,50 @@ export async function checkBadgePayments(env) {
   return granted;
 }
 
+export async function paymentHealth(env) {
+  const result = { cryptobot: { configured: Boolean(cryptoToken(env)), ok: false, app: '' }, xrocket: { configured: Boolean(rocketToken(env)), webhookToken: Boolean(env && env.XROCKET_WEBHOOK_TOKEN), ok: false, app: '' }, ton: { wallet: walletOf(env), keyed: Boolean(env && env.TONCENTER_KEY), ok: false, rate: 0, quote: '' }, pending: 0, price: priceOf(env) };
+  if (result.cryptobot.configured) {
+    const me = await cryptoPay(env, 'getMe');
+    result.cryptobot.ok = Boolean(me && me.app_id);
+    result.cryptobot.app = me && typeof me.name === 'string' ? me.name.slice(0, 64) : '';
+  }
+  if (result.xrocket.configured) {
+    const info = await rocketPay(env, 'GET', '/app/info');
+    result.xrocket.ok = Boolean(info);
+    result.xrocket.app = info && typeof info.name === 'string' ? info.name.slice(0, 64) : '';
+  }
+  rateCache = { time: 0, rate: 0 };
+  tonCache = { time: 0, address: '', list: null };
+  result.ton.rate = await tonRate(env);
+  const nano = result.ton.rate > 0 ? await tonQuote(env) : '';
+  result.ton.quote = nano ? tonText(nano) : '';
+  try {
+    const headers = env && env.TONCENTER_KEY ? { 'X-API-Key': String(env.TONCENTER_KEY).trim() } : {};
+    const response = await fetch((env.TONCENTER_API || 'https://toncenter.com/api/v2/') + 'getTransactions?limit=1&address=' + encodeURIComponent(walletOf(env)), { headers, signal: AbortSignal.timeout(10000) });
+    const data = await response.json();
+    result.ton.ok = Boolean(data && data.ok && Array.isArray(data.result));
+  } catch (error) {
+    result.ton.ok = false;
+  }
+  const stub = statsStub(env);
+  if (stub) {
+    const response = await badgeCall(stub)('/badge-pending-list');
+    result.pending = response.ok ? ((await response.json()).items || []).length : 0;
+  }
+  return result;
+}
+
+export function paymentHealthText(health) {
+  const mark = (ok, configured) => (!configured ? '⚪️ не настроен' : ok ? '✅ работает' : '❌ токен не принят');
+  return [
+    '💳 Проверка оплаты бейджей ($' + health.price + ')',
+    'Crypto Bot: ' + mark(health.cryptobot.ok, health.cryptobot.configured) + (health.cryptobot.app ? ' · ' + health.cryptobot.app : ''),
+    'xRocket: ' + mark(health.xrocket.ok, health.xrocket.configured) + (health.xrocket.app ? ' · ' + health.xrocket.app : '') + (health.xrocket.configured ? (health.xrocket.webhookToken ? ' · токен вебхука есть' : ' · без токена вебхука') : ''),
+    'TON: ' + (health.ton.ok ? '✅ toncenter отвечает' : '❌ toncenter не ответил') + (health.ton.rate ? ' · курс $' + health.ton.rate + ' · к оплате ' + health.ton.quote + ' TON' : ' · курс не получен') + (health.ton.keyed ? ' · с ключом' : ' · без ключа'),
+    'Ожидают оплаты: ' + health.pending,
+  ].join('\n');
+}
+
 export async function handleBadges(request, env, url, ctx) {
   const stub = statsStub(env);
   if (!stub) {
@@ -536,6 +580,13 @@ export async function handleBadges(request, env, url, ctx) {
     const response = await call('/badge-list');
     const data = response.ok ? await response.json() : { items: [] };
     return new Response(JSON.stringify({ pay: env.BADGE_PAY_URL || DEFAULT_PAY, price: env.BADGE_PRICE || '3', items: data.items }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=120' } });
+  }
+  if (request.method === 'GET' && url.pathname === '/badges/health') {
+    const header = request.headers.get('authorization') || '';
+    if (!sameToken(header.startsWith('Bearer ') ? header.slice(7) : '', env.STATS_TOKEN)) {
+      return json({ error: 'forbidden' }, 403);
+    }
+    return json(await paymentHealth(env));
   }
   if (request.method !== 'POST') {
     return json({ error: 'not found' }, 404);

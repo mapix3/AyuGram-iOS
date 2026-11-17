@@ -1,3 +1,4 @@
+import { paymentHealth, paymentHealthText } from './badges.js';
 import { BAN_REASONS, COPY_REASONS, OFFICIAL_REPO, copyMenu, copyMessage, reasonLabel, reasonNote, reportMessage, statsStub } from './stats.js';
 
 const kyiv = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -430,6 +431,8 @@ export async function handleBot(request, env, ctx) {
     } else if (message && message.chat && String(message.chat.id) === owner && typeof message.text === 'string') {
       if (message.text.startsWith('/bans') || message.text.startsWith('/blocks')) {
         await sendBans(env, owner);
+      } else if (/^\/pay(\s|$|@)/.test(message.text)) {
+        await telegram(env, 'sendMessage', { chat_id: owner, text: paymentHealthText(await paymentHealth(env)) });
       } else if (/^\/(un)?badge(\s|$)/.test(message.text)) {
         const [command, raw] = message.text.trim().split(/\s+/);
         const id = String(raw || '').replace(/^ID/i, '');

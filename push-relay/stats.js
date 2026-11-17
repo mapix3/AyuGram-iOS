@@ -663,7 +663,7 @@ async function readBody(request) {
   }
 }
 
-function sameToken(a, b) {
+export function sameToken(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length || !a) {
     return false;
   }

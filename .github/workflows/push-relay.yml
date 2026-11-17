@@ -92,6 +92,39 @@ jobs:
           RESULT="$(curl -sS "$API/setWebhook" --data-urlencode "url=$HOOK_URL" --data-urlencode "secret_token=$HOOK_SECRET" \
             --data-urlencode 'allowed_updates=["message","callback_query"]' --data-urlencode "drop_pending_updates=true")"
           python3 -c 'import json,sys; d=json.loads(sys.argv[1]); sys.exit(0 if d.get("ok") else "setWebhook failed: " + str(d.get("description")))' "$RESULT"
-          curl -sS "$API/setMyCommands" --data-urlencode 'commands=[{"command":"bans","description":"Баны и блокировки со снятием"},{"command":"ban","description":"Забанить по ID: /ban 123456789"},{"command":"unban","description":"Разбанить по ID: /unban 123456789"}]' >/dev/null
+          curl -sS "$API/setMyCommands" --data-urlencode 'commands=[{"command":"bans","description":"Баны и блокировки со снятием"},{"command":"ban","description":"Забанить по ID: /ban 123456789"},{"command":"unban","description":"Разбанить по ID: /unban 123456789"},{"command":"pay","description":"Проверить оплату бейджей"}]' >/dev/null
           BOT="$(curl -sS "$API/getMe" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["username"])')"
           echo "Scam reports go to the owner from @$BOT; the bot answers nobody else." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Check badge payments
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          STATS_TOKEN="$(printf 'ayugram-stats\n%s' "$CLOUDFLARE_API_TOKEN" | sha256sum | cut -d' ' -f1)"
+          echo "::add-mask::$STATS_TOKEN"
+          for attempt in 1 2 3 4 5 6; do
+            RESULT="$(curl -sS -m 40 -H "Authorization: Bearer $STATS_TOKEN" https://ayugram-push.ayugram-status.workers.dev/badges/health || true)"
+            if printf '%s' "$RESULT" | python3 -c 'import json,sys; json.load(sys.stdin)["cryptobot"]' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 10
+          done
+          python3 - "$RESULT" <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json, sys
+          try:
+              h = json.loads(sys.argv[1])
+          except Exception:
+              print("::warning::Badge payment check did not answer")
+              sys.exit(0)
+          def mark(part):
+              if not part.get("configured"):
+                  return "not configured"
+              return "ok" if part.get("ok") else "token rejected"
+          print("Crypto Bot: " + mark(h["cryptobot"]) + (" (" + h["cryptobot"]["app"] + ")" if h["cryptobot"].get("app") else ""))
+          print("xRocket: " + mark(h["xrocket"]) + (" (" + h["xrocket"]["app"] + ")" if h["xrocket"].get("app") else "") + ("" if not h["xrocket"].get("configured") else (", webhook token set" if h["xrocket"].get("webhookToken") else ", no webhook token")))
+          print("TON: " + ("toncenter ok" if h["ton"].get("ok") else "toncenter failed") + ", rate $" + str(h["ton"].get("rate")) + ", quote " + str(h["ton"].get("quote")) + " TON" + (", keyed" if h["ton"].get("keyed") else ", no key"))
+          print("Pending requests: " + str(h.get("pending")))
+          for name in ("cryptobot", "xrocket"):
+              if h[name].get("configured") and not h[name].get("ok"):
+                  print("::warning::" + name + " token was not accepted")
+          PY

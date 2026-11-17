@@ -685,12 +685,18 @@ async function testBadgePayments() {
         const ids = body.invoice_ids ? body.invoice_ids.split(',').map(Number) : [...invoices.keys()];
         return Response.json({ ok: true, result: { items: ids.map((id) => invoices.get(id)).filter((item) => item && (!body.status || item.status === body.status)) } });
       }
+      if (method === 'getMe') {
+        return Response.json({ ok: true, result: { app_id: 1, name: 'AyuGram badges' } });
+      }
       if (method === 'getExchangeRates') {
         return Response.json({ ok: true, result: [{ is_valid: true, source: 'TON', target: 'USD', rate: '2.5' }] });
       }
     }
     if (link.startsWith('https://pay.xrocket.tg/')) {
       assert.equal(init.headers['Rocket-Pay-Key'], 'rocket-test');
+      if (link === 'https://pay.xrocket.tg/app/info') {
+        return Response.json({ success: true, data: { name: 'AyuGram rocket' } });
+      }
       if (init.method === 'POST' && link === 'https://pay.xrocket.tg/tg-invoices') {
         assert.deepEqual([body.amount, body.currency, body.numPayments], [3, 'USDT', 1]);
         const invoice = { id: 900 + rocketInvoices.size, amount: body.amount, currency: body.currency, payload: body.payload, status: 'active', link: 'https://t.me/xrocket?start=inv_test' + rocketInvoices.size };
@@ -788,6 +794,13 @@ async function testBadgePayments() {
     const rocketCron = await (await rocketPost('/badges/request', { id: '605', secret: 'h'.repeat(32) })).json();
     [...rocketInvoices.values()].find((item) => item.payload === rocketCron.code).activatedCount = 1;
     assert.equal(await checkBadgePayments(rocketEnv), 1, 'The scheduled check finds paid xRocket invoices too');
+    const healthEnv = { ...rocketEnv, STATS_TOKEN: 'stats-test' };
+    assert.equal((await worker.fetch(new Request('https://relay.example/badges/health'), healthEnv)).status, 403, 'Payment health needs the stats token');
+    const health = await (await worker.fetch(new Request('https://relay.example/badges/health', { headers: { authorization: 'Bearer stats-test' } }), healthEnv)).json();
+    assert.deepEqual([health.cryptobot.ok, health.cryptobot.app, health.xrocket.ok, health.xrocket.webhookToken, health.ton.ok, health.ton.rate, health.ton.quote], [true, 'AyuGram badges', true, true, true, 2.5, '1.2'], 'Payment health reports every method');
+    assert.ok(!JSON.stringify(health).includes('1234:test') && !JSON.stringify(health).includes('rocket-test') && !JSON.stringify(health).includes('hook-test'), 'and never leaks a token');
+    await worker.fetch(new Request('https://relay.example/tg/hook', { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': 'h' }, body: JSON.stringify({ message: { from: { id: 1272887902 }, chat: { id: 1272887902 }, text: '/pay' } }) }), healthEnv);
+    assert.ok(owner.at(-1).text.includes('Crypto Bot: ✅') && owner.at(-1).text.includes('xRocket: ✅') && owner.at(-1).text.includes('1.2 TON'), 'The owner checks payments with /pay');
     shift += 10000;
     const tonOnly = { ...env, CRYPTOPAY_TOKEN: '' };
     const plain = await (await worker.fetch(new Request('https://relay.example/badges/request', { method: 'POST', body: JSON.stringify({ id: '603', secret: 'f'.repeat(32) }) }), tonOnly)).json();
