@@ -13,7 +13,7 @@ import SGStrings
 private enum AyuAppearanceSection: Int32, SGItemListSection { case preview, media, visibility, dim, blur, rows, newYear, effects, amount, size, reset, personal }
 private enum AyuAppearanceToggle: Hashable { case enabled, motion, newYear, newYearAuto, particles, particlesInChats, seasonal, drift, fireworks, parallax }
 private enum AyuAppearanceSlider: Hashable { case dim, blur, rows, amount, size }
-private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind, particleMix, selectKind(Int32), previewKind(Int32), font, badge }
+private enum AyuAppearanceAction: Hashable { case photo, video, wallpaper, reset, particleKind, particleMix, selectKind(Int32), previewKind(Int32), font, badge, effects }
 private enum AyuAppearanceUnused: Hashable { case unused }
 private typealias AyuAppearanceSettingEntry = SGItemListUIEntry<AyuAppearanceSection, AyuAppearanceToggle, AyuAppearanceSlider, AyuAppearanceUnused, AyuAppearanceAction, AyuAppearanceAction>
 private enum AyuAppearanceEntry: ItemListNodeEntry {
@@ -150,6 +150,8 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             pushController?(ayuGramFontController(context: context))
         case .badge:
             pushController?(ayuGramAppBadgeEditorController(context: context))
+        case .effects:
+            pushController?(ayuGramEffectsController(context: context))
         }
     })
     let signal = combineLatest(context.sharedContext.presentationData, changes, kindsExpanded.get())
@@ -228,7 +230,8 @@ public func ayuGramAppearanceController(context: AccountContext, scope: AyuGramA
             settingsEntries += [
                 .header(id: 60, section: .personal, text: i18n("Ayu.Personalize", locale), badge: nil),
                 .action(id: 61, section: .personal, actionType: .font, text: i18n("Ayu.Font", locale) + ": " + fontName, kind: .generic),
-                .action(id: 62, section: .personal, actionType: .badge, text: i18n("Ayu.AppBadge", locale) + (personal.appBadgeEnabled ? " ✓" : ""), kind: .generic)
+                .action(id: 62, section: .personal, actionType: .badge, text: i18n("Ayu.AppBadge", locale) + (personal.appBadgeEnabled ? " ✓" : ""), kind: .generic),
+                .action(id: 63, section: .personal, actionType: .effects, text: i18n("Ayu.Effects.Title", locale), kind: .generic)
             ]
         }
         let entries: [AyuAppearanceEntry] = ([.preview(scope, settings)] + settingsEntries.map(AyuAppearanceEntry.setting) + kindOptions).sorted(by: { $0.stableId < $1.stableId })
