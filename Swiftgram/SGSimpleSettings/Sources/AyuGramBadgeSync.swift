@@ -1,5 +1,18 @@
 import Foundation
 
+public struct AyuGramBadgePayment: Equatable {
+    public var cryptoBot: String
+    public var tonAddress: String
+    public var tonAmount: String
+    public var tonComment: String
+    public var tonURL: String
+    public var tonOpen: String
+
+    public var hasTon: Bool {
+        return !self.tonAddress.isEmpty && !self.tonAmount.isEmpty && !self.tonURL.isEmpty
+    }
+}
+
 public final class AyuGramBadgeSync {
     public static let shared = AyuGramBadgeSync()
 
@@ -9,6 +22,7 @@ public final class AyuGramBadgeSync {
     private let secretKey = "ayugram.badges.secret"
     public private(set) var payURL = "https://t.me/send?start=IVM3XypxxOuG"
     public private(set) var price = "3"
+    public private(set) var payment: AyuGramBadgePayment?
 
     public func start() {
         AyuGramClientBadges.shared.refreshHandler = { [weak self] force in
@@ -97,30 +111,65 @@ public final class AyuGramBadgeSync {
         return badge
     }
 
+    private func link(_ value: Any?, schemes: [String]) -> String {
+        guard let text = value as? String, text.count <= 512, schemes.contains(where: { text.hasPrefix($0) }), URL(string: text) != nil else {
+            return ""
+        }
+        return text
+    }
+
+    private func readPayment(_ object: [String: Any], code: String) -> AyuGramBadgePayment? {
+        guard let pay = object["pay"] as? [String: Any] else {
+            return nil
+        }
+        var payment = AyuGramBadgePayment(cryptoBot: self.link(pay["cryptobot"], schemes: ["https://t.me/"]), tonAddress: "", tonAmount: "", tonComment: code, tonURL: "", tonOpen: "")
+        if let ton = pay["ton"] as? [String: Any], let address = ton["address"] as? String, address.count == 48, let amount = ton["amount"] as? String, amount.count <= 16, amount.allSatisfy({ $0.isNumber || $0 == "." }) {
+            payment.tonAddress = address
+            payment.tonAmount = amount
+            payment.tonURL = self.link(ton["url"], schemes: ["ton://transfer/"])
+            payment.tonOpen = self.link(ton["open"], schemes: ["https://app.tonkeeper.com/transfer/"])
+            if payment.tonOpen.isEmpty {
+                payment.tonOpen = payment.tonURL
+            }
+        }
+        return payment
+    }
+
+    private func readState(_ status: Int, _ object: [String: Any]) -> AyuGramSupporterState {
+        guard status == 200 else {
+            return .failed
+        }
+        if (object["granted"] as? Bool) == true {
+            self.payment = nil
+            return .granted(self.decode(object["badge"]))
+        }
+        if let code = object["code"] as? String, !code.isEmpty {
+            if let payment = self.readPayment(object, code: code) {
+                self.payment = payment
+            }
+            return .pending(code)
+        }
+        self.payment = nil
+        return .none
+    }
+
     public func supporterStatus(accountId: Int64, completion: @escaping (AyuGramSupporterState) -> Void) {
         self.post("/badges/status", ["id": String(accountId), "secret": self.secret], completion: { status, object in
-            guard status == 200 else {
-                completion(.failed)
-                return
-            }
-            if (object["granted"] as? Bool) == true {
-                completion(.granted(self.decode(object["badge"])))
-            } else if let code = object["code"] as? String, !code.isEmpty {
-                completion(.pending(code))
-            } else {
-                completion(.none)
-            }
+            completion(self.readState(status, object))
         })
     }
 
     public func requestSupporter(accountId: Int64, name: String, completion: @escaping (AyuGramSupporterState) -> Void) {
         self.post("/badges/request", ["id": String(accountId), "secret": self.secret, "name": name], completion: { status, object in
-            if (object["granted"] as? Bool) == true {
+            if (object["granted"] as? Bool) == true && object["badge"] == nil {
                 self.supporterStatus(accountId: accountId, completion: completion)
-            } else if status == 200, let code = object["code"] as? String, !code.isEmpty {
-                completion(.pending(code))
-            } else {
+                return
+            }
+            let state = self.readState(status, object)
+            if case .none = state {
                 completion(.failed)
+            } else {
+                completion(state)
             }
         })
     }

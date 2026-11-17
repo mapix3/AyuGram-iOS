@@ -2,6 +2,9 @@ name = "ayugram-push"
 main = "worker.js"
 compatibility_date = "2026-01-01"
 
+[triggers]
+crons = ["*/2 * * * *"]
+
 [observability]
 enabled = false
 

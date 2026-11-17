@@ -326,6 +326,8 @@ private final class AyuGramSupporterView: UIView {
     private var editor: AyuGramBadgeView?
     private var state: AyuGramSupporterState = .unknown
     private var saveTimer: Foundation.Timer?
+    private var pollTimer: Foundation.Timer?
+    private var polling = false
     private var pendingBadge: AyuGramCustomBadge?
 
     init(context: AccountContext, theme: PresentationTheme, locale: String) {
@@ -397,6 +399,54 @@ private final class AyuGramSupporterView: UIView {
 
     deinit {
         self.saveTimer?.invalidate()
+        self.pollTimer?.invalidate()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if self.window != nil, case .pending = self.state {
+            self.poll()
+        }
+        self.updatePolling()
+    }
+
+    private func updatePolling() {
+        var shouldPoll = false
+        if self.window != nil, case .pending = self.state {
+            shouldPoll = true
+        }
+        if !shouldPoll {
+            self.pollTimer?.invalidate()
+            self.pollTimer = nil
+        } else if self.pollTimer == nil {
+            self.pollTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true, block: { [weak self] _ in
+                self?.poll()
+            })
+        }
+    }
+
+    private func poll() {
+        guard !self.polling, case let .pending(code) = self.state else {
+            return
+        }
+        self.polling = true
+        AyuGramBadgeSync.shared.supporterStatus(accountId: self.accountId, completion: { [weak self] state in
+            guard let self else {
+                return
+            }
+            self.polling = false
+            switch state {
+            case .granted:
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                self.apply(state)
+            case let .pending(updated) where updated != code:
+                self.apply(state)
+            case .none:
+                self.apply(state)
+            default:
+                break
+            }
+        })
     }
 
     private func check() {
@@ -444,6 +494,7 @@ private final class AyuGramSupporterView: UIView {
         for view in [self.icon, self.titleLabel, self.textLabel, self.payButton, self.paidButton, self.statusLabel] as [UIView] {
             view.isHidden = !showsIntro
         }
+        self.updatePolling()
         self.setNeedsLayout()
     }
 
@@ -469,12 +520,28 @@ private final class AyuGramSupporterView: UIView {
 
     var push: ((ViewController) -> Void)?
 
-    @objc private func payPressed() {
+    private func openPayment(code: String) {
         var intro = i18n("Ayu.SupporterPayIntro", self.locale, AyuGramBadgeSync.shared.price)
+        intro += "\n\n" + i18n("Ayu.SupporterPayCode", self.locale, code)
+        self.push?(ayuGramBadgePaymentController(context: self.context, intro: intro, payment: AyuGramBadgeSync.shared.payment))
+    }
+
+    @objc private func payPressed() {
         if case let .pending(code) = self.state {
-            intro += "\n\n" + i18n("Ayu.SupporterPayCode", self.locale, code)
+            self.openPayment(code: code)
+            return
         }
-        self.push?(ayuGramBadgePaymentController(context: self.context, intro: intro))
+        self.payButton.isEnabled = false
+        AyuGramBadgeSync.shared.requestSupporter(accountId: self.accountId, name: self.name, completion: { [weak self] state in
+            guard let self else {
+                return
+            }
+            self.payButton.isEnabled = true
+            self.apply(state)
+            if case let .pending(code) = state {
+                self.openPayment(code: code)
+            }
+        })
     }
 
     @objc private func paidPressed() {

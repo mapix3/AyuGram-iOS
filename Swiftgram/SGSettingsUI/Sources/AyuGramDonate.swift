@@ -8,6 +8,7 @@ import AccountContext
 import TelegramPresentationData
 import AppBundle
 import SGStrings
+import SGSimpleSettings
 
 private struct AyuGramDonateMethod {
     let title: String
@@ -21,13 +22,22 @@ private struct AyuGramDonateMethod {
 
 private let ayuGramDonateWallet = "UQCvj3aWiCCzawOO5OeRM9C3Ts5n4hc1tep1ZZ7aBYG33Glp"
 
-private func ayuGramDonateMethods(locale: String, badge: Bool) -> [AyuGramDonateMethod] {
+private func ayuGramDonateMethods(locale: String, badge: Bool, payment: AyuGramBadgePayment?) -> [AyuGramDonateMethod] {
     if badge {
-        return [
-            AyuGramDonateMethod(title: "Crypto Bot", subtitle: i18n("Ayu.DonateBotInfo", locale), payload: "https://t.me/send?start=IVIFp5xQTKS4", openUrl: "https://t.me/send?start=IVIFp5xQTKS4", copyText: "https://t.me/send?start=IVIFp5xQTKS4", iconName: "AyuDonateCryptoBot", external: false),
-            AyuGramDonateMethod(title: "xRocket", subtitle: i18n("Ayu.DonateBotInfo", locale), payload: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", openUrl: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", copyText: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", iconName: "AyuDonateRocket", external: false),
-            AyuGramDonateMethod(title: i18n("Ayu.DonateWallet", locale), subtitle: i18n("Ayu.DonateWalletInfo", locale), payload: "ton://transfer/" + ayuGramDonateWallet, openUrl: "https://app.tonkeeper.com/transfer/" + ayuGramDonateWallet, copyText: ayuGramDonateWallet, iconName: nil, external: true)
-        ]
+        let bot: AyuGramDonateMethod
+        if let payment, !payment.cryptoBot.isEmpty {
+            bot = AyuGramDonateMethod(title: "Crypto Bot", subtitle: i18n("Ayu.SupporterBotAuto", locale), payload: payment.cryptoBot, openUrl: payment.cryptoBot, copyText: payment.cryptoBot, iconName: "AyuDonateCryptoBot", external: false)
+        } else {
+            bot = AyuGramDonateMethod(title: "Crypto Bot", subtitle: i18n("Ayu.DonateBotInfo", locale), payload: "https://t.me/send?start=IVIFp5xQTKS4", openUrl: "https://t.me/send?start=IVIFp5xQTKS4", copyText: "https://t.me/send?start=IVIFp5xQTKS4", iconName: "AyuDonateCryptoBot", external: false)
+        }
+        let wallet: AyuGramDonateMethod
+        if let payment, payment.hasTon {
+            wallet = AyuGramDonateMethod(title: i18n("Ayu.DonateWallet", locale), subtitle: i18n("Ayu.SupporterTonAuto", locale, payment.tonAmount, payment.tonComment), payload: payment.tonURL, openUrl: payment.tonOpen, copyText: payment.tonAddress, iconName: nil, external: true)
+        } else {
+            wallet = AyuGramDonateMethod(title: i18n("Ayu.DonateWallet", locale), subtitle: i18n("Ayu.DonateWalletInfo", locale), payload: "ton://transfer/" + ayuGramDonateWallet, openUrl: "https://app.tonkeeper.com/transfer/" + ayuGramDonateWallet, copyText: ayuGramDonateWallet, iconName: nil, external: true)
+        }
+        let rocket = AyuGramDonateMethod(title: "xRocket", subtitle: i18n(payment == nil ? "Ayu.DonateBotInfo" : "Ayu.SupporterRocketManual", locale), payload: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", openUrl: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", copyText: "https://t.me/xrocket?start=inv_IzkwFJGQGeuaXZu", iconName: "AyuDonateRocket", external: false)
+        return [bot, wallet, rocket]
     }
     return [
         AyuGramDonateMethod(title: "Crypto Bot", subtitle: i18n("Ayu.DonateBotInfo", locale), payload: "https://t.me/send?start=IVM3XypxxOuG", openUrl: "https://t.me/send?start=IVM3XypxxOuG", copyText: "https://t.me/send?start=IVM3XypxxOuG", iconName: "AyuDonateCryptoBot", external: false),
@@ -219,10 +229,10 @@ private final class AyuGramDonateNode: ASDisplayNode {
     private let introLabel = UILabel()
     private let cards: [AyuGramDonateCard]
 
-    init(presentationData: PresentationData, intro: String?, open: @escaping (AyuGramDonateMethod) -> Void) {
+    init(presentationData: PresentationData, intro: String?, payment: AyuGramBadgePayment?, open: @escaping (AyuGramDonateMethod) -> Void) {
         self.presentationData = presentationData
         let locale = presentationData.strings.baseLanguageCode
-        self.cards = ayuGramDonateMethods(locale: locale, badge: intro != nil).map { AyuGramDonateCard(method: $0, locale: locale, open: open) }
+        self.cards = ayuGramDonateMethods(locale: locale, badge: intro != nil, payment: payment).map { AyuGramDonateCard(method: $0, locale: locale, open: open) }
 
         super.init()
 
@@ -286,10 +296,12 @@ private final class AyuGramDonateController: ViewController {
     }
 
     private let intro: String?
+    private let payment: AyuGramBadgePayment?
 
-    init(context: AccountContext, intro: String? = nil) {
+    init(context: AccountContext, intro: String? = nil, payment: AyuGramBadgePayment? = nil) {
         self.context = context
         self.intro = intro
+        self.payment = payment
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
         self.presentationData = presentationData
 
@@ -326,7 +338,7 @@ private final class AyuGramDonateController: ViewController {
 
     override func loadDisplayNode() {
         let context = self.context
-        self.displayNode = AyuGramDonateNode(presentationData: self.presentationData, intro: self.intro, open: { method in
+        self.displayNode = AyuGramDonateNode(presentationData: self.presentationData, intro: self.intro, payment: self.payment, open: { method in
             if method.external {
                 context.sharedContext.applicationBindings.openUrl(method.openUrl)
             } else {
@@ -347,6 +359,6 @@ func ayuGramDonateController(context: AccountContext) -> ViewController {
     return AyuGramDonateController(context: context)
 }
 
-func ayuGramBadgePaymentController(context: AccountContext, intro: String) -> ViewController {
-    return AyuGramDonateController(context: context, intro: intro)
+func ayuGramBadgePaymentController(context: AccountContext, intro: String, payment: AyuGramBadgePayment?) -> ViewController {
+    return AyuGramDonateController(context: context, intro: intro, payment: payment)
 }

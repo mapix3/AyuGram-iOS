@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { webcrypto as crypto, createHash } from 'node:crypto';
 import { accountHash } from './stats.js';
+import { checkBadgePayments } from './badges.js';
 import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
 
 const cacheStore = new Map();
@@ -644,6 +645,122 @@ async function testBadges() {
     console.log('push relay: supporter badges are granted by the owner and locked to the paying install');
   } finally {
     globalThis.fetch = real;
+  }
+}
+await testBadgePayments();
+async function testBadgePayments() {
+  const data = new Map();
+  const storage = {
+    async get(k) { return data.get(k); },
+    async put(k, v) { data.set(k, v); },
+    async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
+    async list({ prefix }) { return new Map([...data].filter(([k]) => k.startsWith(prefix)).sort()); },
+  };
+  const object = new Stats({ storage });
+  const STATS = { idFromName(name) { return name; }, get() { return { fetch: (url, init) => object.fetch(new Request(url, init)) }; } };
+  const env = { STATS, REPORT_BOT_TOKEN: '1:a', REPORT_CHAT_ID: '1272887902', REPORT_WEBHOOK_SECRET: 'h', CRYPTOPAY_TOKEN: '1234:test' };
+  const invoices = new Map();
+  let nextInvoice = 70;
+  let tonList = [];
+  const owner = [];
+  const real = globalThis.fetch;
+  const realNow = Date.now;
+  let shift = 0;
+  Date.now = () => realNow() + shift;
+  globalThis.fetch = async (url, init) => {
+    const link = String(url);
+    const body = init && init.body ? JSON.parse(init.body) : {};
+    if (link.startsWith('https://pay.crypt.bot/api/')) {
+      assert.equal(init.headers['Crypto-Pay-API-Token'], '1234:test');
+      const method = link.slice(26);
+      if (method === 'createInvoice') {
+        assert.equal(body.fiat, 'USD');
+        assert.equal(body.amount, '3');
+        const invoice = { invoice_id: nextInvoice++, status: 'active', payload: body.payload, bot_invoice_url: 'https://t.me/CryptoBot?start=IV' + nextInvoice, amount: '3', fiat: 'USD' };
+        invoices.set(invoice.invoice_id, invoice);
+        return Response.json({ ok: true, result: invoice });
+      }
+      if (method === 'getInvoices') {
+        const ids = body.invoice_ids ? body.invoice_ids.split(',').map(Number) : [...invoices.keys()];
+        return Response.json({ ok: true, result: { items: ids.map((id) => invoices.get(id)).filter((item) => item && (!body.status || item.status === body.status)) } });
+      }
+      if (method === 'getExchangeRates') {
+        return Response.json({ ok: true, result: [{ is_valid: true, source: 'TON', target: 'USD', rate: '2.5' }] });
+      }
+    }
+    if (link.startsWith('https://toncenter.com/api/v2/getTransactions')) {
+      assert.ok(link.includes('UQCvj3aWiCCzawOO5OeRM9C3Ts5n4hc1tep1ZZ7aBYG33Glp'));
+      return Response.json({ ok: true, result: tonList });
+    }
+    if (link.startsWith('https://api.telegram.org/')) {
+      owner.push(body);
+      return Response.json({ ok: true });
+    }
+    throw new Error('unexpected fetch ' + link);
+  };
+  try {
+    const post = (path, body) => worker.fetch(new Request('https://relay.example' + path, { method: 'POST', body: JSON.stringify(body) }), env);
+    const list = async () => (await (await worker.fetch(new Request('https://relay.example/badges'), env)).json()).items.map((item) => item.id);
+    const secret = 'c'.repeat(32);
+    const first = await (await post('/badges/request', { id: '600', secret, name: 'Crypto' })).json();
+    assert.match(first.code, /^[A-Z0-9]{6}$/);
+    assert.ok(first.pay.cryptobot.startsWith('https://t.me/CryptoBot?start=IV'), 'A request gets its own Crypto Bot invoice');
+    assert.deepEqual([first.pay.ton.amount, first.pay.ton.nano, first.pay.ton.comment], ['1.2', '1200000000', first.code], 'and a TON quote with the code as the comment');
+    assert.ok(first.pay.ton.url.startsWith('ton://transfer/UQCvj3aWiCCzawOO5OeRM9C3Ts5n4hc1tep1ZZ7aBYG33Glp?amount=1200000000&text=' + first.code));
+    assert.equal(invoices.size, 1);
+    shift += 10000;
+    const again = await (await post('/badges/status', { id: '600', secret })).json();
+    assert.equal(again.granted, false, 'An unpaid invoice grants nothing');
+    assert.equal(again.pay.cryptobot, first.pay.cryptobot, 'The invoice is reused');
+    assert.equal(invoices.size, 1);
+    const invoice = invoices.get(70);
+    invoice.status = 'paid';
+    invoice.paid_amount = '3';
+    invoice.paid_asset = 'USDT';
+    const update = JSON.stringify({ update_id: 1, update_type: 'invoice_paid', request_date: new Date().toISOString(), payload: invoice });
+    const key = await crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', new TextEncoder().encode('1234:test')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const signature = Buffer.from(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(update))).toString('hex');
+    const hook = (sig) => worker.fetch(new Request('https://relay.example/pay/cryptobot', { method: 'POST', headers: { 'crypto-pay-api-signature': sig }, body: update }), env);
+    assert.equal((await hook('0'.repeat(64))).status, 403, 'A forged webhook is refused');
+    assert.deepEqual(await list(), [], 'and grants nothing');
+    assert.equal((await hook(signature)).status, 200);
+    assert.deepEqual(await list(), ['600'], 'A signed invoice_paid webhook grants the badge');
+    assert.ok(owner.at(-1).text.includes('автоматически') && owner.at(-1).text.includes('3 USDT') && owner.at(-1).reply_markup.inline_keyboard[0][0].callback_data === 'R:600', 'The owner is told and can take it back');
+    assert.equal((await (await post('/badges/status', { id: '600', secret })).json()).granted, true, 'The payer sees the badge');
+    assert.equal((await post('/badges/set', { id: '600', secret, badge: { symbol: 'star.fill' } })).status, 200, 'and can edit it');
+    assert.equal((await hook(signature)).status, 200, 'A repeated webhook is harmless');
+
+    const tonSecret = 'd'.repeat(32);
+    const ton = await (await post('/badges/request', { id: '601', secret: tonSecret, name: 'Ton' })).json();
+    tonList = [{ utime: Math.floor(Date.now() / 1000), transaction_id: { lt: '1', hash: 'h1' }, in_msg: { source: 'EQsender', value: '1000000000', message: ton.code } }];
+    shift += 10000;
+    assert.equal((await (await post('/badges/status', { id: '601', secret: tonSecret })).json()).granted, false, 'Too little TON grants nothing');
+    tonList.push({ utime: Math.floor(Date.now() / 1000), transaction_id: { lt: '2', hash: 'h2' }, in_msg: { source: 'EQsender', value: '1190000000', message: ' ' + ton.code.toLowerCase() + ' ' } });
+    shift += 4000;
+    assert.equal((await (await post('/badges/status', { id: '601', secret: tonSecret })).json()).granted, false, 'Checks are throttled');
+    shift += 6000;
+    const paidTon = await (await post('/badges/status', { id: '601', secret: tonSecret })).json();
+    assert.equal(paidTon.granted, true, 'A TON transfer with the code in the comment grants the badge');
+    assert.ok(owner.at(-1).text.includes('1.19 TON'));
+    assert.deepEqual((await list()).sort(), ['600', '601']);
+
+    const cronSecret = 'e'.repeat(32);
+    const cron = await (await post('/badges/request', { id: '602', secret: cronSecret, name: 'Cron' })).json();
+    tonList.push({ utime: Math.floor(Date.now() / 1000), transaction_id: { lt: '3', hash: 'h2' }, in_msg: { source: 'EQsender', value: '5000000000', message: cron.code } });
+    assert.equal(await checkBadgePayments(env), 0, 'A reused TON transaction grants nothing');
+    const cronInvoice = [...invoices.values()].find((item) => item.payload === cron.code);
+    cronInvoice.status = 'paid';
+    assert.equal(await checkBadgePayments(env), 1, 'The scheduled check grants a paid invoice when the app is closed');
+    assert.deepEqual((await list()).sort(), ['600', '601', '602']);
+    assert.equal(await checkBadgePayments(env), 0, 'Nothing is left to check');
+    shift += 10000;
+    const tonOnly = { ...env, CRYPTOPAY_TOKEN: '' };
+    const plain = await (await worker.fetch(new Request('https://relay.example/badges/request', { method: 'POST', body: JSON.stringify({ id: '603', secret: 'f'.repeat(32) }) }), tonOnly)).json();
+    assert.equal(plain.pay.cryptobot, '', 'Without a Crypto Pay token there is no invoice');
+    console.log('push relay: supporter badges unlock by themselves after Crypto Bot and TON payments');
+  } finally {
+    globalThis.fetch = real;
+    Date.now = realNow;
   }
 }
 await testModerationSignature();

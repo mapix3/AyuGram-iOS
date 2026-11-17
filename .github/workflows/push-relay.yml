@@ -30,6 +30,8 @@ jobs:
           PRO_API_KEY: ${{ secrets.PRO_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MODERATION_KEY: ${{ secrets.MODERATION_KEY }}
+          CRYPTOPAY_TOKEN: ${{ secrets.CRYPTOPAY_TOKEN }}
+          TONCENTER_KEY: ${{ secrets.TONCENTER_KEY }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "::error::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to the repository secrets"
@@ -51,6 +53,12 @@ jobs:
           fi
           if [ -n "$MODERATION_KEY" ]; then
             printf '%s' "$MODERATION_KEY" | npx --yes wrangler@4.26.0 secret put MODERATION_KEY
+          fi
+          if [ -n "$CRYPTOPAY_TOKEN" ]; then
+            printf '%s' "$CRYPTOPAY_TOKEN" | npx --yes wrangler@4.26.0 secret put CRYPTOPAY_TOKEN
+          fi
+          if [ -n "$TONCENTER_KEY" ]; then
+            printf '%s' "$TONCENTER_KEY" | npx --yes wrangler@4.26.0 secret put TONCENTER_KEY
           fi
 
       - name: Connect the scam report bot

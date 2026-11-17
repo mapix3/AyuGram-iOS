@@ -7,7 +7,7 @@
 // the title and text to Bark, which shows the notification.
 
 import { GUIDE, GUIDE_VERSION } from './guide.js';
-import { handleBadges } from './badges.js';
+import { handleBadges, handleCryptoPayHook, checkBadgePayments } from './badges.js';
 import { handleStats } from './stats.js';
 import { handleBot } from './bot.js';
 
@@ -1052,6 +1052,9 @@ export default {
     if (url.pathname === '/badges' || url.pathname.startsWith('/badges/')) {
       return handleBadges(request, env, url, ctx);
     }
+    if (url.pathname === '/pay/cryptobot') {
+      return handleCryptoPayHook(request, env);
+    }
     if (url.pathname.startsWith('/stats/')) {
       return handleStats(request, env, url, ctx);
     }
@@ -1169,6 +1172,10 @@ export default {
     }
     // Always accepted: an error status could make Telegram drop the subscription.
     return new Response(null, { status: 201 });
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(checkBadgePayments(env).catch((error) => console.log('badge payments not checked: ' + error)));
   },
 };
 
