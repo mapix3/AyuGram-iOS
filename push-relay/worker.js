@@ -8,7 +8,7 @@
 
 import { GUIDE, GUIDE_VERSION } from './guide.js';
 import { handleBadges, handleCryptoPayHook, handleRocketHook, checkBadgePayments } from './badges.js';
-import { handleStats } from './stats.js';
+import { handleStats, ipTag } from './stats.js';
 import { handleBot } from './bot.js';
 
 export { Stats } from './stats.js';
@@ -283,6 +283,34 @@ function aiAllowed(ip) {
   return true;
 }
 
+async function dailyQuota(env, name, ip, perIp, total) {
+  const stub = presence(env, 'quota-' + name);
+  if (!stub) {
+    return 'ok';
+  }
+  try {
+    const response = await stub.fetch('https://presence.ayugram.invalid/quota', {
+      method: 'POST',
+      body: JSON.stringify({ day: new Date().toISOString().slice(0, 10), ip: await ipTag(ip), total, perIp }),
+    });
+    return await response.text();
+  } catch (error) {
+    return 'ok';
+  }
+}
+
+async function aiQuotaRefusal(env, request, name, perIp, total) {
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  if (!ip) {
+    return null;
+  }
+  const verdict = await dailyQuota(env, name, ip, perIp, total);
+  if (verdict === 'ok') {
+    return null;
+  }
+  return aiAnswer(429, { error: { message: verdict === 'ip' ? 'Daily limit reached, try again tomorrow' : 'The assistant is busy today, try again tomorrow' } });
+}
+
 function aiAnswer(status, body) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
 }
@@ -293,6 +321,10 @@ async function handleAssistant(request, env) {
   }
   if (!aiAllowed(request.headers.get('cf-connecting-ip') || 'unknown')) {
     return aiAnswer(429, { error: { message: 'Too many requests, wait a minute' } });
+  }
+  const refused = await aiQuotaRefusal(env, request, 'ai', Number(env.AI_DAILY_PER_IP) || 400, Number(env.AI_DAILY_TOTAL) || 40000);
+  if (refused) {
+    return refused;
   }
   let input;
   try {
@@ -988,6 +1020,10 @@ async function handleTranscription(request, env) {
   if (!aiAllowed(request.headers.get('cf-connecting-ip') || 'unknown')) {
     return aiAnswer(429, { error: { message: 'Too many requests, wait a minute' } });
   }
+  const refused = await aiQuotaRefusal(env, request, 'voice', Number(env.VOICE_DAILY_PER_IP) || 120, Number(env.VOICE_DAILY_TOTAL) || 8000);
+  if (refused) {
+    return refused;
+  }
   const audio = await request.arrayBuffer();
   if (audio.byteLength === 0 || audio.byteLength > 4000000) {
     return aiAnswer(413, { error: { message: 'The recording is too long' } });
@@ -1025,7 +1061,11 @@ export default {
       }
     }
     if (request.method === 'GET' && url.pathname === '/ai/search') {
-      if (!env || !env.GROQ_API_KEY || !aiAllowed('search:' + (request.headers.get('cf-connecting-ip') || 'unknown'))) {
+      const header = request.headers.get('authorization') || '';
+      if (!env || !env.STATS_TOKEN || header !== 'Bearer ' + env.STATS_TOKEN) {
+        return aiAnswer(404, { error: { message: 'Not found' } });
+      }
+      if (!env.GROQ_API_KEY || !aiAllowed('search:' + (request.headers.get('cf-connecting-ip') || 'unknown'))) {
         return aiAnswer(429, { error: { message: 'Unavailable' } });
       }
       const trace = [];
@@ -1041,6 +1081,9 @@ export default {
       return new Response(JSON.stringify({ version: GUIDE_VERSION, text: GUIDE }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=600' } });
     }
     if (request.method === 'POST' && url.pathname === '/ai/pro') {
+      if (!env || env.PRO_ENABLED !== '1') {
+        return aiAnswer(404, { error: { message: 'Not found' } });
+      }
       return handlePro(request, env);
     }
     if (request.method === 'POST' && url.pathname === '/ai/transcribe') {

@@ -366,7 +366,8 @@ async function settle(env, call, status) {
   if (!pending.ton || !pending.ton.time || now - pending.ton.time > QUOTE_EVERY) {
     const nano = await tonQuote(env);
     if (nano) {
-      const min = pending.ton && pending.ton.min && BigInt(pending.ton.min) < BigInt(nano) ? pending.ton.min : nano;
+      const previous = pending.ton && pending.ton.nano && pending.ton.time && now - pending.ton.time < QUOTE_EVERY * 2 ? pending.ton.nano : '';
+      const min = previous && BigInt(previous) < BigInt(nano) ? previous : nano;
       update.ton = { nano, min, time: now };
     }
   }
@@ -438,7 +439,7 @@ function findCode(value, depth) {
 async function rocketSignatureValid(env, raw, request) {
   const secret = env && env.XROCKET_WEBHOOK_TOKEN ? String(env.XROCKET_WEBHOOK_TOKEN).replace(/[\s"']/g, '') : '';
   if (!secret) {
-    return true;
+    return false;
   }
   const given = ['rocket-pay-signature', 'x-rocket-pay-signature', 'x-signature', 'signature'].map((name) => request.headers.get(name)).find((value) => typeof value === 'string' && value.length > 0);
   if (!given) {

@@ -2,6 +2,10 @@ import { badgeStorage } from './badges.js';
 const INSTALL_TTL_MS = 60 * 24 * 60 * 60 * 1000;
 const REPORT_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 const REPORTS_PER_DAY = 5;
+const REPORTS_PER_IP = 8;
+const REPORTS_PER_DAY_TOTAL = 300;
+const NEW_INSTALLS_PER_IP = 12;
+const NEW_INSTALLS_PER_DAY = 20000;
 const MAX_BODY = 4096;
 const MAX_ATTACHMENTS = 5;
 const ATTACH_TTL_MS = 2 * 60 * 60 * 1000;
@@ -280,6 +284,36 @@ export class Stats {
     this.state = state;
   }
 
+  async allowIp(request, prefix, perIp, total, now) {
+    const storage = this.state.storage;
+    const day = Math.floor(now / 86400000);
+    if ((await storage.get('limday')) !== day) {
+      for (const old of ['pip:', 'rip:', 'pall:', 'rall:', 'l:']) {
+        const keys = [...(await storage.list({ prefix: old })).keys()].filter((key) => !key.endsWith(':' + day));
+        for (let index = 0; index < keys.length; index += 128) {
+          await storage.delete(keys.slice(index, index + 128));
+        }
+      }
+      await storage.put('limday', day);
+    }
+    const allKey = prefix[0] + 'all:' + day;
+    const all = (await storage.get(allKey)) || 0;
+    if (all >= total) {
+      return false;
+    }
+    const tag = request.headers.get('x-ayugram-ip') || '';
+    if (/^[0-9a-f]{24}$/.test(tag)) {
+      const ipKey = prefix + ':' + tag + ':' + day;
+      const own = (await storage.get(ipKey)) || 0;
+      if (own >= perIp) {
+        return false;
+      }
+      await storage.put(ipKey, own + 1);
+    }
+    await storage.put(allKey, all + 1);
+    return true;
+  }
+
   async fetch(request) {
     const url = new URL(request.url);
     const storage = this.state.storage;
@@ -291,6 +325,9 @@ export class Stats {
     if (request.method === 'POST' && url.pathname === '/ping') {
       const install = await request.json();
       const previous = await storage.get('i:' + install.id);
+      if (!previous && !(await this.allowIp(request, 'pip', NEW_INSTALLS_PER_IP, NEW_INSTALLS_PER_DAY, now))) {
+        return new Response('limit\n', { status: 429 });
+      }
       install.first = previous && previous.first ? previous.first : install.seen;
       await storage.put('i:' + install.id, install);
       return new Response('ok\n');
@@ -431,6 +468,9 @@ export class Stats {
       const limitKey = 'l:' + report.id + ':' + day;
       const count = (await storage.get(limitKey)) || 0;
       if (count >= REPORTS_PER_DAY) {
+        return new Response('limit\n', { status: 429 });
+      }
+      if (!(await this.allowIp(request, 'rip', REPORTS_PER_IP, REPORTS_PER_DAY_TOTAL, now))) {
         return new Response('limit\n', { status: 429 });
       }
       await storage.put(limitKey, count + 1);
@@ -663,6 +703,16 @@ async function readBody(request) {
   }
 }
 
+export async function ipTag(ip) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('ayugram-ip|' + ip));
+  return [...new Uint8Array(digest).slice(0, 12)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function forwardHeaders(request) {
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  return ip ? { 'x-ayugram-ip': await ipTag(ip) } : {};
+}
+
 export function sameToken(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length || !a) {
     return false;
@@ -846,14 +896,14 @@ export async function handleStats(request, env, url, ctx) {
     if (!install) {
       return new Response('bad request\n', { status: 400 });
     }
-    return stub.fetch('https://stats.ayugram.invalid/ping', { method: 'POST', body: JSON.stringify(install) });
+    return stub.fetch('https://stats.ayugram.invalid/ping', { method: 'POST', headers: await forwardHeaders(request), body: JSON.stringify(install) });
   }
   if (request.method === 'POST' && url.pathname === '/stats/report') {
     const report = cleanReport(await readBody(request), country, now);
     if (!report) {
       return new Response('bad request\n', { status: 400 });
     }
-    const response = await stub.fetch('https://stats.ayugram.invalid/report', { method: 'POST', body: JSON.stringify(report) });
+    const response = await stub.fetch('https://stats.ayugram.invalid/report', { method: 'POST', headers: await forwardHeaders(request), body: JSON.stringify(report) });
     if (response.ok) {
       const stored = await response.clone().json().catch(() => ({}));
       report.rid = stored.rid || '';

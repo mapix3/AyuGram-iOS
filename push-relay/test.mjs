@@ -812,6 +812,43 @@ async function testBadgePayments() {
     Date.now = realNow;
   }
 }
+await testAbuseLimits();
+async function testAbuseLimits() {
+  const data = new Map();
+  const storage = {
+    async get(k) { return data.get(k); },
+    async put(k, v) { data.set(k, v); },
+    async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
+    async list({ prefix }) { return new Map([...data].filter(([k]) => k.startsWith(prefix)).sort()); },
+  };
+  const object = new Stats({ storage });
+  const STATS = { idFromName(name) { return name; }, get() { return { fetch: (url, init) => object.fetch(new Request(url, init)) }; } };
+  const env = { STATS, STATS_TOKEN: 'secret-token', PRO_API_KEY: 'x', GROQ_API_KEY: 'gsk_x' };
+  assert.equal((await worker.fetch(new Request('https://relay.example/ai/pro', { method: 'POST', body: '{}' }), env)).status, 404, 'The paid assistant is off unless enabled');
+  assert.equal((await worker.fetch(new Request('https://relay.example/ai/search?q=x'), env)).status, 404, 'The search debug endpoint needs the stats token');
+  const from = (path, body, ip) => worker.fetch(new Request('https://relay.example' + path, { method: 'POST', headers: { 'cf-connecting-ip': ip }, body: JSON.stringify(body) }), env);
+  const base = { build: 207601, variant: 'standard', source: 'sideload', status: 'official', team: 'OWN1234567', teamName: 'Me', bundle: 'ph.telegra.Telegraph.OWN1234567', os: '26.1', device: 'iPhone17,1' };
+  for (let i = 0; i < 12; i += 1) {
+    assert.equal((await from('/stats/ping', { ...base, id: 'flood-' + String(i).padStart(4, '0') }, '203.0.113.7')).status, 200);
+  }
+  assert.equal((await from('/stats/ping', { ...base, id: 'flood-0099' }, '203.0.113.7')).status, 429, 'One address cannot invent installs without end');
+  assert.equal((await from('/stats/ping', { ...base, id: 'flood-0001' }, '203.0.113.7')).status, 200, 'Known installs keep pinging');
+  assert.equal((await from('/stats/ping', { ...base, id: 'other-0001' }, '203.0.113.8')).status, 200, 'Other addresses are not affected');
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => new Response('{"ok":true}');
+  try {
+    let accepted = 0;
+    for (let i = 0; i < 12; i += 1) {
+      const response = await from('/stats/report', { ...base, id: 'spam-' + String(i).padStart(4, '0'), text: 'spam ' + i }, '198.51.100.9');
+      accepted += response.status === 200 ? 1 : 0;
+    }
+    assert.equal(accepted, 8, 'Changing the install id does not lift the report limit of one address');
+    assert.ok(![...data.keys()].some((key) => key.includes('198.51.100.9')), 'Addresses are stored only as salted hashes');
+  } finally {
+    globalThis.fetch = real;
+  }
+  console.log('push relay: abuse limits hold per address and the paid assistant is off');
+}
 await testModerationSignature();
 async function testModerationSignature() {
   const data = new Map();

@@ -12,7 +12,14 @@ Updates: [t.me/ayugramiosupdates](https://t.me/ayugramiosupdates)
 - **Appearance** — themes, backgrounds and video wallpapers (Custom build).
 - **Update notice** — tells you when a newer build is published and opens the channel.
 
-Everything AyuGram stores stays on the device. The only request it makes on its own is downloading `update.json` from this repository to check for updates.
+Saved messages, history and settings stay on the device. AyuGram also talks to its own relay (`ayugram-push.ayugram-status.workers.dev`) and to GitHub:
+
+- **Every launch:** `update.json` from this repository, and the `integrity.json` of the installed build from its release, to tell an official build from a patched one.
+- **Every launch:** a moderation check on the relay with a random install id, the build, its signing source and bundle id, and SHA-256 hashes of the logged-in Telegram account ids. These hashes are not salted, so whoever runs the relay can match them to known Telegram ids; this check does not depend on the anonymous statistics switch.
+- **Anonymous statistics** (can be turned off): build, variant, signing team, iOS version and device model.
+- **Notifications through the relay** (opt-in): the relay decrypts each push to show it, so it sees the notification text.
+- **AI assistant and Copilot** (with the AyuGram provider): your question, or the analysed messages, go through the relay to Gemini or Groq. Other providers are called directly with your own key.
+- **Supporter badge and scam reports** (when used): the account id, the payment code, or the report with its attachments.
 
 ## Branches
 
