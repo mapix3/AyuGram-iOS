@@ -537,6 +537,15 @@ export async function paymentHealth(env) {
     const info = await rocketPay(env, 'GET', '/app/info');
     result.xrocket.ok = Boolean(info);
     result.xrocket.app = info && typeof info.name === 'string' ? info.name.slice(0, 64) : '';
+    if (!info) {
+      try {
+        const response = await fetch((env.XROCKET_API || 'https://pay.xrocket.tg') + '/app/info', { headers: { accept: 'application/json', 'Rocket-Pay-Key': rocketToken(env) }, signal: AbortSignal.timeout(10000) });
+        const text = (await response.text()).split(rocketToken(env)).join('***');
+        result.xrocket.error = response.status + ' ' + text.replace(/\s+/g, ' ').slice(0, 300);
+      } catch (error) {
+        result.xrocket.error = String(error).slice(0, 200);
+      }
+    }
   }
   rateCache = { time: 0, rate: 0 };
   tonCache = { time: 0, address: '', list: null };
@@ -564,7 +573,7 @@ export function paymentHealthText(health) {
   return [
     '💳 Проверка оплаты бейджей ($' + health.price + ')',
     'Crypto Bot: ' + mark(health.cryptobot.ok, health.cryptobot.configured) + (health.cryptobot.app ? ' · ' + health.cryptobot.app : ''),
-    'xRocket: ' + mark(health.xrocket.ok, health.xrocket.configured) + (health.xrocket.app ? ' · ' + health.xrocket.app : '') + (health.xrocket.configured ? (health.xrocket.webhookToken ? ' · токен вебхука есть' : ' · без токена вебхука') : ''),
+    'xRocket: ' + mark(health.xrocket.ok, health.xrocket.configured) + (health.xrocket.error ? ' · ' + health.xrocket.error.slice(0, 120) : '') + (health.xrocket.app ? ' · ' + health.xrocket.app : '') + (health.xrocket.configured ? (health.xrocket.webhookToken ? ' · токен вебхука есть' : ' · без токена вебхука') : ''),
     'TON: ' + (health.ton.ok ? '✅ toncenter отвечает' : '❌ toncenter не ответил') + (health.ton.rate ? ' · курс $' + health.ton.rate + ' · к оплате ' + health.ton.quote + ' TON' : ' · курс не получен') + (health.ton.keyed ? ' · с ключом' : ' · без ключа'),
     'Ожидают оплаты: ' + health.pending,
   ].join('\n');

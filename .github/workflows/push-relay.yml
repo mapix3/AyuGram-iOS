@@ -123,6 +123,8 @@ jobs:
           print("Crypto Bot: " + mark(h["cryptobot"]) + (" (" + h["cryptobot"]["app"] + ")" if h["cryptobot"].get("app") else ""))
           print("xRocket: " + mark(h["xrocket"]) + (" (" + h["xrocket"]["app"] + ")" if h["xrocket"].get("app") else "") + ("" if not h["xrocket"].get("configured") else (", webhook token set" if h["xrocket"].get("webhookToken") else ", no webhook token")))
           print("TON: " + ("toncenter ok" if h["ton"].get("ok") else "toncenter failed") + ", rate $" + str(h["ton"].get("rate")) + ", quote " + str(h["ton"].get("quote")) + " TON" + (", keyed" if h["ton"].get("keyed") else ", no key"))
+          if h["xrocket"].get("error"):
+              print("xRocket answer: " + h["xrocket"]["error"])
           print("Pending requests: " + str(h.get("pending")))
           for name in ("cryptobot", "xrocket"):
               if h[name].get("configured") and not h[name].get("ok"):
