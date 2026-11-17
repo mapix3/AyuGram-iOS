@@ -435,11 +435,39 @@ function findCode(value, depth) {
   return null;
 }
 
+async function rocketSignatureValid(env, raw, request) {
+  const secret = env && env.XROCKET_WEBHOOK_TOKEN ? String(env.XROCKET_WEBHOOK_TOKEN).replace(/[\s"']/g, '') : '';
+  if (!secret) {
+    return true;
+  }
+  const given = ['rocket-pay-signature', 'x-rocket-pay-signature', 'x-signature', 'signature'].map((name) => request.headers.get(name)).find((value) => typeof value === 'string' && value.length > 0);
+  if (!given) {
+    return false;
+  }
+  const signature = given.trim().replace(/^sha256=/i, '').toLowerCase();
+  const body = new TextEncoder().encode(raw);
+  const keys = [new TextEncoder().encode(secret), new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret)))];
+  for (const material of keys) {
+    const key = await crypto.subtle.importKey('raw', material, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const bytes = new Uint8Array(await crypto.subtle.sign('HMAC', key, body));
+    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    const base64 = btoa(String.fromCharCode(...bytes));
+    if (signature === hex || given.trim() === base64) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function handleRocketHook(request, env) {
   if (request.method !== 'POST') {
     return new Response('not found\n', { status: 404 });
   }
   const raw = await request.text();
+  if (raw.length > 16384 || !(await rocketSignatureValid(env, raw, request))) {
+    console.log('xrocket webhook signature mismatch');
+    return new Response('forbidden\n', { status: 403 });
+  }
   let update = null;
   try {
     update = raw.length > 16384 ? null : JSON.parse(raw);
