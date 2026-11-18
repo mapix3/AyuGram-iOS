@@ -56,7 +56,7 @@ class ThemeSettingsChatPreviewItem: ListViewItem, ItemListItem {
     
     init(context: AccountContext, systemStyle: ItemListSystemStyle = .legacy, theme: PresentationTheme, componentTheme: PresentationTheme, strings: PresentationStrings, sectionId: ItemListSectionId, fontSize: PresentationFontSize, chatBubbleCorners: PresentationChatBubbleCorners, wallpaper: TelegramWallpaper, dateTimeFormat: PresentationDateTimeFormat, nameDisplayOrder: PresentationPersonNameOrder, messageItems: [ChatPreviewMessageItem]) {
         self.context = context
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.theme = theme
         self.componentTheme = componentTheme
         self.strings = strings

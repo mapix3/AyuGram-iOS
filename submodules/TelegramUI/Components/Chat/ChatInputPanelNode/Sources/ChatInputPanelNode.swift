@@ -33,6 +33,9 @@ public struct ChatInputPanelOverscrollIsland {
 /// The extra side inset of the chat's bottom panels with a small bottom inset on a screen with rounded corners, which
 /// they keep clear of. What lines up with the panels' edges (the history navigation buttons above them) takes it too.
 public func chatInputPanelCompactBottomSideInset(bottomInset: CGFloat, deviceMetrics: DeviceMetrics) -> CGFloat {
+    if AyuLegacyUI.isEnabled {
+        return 0.0
+    }
     if bottomInset <= 32.0 && deviceMetrics.screenCornerRadius > 0.0 {
         return 18.0
     } else {
@@ -44,6 +47,9 @@ public func chatInputPanelCompactBottomSideInset(bottomInset: CGFloat, deviceMet
 /// On iPad they line up with the input panels, which never step in there (no rounded corners). On phones they keep
 /// stepping in for any small bottom inset, as before, also on home-button iPhones, where the input panels do not.
 public func chatBottomControlsCompactSideInset(bottomInset: CGFloat, deviceMetrics: DeviceMetrics) -> CGFloat {
+    if AyuLegacyUI.isEnabled {
+        return 0.0
+    }
     if case .tablet = deviceMetrics.type {
         return chatInputPanelCompactBottomSideInset(bottomInset: bottomInset, deviceMetrics: deviceMetrics)
     }

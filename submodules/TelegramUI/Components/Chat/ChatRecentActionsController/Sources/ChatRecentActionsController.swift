@@ -395,7 +395,7 @@ public final class ChatRecentActionsController: TelegramBaseController {
     }
     
     private func updateNavigationBarPresentation() {
-        let navigationBarTheme = NavigationBarTheme(rootControllerTheme: self.presentationData.theme, hideBadge: false, edgeEffectColor: .clear, glassStyle: self.preferredGlassType == .clear ? .clear : .default)
+        let navigationBarTheme = NavigationBarTheme(rootControllerTheme: self.presentationData.theme, hideBadge: false, edgeEffectColor: .clear, glassStyle: self.preferredGlassType == .clear ? .clear : .default, legacyHidesBackground: false)
         self.navigationBar?.updatePresentationData(NavigationBarPresentationData(theme: navigationBarTheme, strings: NavigationBarStrings(presentationStrings: self.presentationData.strings)), transition: .immediate)
     }
 

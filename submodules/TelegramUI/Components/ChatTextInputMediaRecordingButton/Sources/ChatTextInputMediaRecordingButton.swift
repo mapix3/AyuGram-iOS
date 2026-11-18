@@ -317,7 +317,7 @@ public final class ChatTextInputMediaRecordingButton: TGModernConversationInputM
     
     /// Whether the server has switched the liquid glass blob off, bringing back the previous one.
     private var isGlassRecordingBlobDisabled: Bool {
-        return ChatRecordingBlobKillswitch.isActive(appConfigurationValue: self.context.getAppConfigValue)
+        return AyuLegacyUI.isEnabled || ChatRecordingBlobKillswitch.isActive(appConfigurationValue: self.context.getAppConfigValue)
     }
 
     private var micDecorationValue: (UIView & TGModernConversationInputMicButtonDecoration)?
@@ -495,6 +495,9 @@ public final class ChatTextInputMediaRecordingButton: TGModernConversationInputM
     }
     
     public override func createLockPanelView() -> (UIView & TGModernConversationInputMicButtonLockPanelView)! {
+        if AyuLegacyUI.isEnabled && !self.hidesOnLock {
+            return super.createLockPanelView()
+        }
         let isDark: Bool
         let tintColor: UIColor
         if self.hidesOnLock {

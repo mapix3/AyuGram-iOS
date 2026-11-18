@@ -236,6 +236,8 @@ public final class ChatListNavigationBar: Component {
 
     public final class View: UIView {
         private let edgeEffectView: EdgeEffectView
+        private var legacyBackgroundView: BlurredBackgroundView?
+        private var legacySeparatorLayer: CALayer?
 
         // Layout remains in navigation bar coordinates when this view is hosted externally.
         public var edgeEffectBackgroundView: UIView {
@@ -590,6 +592,32 @@ public final class ChatListNavigationBar: Component {
             let edgeEffectFrame = CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: CGSize(width: currentLayout.size.width, height: edgeEffectHeight))
             transition.setFrame(view: self.edgeEffectView, frame: edgeEffectFrame)
             self.edgeEffectView.update(content: nil, blur: true, alpha: ChatListNavigationBar.View.edgeEffectTintAlpha, rect: edgeEffectFrame, edge: .top, edgeSize: min(ChatListNavigationBar.View.edgeEffectEdgeLength, edgeEffectHeight), transition: transition)
+            if AyuLegacyUI.isEnabled {
+                let legacyBackgroundView: BlurredBackgroundView
+                if let current = self.legacyBackgroundView {
+                    legacyBackgroundView = current
+                } else {
+                    legacyBackgroundView = BlurredBackgroundView(color: component.theme.rootController.navigationBar.blurredBackgroundColor, enableBlur: true)
+                    self.legacyBackgroundView = legacyBackgroundView
+                    self.contentView.insertSubview(legacyBackgroundView, at: 0)
+                }
+                let legacySeparatorLayer: CALayer
+                if let current = self.legacySeparatorLayer {
+                    legacySeparatorLayer = current
+                } else {
+                    legacySeparatorLayer = CALayer()
+                    self.legacySeparatorLayer = legacySeparatorLayer
+                    legacyBackgroundView.layer.addSublayer(legacySeparatorLayer)
+                }
+                legacyBackgroundView.updateColor(color: component.theme.rootController.navigationBar.blurredBackgroundColor, transition: .immediate)
+                legacySeparatorLayer.backgroundColor = component.theme.rootController.navigationBar.separatorColor.cgColor
+                let legacyBackgroundFrame = CGRect(origin: CGPoint(), size: CGSize(width: currentLayout.size.width, height: max(0.0, edgeEffectHeight - 14.0)))
+                transition.setFrame(view: legacyBackgroundView, frame: legacyBackgroundFrame)
+                legacyBackgroundView.update(size: legacyBackgroundFrame.size, transition: transition.containedViewLayoutTransition)
+                transition.setFrame(layer: legacySeparatorLayer, frame: CGRect(origin: CGPoint(x: 0.0, y: legacyBackgroundFrame.height), size: CGSize(width: legacyBackgroundFrame.width, height: UIScreenPixel)))
+                legacyBackgroundView.isHidden = !component.hasEdgeEffect
+                self.edgeEffectView.isHidden = true
+            }
             
             let headerTransition = transition
             
@@ -1041,7 +1069,7 @@ public final class ChatListNavigationBar: Component {
             
             self.updateEdgeEffectColor(transition: transition)
             
-            self.edgeEffectView.isHidden = !component.hasEdgeEffect
+            self.edgeEffectView.isHidden = AyuLegacyUI.isEnabled ? true : !component.hasEdgeEffect
 
             if self.isContentLifted {
                 self.transitionContentFrameUpdated?(CGRect(origin: CGPoint(), size: size))

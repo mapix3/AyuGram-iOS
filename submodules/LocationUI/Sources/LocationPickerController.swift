@@ -114,6 +114,7 @@ public final class LocationPickerController: ViewController, AttachmentContainab
         initialLocation: CLLocationCoordinate2D? = nil,
         completion: @escaping (TelegramMediaMap, Int64?, String?, String?, String?) -> Void
     ) {
+        let style: Style = AyuLegacyUI.isEnabled ? .legacy : style
         self.context = context
         self.style = style
         self.mode = mode

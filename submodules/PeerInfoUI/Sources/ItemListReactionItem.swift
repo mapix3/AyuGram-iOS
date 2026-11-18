@@ -40,7 +40,7 @@ public class ItemListReactionItem: ListViewItem, ItemListItem {
     ) {
         self.context = context
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.availableReactions = availableReactions
         self.reaction = reaction
         self.title = title

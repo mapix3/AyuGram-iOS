@@ -24,7 +24,7 @@ final class ProxySettingsActionItem: ListViewItem, ItemListItem {
     
     init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, title: String, icon: ProxySettingsActionIcon = .none, sectionId: ItemListSectionId, editing: Bool, action: @escaping () -> Void, tag: ItemListItemTag? = nil) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.title = title
         self.icon = icon
         self.editing = editing

@@ -56,7 +56,7 @@ public class ItemListFolderInviteLinkListItem: ListViewItem, ItemListItem {
         tag: ItemListItemTag? = nil
     ) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.invite = invite
         self.share = share
         self.sectionId = sectionId

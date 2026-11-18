@@ -234,7 +234,7 @@ private final class PeerInfoScreenDisclosureItemNode: PeerInfoScreenItemNode {
         }
         let labelSize = self.labelNode.updateLayout(CGSize(width: labelConstrainWidth, height: .greatestFiniteMagnitude))
         
-        let height = textSize.height + 32.0
+        let height = textSize.height + PeerInfoListMetrics.verticalPadding * 2.0
         let textFrame = CGRect(origin: CGPoint(x: leftInset, y: floorToScreenPixels((height - textSize.height) / 2.0)), size: textSize)        
         
         if item.icon != nil || item.iconSignal != nil {
@@ -255,9 +255,9 @@ private final class PeerInfoScreenDisclosureItemNode: PeerInfoScreenItemNode {
                         }
                     }))
                 }
-                iconSize = CGSize(width: 30.0, height: 30.0)
+                iconSize = CGSize(width: PeerInfoListMetrics.iconSide, height: PeerInfoListMetrics.iconSide)
             } else {
-                iconSize = CGSize(width: 30.0, height: 30.0)
+                iconSize = CGSize(width: PeerInfoListMetrics.iconSide, height: PeerInfoListMetrics.iconSide)
             }
             let iconFrame = CGRect(origin: CGPoint(x: sideInset, y: floorToScreenPixels((height - iconSize.height) / 2.0)), size: iconSize)
             transition.updateFrame(node: self.iconNode, frame: iconFrame)
@@ -437,7 +437,7 @@ private final class PeerInfoScreenDisclosureItemNode: PeerInfoScreenItemNode {
         self.selectionNode.update(size: CGSize(width: width, height: height + highlightNodeOffset), theme: presentationData.theme, transition: transition)
         transition.updateFrame(node: self.selectionNode, frame: CGRect(origin: CGPoint(x: 0.0, y: -highlightNodeOffset), size: CGSize(width: width, height: height + highlightNodeOffset)))
         
-        let separatorRightInset: CGFloat = 16.0
+        let separatorRightInset: CGFloat = PeerInfoListMetrics.separatorRightInset
         
         transition.updateFrame(node: self.bottomSeparatorNode, frame: CGRect(origin: CGPoint(x: separatorInset, y: height - UIScreenPixel), size: CGSize(width: width - separatorInset - separatorRightInset, height: UIScreenPixel)))
         transition.updateAlpha(node: self.bottomSeparatorNode, alpha: bottomItem == nil ? 0.0 : 1.0)

@@ -294,7 +294,7 @@ public final class LiquidLensView: UIView {
         }
         self.containerView.isUserInteractionEnabled = false
         
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !AyuLegacyUI.isEnabled {
             if let viewClass = NSClassFromString("_UILiquidLensView") as AnyObject as? NSObjectProtocol {
                 let allocSelector = NSSelectorFromString("alloc")
                 let initSelector = NSSelectorFromString("initWithRestingBackground:")

@@ -19,7 +19,7 @@ class ThemeSettingsBrightnessItem: ListViewItem, ItemListItem {
     let updated: (Int32) -> Void
     
     init(systemStyle: ItemListSystemStyle = .legacy, theme: PresentationTheme, value: Int32, sectionId: ItemListSectionId, updated: @escaping (Int32) -> Void) {
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.theme = theme
         self.value = value
         self.sectionId = sectionId

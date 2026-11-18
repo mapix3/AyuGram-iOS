@@ -49,7 +49,7 @@ class ThemeSettingsAppIconItem: ListViewItem, ItemListItem {
     init(theme: PresentationTheme, strings: PresentationStrings, systemStyle: ItemListSystemStyle, sectionId: ItemListSectionId, icons: [PresentationAppIcon], isPremium: Bool, currentIconName: String?, updated: @escaping (PresentationAppIcon) -> Void, tag: ItemListItemTag? = nil) {
         self.theme = theme
         self.strings = strings
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.icons = icons
         self.isPremium = isPremium
         self.currentIconName = currentIconName

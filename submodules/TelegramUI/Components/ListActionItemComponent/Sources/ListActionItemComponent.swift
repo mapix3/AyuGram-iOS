@@ -220,7 +220,11 @@ public final class ListActionItemComponent: Component {
         accessibility: ComponentAccessibility? = nil
     ) {
         self.theme = theme
-        self.style = style
+        if case .glass = style, AyuLegacyUI.isEnabled {
+            self.style = .legacy
+        } else {
+            self.style = style
+        }
         self.background = background
         self.title = title
         self.titleAlignment = titleAlignment

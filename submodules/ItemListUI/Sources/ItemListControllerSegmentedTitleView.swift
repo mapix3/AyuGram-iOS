@@ -6,6 +6,7 @@ import ComponentFlow
 import ComponentDisplayAdapters
 import GlassBackgroundComponent
 import HorizontalTabsComponent
+import TabSelectorComponent
 
 /// A navigation-bar title of fixed-width tabs. It reports its size (`NavigationBarTitleView`), so the bar places it at
 /// that width. A frame filling the space between the buttons changes width with them (Calls ▸ Edit), and the tabs, laid
@@ -14,6 +15,7 @@ public final class ItemListControllerSegmentedTitleView: UIView, NavigationBarTi
     private let backgroundContainer: GlassBackgroundContainerView
     private let backgroundView: GlassBackgroundView
     private let tabSelector = ComponentView<Empty>()
+    private let legacyTabSelector = ComponentView<Empty>()
     
     public var theme: PresentationTheme {
         didSet {
@@ -57,7 +59,9 @@ public final class ItemListControllerSegmentedTitleView: UIView, NavigationBarTi
         
         super.init(frame: CGRect())
         
-        self.addSubview(self.backgroundContainer)
+        if !AyuLegacyUI.isEnabled {
+            self.addSubview(self.backgroundContainer)
+        }
         self.backgroundContainer.contentView.addSubview(self.backgroundView)
     }
     
@@ -84,6 +88,9 @@ public final class ItemListControllerSegmentedTitleView: UIView, NavigationBarTi
     
     /// Lays the tabs out centered in `containerSize`, or in their own size when it is nil, and returns their size.
     private func update(availableWidth: CGFloat, containerSize: CGSize?, transition: ComponentTransition) -> CGSize {
+        if AyuLegacyUI.isEnabled {
+            return self.updateLegacy(availableWidth: availableWidth, containerSize: containerSize, transition: transition)
+        }
         
         let mappedItems: [HorizontalTabsComponent.Tab] = zip(0 ..< self.segments.count, self.segments).map { index, segment in
             return HorizontalTabsComponent.Tab(
@@ -136,6 +143,55 @@ public final class ItemListControllerSegmentedTitleView: UIView, NavigationBarTi
                 tabSelectorView.setOverlayContainerView(overlayContainerView: self)
             }
             transition.setFrame(view: tabSelectorView, frame: CGRect(origin: CGPoint(), size: tabSelectorFrame.size))
+        }
+        
+        return tabSelectorSize
+    }
+    
+    private func updateLegacy(availableWidth: CGFloat, containerSize: CGSize?, transition: ComponentTransition) -> CGSize {
+        var transition = transition
+        if self.animateLayout {
+            transition = .spring(duration: 0.4)
+            self.animateLayout = false
+        }
+        
+        let legacyItems: [TabSelectorComponent.Item] = self.segments.enumerated().map { index, segment in
+            return TabSelectorComponent.Item(id: AnyHashable(index), title: segment)
+        }
+        
+        let tabSelectorSize = self.legacyTabSelector.update(
+            transition: transition,
+            component: AnyComponent(TabSelectorComponent(
+                colors: TabSelectorComponent.Colors(
+                    foreground: self.theme.list.itemPrimaryTextColor.withMultipliedAlpha(0.8),
+                    selection: self.theme.list.itemPrimaryTextColor.withMultipliedAlpha(0.05)
+                ),
+                theme: self.theme,
+                customLayout: TabSelectorComponent.CustomLayout(
+                    font: Font.medium(15.0),
+                    spacing: 8.0
+                ),
+                items: legacyItems,
+                selectedId: AnyHashable(self.index),
+                setSelectedId: { [weak self] id in
+                    guard let self, let index = id.base as? Int else {
+                        return
+                    }
+                    self.indexUpdated?(index)
+                }
+            )),
+            environment: {},
+            containerSize: CGSize(width: availableWidth, height: 44.0)
+        )
+        
+        let size = containerSize ?? tabSelectorSize
+        let tabSelectorFrame = CGRect(origin: CGPoint(x: floor((size.width - tabSelectorSize.width) / 2.0), y: floor((size.height - tabSelectorSize.height) / 2.0)), size: tabSelectorSize)
+        
+        if let tabSelectorView = self.legacyTabSelector.view {
+            if tabSelectorView.superview == nil {
+                self.addSubview(tabSelectorView)
+            }
+            transition.setFrame(view: tabSelectorView, frame: tabSelectorFrame)
         }
         
         return tabSelectorSize

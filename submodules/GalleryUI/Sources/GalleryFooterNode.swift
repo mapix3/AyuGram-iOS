@@ -22,6 +22,7 @@ public final class GalleryFooterNode: ASDisplayNode {
         
         self.edgeEffectView = EdgeEffectView()
         self.edgeEffectView.isUserInteractionEnabled = false
+        self.edgeEffectView.legacyUIBehavior = .keep
         
         super.init()
         

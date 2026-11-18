@@ -530,7 +530,7 @@ public final class ItemListPeerItem: ListViewItem, ItemListItem, ItemListRevealO
         openStories: ((UIView) -> Void)? = nil
     ) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.dateTimeFormat = dateTimeFormat
         self.nameDisplayOrder = nameDisplayOrder
         self.context = .account(context)
@@ -618,7 +618,7 @@ public final class ItemListPeerItem: ListViewItem, ItemListItem, ItemListRevealO
         openStories: ((UIView) -> Void)? = nil
     ) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.dateTimeFormat = dateTimeFormat
         self.nameDisplayOrder = nameDisplayOrder
         self.context = context

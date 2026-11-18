@@ -143,6 +143,7 @@ final class ChatVideoGalleryItemScrubberView: UIView {
     init(chapters: [MediaPlayerScrubbingChapter]) {
         self.backgroundContainer = GlassBackgroundContainerView()
         self.backgroundView = GlassBackgroundView()
+        self.backgroundView.hidesBackgroundInLegacyUI = true
         self.backgroundContainer.contentView.addSubview(self.backgroundView)
         self.backgroundView.contentView.layer.allowsGroupOpacity = true
         

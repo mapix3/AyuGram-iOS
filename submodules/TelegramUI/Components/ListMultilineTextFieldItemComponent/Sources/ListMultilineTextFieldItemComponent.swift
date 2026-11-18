@@ -139,7 +139,11 @@ public final class ListMultilineTextFieldItemComponent: Component {
         tag: AnyObject? = nil
     ) {
         self.externalState = externalState
-        self.style = style
+        if case .glass = style, AyuLegacyUI.isEnabled {
+            self.style = .legacy
+        } else {
+            self.style = style
+        }
         self.context = context
         self.theme = theme
         self.strings = strings

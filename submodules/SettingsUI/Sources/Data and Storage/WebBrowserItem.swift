@@ -25,7 +25,7 @@ final class WebBrowserItem: ListViewItem, ItemListItem {
     public init(context: AccountContext, presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle, title: String, application: OpenInApplication?, identifier: String?, checked: Bool, sectionId: ItemListSectionId, action: @escaping () -> Void) {
         self.context = context
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.title = title
         self.application = application
         self.identifier = identifier

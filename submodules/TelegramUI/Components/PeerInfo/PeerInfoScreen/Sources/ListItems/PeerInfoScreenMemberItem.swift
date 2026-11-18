@@ -280,7 +280,7 @@ private final class PeerInfoScreenMemberItemNode: PeerInfoScreenItemNode {
             separatorInset += 49.0
         }
         
-        let separatorRightInset: CGFloat = 16.0
+        let separatorRightInset: CGFloat = PeerInfoListMetrics.separatorRightInset
         
         transition.updateFrame(node: self.bottomSeparatorNode, frame: CGRect(origin: CGPoint(x: separatorInset, y: height - UIScreenPixel), size: CGSize(width: width - separatorInset - separatorRightInset, height: UIScreenPixel)))
         transition.updateAlpha(node: self.bottomSeparatorNode, alpha: bottomItem == nil ? 0.0 : 1.0)

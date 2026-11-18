@@ -30,8 +30,13 @@ public final class NavigationBarTheme {
     /// The glass of capsules whose buttons ask for no tint of their own, when it is not the panel glass: the profile's
     /// buttons over a cover colour or its expanded avatar. Nil: the panel glass (or clear, by `glassStyle`).
     public let glassTintColor: UIColor?
+    public let backgroundColor: UIColor
+    public let opaqueBackgroundColor: UIColor
+    public let enableBackgroundBlur: Bool
+    public let separatorColor: UIColor
+    public let badgeStrokeColor: UIColor
     
-    public init(overallDarkAppearance: Bool, buttonColor: UIColor, disabledButtonColor: UIColor, primaryTextColor: UIColor, badgeBackgroundColor: UIColor, badgeTextColor: UIColor, edgeEffectColor: UIColor? = nil, accentButtonColor: UIColor, accentDisabledButtonColor: UIColor, accentForegroundColor: UIColor, glassStyle: NavigationBar.GlassStyle = .default, glassTintColor: UIColor? = nil) {
+    public init(overallDarkAppearance: Bool, buttonColor: UIColor, disabledButtonColor: UIColor, primaryTextColor: UIColor, badgeBackgroundColor: UIColor, badgeTextColor: UIColor, edgeEffectColor: UIColor? = nil, accentButtonColor: UIColor, accentDisabledButtonColor: UIColor, accentForegroundColor: UIColor, glassStyle: NavigationBar.GlassStyle = .default, glassTintColor: UIColor? = nil, backgroundColor: UIColor = .clear, opaqueBackgroundColor: UIColor = .clear, enableBackgroundBlur: Bool = true, separatorColor: UIColor = .clear, badgeStrokeColor: UIColor = .clear) {
         self.overallDarkAppearance = overallDarkAppearance
         self.buttonColor = buttonColor
         self.disabledButtonColor = disabledButtonColor
@@ -44,6 +49,11 @@ public final class NavigationBarTheme {
         self.accentForegroundColor = accentForegroundColor
         self.glassStyle = glassStyle
         self.glassTintColor = glassTintColor
+        self.backgroundColor = backgroundColor
+        self.opaqueBackgroundColor = opaqueBackgroundColor
+        self.enableBackgroundBlur = enableBackgroundBlur
+        self.separatorColor = separatorColor
+        self.badgeStrokeColor = badgeStrokeColor
     }
 }
 

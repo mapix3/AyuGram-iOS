@@ -21,6 +21,7 @@ import TextNodeWithEntities
 import ContextUI
 import LensTransition
 import BalancedTextComponent
+import AppBundle
 
 public protocol ContextControllerActionsListItemNode: ASDisplayNode {
     func update(presentationData: PresentationData, constrainedSize: CGSize) -> (minSize: CGSize, apply: (_ size: CGSize, _ transition: ContainedViewLayoutTransition) -> Void)
@@ -225,10 +226,11 @@ public final class ContextControllerActionsListActionItemNode: HighlightTracking
     }
     
     public func update(presentationData: PresentationData, constrainedSize: CGSize) -> (minSize: CGSize, apply: (_ size: CGSize, _ transition: ContainedViewLayoutTransition) -> Void) {
-        let sideInset: CGFloat = 18.0
+        let legacy = AyuLegacyUI.isEnabled
+        let sideInset: CGFloat = legacy ? 16.0 : 18.0
         let verticalInset: CGFloat = 11.0
         let titleSubtitleSpacing: CGFloat = 1.0
-        let iconSideInset: CGFloat = 20.0
+        let iconSideInset: CGFloat = legacy ? 12.0 : 20.0
         let standardIconWidth: CGFloat = 32.0
         let iconSpacing: CGFloat = 8.0
         
@@ -535,7 +537,7 @@ public final class ContextControllerActionsListActionItemNode: HighlightTracking
             maxTextWidth -= sideInset
         }
         
-        if let additionalIconSize {
+        if let additionalIconSize, !legacy {
             maxTextWidth -= additionalIconSize.width
         }
         
@@ -575,7 +577,7 @@ public final class ContextControllerActionsListActionItemNode: HighlightTracking
             minSize.width += sideInset
         }
         if let additionalIconSize {
-            minSize.width += additionalIconSize.width
+            minSize.width += legacy ? 24.0 : additionalIconSize.width
             minSize.width += iconSideInset
             minSize.width += iconSpacing
         }
@@ -599,7 +601,15 @@ public final class ContextControllerActionsListActionItemNode: HighlightTracking
                 titleFrame = titleFrame.offsetBy(dx: 0.0, dy: titleVerticalOffset)
             }
             var subtitleFrame = CGRect(origin: CGPoint(x: titleFrame.minX, y: titleFrame.maxY + titleSubtitleSpacing), size: subtitleSize)
-            if iconSize != nil {
+            if legacy {
+                if self.item.additionalLeftIcon != nil {
+                    titleFrame = titleFrame.offsetBy(dx: 26.0, dy: 0.0)
+                    subtitleFrame = subtitleFrame.offsetBy(dx: 26.0, dy: 0.0)
+                } else if self.item.iconPosition == .left {
+                    titleFrame = titleFrame.offsetBy(dx: 36.0, dy: 0.0)
+                    subtitleFrame = subtitleFrame.offsetBy(dx: 36.0, dy: 0.0)
+                }
+            } else if iconSize != nil {
                 titleFrame.origin.x = iconSideInset + 40.0
                 subtitleFrame.origin.x = titleFrame.minX
             }
@@ -632,9 +642,16 @@ public final class ContextControllerActionsListActionItemNode: HighlightTracking
                 } else {
                     iconY = floor((size.height - iconSize.height) / 2.0)
                 }
+                let iconX: CGFloat
+                if legacy {
+                    let iconWidth = max(standardIconWidth, iconSize.width)
+                    iconX = self.item.iconPosition == .left ? iconSideInset : size.width - iconSideInset - iconWidth + floor((iconWidth - iconSize.width) / 2.0)
+                } else {
+                    iconX = iconSideInset + floor((standardIconWidth - iconSize.width) * 0.5)
+                }
                 let iconFrame = CGRect(
                     origin: CGPoint(
-                        x: iconSideInset + floor((standardIconWidth - iconSize.width) * 0.5),
+                        x: iconX,
                         y: iconY
                     ),
                     size: iconSize
@@ -663,7 +680,7 @@ public final class ContextControllerActionsListActionItemNode: HighlightTracking
             if let additionalIconSize {
                 let iconFrame = CGRect(
                     origin: CGPoint(
-                        x: size.width - iconSideInset - additionalIconSize.width,
+                        x: legacy ? (self.item.iconPosition == .left ? size.width - additionalIconSize.width - 10.0 : 10.0) : size.width - iconSideInset - additionalIconSize.width,
                         y: floor((size.height - additionalIconSize.height) / 2.0)
                     ),
                     size: additionalIconSize
@@ -705,6 +722,12 @@ private final class ContextControllerActionsListSeparatorItemNode: ASDisplayNode
     }
     
     func update(presentationData: PresentationData, constrainedSize: CGSize) -> (minSize: CGSize, apply: (_ size: CGSize, _ transition: ContainedViewLayoutTransition) -> Void) {
+        if AyuLegacyUI.isEnabled {
+            return (minSize: CGSize(width: 0.0, height: 7.0), apply: { _, _ in
+                self.separatorView.isHidden = true
+                self.backgroundColor = presentationData.theme.contextMenu.sectionSeparatorColor
+            })
+        }
         return (minSize: CGSize(width: 0.0, height: 20.0), apply: { size, transition in
             let sideInset: CGFloat = 18.0
             self.separatorView.tintColor = presentationData.theme.contextMenu.itemSeparatorColor
@@ -818,9 +841,11 @@ public final class ContextControllerActionsListStackItem: ContextControllerActio
         
         private final class Item {
             let node: ContextControllerActionsListItemNode
+            let separatorNode: ASDisplayNode?
             
             init(node: ContextControllerActionsListItemNode) {
                 self.node = node
+                self.separatorNode = (AyuLegacyUI.isEnabled && !(node is ContextControllerActionsListSeparatorItemNode)) ? ASDisplayNode() : nil
             }
         }
         
@@ -904,6 +929,13 @@ public final class ContextControllerActionsListStackItem: ContextControllerActio
             for item in self.itemNodes {
                 self.addSubnode(item.node)
             }
+            if AyuLegacyUI.isEnabled {
+                for item in self.itemNodes {
+                    if let separatorNode = item.separatorNode {
+                        self.addSubnode(separatorNode)
+                    }
+                }
+            }
             
             if let tipSignal = tipSignal {
                 self.tipDisposable = (tipSignal
@@ -949,6 +981,7 @@ public final class ContextControllerActionsListStackItem: ContextControllerActio
                     if currentAction.id == id {
                         let previousNode = self.itemNodes[i]
                         previousNode.node.removeFromSupernode()
+                        previousNode.separatorNode?.removeFromSupernode()
                         
                         let addedNode = Item(
                             node: ContextControllerActionsListActionItemNode(
@@ -966,6 +999,9 @@ public final class ContextControllerActionsListStackItem: ContextControllerActio
                         )
                         self.itemNodes[i] = addedNode
                         self.addSubnode(addedNode.node)
+                        if let separatorNode = addedNode.separatorNode {
+                            self.addSubnode(separatorNode)
+                        }
                         
                         self.requestUpdate(.immediate)
                         
@@ -1008,7 +1044,7 @@ public final class ContextControllerActionsListStackItem: ContextControllerActio
             
             var highlightedItemFrame: CGRect?
             
-            let verticalInset: CGFloat = 10.0
+            let verticalInset: CGFloat = AyuLegacyUI.isEnabled ? 0.0 : 10.0
             
             var itemNodeLayouts: [(minSize: CGSize, apply: (_ size: CGSize, _ transition: ContainedViewLayoutTransition) -> Void)] = []
             var combinedSize = CGSize(width: 0.0, height: 0.0)
@@ -1058,6 +1094,22 @@ public final class ContextControllerActionsListStackItem: ContextControllerActio
                 let itemSize = CGSize(width: combinedSize.width, height: itemNodeLayout.minSize.height)
                 let itemFrame = CGRect(origin: nextItemOrigin, size: itemSize)
                 itemTransition.updateFrame(node: item.node, frame: itemFrame, beginWithCurrentState: true)
+                if let separatorNode = item.separatorNode {
+                    separatorNode.backgroundColor = presentationData.theme.contextMenu.itemSeparatorColor
+                    itemTransition.updateFrame(node: separatorNode, frame: CGRect(origin: CGPoint(x: itemFrame.minX, y: itemFrame.maxY), size: CGSize(width: itemFrame.width, height: UIScreenPixel)), beginWithCurrentState: true)
+                    var separatorHidden = false
+                    if i != self.itemNodes.count - 1 {
+                        if i + 1 < self.items.count, case .separator = self.items[i + 1] {
+                            separatorHidden = true
+                        }
+                    } else {
+                        separatorHidden = true
+                    }
+                    if let customNode = item.node as? ContextControllerActionsListCustomItemNode, let innerNode = customNode.itemNode, !innerNode.needsSeparator {
+                        separatorHidden = true
+                    }
+                    separatorNode.isHidden = separatorHidden
+                }
                 
                 itemNodeLayout.apply(itemSize, itemTransition)
                 nextItemOrigin.y += itemSize.height
@@ -1130,8 +1182,12 @@ public final class ContextControllerActionsListStackItem: ContextControllerActio
             }
             
             if let highlightedItemFrame {
+                if AyuLegacyUI.isEnabled {
+                    self.highlightedItemBackgroundView.backgroundColor = presentationData.theme.contextMenu.itemHighlightedBackgroundColor
+                } else {
                 self.highlightedItemBackgroundView.backgroundColor = presentationData.theme.overallDarkAppearance ? UIColor.white : UIColor.black
                 self.highlightedItemBackgroundView.setMonochromaticEffect(tintColor: self.highlightedItemBackgroundView.backgroundColor)
+                }
                 
                 var highlightTransition = ComponentTransition(transition)
                 var animateIn = false
@@ -1141,15 +1197,18 @@ public final class ContextControllerActionsListStackItem: ContextControllerActio
                     }
                     animateIn = true
                 }
-                let highlightFrame = CGRect(origin: CGPoint(x: 10.0, y: highlightedItemFrame.minY), size: CGSize(width: combinedSize.width - 10.0 * 2.0, height: highlightedItemFrame.height))
+                if AyuLegacyUI.isEnabled {
+                    highlightTransition = .immediate
+                }
+                let highlightFrame = AyuLegacyUI.isEnabled ? CGRect(origin: CGPoint(x: 0.0, y: highlightedItemFrame.minY), size: CGSize(width: combinedSize.width, height: highlightedItemFrame.height)) : CGRect(origin: CGPoint(x: 10.0, y: highlightedItemFrame.minY), size: CGSize(width: combinedSize.width - 10.0 * 2.0, height: highlightedItemFrame.height))
                 highlightTransition.setFrame(view: self.highlightedItemBackgroundView, frame: highlightFrame)
-                highlightTransition.setCornerRadius(layer: self.highlightedItemBackgroundView.layer, cornerRadius: min(20.0, highlightFrame.height * 0.5))
+                highlightTransition.setCornerRadius(layer: self.highlightedItemBackgroundView.layer, cornerRadius: AyuLegacyUI.isEnabled ? 0.0 : min(20.0, highlightFrame.height * 0.5))
                 if animateIn {
                     var alphaTransition = transition
                     if transition.isAnimated {
                         alphaTransition = .animated(duration: 0.2, curve: .easeInOut)
                     }
-                    ComponentTransition(alphaTransition).setAlpha(view: self.highlightedItemBackgroundView, alpha: 0.1)
+                    ComponentTransition(alphaTransition).setAlpha(view: self.highlightedItemBackgroundView, alpha: AyuLegacyUI.isEnabled ? 1.0 : 0.1)
                 }
             } else if self.highlightedItemBackgroundView.alpha != 0.0 {
                 ComponentTransition(transition).setAlpha(view: self.highlightedItemBackgroundView, alpha: 0.0)
@@ -1495,6 +1554,8 @@ public final class ContextControllerActionsStackNodeImpl: ASDisplayNode, Context
     final class NavigationContainer: ASDisplayNode, ASGestureRecognizerDelegate {
         let backgroundContainer: GlassBackgroundContainerView
         let contentContainer: LensTransitionContainer
+        let legacyBackgroundNode: NavigationBackgroundNode?
+        let legacyShadowNode: ASImageNode?
         
         var requestUpdate: ((ContainedViewLayoutTransition) -> Void)?
         var requestPop: (() -> Void)?
@@ -1512,8 +1573,24 @@ public final class ContextControllerActionsStackNodeImpl: ASDisplayNode, Context
         override init() {
             self.backgroundContainer = GlassBackgroundContainerView(spacing: 28.0)
             self.contentContainer = LensTransitionContainer(frame: .zero)
+            if AyuLegacyUI.isEnabled {
+                self.legacyBackgroundNode = NavigationBackgroundNode(color: .clear, enableBlur: false)
+                let shadowNode = ASImageNode()
+                shadowNode.displaysAsynchronously = false
+                shadowNode.image = UIImage(bundleImageName: "Components/Context Menu/Shadow")?.stretchableImage(withLeftCapWidth: 60, topCapHeight: 48)
+                self.legacyShadowNode = shadowNode
+            } else {
+                self.legacyBackgroundNode = nil
+                self.legacyShadowNode = nil
+            }
             
             super.init()
+            
+            if let legacyBackgroundNode = self.legacyBackgroundNode {
+                self.addSubnode(legacyBackgroundNode)
+                self.clipsToBounds = true
+                self.cornerRadius = 14.0
+            }
             
             self.view.addSubview(self.backgroundContainer)
             self.backgroundContainer.contentView.addSubview(self.contentContainer)
@@ -1583,6 +1660,21 @@ public final class ContextControllerActionsStackNodeImpl: ASDisplayNode, Context
         }
 
         func update(presentationData: PresentationData, presentation: Presentation, size: CGSize, usesClearGlass: Bool, glassBlurRadius: CGFloat?, transition: ContainedViewLayoutTransition) {
+            if let legacyBackgroundNode = self.legacyBackgroundNode {
+                switch presentation {
+                case .modal:
+                    legacyBackgroundNode.updateColor(color: presentationData.theme.contextMenu.backgroundColor, enableBlur: false, forceKeepBlur: false, transition: transition)
+                    self.legacyShadowNode?.isHidden = true
+                case .inline:
+                    legacyBackgroundNode.updateColor(color: presentationData.theme.contextMenu.backgroundColor, enableBlur: true, forceKeepBlur: true, transition: transition)
+                    self.legacyShadowNode?.isHidden = false
+                case .additional:
+                    legacyBackgroundNode.updateColor(color: presentationData.theme.contextMenu.backgroundColor.withMultipliedAlpha(0.5), enableBlur: true, forceKeepBlur: true, transition: transition)
+                    self.legacyShadowNode?.isHidden = false
+                }
+                transition.updateFrame(node: legacyBackgroundNode, frame: CGRect(origin: CGPoint(), size: size))
+                legacyBackgroundNode.update(size: size, transition: transition)
+            }
             let transition = ComponentTransition(transition)
             
             transition.setFrame(view: self.backgroundContainer, frame: CGRect(origin: CGPoint(), size: size))
@@ -1592,7 +1684,7 @@ public final class ContextControllerActionsStackNodeImpl: ASDisplayNode, Context
             transition.setBounds(view: self.contentContainer, bounds: CGRect(origin: CGPoint(), size: size))
             self.backgroundContainer.nativeBlurRadius = glassBlurRadius
             self.contentContainer.nativeBlurRadius = glassBlurRadius
-            self.contentContainer.update(size: size, cornerRadius: min(30.0, size.height * 0.5), isDark: presentationData.theme.overallDarkAppearance, tintColor: GlassBackgroundView.TintColor(kind: usesClearGlass ? .custom(style: .clear, color: .clear) : .panel), transition: transition)
+            self.contentContainer.update(size: size, cornerRadius: self.legacyBackgroundNode != nil ? 14.0 : min(30.0, size.height * 0.5), isDark: presentationData.theme.overallDarkAppearance, tintColor: GlassBackgroundView.TintColor(kind: usesClearGlass ? .custom(style: .clear, color: .clear) : .panel), transition: transition)
         }
     }
     
@@ -1824,6 +1916,9 @@ public final class ContextControllerActionsStackNodeImpl: ASDisplayNode, Context
         
         super.init()
         
+        if let legacyShadowNode = self.navigationContainer.legacyShadowNode {
+            self.addSubnode(legacyShadowNode)
+        }
         self.addSubnode(self.navigationContainer)
         
         self.navigationContainer.requestUpdate = { [weak self] transition in
@@ -2133,6 +2228,9 @@ public final class ContextControllerActionsStackNodeImpl: ASDisplayNode, Context
         transition.updateFrame(node: self.navigationContainer, frame: navigationContainerFrame, beginWithCurrentState: true)
         if !navigationContainerFrame.isEmpty {
             self.navigationContainer.update(presentationData: presentationData, presentation: presentation, size: navigationContainerFrame.size, usesClearGlass: self.usesClearGlass, glassBlurRadius: self.glassBlurRadius, transition: transition)
+        }
+        if let legacyShadowNode = self.navigationContainer.legacyShadowNode {
+            transition.updateFrame(node: legacyShadowNode, frame: navigationContainerFrame.insetBy(dx: -30.0, dy: -30.0), beginWithCurrentState: true)
         }
         
         for i in 0 ..< self.itemContainers.count {

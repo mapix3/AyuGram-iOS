@@ -45,7 +45,7 @@ public class ItemListFilterTitleInputItem: ListViewItem, ItemListItem {
     ) {
         self.context = context
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.text = text
         self.enableAnimations = enableAnimations
         self.placeholder = placeholder

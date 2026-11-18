@@ -169,7 +169,15 @@ public protocol CustomViewControllerNavigationDataSummary: AnyObject {
         return false
     }
     open var _presentedInModal: Bool = false
-    open var _hasGlassStyle: Bool = false
+    private var _hasGlassStyleValue: Bool = false
+    open var _hasGlassStyle: Bool {
+        get {
+            return self._hasGlassStyleValue && !AyuLegacyUI.isEnabled
+        }
+        set {
+            self._hasGlassStyleValue = newValue
+        }
+    }
     open var flatReceivesModalTransition: Bool = false
     /// A full-screen viewer (a web page, a document) presented as a modal fills the screen beside a top-right status
     /// island (iPhone Duo, unfolded portrait) rather than becoming a card below it; its bar then sits beside the island.
@@ -252,6 +260,9 @@ public protocol CustomViewControllerNavigationDataSummary: AnyObject {
 
     /// iPhone Duo: where the bar puts its side column for `layout`, or nil while it puts none there.
     private func navigationBarSideColumnPlacement(layout: ContainerViewLayout) -> NavigationBarSideColumnPlacement? {
+        if AyuLegacyUI.isEnabled {
+            return nil
+        }
         guard self.placesNavigationButtonInSideColumn && self.displayNavigationBar else {
             return nil
         }
@@ -313,7 +324,9 @@ public protocol CustomViewControllerNavigationDataSummary: AnyObject {
         // Beside iPhone Duo's status island the bar stays near the top rather than below the island.
         let statusBarHeight: CGFloat = layout.navigationBarStatusBarHeight ?? 0.0
         var defaultNavigationBarHeight: CGFloat
-        if self._presentedInModal && self._hasGlassStyle {
+        if AyuLegacyUI.isEnabled {
+            defaultNavigationBarHeight = (self._presentedInModal && layout.orientation == .portrait) ? 56.0 : 44.0
+        } else if self._presentedInModal && self._hasGlassStyle {
             defaultNavigationBarHeight = 68.0
         } else {
             defaultNavigationBarHeight = 60.0
@@ -490,6 +503,25 @@ public protocol CustomViewControllerNavigationDataSummary: AnyObject {
         self.navigationBarOrigin = navigationBarFrame.origin.y
 
         if let navigationBar = self.navigationBar {
+            if AyuLegacyUI.isEnabled {
+                if let contentNode = navigationBar.contentNode, case .expansion = contentNode.mode, !self.displayNavigationBar {
+                    navigationBarFrame.origin.y -= navigationLayout.defaultContentHeight
+                    navigationBarFrame.size.height += contentNode.height + navigationLayout.defaultContentHeight + statusBarHeight
+                }
+                if let _ = navigationBar.contentNode, let _ = navigationBar.secondaryContentNode, !self.displayNavigationBar {
+                    navigationBarFrame.size.height += navigationBar.secondaryContentHeight
+                }
+                navigationBar.trailingButtonsInset = layout.navigationBarTrailingButtonsInset
+                navigationBar.sideColumnPlacement = nil
+                navigationBar.updateLayout(size: navigationBarFrame.size, defaultHeight: navigationLayout.defaultContentHeight, additionalTopHeight: statusBarHeight, additionalContentHeight: self.additionalNavigationBarHeight, additionalBackgroundHeight: additionalBackgroundHeight, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, appearsHidden: !self.displayNavigationBar, transition: transition)
+                if !transition.isAnimated {
+                    navigationBar.layer.removeAnimation(forKey: "bounds")
+                    navigationBar.layer.removeAnimation(forKey: "position")
+                }
+                transition.updateFrame(node: navigationBar, frame: navigationBarFrame)
+                navigationBar.setHidden(!self.displayNavigationBar, animated: transition.isAnimated)
+                return
+            }
             if let contentNode = navigationBar.contentNode, case .expansion = contentNode.mode, !self.displayNavigationBar {
                 navigationBarFrame.origin.y -= navigationLayout.defaultContentHeight + statusBarHeight
                 navigationBarFrame.size.height += contentNode.height + navigationLayout.defaultContentHeight + statusBarHeight * 2.0

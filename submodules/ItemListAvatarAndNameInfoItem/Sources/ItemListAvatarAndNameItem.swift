@@ -170,7 +170,7 @@ public class ItemListAvatarAndNameInfoItem: ListViewItem, ItemListItem, ListItem
     public init(itemContext: ItemContext, presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, dateTimeFormat: PresentationDateTimeFormat, mode: ItemListAvatarAndNameInfoItemMode, peer: EnginePeer?, presence: EnginePeer.Presence?, label: String? = nil, memberCount: Int?, state: ItemListAvatarAndNameInfoItemState, sectionId: ItemListSectionId, style: ItemListAvatarAndNameInfoItemStyle, editingNameUpdated: @escaping (ItemListAvatarAndNameInfoItemName) -> Void, editingNameCompleted: @escaping () -> Void = {}, avatarTapped: @escaping () -> Void, context: ItemListAvatarAndNameInfoItemContext? = nil, updatingImage: ItemListAvatarAndNameInfoItemUpdatingAvatar? = nil, call: (() -> Void)? = nil, action: (() -> Void)? = nil, longTapAction: (() -> Void)? = nil, tag: ItemListItemTag? = nil) {
         self.itemContext = itemContext
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.dateTimeFormat = dateTimeFormat
         self.mode = mode
         self.peer = peer

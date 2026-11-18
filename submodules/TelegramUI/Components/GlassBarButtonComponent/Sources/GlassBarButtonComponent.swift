@@ -101,6 +101,7 @@ public final class GlassBarButtonComponent: Component {
         private let genericBackgroundView: SimpleGlassView
         private let glassContainerView: UIView
         private var glassBackgroundView: GlassBackgroundView?
+        private var legacyBackgroundView: UIView?
         private var componentView: ComponentView<Empty>?
         
         private var component: GlassBarButtonComponent?
@@ -130,7 +131,20 @@ public final class GlassBarButtonComponent: Component {
             self.containerView.addTarget(self, action: #selector(self.pressed), for: .touchUpInside)
             
             self.containerView.highligthedChanged = { [weak self] highlighted in
-                guard let self, let component = self.component, component.animateScale else {
+                guard let self, let component = self.component else {
+                    return
+                }
+                if AyuLegacyUI.isEnabled {
+                    if highlighted {
+                        self.containerView.layer.removeAnimation(forKey: "opacity")
+                        self.containerView.alpha = 0.4
+                    } else {
+                        self.containerView.alpha = 1.0
+                        self.containerView.layer.animateAlpha(from: 0.4, to: 1.0, duration: 0.2)
+                    }
+                    return
+                }
+                guard component.animateScale else {
                     return
                 }
                 if [.glass, .tintedGlass].contains(component.state) {
@@ -257,6 +271,10 @@ public final class GlassBarButtonComponent: Component {
                 componentTransition.setAlpha(view: view, alpha: component.isVisible ? 1.0 : 0.0)
             }
             
+            if AyuLegacyUI.isEnabled {
+                return self.updateLegacy(component: component, containerSize: containerSize, transition: transition)
+            }
+            
             let effectiveState: DisplayState = component.state ?? .glass
             /*if "".isEmpty {
                 effectiveState = .glass
@@ -341,6 +359,61 @@ public final class GlassBarButtonComponent: Component {
                 self.addSubview(self.containerView)
             }
             
+            return containerSize
+        }
+        
+        private func updateLegacy(component: GlassBarButtonComponent, containerSize: CGSize, transition: ComponentTransition) -> CGSize {
+            let bounds = CGRect(origin: .zero, size: containerSize)
+            self.genericContainerView.isHidden = true
+            self.glassContainerView.isHidden = true
+            if self.containerView.superview !== self {
+                self.addSubview(self.containerView)
+            }
+            transition.setFrame(view: self.containerView, frame: bounds)
+            
+            let effectiveState: DisplayState = component.state ?? .glass
+            var fillColor: UIColor?
+            var shapeSize = containerSize
+            if let icon = component.component.component.wrapped as? BundleIconComponent, icon.name == "Navigation/Close" {
+                let isLight: Bool
+                if let tintColor = icon.tintColor {
+                    isLight = tintColor.lightness > 0.6
+                } else {
+                    isLight = component.isDark
+                }
+                fillColor = isLight ? UIColor(white: 1.0, alpha: 0.1) : UIColor(rgb: 0x808084, alpha: 0.1)
+                let diameter = min(30.0, min(containerSize.width, containerSize.height))
+                shapeSize = CGSize(width: diameter, height: diameter)
+            } else {
+                switch effectiveState {
+                case .tintedGlass:
+                    fillColor = component.backgroundColor
+                case .generic:
+                    fillColor = component.backgroundColor
+                case .glass:
+                    fillColor = nil
+                }
+            }
+            
+            if let fillColor {
+                let backgroundView: UIView
+                if let current = self.legacyBackgroundView {
+                    backgroundView = current
+                } else {
+                    backgroundView = UIView()
+                    backgroundView.isUserInteractionEnabled = false
+                    self.legacyBackgroundView = backgroundView
+                    self.containerView.insertSubview(backgroundView, at: 0)
+                }
+                let shapeFrame = CGRect(origin: CGPoint(x: floorToScreenPixels((containerSize.width - shapeSize.width) * 0.5), y: floorToScreenPixels((containerSize.height - shapeSize.height) * 0.5)), size: shapeSize)
+                transition.setFrame(view: backgroundView, frame: shapeFrame)
+                transition.setCornerRadius(layer: backgroundView.layer, cornerRadius: min(shapeSize.width, shapeSize.height) * 0.5)
+                transition.setBackgroundColor(view: backgroundView, color: fillColor)
+                transition.setAlpha(view: backgroundView, alpha: component.isVisible ? 1.0 : 0.0)
+            } else if let backgroundView = self.legacyBackgroundView {
+                self.legacyBackgroundView = nil
+                backgroundView.removeFromSuperview()
+            }
             return containerSize
         }
     }

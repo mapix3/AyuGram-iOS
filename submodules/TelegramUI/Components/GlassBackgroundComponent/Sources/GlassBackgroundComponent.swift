@@ -587,8 +587,10 @@ public class GlassBackgroundView: UIView {
     
     public private(set) var params: Params?
 
-    public static var useCustomGlassImpl: Bool = false
-    public static var useFlatImpl: Bool = false
+    public static var useCustomGlassImpl: Bool = AyuLegacyUI.isEnabled
+    public static var useFlatImpl: Bool = AyuLegacyUI.isEnabled
+    
+    public var hidesBackgroundInLegacyUI: Bool = false
 
     /// The backdrop luminance native glass sees (`EffectSettingsContainerView`'s limits, applied to every luma UIKit
     /// reports by the `backdropLayer:didChangeLuma:` override in UIKitRuntimeUtils): the whole range on the theme's
@@ -611,7 +613,7 @@ public class GlassBackgroundView: UIView {
     }
 
     public override init(frame: CGRect) {
-        if #available(iOS 26.0, *), !GlassBackgroundView.useCustomGlassImpl {
+        if #available(iOS 26.0, *), !GlassBackgroundView.useCustomGlassImpl, !AyuLegacyUI.isEnabled {
             self.legacyView = nil
             self.legacyHighlightContainerView = nil
             self.legacyHighlightClippingContext = nil
@@ -721,9 +723,10 @@ public class GlassBackgroundView: UIView {
     }
 
     func update(size: CGSize, shape: Shape, isDark: Bool, tintColor: TintColor, isInteractive: Bool = false, isVisible: Bool = true, transition: ComponentTransition) {
+        let isVisible = isVisible && !(self.hidesBackgroundInLegacyUI && AyuLegacyUI.isEnabled)
         
         if let glassHighlightRecognizer = self.glassHighlightRecognizer {
-            glassHighlightRecognizer.isEnabled = isInteractive
+            glassHighlightRecognizer.isEnabled = isInteractive && !AyuLegacyUI.isEnabled
         }
         
         // UIKit can sample backdrop luminance synchronously while changing
@@ -819,11 +822,15 @@ public class GlassBackgroundView: UIView {
             self.params = params
             
             if let shadowView = self.shadowView {
+                if AyuLegacyUI.isEnabled {
+                    shadowView.image = nil
+                } else {
                 switch shape {
                 case let .roundedRect(cornerRadius):
                     shadowView.image = Self.generateLegacyShadowImage(cornerRadius: cornerRadius, shadowInset: shadowInset)
                 case let .customRoundedRect(cornerRadii):
                     shadowView.image = Self.generateLegacyShadowImage(cornerRadii: GlassBackgroundView.clampedCornerRadii(size: size, cornerRadii: cornerRadii), shadowInset: shadowInset)
+                }
                 }
                 transition.setAlpha(view: shadowView, alpha: isVisible ? 1.0 : 0.0)
             }
@@ -975,7 +982,7 @@ public final class GlassBackgroundContainerView: UIView {
     /// Whether containers merge the glass shapes in them: native glass does, the custom implementation (before iOS 26, or
     /// `GlassBackgroundView.useCustomGlassImpl`) only stacks them.
     public static var mergesShapes: Bool {
-        if #available(iOS 26.0, *), !GlassBackgroundView.useCustomGlassImpl {
+        if #available(iOS 26.0, *), !GlassBackgroundView.useCustomGlassImpl, !AyuLegacyUI.isEnabled {
             return true
         }
         return false
@@ -983,7 +990,7 @@ public final class GlassBackgroundContainerView: UIView {
 
     public init(spacing: CGFloat = 7.0) {
         self.spacing = spacing
-        if #available(iOS 26.0, *), !GlassBackgroundView.useCustomGlassImpl {
+        if #available(iOS 26.0, *), !GlassBackgroundView.useCustomGlassImpl, !AyuLegacyUI.isEnabled {
             let effect = UIGlassContainerEffect()
             effect.spacing = spacing
             let nativeView = UIVisualEffectView(effect: effect)
@@ -1772,6 +1779,8 @@ public final class GlassContextExtractableContainer: UIView, ContextExtractableC
     public let extractableContentView: UIView
     public let normalContentView: UIView
     
+    public var hidesGlassInLegacyUI: Bool = false
+    
     public var contentView: UIView {
         return self.normalContentView
     }
@@ -1881,6 +1890,7 @@ public final class GlassContextExtractableContainer: UIView, ContextExtractableC
     }
 
     public func update(size: CGSize, cornerRadius: CGFloat, bottomCornerRadius: CGFloat? = nil, isDark: Bool, tintColor: GlassBackgroundView.TintColor, isInteractive: Bool = false, isVisible: Bool = true, transition: ComponentTransition) {
+        let isVisible = isVisible && !(self.hidesGlassInLegacyUI && AyuLegacyUI.isEnabled)
         var normalParams = NormalParams(size: size, cornerRadius: cornerRadius, isDark: isDark, tintColor: tintColor, isInteractive: isInteractive, isVisible: isVisible)
         normalParams.bottomCornerRadius = bottomCornerRadius
         self.normalParams = normalParams

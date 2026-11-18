@@ -389,6 +389,7 @@ public func customizeDefaultDayTheme(theme: PresentationTheme, editing: Bool, ti
 }
 
 public func makeDefaultDayPresentationTheme(extendingThemeReference: PresentationThemeReference? = nil, serviceBackgroundColor: UIColor?, day: Bool, preview: Bool) -> PresentationTheme {
+    let legacyUI = AyuLegacyUI.isEnabled
     var serviceBackgroundColor = serviceBackgroundColor ?? defaultServiceBackgroundColor
 
     if !day {
@@ -435,7 +436,7 @@ public func makeDefaultDayPresentationTheme(extendingThemeReference: Presentatio
         separatorColor: UIColor(rgb: 0xb2b2b2),
         iconColor: UIColor(rgb: 0x959595),
         selectedIconColor: defaultDayAccentColor,
-        textColor: UIColor(rgb: 0x000000, alpha: 0.8),
+        textColor: legacyUI ? UIColor(rgb: 0x959595) : UIColor(rgb: 0x000000, alpha: 0.8),
         selectedTextColor: defaultDayAccentColor,
         badgeBackgroundColor: UIColor(rgb: 0xff3b30),
         badgeStrokeColor: UIColor(rgb: 0xff3b30),
@@ -564,8 +565,8 @@ public func makeDefaultDayPresentationTheme(extendingThemeReference: Presentatio
         pinnedBadgeColor: UIColor(rgb: 0xb6b6bb),
         pinnedSearchBarColor: UIColor(rgb: 0xe5e5e5),
         regularSearchBarColor: UIColor(rgb: 0xe9e9e9),
-        sectionHeaderFillColor: .white,
-        sectionHeaderTextColor: UIColor(rgb: 0x6d6d72),
+        sectionHeaderFillColor: legacyUI ? UIColor(rgb: 0xf7f7f7) : .white,
+        sectionHeaderTextColor: legacyUI ? UIColor(rgb: 0x8e8e93) : UIColor(rgb: 0x6d6d72),
         verifiedIconFillColor: defaultDayAccentColor,
         verifiedIconForegroundColor: UIColor(rgb: 0xffffff),
         secretIconColor: UIColor(rgb: 0x00b12c),
@@ -621,7 +622,7 @@ public func makeDefaultDayPresentationTheme(extendingThemeReference: Presentatio
                 )
             ),
             primaryTextColor: UIColor(rgb: 0x000000),
-            secondaryTextColor: UIColor(rgb: 0x77828C, alpha: 1.0),
+            secondaryTextColor: legacyUI ? UIColor(rgb: 0x525252, alpha: 0.6) : UIColor(rgb: 0x77828C, alpha: 1.0),
             linkTextColor: UIColor(rgb: 0x004bad),
             linkHighlightColor: defaultDayAccentColor.withAlphaComponent(0.3),
             scamColor: UIColor(rgb: 0xff3b30),
@@ -940,20 +941,20 @@ public func makeDefaultDayPresentationTheme(extendingThemeReference: Presentatio
     let inputPanel = PresentationThemeChatInputPanel(
         panelBackgroundColor: rootNavigationBar.blurredBackgroundColor,
         panelBackgroundColorNoWallpaper: UIColor(rgb: 0xffffff),
-        panelSeparatorColor: UIColor(rgb: 0xbec2c6),
+        panelSeparatorColor: legacyUI ? UIColor(rgb: 0xb2b2b2) : UIColor(rgb: 0xbec2c6),
         panelControlAccentColor: defaultDayAccentColor,
-        panelControlColor: UIColor(rgb: 0x000000, alpha: 1.0),
+        panelControlColor: legacyUI ? UIColor(rgb: 0x858e99) : UIColor(rgb: 0x000000, alpha: 1.0),
         panelControlDisabledColor: UIColor(rgb: 0x727b87, alpha: 0.5),
         panelControlDestructiveColor: UIColor(rgb: 0xff3b30),
-        inputBackgroundColor: UIColor(white: 1.0, alpha: 0.8),
+        inputBackgroundColor: legacyUI ? UIColor(rgb: 0xffffff) : UIColor(white: 1.0, alpha: 0.8),
         inputStrokeColor: UIColor(rgb: 0x000000, alpha: 0.1),
-        inputPlaceholderColor: UIColor(rgb: 0x000000, alpha: 0.4),
+        inputPlaceholderColor: legacyUI ? UIColor(rgb: 0xbebec0) : UIColor(rgb: 0x000000, alpha: 0.4),
         inputTextColor: UIColor(rgb: 0x000000),
-        inputControlColor: UIColor(rgb: 0x000000, alpha: 0.5),
+        inputControlColor: legacyUI ? UIColor(rgb: 0x868D98) : UIColor(rgb: 0x000000, alpha: 0.5),
         actionControlFillColor: defaultDayAccentColor,
         actionControlForegroundColor: UIColor(rgb: 0xffffff),
         primaryTextColor: UIColor(rgb: 0x000000, alpha: 1.0),
-        secondaryTextColor: UIColor(rgb: 0x202020, alpha: 0.6),
+        secondaryTextColor: legacyUI ? UIColor(rgb: 0x8e8e93) : UIColor(rgb: 0x202020, alpha: 0.6),
         mediaRecordingDotColor: UIColor(rgb: 0xed2521),
         mediaRecordingControl: inputPanelMediaRecordingControl
     )
@@ -963,7 +964,7 @@ public func makeDefaultDayPresentationTheme(extendingThemeReference: Presentatio
         panelIconColor: UIColor(rgb: 0x858e99),
         panelHighlightedIconBackgroundColor: UIColor(rgb: 0x858e99, alpha: 0.2),
         panelHighlightedIconColor: UIColor(rgb: 0x4D5561),
-        panelContentVibrantOverlayColor: UIColor(white: 0.6, alpha: 0.65),
+        panelContentVibrantOverlayColor: legacyUI ? UIColor(white: 0.7, alpha: 0.65) : UIColor(white: 0.6, alpha: 0.65),
         panelContentControlVibrantOverlayColor: UIColor(white: 0.85, alpha: 0.65),
         panelContentControlVibrantSelectionColor: UIColor(white: 0.85, alpha: 0.1),
         panelContentControlOpaqueOverlayColor: UIColor(white: 0.0, alpha: 0.2),
@@ -1031,7 +1032,7 @@ public func makeDefaultDayPresentationTheme(extendingThemeReference: Presentatio
         primaryTextColor: UIColor(rgb: 0x000000),
         secondaryTextColor: UIColor(rgb: 0x8e8e93),
         controlAccentColor: defaultDayAccentColor,
-        inputBackgroundColor: UIColor(white: 1.0, alpha: 0.6),
+        inputBackgroundColor: legacyUI ? UIColor(rgb: 0xe9e9e9) : UIColor(white: 1.0, alpha: 0.6),
         inputHollowBackgroundColor: UIColor(rgb: 0xffffff),
         inputBorderColor: UIColor(rgb: 0xe4e4e6),
         inputPlaceholderColor: UIColor(rgb: 0x8e8d92),

@@ -145,7 +145,7 @@ public final class ContactSelectionControllerParams {
         sendMessage: ((EnginePeer) -> Void)? = nil
     ) {
         self.context = context
-        self.style = style
+        self.style = AyuLegacyUI.isEnabled ? .legacy : style
         self.updatedPresentationData = updatedPresentationData
         self.mode = mode
         self.autoDismiss = autoDismiss

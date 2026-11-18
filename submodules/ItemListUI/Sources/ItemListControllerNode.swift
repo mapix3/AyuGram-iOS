@@ -261,6 +261,7 @@ open class ItemListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     private var emptyStateNode: ItemListControllerEmptyStateItemNode?
     
     private var toolbar: ComponentView<Empty>?
+    private var legacyToolbarNode: ToolbarNode?
     
     private var searchItem: ItemListControllerSearch?
     private var searchNode: ItemListControllerSearchNode?
@@ -393,6 +394,20 @@ open class ItemListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
             if let navigationContentNode = strongSelf.navigationBar.contentNode, case .expansion = navigationContentNode.mode {
                 hasExpansionContentNode = true
             }
+            if AyuLegacyUI.isEnabled {
+                if hasExpansionContentNode {
+                    strongSelf.navigationBar.setBackdropAlpha(1.0, transition: .immediate)
+                } else if strongSelf.headerItemNode != nil {
+                    strongSelf.navigationBar.setBackdropAlpha(0.0, transition: .immediate)
+                } else {
+                    switch offset {
+                    case let .known(value):
+                        strongSelf.navigationBar.setBackdropAlpha(min(30.0, max(0.0, value)) / 30.0, transition: .immediate)
+                    case .unknown, .none:
+                        strongSelf.navigationBar.setBackdropAlpha(1.0, transition: .immediate)
+                    }
+                }
+            }
             if !hasExpansionContentNode, let headerItemNode = strongSelf.headerItemNode {
                 var previousContentOffsetValue: CGFloat?
                 if let previousContentOffset = strongSelf.previousContentOffset {
@@ -478,6 +493,9 @@ open class ItemListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     
     override open func didLoad() {
         super.didLoad()
+        if AyuLegacyUI.isEnabled {
+            self.navigationBar.setBackdropAlpha(0.0, transition: .immediate)
+        }
         
         
         (self.view as? ItemListControllerNodeView)?.onLayout = { [weak self] in
@@ -654,7 +672,7 @@ open class ItemListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     /// The list's side margins: as wide as today's, and on a side with a side strip (iPhone Duo) at least
     /// 16pt clear of the strip.
     private func listSideMargins(layout: ContainerViewLayout) -> (left: CGFloat, right: CGFloat) {
-        let base: CGFloat = layout.size.width >= 320.0 ? max(16.0, floor((layout.size.width - 674.0) / 2.0)) : 0.0
+        let base: CGFloat = layout.size.width >= (AyuLegacyUI.isEnabled ? 375.0 : 320.0) ? max(16.0, floor((layout.size.width - 674.0) / 2.0)) : 0.0
         return layout.listSideMargins(base: base)
     }
     
@@ -729,7 +747,71 @@ open class ItemListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
             self.listNodeContainer.insertSubnode(self.leftOverlayNode, aboveSubnode: self.listNode)
         }
 
-        if let toolbarData = self.toolbarItem, let theme = self.theme {
+        if AyuLegacyUI.isEnabled {
+            if let toolbarItem = self.toolbarItem {
+                var tabBarHeight: CGFloat
+                let bottomInset: CGFloat = insets.bottom
+                if !layout.safeInsets.left.isZero {
+                    tabBarHeight = 34.0 + bottomInset
+                    insets.bottom += 34.0
+                } else {
+                    tabBarHeight = 49.0 + bottomInset
+                    insets.bottom += 49.0
+                }
+                
+                let toolbarFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - tabBarHeight), size: CGSize(width: layout.size.width, height: tabBarHeight))
+                
+                if let toolbarNode = self.legacyToolbarNode {
+                    transition.updateFrame(node: toolbarNode, frame: toolbarFrame)
+                    toolbarNode.updateLayout(size: toolbarFrame.size, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, additionalSideInsets: layout.additionalInsets, bottomInset: layout.intrinsicInsets.bottom, toolbar: toolbarItem.toolbar, transition: transition)
+                } else if let theme = self.theme {
+                    let toolbarNode = ToolbarNode(theme: ToolbarTheme(rootControllerTheme: theme), displaySeparator: true)
+                    toolbarNode.frame = toolbarFrame
+                    toolbarNode.updateLayout(size: toolbarFrame.size, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, additionalSideInsets: layout.additionalInsets, bottomInset: layout.intrinsicInsets.bottom, toolbar: toolbarItem.toolbar, transition: .immediate)
+                    self.addSubnode(toolbarNode)
+                    self.legacyToolbarNode = toolbarNode
+                    if case let .animated(duration, curve) = transition {
+                        toolbarNode.layer.animatePosition(from: CGPoint(x: 0.0, y: toolbarFrame.height), to: CGPoint(), duration: duration, mediaTimingFunction: curve.mediaTimingFunction, additive: true)
+                    }
+                }
+                
+                self.legacyToolbarNode?.left = { [weak self] in
+                    guard let self, let toolbarItem = self.toolbarItem, !toolbarItem.actions.isEmpty else {
+                        return
+                    }
+                    toolbarItem.actions[0].action()
+                }
+                self.legacyToolbarNode?.right = { [weak self] in
+                    guard let self, let toolbarItem = self.toolbarItem else {
+                        return
+                    }
+                    if toolbarItem.actions.count == 2 {
+                        toolbarItem.actions[1].action()
+                    } else if toolbarItem.actions.count == 3 {
+                        toolbarItem.actions[2].action()
+                    }
+                }
+                self.legacyToolbarNode?.middle = { [weak self] in
+                    guard let self, let toolbarItem = self.toolbarItem else {
+                        return
+                    }
+                    if toolbarItem.actions.count == 1 {
+                        toolbarItem.actions[0].action()
+                    } else if toolbarItem.actions.count == 3 {
+                        toolbarItem.actions[1].action()
+                    }
+                }
+            } else if let toolbarNode = self.legacyToolbarNode {
+                self.legacyToolbarNode = nil
+                if case let .animated(duration, curve) = transition {
+                    toolbarNode.layer.animatePosition(from: CGPoint(), to: CGPoint(x: 0.0, y: toolbarNode.frame.size.height), duration: duration, mediaTimingFunction: curve.mediaTimingFunction, removeOnCompletion: false, additive: true, completion: { [weak toolbarNode] _ in
+                        toolbarNode?.removeFromSupernode()
+                    })
+                } else {
+                    toolbarNode.removeFromSupernode()
+                }
+            }
+        } else if let toolbarData = self.toolbarItem, let theme = self.theme {
             var panelsBottomInset: CGFloat = layout.insets(options: []).bottom
             if layout.metrics.widthClass == .regular, let inputHeight = layout.inputHeight, inputHeight != 0.0 {
                 panelsBottomInset = inputHeight + 8.0

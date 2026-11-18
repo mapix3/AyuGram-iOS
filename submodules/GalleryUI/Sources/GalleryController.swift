@@ -720,7 +720,7 @@ private func galleryEntriesForMessageHistoryEntries(_ entries: [MessageHistoryEn
 }
 
 public class GalleryController: ViewController, StandalonePresentableController, KeyShortcutResponder, GalleryControllerProtocol {
-    public static let darkNavigationTheme = NavigationBarTheme(overallDarkAppearance: true, buttonColor: .white, disabledButtonColor: UIColor(rgb: 0x525252), primaryTextColor: .white, badgeBackgroundColor: .clear, badgeTextColor: .clear, edgeEffectColor: .clear, accentButtonColor: .white, accentDisabledButtonColor: .white, accentForegroundColor: .black)
+    public static let darkNavigationTheme = NavigationBarTheme(overallDarkAppearance: true, buttonColor: .white, disabledButtonColor: UIColor(rgb: 0x525252), primaryTextColor: .white, badgeBackgroundColor: .clear, badgeTextColor: .clear, edgeEffectColor: .clear, accentButtonColor: .white, accentDisabledButtonColor: .white, accentForegroundColor: .black, backgroundColor: UIColor(white: 0.0, alpha: 0.6), enableBackgroundBlur: false, separatorColor: UIColor(white: 0.0, alpha: 0.8))
     
     private var galleryNode: GalleryControllerNode {
         return self.displayNode as! GalleryControllerNode

@@ -184,7 +184,8 @@ final class AvatarGalleryItemFooterContentNode: GalleryFooterContentNode {
                         items: rightControlItems,
                         background: .panel
                     ),
-                    centerAlignmentIfPossible: true
+                    centerAlignmentIfPossible: true,
+                    legacyPlain: true
                 )),
                 environment: {},
                 containerSize: CGSize(width: size.width - buttonPanelInsets.left - buttonPanelInsets.right, height: 44.0)

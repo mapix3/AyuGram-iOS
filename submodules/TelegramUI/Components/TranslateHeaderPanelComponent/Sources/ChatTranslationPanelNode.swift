@@ -110,7 +110,7 @@ final class ChatTranslationPanelNode: ASDisplayNode {
         }
         
         if themeUpdated {
-            self.buttonIconNode.image = generateTintedImage(image: UIImage(bundleImageName: "Chat/Title Panels/Translate"), color: theme.chat.inputPanel.panelControlColor)
+            self.buttonIconNode.image = generateTintedImage(image: UIImage(bundleImageName: "Chat/Title Panels/Translate"), color: (AyuLegacyUI.isEnabled ? theme.chat.inputPanel.panelControlAccentColor : theme.chat.inputPanel.panelControlColor))
             self.moreButton.theme = theme
             self.moreButton.updateColor(theme.chat.inputPanel.panelControlColor, transition: .immediate)
             self.closeButton.setImage(generateImage(CGSize(width: 12.0, height: 12.0), contextGenerator: { size, context in
@@ -150,7 +150,7 @@ final class ChatTranslationPanelNode: ASDisplayNode {
             if self.buttonTextNode.attributedText?.string != buttonText {
                 textUpdated = true
             }
-            self.buttonTextNode.attributedText = NSAttributedString(string: buttonText, font: Font.regular(17.0), textColor: theme.chat.inputPanel.panelControlColor)
+            self.buttonTextNode.attributedText = NSAttributedString(string: buttonText, font: Font.regular(17.0), textColor: (AyuLegacyUI.isEnabled ? theme.rootController.navigationBar.accentTextColor : theme.chat.inputPanel.panelControlColor))
         }
 
         let panelHeight: CGFloat = 40.0

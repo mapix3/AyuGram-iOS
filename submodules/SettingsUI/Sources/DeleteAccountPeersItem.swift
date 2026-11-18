@@ -95,7 +95,7 @@ class DeleteAccountPeersItem: ListViewItem, ItemListItem {
     init(context: AccountContext, theme: PresentationTheme, systemStyle: ItemListSystemStyle = .legacy, strings: PresentationStrings, peers: [EnginePeer], sectionId: ItemListSectionId) {
         self.context = context
         self.theme = theme
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.strings = strings
         self.peers = peers
         self.sectionId = sectionId

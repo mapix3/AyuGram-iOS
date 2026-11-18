@@ -812,6 +812,14 @@ public final class ChatListSearchContainerNode: SearchDisplayControllerContentNo
     /// block level with the bar (iPhone Duo's side strip: the folded screen's bottom-right block in landscape) and of
     /// any other safe inset; with equal side insets it is centred as before.
     private func filterContainerFrame(layout: ContainerViewLayout) -> CGRect {
+        if AyuLegacyUI.isEnabled {
+            var legacyBottomInset: CGFloat = layout.insets(options: [.input]).bottom
+            if self.stateValue.selectedMessageIds != nil {
+                legacyBottomInset += 48.0
+            }
+            let legacyHeight: CGFloat = 44.0
+            return CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - legacyBottomInset - legacyHeight), size: CGSize(width: layout.size.width, height: legacyHeight))
+        }
         var filtersInsets = UIEdgeInsets(top: 0.0, left: 12.0, bottom: layout.insets(options: [.input]).bottom, right: 12.0)
         if filtersInsets.bottom == 84.0 {
             filtersInsets.bottom -= 6.0
@@ -853,7 +861,7 @@ public final class ChatListSearchContainerNode: SearchDisplayControllerContentNo
             filters = defaultAvailableSearchPanes(isForum: isForum, hasDownloads: self.hasDownloads, hasPublicPosts: self.showPublicPostsTab).map(\.filter)
         }
         
-        self.filterContainerNode.update(size: self.filterContainerFrame(layout: layout).size, sideInset: 0.0, filters: filters.map { .filter($0) }, displayGlobalPostsNewBadge: self.displayGlobalPostsNewBadge, selectedFilter: self.selectedFilter?.id, transitionFraction: self.transitionFraction, presentationData: self.presentationData, transition: .animated(duration: 0.4, curve: .spring))
+        self.filterContainerNode.update(size: self.filterContainerFrame(layout: layout).size, sideInset: AyuLegacyUI.isEnabled ? layout.safeInsets.left : 0.0, filters: filters.map { .filter($0) }, displayGlobalPostsNewBadge: self.displayGlobalPostsNewBadge, selectedFilter: self.selectedFilter?.id, transitionFraction: self.transitionFraction, presentationData: self.presentationData, transition: .animated(duration: 0.4, curve: .spring))
     }
 
     override public func containerLayoutUpdated(_ layout: ContainerViewLayout, navigationBarHeight: CGFloat, transition: ContainedViewLayoutTransition) {

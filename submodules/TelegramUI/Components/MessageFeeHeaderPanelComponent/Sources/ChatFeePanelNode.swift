@@ -89,7 +89,7 @@ final class ChatFeePanelNode: ASDisplayNode {
         
         if self.theme !== theme {
             self.theme = theme
-            self.removeTextNode.attributedText = NSAttributedString(string: strings.Chat_PaidMessageFee_RemoveFee, font: Font.regular(17.0), textColor: theme.chat.inputPanel.panelControlColor)
+            self.removeTextNode.attributedText = NSAttributedString(string: strings.Chat_PaidMessageFee_RemoveFee, font: Font.regular(17.0), textColor: (AyuLegacyUI.isEnabled ? theme.chat.inputPanel.panelControlAccentColor : theme.chat.inputPanel.panelControlColor))
         }
         
         let attributedText = NSMutableAttributedString(string: strings.Chat_PaidMessageFee_Text(info.peer.compactDisplayTitle, "⭐️\(info.value)").string, font: Font.regular(12.0), textColor: theme.rootController.navigationBar.secondaryTextColor)

@@ -48,7 +48,7 @@ public class ContactListActionItem: ListViewItem, ListViewItemWithHeader {
         self.hideBackground = hideBackground
         self.presentationData = presentationData
         self.style = style
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.title = title
         self.subtitle = subtitle
         self.icon = icon

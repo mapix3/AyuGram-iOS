@@ -1749,6 +1749,7 @@ public class AttachmentController: ViewController, MinimizableController {
         makeEntityInputView: @escaping () -> UIView? = { return nil },
         customEmojiAvailable: Bool = true)
     {
+        let style: Style = AyuLegacyUI.isEnabled ? .legacy : style
         self.context = context
         self.updatedPresentationData = updatedPresentationData
         self.style = style

@@ -1574,7 +1574,7 @@ final class UndoOverlayControllerNode: ViewControllerTracingNode {
             self.panelNode.backgroundColor = .clear
         }
         self.panelNode.clipsToBounds = true
-        self.panelNode.cornerRadius = 25.0
+        self.panelNode.cornerRadius = AyuLegacyUI.isEnabled ? 14.0 : 25.0
 
         self.panelWrapperNode = ASDisplayNode()
         
@@ -1982,7 +1982,7 @@ final class UndoOverlayControllerNode: ViewControllerTracingNode {
         }
         contentHeight += textSize.height
         
-        contentHeight = max(50.0, contentHeight)
+        contentHeight = max(AyuLegacyUI.isEnabled ? 49.0 : 50.0, contentHeight)
         
         var insets = layout.insets(options: [.input])
         switch self.placementPosition {

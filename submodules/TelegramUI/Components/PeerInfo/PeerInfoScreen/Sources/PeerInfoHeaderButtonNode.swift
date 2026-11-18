@@ -315,11 +315,11 @@ final class PeerInfoHeaderButtonNode: HighlightableButtonNode {
         
         transition.updateSublayerTransformScale(node: self.contentNode, scale: 1.0 * fraction + 0.001 * (1.0 - fraction))
         
-        transition.updateCornerRadius(layer: self.backgroundView.layer, cornerRadius: min(16.0, backgroundFrame.height * 0.5))
+        transition.updateCornerRadius(layer: self.backgroundView.layer, cornerRadius: min(AyuLegacyUI.isEnabled ? 11.0 : 16.0, backgroundFrame.height * 0.5))
         // The context source contains only the foreground; its backdrop is a
         // separate shared-blur mask. Match both its rounded shape and its visible
         // bounds, including a partially collapsed header.
-        self.referenceNode.contextMenuSourcePath = UIBezierPath(roundedRect: backgroundFrame, cornerRadius: min(16.0, backgroundFrame.height * 0.5))
+        self.referenceNode.contextMenuSourcePath = UIBezierPath(roundedRect: backgroundFrame, cornerRadius: min(AyuLegacyUI.isEnabled ? 11.0 : 16.0, backgroundFrame.height * 0.5))
         //self.backgroundNode.update(size: backgroundFrame.size, cornerRadius: min(11.0, backgroundFrame.height * 0.5), transition: transition)
         //self.backgroundNode.updateColor(color: backgroundColor, transition: transition)
         transition.updateFrame(node: self.iconNode, frame: CGRect(origin: CGPoint(x: floor((size.width - iconSize.width) / 2.0), y: 1.0), size: iconSize))

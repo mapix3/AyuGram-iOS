@@ -86,6 +86,7 @@ public final class GlassControlGroupComponent: Component {
     public let items: [Item]
     public let minWidth: CGFloat
     public let textHorizontalInset: CGFloat
+    public let legacyPlain: Bool
 
     public init(
         theme: PresentationTheme,
@@ -93,7 +94,8 @@ public final class GlassControlGroupComponent: Component {
         background: Background,
         items: [Item],
         minWidth: CGFloat,
-        textHorizontalInset: CGFloat = 10.0
+        textHorizontalInset: CGFloat = 10.0,
+        legacyPlain: Bool = false
     ) {
         self.theme = theme
         self.preferClearGlass = preferClearGlass
@@ -101,6 +103,7 @@ public final class GlassControlGroupComponent: Component {
         self.items = items
         self.minWidth = minWidth
         self.textHorizontalInset = textHorizontalInset
+        self.legacyPlain = legacyPlain
     }
 
     public static func ==(lhs: GlassControlGroupComponent, rhs: GlassControlGroupComponent) -> Bool {
@@ -120,6 +123,9 @@ public final class GlassControlGroupComponent: Component {
             return false
         }
         if lhs.textHorizontalInset != rhs.textHorizontalInset {
+            return false
+        }
+        if lhs.legacyPlain != rhs.legacyPlain {
             return false
         }
         return true
@@ -150,7 +156,7 @@ public final class GlassControlGroupComponent: Component {
             guard let params = self.lastGlassParams else {
                 return
             }
-            self.backgroundView.update(size: params.size, cornerRadius: params.size.height * 0.5, isDark: params.isDark, tintColor: params.tintColor, isInteractive: true, isVisible: !isHidden, transition: transition)
+            self.backgroundView.update(size: params.size, cornerRadius: params.size.height * 0.5, isDark: params.isDark, tintColor: params.tintColor, isInteractive: true, isVisible: !isHidden && !(self.component.map { $0.legacyPlain && AyuLegacyUI.isEnabled } ?? false), transition: transition)
         }
 
         /// The source for a context menu one of the group's items opens: the group's glass, which morphs into the menu
@@ -187,6 +193,8 @@ public final class GlassControlGroupComponent: Component {
             self.component = component
             self.state = state
             
+            let isPlain = component.legacyPlain && AyuLegacyUI.isEnabled
+            
             let foregroundColor: UIColor
             let tintColor: GlassBackgroundView.TintColor
             switch component.background {
@@ -194,14 +202,14 @@ public final class GlassControlGroupComponent: Component {
                 foregroundColor = component.theme.chat.inputPanel.panelControlColor
                 tintColor = .init(kind: component.preferClearGlass ? .clear : .panel)
             case let .activeTint(inset):
-                foregroundColor = component.theme.list.itemCheckColors.foregroundColor
+                foregroundColor = isPlain ? component.theme.list.itemAccentColor : component.theme.list.itemCheckColors.foregroundColor
                 if inset {
                     tintColor = .init(kind: component.preferClearGlass ? .clear : .panel, innerColor: component.theme.list.itemCheckColors.fillColor)
                 } else {
                     tintColor = .init(kind: .custom(style: component.preferClearGlass ? .clear : .default, color: component.theme.list.itemCheckColors.fillColor))
                 }
             case let .color(color):
-                foregroundColor = .white
+                foregroundColor = isPlain ? color : .white
                 tintColor = .init(kind: .custom(style: component.preferClearGlass ? .clear : .default, color: color))
             }
             
@@ -238,7 +246,7 @@ public final class GlassControlGroupComponent: Component {
                     ))
                 case let .text(string):
                     content = AnyComponent(MultilineTextComponent(
-                        text: .plain(NSAttributedString(string: string, font: Font.medium(17.0), textColor: itemForegroundColor))
+                        text: .plain(NSAttributedString(string: string, font: isPlain ? Font.regular(17.0) : Font.medium(17.0), textColor: itemForegroundColor))
                     ))
                     itemInsets.left = component.textHorizontalInset
                     itemInsets.right = itemInsets.left
@@ -281,7 +289,7 @@ public final class GlassControlGroupComponent: Component {
                             }
                         },
                         isEnabled: item.action != nil,
-                        animateAlpha: false,
+                        animateAlpha: isPlain,
                         animateScale: false,
                         animateContents: false,
                         accessibility: glassControlItemAccessibilityLabel(item).map { ComponentAccessibility(label: $0) }
@@ -330,7 +338,7 @@ public final class GlassControlGroupComponent: Component {
             transition.setFrame(view: self.backgroundView, frame: CGRect(origin: CGPoint(), size: size))
             
             self.lastGlassParams = (size, tintColor, component.theme.overallDarkAppearance)
-            self.backgroundView.update(size: size, cornerRadius: size.height * 0.5, isDark: component.theme.overallDarkAppearance, tintColor: tintColor, isInteractive: true, isVisible: !self.isGlassHidden, transition: transition)
+            self.backgroundView.update(size: size, cornerRadius: size.height * 0.5, isDark: component.theme.overallDarkAppearance, tintColor: tintColor, isInteractive: !isPlain, isVisible: !self.isGlassHidden && !isPlain, transition: transition)
             self.backgroundView.isUserInteractionEnabled = isInteractive
             
             return size

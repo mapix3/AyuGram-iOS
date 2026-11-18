@@ -180,7 +180,7 @@ public final class SegmentControlComponent: Component {
             self.component = component
             
             var controlSize = CGSize()
-            if #available(iOS 26.0, *) {
+            if #available(iOS 26.0, *), !AyuLegacyUI.isEnabled {
                 let segmentedView: SegmentedControlView
                 if let current = self.nativeSegmentedView {
                     segmentedView = current
@@ -232,7 +232,7 @@ public final class SegmentControlComponent: Component {
                         return SegmentedControlItem(title: item.title)
                     }
                     let controlTheme = SegmentedControlTheme(backgroundColor: component.theme.legacyBackgroundColor, foregroundColor: component.theme.foregroundColor, shadowColor: .clear, textColor: component.theme.textColor, dividerColor: component.theme.dividerColor)
-                    segmentedNode = SegmentedControlNode(theme: controlTheme, items: mappedItems, selectedIndex: component.items.firstIndex(where: { $0.id == component.selectedId }) ?? 0, cornerRadius: 18.0)
+                    segmentedNode = SegmentedControlNode(theme: controlTheme, items: mappedItems, selectedIndex: component.items.firstIndex(where: { $0.id == component.selectedId }) ?? 0, cornerRadius: AyuLegacyUI.isEnabled ? 9.0 : 18.0)
                     self.legacySegmentedNode = segmentedNode
                     self.addSubnode(segmentedNode)
                     

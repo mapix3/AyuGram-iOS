@@ -332,6 +332,9 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
     // The agent composer (a chat with a bot from `agent_bot_ids`): one container holding the text and, below it, a
     // row with the attachment button, the model and speed chips, the emoji button and the mic/send button.
     private var isAgentLayout = false
+    private let legacyChrome: Bool
+    private var legacyFieldBackgroundView: UIImageView?
+    private var legacyFieldBackgroundKey: (diameter: CGFloat, fill: UIColor, stroke: UIColor)?
     // Measured from the design: the row is 47pt and its items sit on its centre line; the text row is 1.5pt shorter
     // than the regular field (the row overlaps its bottom padding) and its text starts 2pt lower and 4pt further in.
     private let agentToolbarHeight: CGFloat = 47.0
@@ -719,9 +722,10 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
     
     private var tooltipController: TooltipScreen?
     
-    public init(context: AccountContext, presentationInterfaceState: ChatPresentationInterfaceState, presentationContext: ChatPresentationContext?, presentController: @escaping (ViewController) -> Void) {
+    public init(context: AccountContext, presentationInterfaceState: ChatPresentationInterfaceState, presentationContext: ChatPresentationContext?, classicChrome: Bool = false, presentController: @escaping (ViewController) -> Void) {
         self.presentationInterfaceState = presentationInterfaceState
         self.presentationContext = presentationContext
+        self.legacyChrome = classicChrome && AyuLegacyUI.isEnabled
         
         self.textInputViewInternalInsets = UIEdgeInsets(top: 5.0, left: 12.0, bottom: 4.0, right: 11.0)
 
@@ -743,7 +747,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         self.textInputContainerBackgroundView = GlassBackgroundView(frame: CGRect())
         
         self.accessoryPanelContainer = UIView()
-        self.accessoryPanelContainer.clipsToBounds = true
+        self.accessoryPanelContainer.clipsToBounds = !self.legacyChrome
         
         self.textInputNodeClippingContainer = UIView()
         self.textInputNodeClippingContainer.clipsToBounds = true
@@ -1049,6 +1053,9 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         self.mediaActionButtons.expandMediaInputButton.addTarget(self, action: #selector(self.expandButtonPressed), for: .touchUpInside)
         self.mediaActionButtons.stopButton.addTarget(self, action: #selector(self.stopButtonPressed), for: .touchUpInside)
         self.mediaActionButtons.expandMediaInputButtonBackgroundView.alpha = 0.0
+        if self.legacyChrome {
+            self.mediaActionButtons.expandMediaInputButtonBackgroundView.hidesBackgroundInLegacyUI = true
+        }
         
         self.searchLayoutClearButton.highligthedChanged = { [weak self] highlighted in
             guard let self else {
@@ -1066,11 +1073,21 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         self.searchLayoutClearButton.alpha = 0.0
         self.searchLayoutClearButtonIcon.alpha = 0.0
         
+        if self.legacyChrome {
+            let legacyFieldBackgroundView = UIImageView()
+            legacyFieldBackgroundView.isUserInteractionEnabled = false
+            self.legacyFieldBackgroundView = legacyFieldBackgroundView
+            self.glassBackgroundContainer.contentView.addSubview(legacyFieldBackgroundView)
+        }
         self.glassBackgroundContainer.contentView.addSubview(self.textInputBackgroundNode.view)
         
         self.glassBackgroundContainer.contentView.addSubview(self.textInputContainerBackgroundView)
         
-        self.textInputContainerBackgroundView.contentView.addSubview(self.accessoryPanelContainer)
+        if self.legacyChrome {
+            self.glassBackgroundContainer.contentView.addSubview(self.accessoryPanelContainer)
+        } else {
+            self.textInputContainerBackgroundView.contentView.addSubview(self.accessoryPanelContainer)
+        }
         self.textInputContainerBackgroundView.contentView.addSubview(self.textPlaceholderNode.view)
         self.textInputContainerBackgroundView.contentView.addSubview(self.textInputNodeClippingContainer)
         
@@ -1499,6 +1516,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
     }
     
     private func calculateTextFieldMetrics(width: CGFloat, sendActionControlsWidth: CGFloat, maxHeight: CGFloat, metrics: LayoutMetrics, bottomInset: CGFloat, interfaceState: ChatPresentationInterfaceState) -> (accessoryButtonsWidth: CGFloat, textFieldHeight: CGFloat, isOverflow: Bool) {
+        let sendActionControlsWidth: CGFloat = self.legacyChrome ? 0.0 : sendActionControlsWidth
         let maxHeight = max(maxHeight, 40.0)
         
         let textFieldInsets = self.textFieldInsets(metrics: metrics, bottomInset: bottomInset)
@@ -1574,6 +1592,12 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         var insets = UIEdgeInsets(top: 0.0, left: 8.0, bottom: 0.0, right: 8.0)
         if self.isAgentLayout {
             return insets
+        }
+        if self.legacyChrome {
+            if let customRightAction = self.customRightAction, case .empty = customRightAction {
+            } else {
+                insets.right = 54.0
+            }
         }
         if let customLeftAction = self.customLeftAction, case let .toggleExpanded(isVisible, _, _) = customLeftAction, !isVisible {
         } else if let customLeftAction = self.customLeftAction, case .empty = customLeftAction {
@@ -2738,8 +2762,8 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             //   the mic from the field stretched it into a pill at every other step.
             // The agent composer's send capsule is 42x36 (the design's), not fitted to the field.
             self.sendActionButtons.sendButtonWidth = isAgentLayout ? 42.0 : 40.0
-            sendActionButtonsSize = self.sendActionButtons.updateLayout(size: CGSize(width: 40.0, height: isAgentLayout ? 36.0 + 3.0 * 2.0 : minimalHeight), isMediaInputExpanded: isMediaInputExpanded, showTitle: showTitle, currentMessageEffectId: presentationInterfaceState.interfaceState.sendMessageEffect, transition: transition, interfaceState: presentationInterfaceState)
-            self.mediaActionButtons.hidesMicBackground = isAgentLayout
+            sendActionButtonsSize = self.sendActionButtons.updateLayout(size: CGSize(width: 40.0, height: isAgentLayout ? 36.0 + 3.0 * 2.0 : (self.legacyChrome ? 40.0 : minimalHeight)), isMediaInputExpanded: isMediaInputExpanded, showTitle: showTitle, currentMessageEffectId: presentationInterfaceState.interfaceState.sendMessageEffect, transition: transition, interfaceState: presentationInterfaceState)
+            self.mediaActionButtons.hidesMicBackground = isAgentLayout || self.legacyChrome
             mediaActionButtonsSize = self.mediaActionButtons.updateLayout(size: CGSize(width: 40.0, height: 40.0), isMediaInputExpanded: isMediaInputExpanded, showTitle: false, currentMessageEffectId: presentationInterfaceState.interfaceState.sendMessageEffect, transition: transition, interfaceState: presentationInterfaceState)
         }
         
@@ -3012,6 +3036,9 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             }
             
             transition.updateAlpha(layer: self.textInputBackgroundNode.layer, alpha: 0.0)
+            if let legacyFieldBackgroundView = self.legacyFieldBackgroundView {
+                transition.updateAlpha(layer: legacyFieldBackgroundView.layer, alpha: 0.0)
+            }
             if let richTextInputNode = self.richTextInputNode {
                 transition.updateAlpha(node: richTextInputNode.asNode, alpha: 0.0)
             }
@@ -3133,6 +3160,9 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             self.mediaActionButtons.micButton.audioRecorder = nil
             self.mediaActionButtons.micButton.videoRecordingStatus = nil
             transition.updateAlpha(layer: self.textInputBackgroundNode.layer, alpha: 1.0)
+            if let legacyFieldBackgroundView = self.legacyFieldBackgroundView {
+                transition.updateAlpha(layer: legacyFieldBackgroundView.layer, alpha: 1.0)
+            }
             
             if let audioRecordingInfoContainerNode = self.audioRecordingInfoContainerNode {
                 self.audioRecordingInfoContainerNode = nil
@@ -3238,7 +3268,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             // empty the send button is hidden (scaled to ~0), so reserving its width over-insets the field;
             // the right inset then only needs to clear the in-field accessory buttons.
             let sendButtonShown = inputHasText || hasMediaDraft || hasForward || isEditingMedia
-            textInputViewRealInsets = calculateTextFieldRealInsets(presentationInterfaceState: presentationInterfaceState, accessoryButtonsWidth: isAgentLayout ? 0.0 : accessoryButtonsWidth, actionControlsWidth: isAgentLayout ? self.agentTextRightReserve : (sendButtonShown ? effectiveActionButtonsSize.width : 0.0))
+            textInputViewRealInsets = calculateTextFieldRealInsets(presentationInterfaceState: presentationInterfaceState, accessoryButtonsWidth: isAgentLayout ? 0.0 : accessoryButtonsWidth, actionControlsWidth: isAgentLayout ? self.agentTextRightReserve : ((sendButtonShown && !self.legacyChrome) ? effectiveActionButtonsSize.width : 0.0))
             if !sendButtonShown && !isAgentLayout {
                 // Empty state: the accessory-button clearance alone still over-insets slightly; trim 10pt more.
                 textInputViewRealInsets.right = max(0.0, textInputViewRealInsets.right - 10.0)
@@ -3287,7 +3317,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                         dateTimeFormat: interfaceState.dateTimeFormat
                     )
                 },
-                containerSize: CGSize(width: textInputWidth, height: 10000.0)
+                containerSize: CGSize(width: self.legacyChrome ? max(1.0, width - originalLeftInset - rightInset) : textInputWidth, height: 10000.0)
             )
             
             let accessoryPanelFrame = CGRect(origin: CGPoint(x: 0.0, y: contentHeight), size: accessoryPanelSize)
@@ -3369,14 +3399,14 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         let textInputContainerBackgroundFrame = CGRect(x: hideOffset.x + leftInset + textFieldInsets.left, y: hideOffset.y + textFieldInsets.top, width: textInputWidth, height: contentHeight)
         let textInputFrame = textInputContainerBackgroundFrame
         
-        transition.updateFrame(view: self.accessoryPanelContainer, frame: CGRect(origin: CGPoint(), size: textInputContainerBackgroundFrame.size))
+        transition.updateFrame(view: self.accessoryPanelContainer, frame: self.legacyChrome ? CGRect(x: originalLeftInset, y: textInputContainerBackgroundFrame.minY, width: max(1.0, width - originalLeftInset - rightInset), height: textFieldTopContentOffset) : CGRect(origin: CGPoint(), size: textInputContainerBackgroundFrame.size))
         transition.updateFrame(view: self.textInputContainerBackgroundView, frame: textInputContainerBackgroundFrame)
         
         self.updateCounterTextNode(backgroundSize: textInputContainerBackgroundFrame.size, transition: transition)
         
         let textInputContainerBackgroundTransition = ComponentTransition(transition)
         let isTextInputGlassInteractive = !(isAgentLayout && self.isAgentMenuActive)
-        self.textInputContainerBackgroundView.update(size: textInputContainerBackgroundFrame.size, cornerRadius: isAgentLayout ? 20.0 : floor(minimalInputHeight * 0.5), isDark: interfaceState.theme.overallDarkAppearance, tintColor: defaultGlassTintColor, isInteractive: isTextInputGlassInteractive, transition: textInputContainerBackgroundTransition)
+        self.textInputContainerBackgroundView.update(size: textInputContainerBackgroundFrame.size, cornerRadius: isAgentLayout ? 20.0 : floor(minimalInputHeight * 0.5), isDark: interfaceState.theme.overallDarkAppearance, tintColor: defaultGlassTintColor, isInteractive: isTextInputGlassInteractive, isVisible: !(self.legacyChrome && !isAgentLayout), transition: textInputContainerBackgroundTransition)
         if isTextInputGlassInteractive != self.isTextInputGlassInteractive {
             self.isTextInputGlassInteractive = isTextInputGlassInteractive
             // UIKit's stretch (`_UIFlexInteraction`) follows neither change of the effect on an effect view: it stays
@@ -3387,6 +3417,18 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         
         transition.updateFrame(layer: self.textInputBackgroundNode.layer, frame: textInputContainerBackgroundFrame)
         transition.updateAlpha(node: self.textInputBackgroundNode, alpha: audioRecordingItemsAlpha)
+        if let legacyFieldBackgroundView = self.legacyFieldBackgroundView {
+            let pillDiameter = max(1.0, minimalInputHeight - 7.0)
+            let inputPanelTheme = interfaceState.theme.chat.inputPanel
+            if self.legacyFieldBackgroundKey?.diameter != pillDiameter || self.legacyFieldBackgroundKey?.fill !== inputPanelTheme.inputBackgroundColor || self.legacyFieldBackgroundKey?.stroke !== inputPanelTheme.inputStrokeColor {
+                self.legacyFieldBackgroundKey = (pillDiameter, inputPanelTheme.inputBackgroundColor, inputPanelTheme.inputStrokeColor)
+                legacyFieldBackgroundView.image = generateStretchableFilledCircleImage(diameter: pillDiameter, color: inputPanelTheme.inputBackgroundColor, strokeColor: inputPanelTheme.inputStrokeColor, strokeWidth: UIScreenPixel)
+            }
+            let legacyRowMinY = textInputContainerBackgroundFrame.minY + textFieldTopContentOffset
+            let legacyPillFrame = CGRect(x: textInputContainerBackgroundFrame.minX, y: legacyRowMinY + 4.0, width: textInputContainerBackgroundFrame.width, height: max(pillDiameter, textInputContainerBackgroundFrame.maxY - legacyRowMinY - 7.0))
+            transition.updateFrame(view: legacyFieldBackgroundView, frame: legacyPillFrame)
+            transition.updateAlpha(layer: legacyFieldBackgroundView.layer, alpha: (isAgentLayout ? 0.0 : 1.0) * audioRecordingItemsAlpha)
+        }
         
         self.updateAgentToolbar(isAgentLayout: isAgentLayout, containerSize: textInputContainerBackgroundFrame.size, interfaceState: interfaceState, glassTintColor: defaultGlassTintColor, isEnabled: isMediaEnabled && !isRecording, alpha: (isRecording ? 0.0 : 1.0) * audioRecordingItemsAlpha, transition: transition)
         
@@ -3684,7 +3726,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         let mediaActionButtonsHidden = inputHasText || self.extendedSearchLayout || hasMediaDraft || interfaceState.interfaceState.forwardMessageIds != nil || hasSlowmodeButton || isEditingMedia
         if isAgentLayout {
             mediaActionButtonsFrame.origin = CGPoint(x: textInputContainerBackgroundFrame.maxX - 25.0 - mediaActionButtonsSize.width * 0.5, y: floor(agentRowMidY - mediaActionButtonsSize.height * 0.5))
-        } else if mediaActionButtonsHidden {
+        } else if mediaActionButtonsHidden && !self.legacyChrome {
             mediaActionButtonsFrame.origin.x = width + 8.0
         }
         // In the agent layout the mic and send buttons sit inside the input container, so they go on its glass and
@@ -3698,7 +3740,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             actionButtonsTransition = .immediate
         }
         
-        let mediaActionButtonsScale: CGFloat = (isAgentLayout && mediaActionButtonsHidden) ? 0.001 : 1.0
+        let mediaActionButtonsScale: CGFloat = ((isAgentLayout || self.legacyChrome) && mediaActionButtonsHidden) ? 0.001 : 1.0
         transition.updateTransformScale(node: self.mediaActionButtons, scale: mediaActionButtonsScale)
         actionButtonsTransition.updatePosition(node: self.mediaActionButtons, position: mediaActionButtonsFrame.offsetBy(dx: -actionButtonsOffset.x, dy: -actionButtonsOffset.y).center)
         transition.updateBounds(node: self.mediaActionButtons, bounds: CGRect(origin: CGPoint(), size: mediaActionButtonsFrame.size))
@@ -3748,6 +3790,8 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             // The capsule (inset 3pt in its node) keeps the same distance from the container's right and bottom edges.
             let sendEdgeInset: CGFloat = 6.0
             sendActionButtonsFrame.origin = CGPoint(x: floorToScreenPixels(textInputContainerBackgroundFrame.maxX - sendEdgeInset + 3.0 - sendActionButtonsSize.width), y: floorToScreenPixels(textInputContainerBackgroundFrame.maxY - sendEdgeInset + 3.0 - sendActionButtonsSize.height))
+        } else if self.legacyChrome {
+            sendActionButtonsFrame.origin = CGPoint(x: textInputContainerBackgroundFrame.maxX + 6.0, y: textInputContainerBackgroundFrame.maxY - sendActionButtonsSize.height)
         }
         
         let sendActionsScale: CGFloat
@@ -3755,7 +3799,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             sendActionsScale = 1.0
         } else {
             sendActionsScale = 0.001
-            if !isAgentLayout {
+            if !isAgentLayout && !self.legacyChrome {
                 sendActionButtonsFrame.origin.x += (sendActionButtonsSize.width - 3.0 * 2.0) * 0.5 - 3.0
             }
         }
@@ -4204,6 +4248,9 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
     }
     
     override public func updateOverscrollIsland(_ island: ChatInputPanelOverscrollIsland?, animated: Bool) -> Bool {
+        if self.legacyChrome {
+            return false
+        }
         let (container, anchorFrame) = self.overscrollIslandAnchor()
         guard let island else {
             self.overscrollIsland?.dismiss(anchorFrame: anchorFrame, animated: animated)

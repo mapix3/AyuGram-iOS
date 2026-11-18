@@ -106,7 +106,7 @@ public class ItemListDisclosureItem: ListViewItem, ItemListItem, ListItemCompone
         shimmeringIndex: Int? = nil
     ) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.icon = icon
         self.context = context
         self.iconPeer = iconPeer

@@ -78,7 +78,7 @@ class CallListGroupCallItem: ListViewItem {
     
     init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, context: AccountContext, style: ItemListStyle, peer: EnginePeer, isActive: Bool, editing: Bool, interaction: CallListNodeInteraction) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.context = context
         self.style = style
         self.peer = peer

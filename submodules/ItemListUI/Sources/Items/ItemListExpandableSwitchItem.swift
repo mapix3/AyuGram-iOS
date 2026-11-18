@@ -59,7 +59,7 @@ public class ItemListExpandableSwitchItem: ListViewItem, ItemListItem {
     
     public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, icon: UIImage? = nil, title: String, value: Bool, isExpanded: Bool, subItems: [SubItem], type: ItemListExpandableSwitchItemNodeType = .regular, enableInteractiveChanges: Bool = true, enabled: Bool = true, displayLocked: Bool = false, disableLeadingInset: Bool = false, maximumNumberOfLines: Int = 1, noCorners: Bool = false, sectionId: ItemListSectionId, style: ItemListStyle, updated: @escaping (Bool) -> Void, activatedWhileDisabled: @escaping () -> Void = {}, selectAction: @escaping () -> Void, subAction: @escaping (SubItem) -> Void, tag: ItemListItemTag? = nil) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.icon = icon
         self.title = title
         self.value = value
