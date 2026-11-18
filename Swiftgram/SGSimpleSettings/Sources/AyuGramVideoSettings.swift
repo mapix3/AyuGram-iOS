@@ -19,7 +19,7 @@ public struct AyuGramVideoSettings: Codable, Equatable {
         self.videoHighBitrate = try container.decodeIfPresent(Bool.self, forKey: .videoHighBitrate) ?? defaults.videoHighBitrate
     }
 
-    public static let roundSides: [Int] = [480, 720, 1080]
+    public static let roundSides: [Int] = [480, 640]
     public static let roundFrameRates: [Int32] = [30, 60, 120]
 
     public var roundSide: Int {

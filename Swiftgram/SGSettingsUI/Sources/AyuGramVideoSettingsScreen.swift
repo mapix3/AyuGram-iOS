@@ -99,9 +99,7 @@ private enum AyuVideoEntry: ItemListNodeEntry {
 private func ayuVideoQualityTitle(_ index: Int32, locale: String) -> String {
     switch index {
     case 1:
-        return "720p"
-    case 2:
-        return "1080p · Full HD"
+        return i18n("Ayu.Video.RoundMax", locale)
     default:
         return i18n("Ayu.Video.RoundStandard", locale)
     }

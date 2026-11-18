@@ -572,7 +572,8 @@
 "Ayu.Video.RoundFrameRate" = "Frame rate";
 "Ayu.Video.RoundFromGallery" = "Round video from gallery";
 "Ayu.Video.RoundFromGalleryInfo" = "Hold the send button in the attachment menu with one video selected";
-"Ayu.Video.RoundFooter" = "Full HD is the highest quality: the camera gives round videos at most 1080 pixels on the short side, so 4K is not possible. 60 and 120 fps work when the camera supports them, otherwise the closest lower rate is used. Higher settings make files bigger.";
+"Ayu.Video.RoundMax" = "Maximum (640p)";
+"Ayu.Video.RoundFooter" = "640p is the highest quality Telegram accepts for round videos: anything larger is delivered as a regular video. 60 and 120 fps work when the camera supports them, otherwise the closest lower rate is used. Higher settings make files bigger.";
 "Ayu.Video.VideoSection" = "Videos";
 "Ayu.Video.BestQuality" = "Always best quality";
 "Ayu.Video.BestQualityInfo" = "Videos are sent in the highest available quality, up to 1080p";
