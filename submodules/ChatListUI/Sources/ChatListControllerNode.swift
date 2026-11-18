@@ -1215,6 +1215,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
     weak var controller: ChatListControllerImpl?
     
     private var toolbar: ComponentView<Empty>?
+    private var legacyToolbarNode: ToolbarNode?
     var toolbarData: Toolbar?
     var toolbarActionSelected: ((ToolbarActionOption) -> Void)?
     
@@ -1491,6 +1492,10 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         
         self.backgroundColor = AyuGramAppearance.shared.showsChatList ? .clear : self.presentationData.theme.chatList.backgroundColor
         
+        if AyuLegacyUI.isEnabled {
+            self.legacyToolbarNode?.updateTheme(ToolbarTheme(rootControllerTheme: self.presentationData.theme))
+        }
+        
         self.mainContainerNode.updatePresentationData(presentationData)
         self.inlineStackContainerNode?.updatePresentationData(presentationData)
         self.searchDisplayController?.updatePresentationData(presentationData)
@@ -1748,6 +1753,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
                 
             navigationHeaderPanels = AnyComponent(HeaderPanelContainerComponent(
                 theme: self.presentationData.theme,
+                classicLayout: AyuLegacyUI.isEnabled ? HeaderPanelContainerComponent.ClassicLayout(leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right) : nil,
                 tabs: (self.controller?.tabContainerData?.1 ?? false) ? nil : tabs, // MARK: Swiftgram
                 panels: panels
             ))
@@ -1979,6 +1985,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
             transition: sgComponentTransition,
             component: AnyComponent(HeaderPanelContainerComponent(
                 theme: self.presentationData.theme,
+                classicLayout: AyuLegacyUI.isEnabled ? HeaderPanelContainerComponent.ClassicLayout(leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right) : nil,
                 tabs: navigationBarLayout.tabs,
                 panels: []
             )),
@@ -1991,7 +1998,54 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
         insets.left += layout.safeInsets.left
         insets.right += layout.safeInsets.right
         
-        if let toolbarData = self.toolbarData {
+        if AyuLegacyUI.isEnabled, let toolbarData = self.toolbarData {
+            if let toolbar = self.toolbar {
+                self.toolbar = nil
+                toolbar.view?.removeFromSuperview()
+            }
+            
+            var legacyOptions: ContainerViewLayoutInsetOptions = []
+            if layout.metrics.widthClass == .regular {
+                legacyOptions.insert(.input)
+            }
+            
+            var legacyHeightInset: CGFloat = 0.0
+            if case .forum = self.location {
+                legacyHeightInset = 4.0
+            }
+            
+            let legacyTabBarHeight: CGFloat
+            let legacyBottomInset: CGFloat = layout.insets(options: legacyOptions).bottom
+            if !layout.safeInsets.left.isZero {
+                legacyTabBarHeight = 34.0 + legacyBottomInset
+                insets.bottom += 34.0
+            } else {
+                legacyTabBarHeight = 49.0 - legacyHeightInset + legacyBottomInset
+                insets.bottom += 49.0 - legacyHeightInset
+            }
+            
+            let legacyToolbarFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - legacyTabBarHeight), size: CGSize(width: layout.size.width, height: legacyTabBarHeight))
+            
+            if let legacyToolbarNode = self.legacyToolbarNode {
+                transition.updateFrame(node: legacyToolbarNode, frame: legacyToolbarFrame)
+                legacyToolbarNode.updateLayout(size: legacyToolbarFrame.size, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, additionalSideInsets: layout.additionalInsets, bottomInset: legacyBottomInset, toolbar: toolbarData, transition: transition)
+            } else {
+                let legacyToolbarNode = ToolbarNode(theme: ToolbarTheme(rootControllerTheme: self.presentationData.theme), displaySeparator: true, left: { [weak self] in
+                    self?.toolbarActionSelected?(.left)
+                }, right: { [weak self] in
+                    self?.toolbarActionSelected?(.right)
+                }, middle: { [weak self] in
+                    self?.toolbarActionSelected?(.middle)
+                })
+                legacyToolbarNode.frame = legacyToolbarFrame
+                legacyToolbarNode.updateLayout(size: legacyToolbarFrame.size, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, additionalSideInsets: layout.additionalInsets, bottomInset: legacyBottomInset, toolbar: toolbarData, transition: .immediate)
+                self.addSubnode(legacyToolbarNode)
+                self.legacyToolbarNode = legacyToolbarNode
+                if transition.isAnimated {
+                    legacyToolbarNode.layer.animateAlpha(from: 0.0, to: 1.0, duration: 0.2)
+                }
+            }
+        } else if let toolbarData = self.toolbarData {
             var panelsBottomInset: CGFloat = layout.insets(options: []).bottom
             if layout.metrics.widthClass == .regular, let inputHeight = layout.inputHeight, inputHeight != 0.0 {
                 panelsBottomInset = inputHeight + 8.0
@@ -2095,6 +2149,12 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
                     toolbarView?.removeFromSuperview()
                 })
             }
+        }
+        if AyuLegacyUI.isEnabled, self.toolbarData == nil, let legacyToolbarNode = self.legacyToolbarNode {
+            self.legacyToolbarNode = nil
+            transition.updateAlpha(node: legacyToolbarNode, alpha: 0.0, completion: { [weak legacyToolbarNode] _ in
+                legacyToolbarNode?.removeFromSupernode()
+            })
         }
 
         // MARK: Swiftgram

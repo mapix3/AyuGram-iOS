@@ -405,6 +405,10 @@ public final class HorizontalTabsComponent: Component {
     
     public final class View: UIView, UIScrollViewDelegate, HeaderPanelContainerChildView {
         private let lensView: LiquidLensView
+        private let isLegacy: Bool = AyuLegacyUI.isEnabled
+        private var legacyContainerView: UIView?
+        private var legacySelectionLineView: UIImageView?
+        private var legacyLineTheme: PresentationTheme?
         private let scrollView: ScrollView
         private let selectedScrollView: UIView
         private var itemViews: [Tab.Id: ItemView] = [:]
@@ -465,10 +469,23 @@ public final class HorizontalTabsComponent: Component {
             self.isAccessibilityElement = false
             self.accessibilityTraits = .tabBar
             
-            self.addSubview(self.lensView)
-            
-            self.lensView.contentView.addSubview(self.scrollView)
-            self.lensView.selectedContentView.addSubview(self.selectedScrollView)
+            if self.isLegacy {
+                let legacyContainerView = UIView()
+                legacyContainerView.clipsToBounds = true
+                self.legacyContainerView = legacyContainerView
+                self.addSubview(legacyContainerView)
+                legacyContainerView.addSubview(self.scrollView)
+                
+                let legacySelectionLineView = UIImageView()
+                legacySelectionLineView.isUserInteractionEnabled = false
+                self.legacySelectionLineView = legacySelectionLineView
+                self.scrollView.addSubview(legacySelectionLineView)
+            } else {
+                self.addSubview(self.lensView)
+                
+                self.lensView.contentView.addSubview(self.scrollView)
+                self.lensView.selectedContentView.addSubview(self.selectedScrollView)
+            }
             /*self.lensView.onUpdatedIsAnimating = { [weak self] _ in
                 guard let self else {
                     return
@@ -640,6 +657,9 @@ public final class HorizontalTabsComponent: Component {
         }
         
         public func setOverlayContainerView(overlayContainerView: UIView) {
+            if self.isLegacy {
+                return
+            }
             self.lensView.setLiftedContainer(view: overlayContainerView)
         }
         
@@ -804,6 +824,28 @@ public final class HorizontalTabsComponent: Component {
             guard let component = self.component, let layoutData = self.layoutData else {
                 return
             }
+            if self.isLegacy {
+                guard let legacySelectionLineView = self.legacySelectionLineView else {
+                    return
+                }
+                if self.legacyLineTheme !== component.theme {
+                    self.legacyLineTheme = component.theme
+                    let accentColor = component.theme.list.itemAccentColor
+                    legacySelectionLineView.image = generateImage(CGSize(width: 5.0, height: 3.0), rotatedContext: { size, context in
+                        context.clear(CGRect(origin: CGPoint(), size: size))
+                        context.setFillColor(accentColor.cgColor)
+                        context.fillEllipse(in: CGRect(origin: CGPoint(), size: CGSize(width: 4.0, height: 4.0)))
+                        context.fillEllipse(in: CGRect(origin: CGPoint(x: size.width - 4.0, y: 0.0), size: CGSize(width: 4.0, height: 4.0)))
+                        context.fill(CGRect(x: 2.0, y: 0.0, width: size.width - 4.0, height: 4.0))
+                        context.fill(CGRect(x: 0.0, y: 2.0, width: size.width, height: 2.0))
+                    })?.resizableImage(withCapInsets: UIEdgeInsets(top: 3.0, left: 3.0, bottom: 0.0, right: 3.0), resizingMode: .stretch)
+                }
+                let legacyTitleInset: CGFloat = 16.0 / (SGSimpleSettings.shared.compactFolderNames ? 2.0 : 1.0)
+                let legacyLineFrame = layoutData.selectedItemFrame.insetBy(dx: legacyTitleInset, dy: 0.0)
+                transition.setFrame(view: legacySelectionLineView, frame: CGRect(x: legacyLineFrame.minX, y: layoutData.lensSize.height - 3.0, width: max(0.0, legacyLineFrame.width), height: 3.0))
+                transition.setAlpha(view: legacySelectionLineView, alpha: layoutData.isSelectionHidden ? 0.0 : 1.0)
+                return
+            }
             var isLifted = self.temporaryLiftTimer != nil
             if !component.liftWhileSwitching || layoutData.isSelectionHidden {
                 isLifted = false
@@ -915,7 +957,7 @@ public final class HorizontalTabsComponent: Component {
                         context: component.context,
                         theme: component.theme,
                         tab: tab,
-                        isSelected: false,
+                        isSelected: self.isLegacy ? (tab.id == component.selectedTab) : false,
                         editing: itemEditing
                     )),
                     environment: {},
@@ -1118,10 +1160,13 @@ public final class HorizontalTabsComponent: Component {
                 transition.setBounds(view: self.scrollView, bounds: scrollViewBounds)
             }
             
-            self.scrollView.layer.cornerRadius = lensSize.height * 0.5
+            self.scrollView.layer.cornerRadius = self.isLegacy ? 0.0 : lensSize.height * 0.5
             self.selectedScrollView.layer.cornerRadius = lensSize.height * 0.5
             
             transition.setFrame(view: self.lensView, frame: CGRect(origin: CGPoint(x: lensInset, y: lensInset), size: lensSize))
+            if let legacyContainerView = self.legacyContainerView {
+                transition.setFrame(view: legacyContainerView, frame: CGRect(origin: CGPoint(x: lensInset, y: lensInset), size: lensSize))
+            }
             self.lensView.clipsToBounds = true
             self.lensView.layer.cornerRadius = lensSize.height * 0.5
             self.ignoreScrolling = false
@@ -1324,7 +1369,8 @@ private final class ItemComponent: Component {
                     self.titleContent = titleContent
                 }
                 
-                let font = Font.medium(15.0)
+                let font = AyuLegacyUI.isEnabled ? Font.medium(14.0) : Font.medium(15.0)
+                let titleColor: UIColor = AyuLegacyUI.isEnabled ? (component.isSelected ? component.theme.list.itemAccentColor : component.theme.list.itemSecondaryTextColor) : component.theme.chat.inputPanel.panelControlColor
                 
                 let rawAttributedString = ChatTextInputStateText(text: title.text, attributes: title.entities.compactMap { entity -> ChatTextInputStateTextAttribute? in
                     if case let .CustomEmoji(_, fileId) = entity.type {
@@ -1336,7 +1382,7 @@ private final class ItemComponent: Component {
                 let titleString = NSMutableAttributedString(attributedString: rawAttributedString)
                 titleString.addAttributes([
                     .font: font,
-                    .foregroundColor: component.theme.chat.inputPanel.panelControlColor
+                    .foregroundColor: titleColor
                 ], range: NSRange(location: 0, length: titleString.length))
                 
                 titleContentSize = titleContent.update(
@@ -1345,7 +1391,7 @@ private final class ItemComponent: Component {
                         context: component.context,
                         animationCache: component.context?.animationCache,
                         animationRenderer: component.context?.animationRenderer,
-                        placeholderColor: component.theme.chat.inputPanel.panelControlColor.withMultipliedAlpha(0.1),
+                        placeholderColor: titleColor.withMultipliedAlpha(0.1),
                         text: .plain(titleString),
                         displaysAsynchronously: false
                     )),
