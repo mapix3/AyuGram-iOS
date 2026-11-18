@@ -7,19 +7,43 @@ public enum AyuGramTextReveal {
     private static let minimumWordDuration: Double = 0.025
     private static let maximumDuration: Double = 0.8
     private static let edgeWidth: CGFloat = 36.0
+    private static let revealedLimit = 512
+
+    public static let freshnessInterval: Int32 = 20
+
+    private static var revealedOrder: [UInt32] = []
+    private static var revealedIds = Set<UInt32>()
 
     public static var isActive: Bool {
         return AyuGramEffectsRuntime.settings.activeIncomingTextReveal && AyuGramEffectsRuntime.motionAllowed
     }
 
-    public static func animate(layer: CALayer, lineRects: [CGRect], text: String, rightToLeft: Bool) {
+    public static func wasRevealed(stableId: UInt32) -> Bool {
+        return self.revealedIds.contains(stableId)
+    }
+
+    public static func markRevealed(stableId: UInt32) {
+        if self.revealedIds.insert(stableId).inserted {
+            self.revealedOrder.append(stableId)
+            if self.revealedOrder.count > self.revealedLimit {
+                let overflow = self.revealedOrder.count - self.revealedLimit
+                for id in self.revealedOrder.prefix(overflow) {
+                    self.revealedIds.remove(id)
+                }
+                self.revealedOrder.removeFirst(overflow)
+            }
+        }
+    }
+
+    @discardableResult
+    public static func animate(layer: CALayer, lineRects: [CGRect], text: String, rightToLeft: Bool) -> Bool {
         let bounds = layer.bounds
         guard bounds.width > 1.0, bounds.height > 1.0, layer.mask == nil else {
-            return
+            return false
         }
-        let lines = lineRects.filter { $0.height > 0.0 }.sorted { $0.minY < $1.minY }
-        guard !lines.isEmpty else {
-            return
+        var lines = lineRects.filter { $0.height > 0.0 && $0.width > 0.0 }.sorted { $0.minY < $1.minY }
+        if lines.isEmpty {
+            lines = [CGRect(origin: CGPoint(), size: bounds.size)]
         }
         let wordCount = max(1, text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count)
 
@@ -32,7 +56,7 @@ public enum AyuGramTextReveal {
             }
         }
         guard !bands.isEmpty else {
-            return
+            return false
         }
 
         let mask = CALayer()
@@ -104,5 +128,6 @@ public enum AyuGramTextReveal {
 
         layer.mask = mask
         CATransaction.commit()
+        return true
     }
 }

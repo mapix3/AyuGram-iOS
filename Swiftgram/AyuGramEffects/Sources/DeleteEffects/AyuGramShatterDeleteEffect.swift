@@ -3,10 +3,11 @@ import UIKit
 import QuartzCore
 
 enum AyuGramShatterDeleteEffect {
-    private static let flightDuration: Double = 0.85
-    private static let maxDelay: Double = 0.06
-    private static let gravity: CGFloat = 1100.0
-    private static let targetCellCount: CGFloat = 14.0
+    private static let flightDuration: Double = 0.78
+    private static let maxDelay: Double = 0.08
+    private static let gravity: CGFloat = 820.0
+    private static let targetCellCount: CGFloat = 18.0
+    static let collapseDelay: Double = 0.45
 
     static func run(in container: CALayer, image: CGImage, imageScale: CGFloat) -> Double {
         let size = container.bounds.size
@@ -97,9 +98,9 @@ enum AyuGramShatterDeleteEffect {
             let offsetY = centroid.y - impact.y
             let length = max(0.001, (offsetX * offsetX + offsetY * offsetY).squareRoot())
             let distanceFactor = min(1.0, length / maxDistance)
-            let speed = CGFloat.random(in: 110.0 ... 220.0) * (0.6 + 0.6 * distanceFactor)
-            let velocityX = offsetX / length * speed + CGFloat.random(in: -30.0 ... 30.0)
-            let velocityY = offsetY / length * speed - CGFloat.random(in: 60.0 ... 140.0)
+            let speed = CGFloat.random(in: 70.0 ... 150.0) * (0.55 + 0.6 * distanceFactor)
+            let velocityX = offsetX / length * speed + CGFloat.random(in: -24.0 ... 24.0)
+            let velocityY = offsetY / length * speed - CGFloat.random(in: 50.0 ... 110.0)
 
             let steps = 14
             var positions: [NSValue] = []
@@ -112,19 +113,22 @@ enum AyuGramShatterDeleteEffect {
             }
             let positionAnimation = CAKeyframeAnimation(keyPath: "position")
             positionAnimation.values = positions
+            positionAnimation.calculationMode = .cubic
 
-            let spin = CGFloat.random(in: 2.5 ... 6.0) * (Bool.random() ? 1.0 : -1.0)
+            let spin = CGFloat.random(in: 1.8 ... 4.5) * (Bool.random() ? 1.0 : -1.0)
             let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
             rotationAnimation.fromValue = 0.0 as NSNumber
             rotationAnimation.toValue = NSNumber(value: Double(spin) * flightDuration)
 
             let scaleAnimation = CABasicAnimation(keyPath: "transform.scale")
             scaleAnimation.fromValue = 1.0 as NSNumber
-            scaleAnimation.toValue = 0.55 as NSNumber
+            scaleAnimation.toValue = 0.4 as NSNumber
+            scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
 
             let opacityAnimation = CAKeyframeAnimation(keyPath: "opacity")
-            opacityAnimation.values = [1.0 as NSNumber, 1.0 as NSNumber, 0.0 as NSNumber]
-            opacityAnimation.keyTimes = [0.0 as NSNumber, 0.45 as NSNumber, 1.0 as NSNumber]
+            opacityAnimation.values = [1.0 as NSNumber, 0.95 as NSNumber, 0.0 as NSNumber]
+            opacityAnimation.keyTimes = [0.0 as NSNumber, 0.3 as NSNumber, 1.0 as NSNumber]
+            opacityAnimation.timingFunctions = [CAMediaTimingFunction(name: .linear), CAMediaTimingFunction(name: .easeIn)]
 
             let group = CAAnimationGroup()
             group.animations = [positionAnimation, rotationAnimation, scaleAnimation, opacityAnimation]

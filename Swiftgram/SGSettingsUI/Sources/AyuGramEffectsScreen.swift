@@ -11,19 +11,19 @@ import SGSimpleSettings
 import SGStrings
 
 private enum AyuEffectsSection: Int32 {
-    case master, background, density, speed, grain, bubbles, animations, interface
+    case master, background, grain, bubbles, animations, interface
 }
 
 private enum AyuEffectsToggle: Equatable {
-    case enabled, reactToTouch, aurora, parallax, ripple, glow, glass, textReveal, avatarRings
+    case enabled, aurora, parallax, ripple, glow, glass, textReveal, avatarRings
 }
 
 private enum AyuEffectsPicker: Equatable {
-    case particles, deleteStyle, sendStyle
+    case deleteStyle, sendStyle, ringColor
 }
 
 private enum AyuEffectsSlider: Equatable {
-    case density, speed, grain
+    case grain
 }
 
 private enum AyuEffectsTint: Equatable {
@@ -118,14 +118,24 @@ private enum AyuEffectsEntry: ItemListNodeEntry {
     }
 }
 
-private func ayuEffectsParticlesKey(_ value: AyuGramEffectsSettings.Particles) -> String {
+private func ayuEffectsRingColorKey(_ value: AyuGramEffectsSettings.RingColor) -> String {
     switch value {
-    case .off: return "Ayu.Effects.Particles.Off"
-    case .snow: return "Ayu.Effects.Particles.Snow"
-    case .stars: return "Ayu.Effects.Particles.Stars"
-    case .fireflies: return "Ayu.Effects.Particles.Fireflies"
-    case .petals: return "Ayu.Effects.Particles.Petals"
-    case .bubbles: return "Ayu.Effects.Particles.Bubbles"
+    case .accent: return "Ayu.Effects.RingColor.Accent"
+    case .blue: return "Ayu.Effects.RingColor.Blue"
+    case .teal: return "Ayu.Effects.RingColor.Teal"
+    case .green: return "Ayu.Effects.RingColor.Green"
+    case .gold: return "Ayu.Effects.RingColor.Gold"
+    case .orange: return "Ayu.Effects.RingColor.Orange"
+    case .red: return "Ayu.Effects.RingColor.Red"
+    case .pink: return "Ayu.Effects.RingColor.Pink"
+    case .purple: return "Ayu.Effects.RingColor.Purple"
+    case .white: return "Ayu.Effects.RingColor.White"
+    case .aurora: return "Ayu.Effects.RingColor.Aurora"
+    case .sunset: return "Ayu.Effects.RingColor.Sunset"
+    case .ocean: return "Ayu.Effects.RingColor.Ocean"
+    case .neon: return "Ayu.Effects.RingColor.Neon"
+    case .fire: return "Ayu.Effects.RingColor.Fire"
+    case .rainbow: return "Ayu.Effects.RingColor.Rainbow"
     }
 }
 
@@ -164,19 +174,11 @@ private func ayuEffectsEntries(data: PresentationData, effects: AyuGramEffectsSe
     entries.append(.footer(id: 20, section: .master, text: s("Ayu.Effects.MasterInfo")))
 
     entries.append(.header(id: 100, section: .background, text: s("Ayu.Effects.BackgroundSection")))
-    entries.append(.picker(id: 110, section: .background, key: .particles, symbol: "snowflake", tint: .blue, title: s("Ayu.Effects.Particles"), label: s(ayuEffectsParticlesKey(effects.particles)), enabled: on))
-    entries.append(.toggle(id: 120, section: .background, key: .reactToTouch, symbol: "hand.point.up.left.fill", tint: .orange, title: s("Ayu.Effects.ReactToTouch"), subtitle: nil, value: effects.particlesReactToTouch, enabled: on && effects.particles != .off))
     entries.append(.toggle(id: 130, section: .background, key: .aurora, symbol: "rays", tint: .teal, title: s("Ayu.Effects.Aurora"), subtitle: s("Ayu.Effects.AuroraInfo"), value: effects.auroraGradient, enabled: on))
     entries.append(.toggle(id: 140, section: .background, key: .parallax, symbol: "square.3.layers.3d", tint: .indigo, title: s("Ayu.Effects.Parallax"), subtitle: s("Ayu.Effects.ParallaxInfo"), value: effects.deepParallax, enabled: on))
     entries.append(.toggle(id: 150, section: .background, key: .ripple, symbol: "drop.fill", tint: .blue, title: s("Ayu.Effects.Ripple"), subtitle: s("Ayu.Effects.RippleInfo"), value: effects.backgroundRipple, enabled: on))
     entries.append(.footer(id: 160, section: .background, text: s("Ayu.Effects.BackgroundFooter")))
 
-    if on && effects.particles != .off {
-        entries.append(.header(id: 200, section: .density, text: s("Ayu.Effects.ParticleDensity")))
-        entries.append(.slider(id: 210, section: .density, key: .density, value: ayuEffectsPercent(effects.particleDensity)))
-        entries.append(.header(id: 300, section: .speed, text: s("Ayu.Effects.ParticleSpeed")))
-        entries.append(.slider(id: 310, section: .speed, key: .speed, value: ayuEffectsPercent(effects.particleSpeed)))
-    }
     if on {
         entries.append(.header(id: 400, section: .grain, text: s("Ayu.Effects.Grain")))
         entries.append(.slider(id: 410, section: .grain, key: .grain, value: ayuEffectsPercent(effects.gradientGrain)))
@@ -195,6 +197,7 @@ private func ayuEffectsEntries(data: PresentationData, effects: AyuGramEffectsSe
 
     entries.append(.header(id: 700, section: .interface, text: s("Ayu.Effects.InterfaceSection")))
     entries.append(.toggle(id: 710, section: .interface, key: .avatarRings, symbol: "circle.dashed", tint: .purple, title: s("Ayu.Effects.AvatarRings"), subtitle: s("Ayu.Effects.AvatarRingsInfo"), value: effects.avatarRings, enabled: on))
+    entries.append(.picker(id: 715, section: .interface, key: .ringColor, symbol: "paintpalette.fill", tint: .pink, title: s("Ayu.Effects.RingColor"), label: s(ayuEffectsRingColorKey(effects.avatarRingColor)), enabled: on && effects.avatarRings))
     entries.append(.footer(id: 720, section: .interface, text: s("Ayu.Effects.InterfaceFooter")))
     return entries
 }
@@ -231,7 +234,6 @@ public func ayuGramEffectsController(context: AccountContext) -> ViewController 
         AyuGramSettings.shared.updateEffects { effects in
             switch key {
             case .enabled: effects.enabled = value
-            case .reactToTouch: effects.particlesReactToTouch = value
             case .aurora: effects.auroraGradient = value
             case .parallax: effects.deepParallax = value
             case .ripple: effects.backgroundRipple = value
@@ -245,10 +247,6 @@ public func ayuGramEffectsController(context: AccountContext) -> ViewController 
         let locale = context.sharedContext.currentPresentationData.with { $0 }.strings.baseLanguageCode
         let effects = AyuGramSettings.shared.effects
         switch key {
-        case .particles:
-            ayuEffectsPresentChoice(context: context, present: presentController, options: AyuGramEffectsSettings.Particles.allCases, current: effects.particles, title: { i18n(ayuEffectsParticlesKey($0), locale) }, select: { value in
-                AyuGramSettings.shared.updateEffects { $0.particles = value }
-            })
         case .deleteStyle:
             ayuEffectsPresentChoice(context: context, present: presentController, options: AyuGramEffectsSettings.DeleteStyle.allCases, current: effects.deleteStyle, title: { i18n(ayuEffectsDeleteKey($0), locale) }, select: { value in
                 AyuGramSettings.shared.updateEffects { $0.deleteStyle = value }
@@ -257,19 +255,15 @@ public func ayuGramEffectsController(context: AccountContext) -> ViewController 
             ayuEffectsPresentChoice(context: context, present: presentController, options: AyuGramEffectsSettings.SendStyle.allCases, current: effects.sendStyle, title: { i18n(ayuEffectsSendKey($0), locale) }, select: { value in
                 AyuGramSettings.shared.updateEffects { $0.sendStyle = value }
             })
+        case .ringColor:
+            ayuEffectsPresentChoice(context: context, present: presentController, options: AyuGramEffectsSettings.RingColor.allCases, current: effects.avatarRingColor, title: { i18n(ayuEffectsRingColorKey($0), locale) }, select: { value in
+                AyuGramSettings.shared.updateEffects { $0.avatarRingColor = value }
+            })
         }
     }, slide: { key, value in
         let fraction = Double(max(0, min(100, value))) / 100.0
         let effects = AyuGramSettings.shared.effects
         switch key {
-        case .density:
-            if ayuEffectsPercent(effects.particleDensity) != value {
-                AyuGramSettings.shared.updateEffects { $0.particleDensity = fraction }
-            }
-        case .speed:
-            if ayuEffectsPercent(effects.particleSpeed) != value {
-                AyuGramSettings.shared.updateEffects { $0.particleSpeed = fraction }
-            }
         case .grain:
             if ayuEffectsPercent(effects.gradientGrain) != value {
                 AyuGramSettings.shared.updateEffects { $0.gradientGrain = fraction }

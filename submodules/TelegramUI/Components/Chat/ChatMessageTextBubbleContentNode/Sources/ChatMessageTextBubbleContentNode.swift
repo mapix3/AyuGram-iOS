@@ -1005,6 +1005,10 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                                 }
                                 strongSelf.updateTextRevealAnimation(previousGlyphCount: previousAnimateGlyphCount ?? 0, hasDraft: hasDraft, hadDraft: hadDraft)
                             }
+
+                            if !hasDraft && !hadDraft && AyuGramTextReveal.isActive {
+                                strongSelf.ayuGramRevealIncomingText()
+                            }
                         }
                     })
                 })
@@ -1090,22 +1094,31 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
     }
     
     public func ayuGramRevealIncomingText() {
-        guard AyuGramTextReveal.isActive, let item = self.item else {
+        guard AyuGramTextReveal.isActive, let item = self.item, !item.presentationData.isPreview else {
+            return
+        }
+        guard item.message.effectivelyIncoming(item.context.account.peerId), !AyuGramTextReveal.wasRevealed(stableId: item.message.stableId) else {
             return
         }
         guard self.textRevealController == nil, self.textNode.textNode.revealCharacterCount == nil else {
             return
         }
         let now = item.context.account.network.getApproximateRemoteTimestamp()
-        guard abs(now - item.message.timestamp) <= 30, !item.message.attributes.contains(where: { $0 is TypingDraftMessageAttribute }) else {
+        guard abs(now - item.message.timestamp) <= AyuGramTextReveal.freshnessInterval, !item.message.attributes.contains(where: { $0 is TypingDraftMessageAttribute }) else {
             return
         }
         guard let layout = self.textNode.textNode.cachedLayout, let string = layout.attributedString, string.length > 0 else {
             return
         }
+        let textLayer = self.textNode.textNode.layer
+        guard textLayer.bounds.width > 1.0, textLayer.bounds.height > 1.0 else {
+            return
+        }
         let insets = layout.insets
         let lineRects = layout.linesRects().map { $0.offsetBy(dx: insets.left, dy: insets.top) }
-        AyuGramTextReveal.animate(layer: self.textNode.textNode.layer, lineRects: lineRects, text: string.string, rightToLeft: layout.segments.contains(where: { $0.hasRTL }))
+        if AyuGramTextReveal.animate(layer: textLayer, lineRects: lineRects, text: string.string, rightToLeft: layout.segments.contains(where: { $0.hasRTL })) {
+            AyuGramTextReveal.markRevealed(stableId: item.message.stableId)
+        }
     }
     
     override public func animateInsertion(_ currentTimestamp: Double, duration: Double) {

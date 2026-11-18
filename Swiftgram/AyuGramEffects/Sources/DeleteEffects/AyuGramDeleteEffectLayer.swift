@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import QuartzCore
+import Display
 import SGSimpleSettings
 
 public enum AyuGramDeleteEffect {
@@ -20,15 +21,60 @@ public enum AyuGramDeleteEffect {
             return false
         }
     }
+
+    public static func collapseDelay(_ style: AyuGramEffectsSettings.DeleteStyle) -> Double {
+        let fadeStart = self.fadeStart(style)
+        if fadeStart <= 0.0 {
+            return 0.0
+        }
+        return fadeStart + self.fadeOutDuration * 0.5
+    }
+
+    static func fadeStart(_ style: AyuGramEffectsSettings.DeleteStyle) -> Double {
+        switch style {
+        case .burn:
+            return AyuGramBurnDeleteEffect.collapseDelay
+        case .shatter:
+            return AyuGramShatterDeleteEffect.collapseDelay
+        case .implode:
+            return AyuGramImplodeDeleteEffect.collapseDelay
+        case .standard, .dust:
+            return 0.0
+        }
+    }
+
+    public static func collapseDuration(_ style: AyuGramEffectsSettings.DeleteStyle) -> Double {
+        switch style {
+        case .burn, .shatter, .implode:
+            return 0.34
+        case .standard, .dust:
+            return 0.8
+        }
+    }
+
+    static let fadeOutDuration: Double = 0.3
 }
 
 public final class AyuGramDeleteEffectLayer: CALayer {
+    private final class Item {
+        let container: CALayer
+        let track: (() -> CGRect?)?
+        var isTracking: Bool
+
+        init(container: CALayer, track: (() -> CGRect?)?) {
+            self.container = container
+            self.track = track
+            self.isTracking = track != nil
+        }
+    }
+
     public var becameEmpty: (() -> Void)?
 
-    private var activeItemCount: Int = 0
+    private var items: [Item] = []
+    private var displayLink: SharedDisplayLinkDriver.Link?
 
     public var hasActiveItems: Bool {
-        return self.activeItemCount > 0
+        return !self.items.isEmpty
     }
 
     override public init() {
@@ -43,7 +89,11 @@ public final class AyuGramDeleteEffectLayer: CALayer {
         fatalError("init(coder:) has not been implemented")
     }
 
-    public func addItem(frame: CGRect, image: UIImage, style: AyuGramEffectsSettings.DeleteStyle) -> Bool {
+    deinit {
+        self.displayLink?.invalidate()
+    }
+
+    public func addItem(frame: CGRect, image: UIImage, style: AyuGramEffectsSettings.DeleteStyle, track: (() -> CGRect?)? = nil) -> Bool {
         guard frame.width >= 1.0, frame.height >= 1.0, let cgImage = image.cgImage else {
             return false
         }
@@ -70,20 +120,95 @@ public final class AyuGramDeleteEffectLayer: CALayer {
             lifetime = 0.0
         }
 
+        let fadeStart = AyuGramDeleteEffect.fadeStart(style)
+        let fadeDuration = AyuGramDeleteEffect.fadeOutDuration
+        let effectiveLifetime: Double
+        if fadeStart > 0.0 && fadeStart + fadeDuration < lifetime {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1.0 as NSNumber
+            fade.toValue = 0.0 as NSNumber
+            fade.duration = fadeDuration
+            fade.beginTime = container.convertTime(CACurrentMediaTime(), from: nil) + fadeStart
+            fade.timingFunction = CAMediaTimingFunction(controlPoints: 0.45, 0.0, 0.55, 1.0)
+            fade.fillMode = .forwards
+            fade.isRemovedOnCompletion = false
+            container.add(fade, forKey: "ayuDeleteFadeOut")
+            effectiveLifetime = fadeStart + fadeDuration
+        } else {
+            effectiveLifetime = lifetime
+        }
+
         CATransaction.commit()
 
-        self.activeItemCount += 1
-        DispatchQueue.main.asyncAfter(deadline: .now() + lifetime + 0.05, execute: { [weak self, weak container] in
-            container?.removeFromSuperlayer()
-            guard let self else {
+        let item = Item(container: container, track: track)
+        self.items.append(item)
+        self.updateDisplayLink()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + effectiveLifetime + 0.05, execute: { [weak self, weak item] in
+            guard let self, let item else {
                 return
             }
-            self.activeItemCount -= 1
-            if self.activeItemCount == 0 {
-                self.becameEmpty?()
-            }
+            self.removeItem(item)
         })
         return true
+    }
+
+    public func stopTracking() {
+        if !self.items.contains(where: { $0.isTracking }) {
+            return
+        }
+        self.updateTracking()
+        for item in self.items {
+            item.isTracking = false
+        }
+        self.updateDisplayLink()
+    }
+
+    private func removeItem(_ item: Item) {
+        guard let index = self.items.firstIndex(where: { $0 === item }) else {
+            return
+        }
+        self.items.remove(at: index)
+        item.container.removeFromSuperlayer()
+        self.updateDisplayLink()
+        if self.items.isEmpty {
+            self.becameEmpty?()
+        }
+    }
+
+    private func updateDisplayLink() {
+        let needsLink = self.items.contains(where: { $0.isTracking })
+        if needsLink {
+            if self.displayLink == nil {
+                self.displayLink = SharedDisplayLinkDriver.shared.add(framesPerSecond: .max, { [weak self] _ in
+                    self?.updateTracking()
+                })
+            }
+        } else if let displayLink = self.displayLink {
+            self.displayLink = nil
+            displayLink.invalidate()
+        }
+    }
+
+    private func updateTracking() {
+        var stoppedTracking = false
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for item in self.items where item.isTracking {
+            guard let track = item.track, let rect = track() else {
+                item.isTracking = false
+                stoppedTracking = true
+                continue
+            }
+            let position = CGPoint(x: rect.midX, y: rect.midY)
+            if item.container.position != position {
+                item.container.position = position
+            }
+        }
+        CATransaction.commit()
+        if stoppedTracking {
+            self.updateDisplayLink()
+        }
     }
 }
 

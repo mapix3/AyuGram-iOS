@@ -1277,6 +1277,16 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
         })
     }
 
+    private func ayuUpdateGlassTint(colors: [UInt32], invertedPattern: Bool) {
+        AyuGramWallpaperTint.update(color: AyuGramWallpaperTint.averageColor(rgb: colors, invertedPattern: invertedPattern), for: self)
+    }
+
+    private func ayuUpdateGlassTint(image: UIImage) {
+        if let color = AyuGramWallpaperTint.averageColor(image: image) {
+            AyuGramWallpaperTint.update(color: color, for: self)
+        }
+    }
+
     private func ayuUpdateEffects() {
         guard let ayuEffects = self.ayuEffects else {
             return
@@ -1375,6 +1385,16 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
             gradientAngle = file.settings.rotation ?? 0
         }
         
+        if !gradientColors.isEmpty {
+            var invertedPattern = false
+            if case let .file(file) = wallpaper, file.isPattern, let intensity = file.settings.intensity, intensity < 0 {
+                invertedPattern = true
+            }
+            self.ayuUpdateGlassTint(colors: gradientColors, invertedPattern: invertedPattern)
+        } else {
+            AyuGramWallpaperTint.update(color: nil, for: self)
+        }
+
         var scheduleLoopingEvent = false
         if gradientColors.count >= 3 {
             let mappedColors = gradientColors.map { color -> UIColor in
@@ -1451,6 +1471,7 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
                     self.blurredBackgroundContents = generateBlurredContents(image: image, dimColor: wallpaperDimColor)
                     self.wallpaperDisposable.set(nil)
                     updateContentStats(WallpaperContentStats(isDark: calculateWallpaperBrightness(from: image) <= 0.55, isSaturated: calculateWallpaperSaturation(from: image) > 0.35))
+                    self.ayuUpdateGlassTint(image: image)
                     Queue.mainQueue().justDispatch {
                         self._isReady.set(true)
                     }
@@ -1459,6 +1480,7 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
                     self.blurredBackgroundContents = generateBlurredContents(image: image, dimColor: wallpaperDimColor)
                     self.wallpaperDisposable.set(nil)
                     self.updateContentStats(WallpaperContentStats(isDark: calculateWallpaperBrightness(from: image) <= 0.55, isSaturated: calculateWallpaperSaturation(from: image) > 0.35))
+                    self.ayuUpdateGlassTint(image: image)
                     Queue.mainQueue().justDispatch {
                         self._isReady.set(true)
                     }
@@ -1472,6 +1494,7 @@ public final class WallpaperBackgroundNodeImpl: ASDisplayNode, WallpaperBackgrou
                         if let image = image?.0 {
                             strongSelf.blurredBackgroundContents = generateBlurredContents(image: image, dimColor: wallpaperDimColor)
                             strongSelf.updateContentStats(WallpaperContentStats(isDark: calculateWallpaperBrightness(from: image) <= 0.55, isSaturated: calculateWallpaperSaturation(from: image) > 0.35))
+                            strongSelf.ayuUpdateGlassTint(image: image)
                         } else {
                             strongSelf.blurredBackgroundContents = nil
                         }

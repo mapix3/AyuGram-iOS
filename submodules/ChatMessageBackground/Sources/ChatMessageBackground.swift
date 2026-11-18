@@ -81,6 +81,11 @@ public class ChatMessageBackground: ASDisplayNode {
     private var ayuGramIsRegistered = false
     private var ayuGramGlowView: UIImageView?
     private var ayuGramGlassHighlightView: UIImageView?
+    private var ayuGramGlassTintView: UIImageView?
+    private var ayuGramGlassBlurView: UIView?
+    private var ayuGramGlassBlurMaskView: UIImageView?
+    private var ayuGramGlassPortal: PortalView?
+    private weak var ayuGramGlassPortalSource: WallpaperBackgroundNode?
     private var ayuGramGlassFillApplied = false
     
     public var customHighlightColor: UIColor? {
@@ -134,6 +139,19 @@ public class ChatMessageBackground: ASDisplayNode {
         if let highlightView = self.ayuGramGlassHighlightView {
             transition.updateFrame(view: highlightView, frame: imageFrame)
         }
+        if let tintView = self.ayuGramGlassTintView {
+            transition.updateFrame(view: tintView, frame: imageFrame)
+        }
+        if let blurView = self.ayuGramGlassBlurView {
+            transition.updateFrame(view: blurView, frame: imageFrame)
+            let localFrame = CGRect(origin: CGPoint(), size: imageFrame.size)
+            if let maskView = self.ayuGramGlassBlurMaskView {
+                transition.updateFrame(view: maskView, frame: localFrame)
+            }
+            if let portal = self.ayuGramGlassPortal {
+                transition.updateFrame(view: portal.view, frame: localFrame)
+            }
+        }
         self.updateTearMask(size: size, animation: .None)
     }
 
@@ -150,6 +168,19 @@ public class ChatMessageBackground: ASDisplayNode {
         }
         if let highlightView = self.ayuGramGlassHighlightView {
             transition.animator.updateFrame(layer: highlightView.layer, frame: imageFrame, completion: nil)
+        }
+        if let tintView = self.ayuGramGlassTintView {
+            transition.animator.updateFrame(layer: tintView.layer, frame: imageFrame, completion: nil)
+        }
+        if let blurView = self.ayuGramGlassBlurView {
+            transition.animator.updateFrame(layer: blurView.layer, frame: imageFrame, completion: nil)
+            let localFrame = CGRect(origin: CGPoint(), size: imageFrame.size)
+            if let maskView = self.ayuGramGlassBlurMaskView {
+                transition.animator.updateFrame(layer: maskView.layer, frame: localFrame, completion: nil)
+            }
+            if let portal = self.ayuGramGlassPortal {
+                transition.animator.updateFrame(layer: portal.view.layer, frame: localFrame, completion: nil)
+            }
         }
         self.updateTearMask(size: size, animation: transition)
     }
@@ -433,6 +464,8 @@ public class ChatMessageBackground: ASDisplayNode {
             self.outlineImageNode.layer.animateAlpha(from: 0.0, to: 1.0, duration: 0.1)
             self.ayuGramGlowView?.layer.animateAlpha(from: 0.0, to: 1.0, duration: 0.3)
             self.ayuGramGlassHighlightView?.layer.animateAlpha(from: 0.0, to: 1.0, duration: 0.3)
+            self.ayuGramGlassTintView?.layer.animateAlpha(from: 0.0, to: 1.0, duration: 0.3)
+            self.ayuGramGlassBlurView?.layer.animateAlpha(from: 0.0, to: 1.0, duration: 0.3)
             
             let sourceViewFrame = sourceView.frame
 
@@ -514,10 +547,40 @@ extension ChatMessageBackground: AyuGramBubbleEffectsHost {
             glowView.removeFromSuperview()
         }
 
-        var highlightImage: UIImage?
-        if glass, let mask {
-            highlightImage = AyuGramBubbleEffects.glassHighlightImage(mask: mask, isDark: theme.overallDarkAppearance)
+        if glass {
+            _ = self.view
         }
+        let glassStyle: AyuGramWallpaperTint.Glass? = glass ? AyuGramBubbleEffects.glass(wallpaperNode: self.backgroundNode, fallbackIsDark: theme.overallDarkAppearance) : nil
+
+        var highlightImage: UIImage?
+        var tintImage: UIImage?
+        if let mask, let glassStyle {
+            highlightImage = AyuGramBubbleEffects.glassHighlightImage(mask: mask, isDarkWallpaper: glassStyle.isDarkWallpaper)
+            tintImage = AyuGramBubbleEffects.glassTintImage(mask: mask)
+        }
+
+        if let tintImage, let glassStyle {
+            let tintView: UIImageView
+            if let current = self.ayuGramGlassTintView {
+                tintView = current
+            } else {
+                tintView = UIImageView()
+                tintView.isUserInteractionEnabled = false
+                tintView.frame = imageFrame
+                self.ayuGramGlassTintView = tintView
+                if let imageView = self.imageView {
+                    self.view.insertSubview(tintView, aboveSubview: imageView)
+                } else {
+                    self.view.addSubview(tintView)
+                }
+            }
+            tintView.image = tintImage
+            tintView.tintColor = glassStyle.tint
+        } else if let tintView = self.ayuGramGlassTintView {
+            self.ayuGramGlassTintView = nil
+            tintView.removeFromSuperview()
+        }
+
         if let highlightImage {
             let highlightView: UIImageView
             if let current = self.ayuGramGlassHighlightView {
@@ -535,15 +598,82 @@ extension ChatMessageBackground: AyuGramBubbleEffectsHost {
             highlightView.removeFromSuperview()
         }
 
+        self.ayuGramUpdateGlassBlur(mask: glass ? mask : nil, frame: imageFrame)
+
         if glass != self.ayuGramGlassFillApplied {
             self.ayuGramGlassFillApplied = glass
-            if glass {
-                _ = self.view
-            }
             self.imageView?.alpha = glass ? AyuGramBubbleEffects.glassFillAlpha : 1.0
         }
 
         self.backdropNode?.setAyuGramGlass(glass)
+    }
+
+    private func ayuGramUpdateGlassBlur(mask: UIImage?, frame: CGRect) {
+        let wantsBlur = mask != nil && self.imageViewImage != nil && self.hasWallpaper == true && AyuGramEffectsRuntime.continuousEffectsAllowed
+        if let portal = self.ayuGramGlassPortal, !wantsBlur || self.ayuGramGlassPortalSource == nil || self.ayuGramGlassPortalSource !== self.backgroundNode {
+            self.ayuGramGlassPortal = nil
+            self.ayuGramGlassPortalSource = nil
+            if let sourceView = portal.sourceView as? PortalSourceView {
+                sourceView.removePortal(view: portal)
+            }
+            portal.view.removeFromSuperview()
+        }
+        guard wantsBlur, let mask, let backgroundNode = self.backgroundNode else {
+            self.ayuGramRemoveGlassBlurView()
+            return
+        }
+        let portal: PortalView
+        if let current = self.ayuGramGlassPortal {
+            portal = current
+        } else if let created = backgroundNode.makeFreeBackground() {
+            portal = created
+            portal.view.isUserInteractionEnabled = false
+            if let blurFilter = CALayer.blur() {
+                blurFilter.setValue(AyuGramBubbleEffects.glassBlurRadius as NSNumber, forKey: "inputRadius")
+                portal.view.layer.filters = [blurFilter]
+            }
+            self.ayuGramGlassPortal = portal
+            self.ayuGramGlassPortalSource = backgroundNode
+        } else {
+            self.ayuGramRemoveGlassBlurView()
+            return
+        }
+        let blurView: UIView
+        let maskView: UIImageView
+        if let currentView = self.ayuGramGlassBlurView, let currentMask = self.ayuGramGlassBlurMaskView {
+            blurView = currentView
+            maskView = currentMask
+        } else {
+            blurView = UIView()
+            blurView.isUserInteractionEnabled = false
+            blurView.clipsToBounds = true
+            blurView.frame = frame
+            maskView = UIImageView()
+            maskView.frame = CGRect(origin: CGPoint(), size: frame.size)
+            blurView.mask = maskView
+            self.ayuGramGlassBlurView = blurView
+            self.ayuGramGlassBlurMaskView = maskView
+            if let glowView = self.ayuGramGlowView, glowView.superview === self.view {
+                self.view.insertSubview(blurView, aboveSubview: glowView)
+            } else {
+                self.view.insertSubview(blurView, at: 0)
+            }
+        }
+        if maskView.image !== mask {
+            maskView.image = mask
+        }
+        if portal.view.superview !== blurView {
+            portal.view.frame = CGRect(origin: CGPoint(), size: blurView.bounds.size)
+            blurView.addSubview(portal.view)
+        }
+    }
+
+    private func ayuGramRemoveGlassBlurView() {
+        if let blurView = self.ayuGramGlassBlurView {
+            self.ayuGramGlassBlurView = nil
+            self.ayuGramGlassBlurMaskView = nil
+            blurView.removeFromSuperview()
+        }
     }
 }
 
@@ -858,6 +988,10 @@ public final class ChatMessageBubbleBackdrop: ASDisplayNode {
         }
         if self.ayuGramGlassPortal == nil, let portal = backgroundNode.makeFreeBackground() {
             portal.view.isUserInteractionEnabled = false
+            if AyuGramEffectsRuntime.continuousEffectsAllowed, let blurFilter = CALayer.blur() {
+                blurFilter.setValue(AyuGramBubbleEffects.glassBlurRadius as NSNumber, forKey: "inputRadius")
+                portal.view.layer.filters = [blurFilter]
+            }
             self.ayuGramGlassPortal = portal
             self.ayuGramGlassPortalSource = backgroundNode
         }

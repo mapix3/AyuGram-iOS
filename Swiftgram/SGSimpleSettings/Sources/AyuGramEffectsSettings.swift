@@ -1,15 +1,6 @@
 import Foundation
 
 public struct AyuGramEffectsSettings: Codable, Equatable {
-    public enum Particles: Int32, Codable, CaseIterable {
-        case off = 0
-        case snow = 1
-        case stars = 2
-        case fireflies = 3
-        case petals = 4
-        case bubbles = 5
-    }
-
     public enum DeleteStyle: Int32, Codable, CaseIterable {
         case standard = 0
         case dust = 1
@@ -25,12 +16,27 @@ public struct AyuGramEffectsSettings: Codable, Equatable {
         case warp = 3
     }
 
+    public enum RingColor: Int32, Codable, CaseIterable {
+        case accent = 0
+        case blue = 1
+        case teal = 2
+        case green = 3
+        case gold = 4
+        case orange = 5
+        case red = 6
+        case pink = 7
+        case purple = 8
+        case white = 9
+        case aurora = 100
+        case sunset = 101
+        case ocean = 102
+        case neon = 103
+        case fire = 104
+        case rainbow = 105
+    }
+
     public var enabled = true
 
-    public var particles: Particles = .off
-    public var particleDensity: Double = 0.5
-    public var particleSpeed: Double = 0.5
-    public var particlesReactToTouch = true
     public var auroraGradient = false
     public var gradientGrain: Double = 0
     public var deepParallax = false
@@ -44,6 +50,7 @@ public struct AyuGramEffectsSettings: Codable, Equatable {
     public var incomingTextReveal = false
 
     public var avatarRings = false
+    public var avatarRingColor: RingColor = .accent
 
     public init() {}
 
@@ -51,10 +58,6 @@ public struct AyuGramEffectsSettings: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = AyuGramEffectsSettings()
         self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? defaults.enabled
-        self.particles = (try? container.decodeIfPresent(Particles.self, forKey: .particles)) ?? defaults.particles
-        self.particleDensity = try container.decodeIfPresent(Double.self, forKey: .particleDensity) ?? defaults.particleDensity
-        self.particleSpeed = try container.decodeIfPresent(Double.self, forKey: .particleSpeed) ?? defaults.particleSpeed
-        self.particlesReactToTouch = try container.decodeIfPresent(Bool.self, forKey: .particlesReactToTouch) ?? defaults.particlesReactToTouch
         self.auroraGradient = try container.decodeIfPresent(Bool.self, forKey: .auroraGradient) ?? defaults.auroraGradient
         self.gradientGrain = try container.decodeIfPresent(Double.self, forKey: .gradientGrain) ?? defaults.gradientGrain
         self.deepParallax = try container.decodeIfPresent(Bool.self, forKey: .deepParallax) ?? defaults.deepParallax
@@ -65,9 +68,9 @@ public struct AyuGramEffectsSettings: Codable, Equatable {
         self.sendStyle = (try? container.decodeIfPresent(SendStyle.self, forKey: .sendStyle)) ?? defaults.sendStyle
         self.incomingTextReveal = try container.decodeIfPresent(Bool.self, forKey: .incomingTextReveal) ?? defaults.incomingTextReveal
         self.avatarRings = try container.decodeIfPresent(Bool.self, forKey: .avatarRings) ?? defaults.avatarRings
+        self.avatarRingColor = (try? container.decodeIfPresent(RingColor.self, forKey: .avatarRingColor)) ?? defaults.avatarRingColor
     }
 
-    public var activeParticles: Particles { enabled ? particles : .off }
     public var activeAuroraGradient: Bool { enabled && auroraGradient }
     public var activeGradientGrain: Double { enabled ? gradientGrain : 0 }
     public var activeDeepParallax: Bool { enabled && deepParallax }

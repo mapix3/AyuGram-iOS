@@ -5,6 +5,7 @@ import QuartzCore
 enum AyuGramImplodeDeleteEffect {
     private static let collapseDuration: Double = 0.55
     private static let sparkDuration: Double = 0.38
+    static let collapseDelay: Double = collapseDuration * 0.9
 
     static func run(in container: CALayer, image: CGImage, imageScale: CGFloat) -> Double {
         let size = container.bounds.size

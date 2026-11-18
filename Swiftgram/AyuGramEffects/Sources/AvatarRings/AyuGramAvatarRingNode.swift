@@ -10,7 +10,7 @@ public final class AyuGramAvatarRingNode: ASDisplayNode {
     }
 
     private static let rotationKey = "ayuRingRotation"
-    private static let rotationDuration: Double = 6.0
+    private static let rotationDuration: Double = 4.0
 
     private let gradientLayer: CAGradientLayer
     private let ringMaskLayer: CAShapeLayer
@@ -19,6 +19,7 @@ public final class AyuGramAvatarRingNode: ASDisplayNode {
     private var isOnline = false
     private var lineWidth: CGFloat = 2.0
     private var accentColor: UIColor?
+    private var appliedColorKey: String?
     private var ringSize = CGSize()
     private var isInHierarchyValue = false
 
@@ -46,9 +47,14 @@ public final class AyuGramAvatarRingNode: ASDisplayNode {
         self.layer.addSublayer(self.gradientLayer)
 
         self.observer = AyuGramEffectsRuntime.observe({ [weak self] in
-            self?.updateState()
+            guard let self else {
+                return
+            }
+            self.updateColors()
+            self.updateState()
         })
         self.applyGeometry()
+        self.updateColors()
         self.updateState()
     }
 
@@ -65,22 +71,33 @@ public final class AyuGramAvatarRingNode: ASDisplayNode {
     }
 
     public func update(size: CGSize, lineWidth: CGFloat, accentColor: UIColor, isOnline: Bool) {
-        let colorChanged = self.accentColor.flatMap({ $0.isEqual(accentColor) }) != true
         let geometryChanged = self.ringSize != size || self.lineWidth != lineWidth
         self.ringSize = size
         self.lineWidth = lineWidth
         self.accentColor = accentColor
         self.isOnline = isOnline
 
-        if colorChanged {
-            self.gradientLayer.colors = AyuGramAvatarRingNode.colors(accent: accentColor).map { $0.cgColor }
-        }
+        self.updateColors()
         if geometryChanged && self.isNodeLoaded {
             self.applyGeometry()
         }
         if self.isNodeLoaded {
             self.updateState()
         }
+    }
+
+    private func updateColors() {
+        let style = AyuGramEffectsRuntime.settings.avatarRingColor
+        let accent = self.accentColor ?? UIColor(rgb: 0x007aff)
+        let key = "\(style.rawValue):\(AyuGramAvatarRingNode.colorKey(accent))"
+        if self.appliedColorKey == key {
+            return
+        }
+        self.appliedColorKey = key
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        self.gradientLayer.colors = AyuGramAvatarRingNode.colors(style: style, accent: accent).map { $0.cgColor }
+        CATransaction.commit()
     }
 
     private func applyGeometry() {
@@ -122,25 +139,103 @@ public final class AyuGramAvatarRingNode: ASDisplayNode {
             animation.repeatCount = Float.infinity
             animation.timingFunction = CAMediaTimingFunction(name: .linear)
             animation.isRemovedOnCompletion = false
+            animation.timeOffset = Double.random(in: 0.0 ..< AyuGramAvatarRingNode.rotationDuration)
             self.gradientLayer.add(animation, forKey: AyuGramAvatarRingNode.rotationKey)
         } else if !shouldRotate && isRotating {
             self.gradientLayer.removeAnimation(forKey: AyuGramAvatarRingNode.rotationKey)
         }
     }
 
-    private static func colors(accent: UIColor) -> [UIColor] {
+    private static func colorKey(_ color: UIColor) -> String {
+        var r: CGFloat = 0.0
+        var g: CGFloat = 0.0
+        var b: CGFloat = 0.0
+        var a: CGFloat = 0.0
+        _ = color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return "\(Int(r * 255.0)),\(Int(g * 255.0)),\(Int(b * 255.0))"
+    }
+
+    private static func colors(style: AyuGramEffectsSettings.RingColor, accent: UIColor) -> [UIColor] {
+        switch style {
+        case .accent:
+            return self.accentGradient(accent)
+        case .blue:
+            return self.solidGradient(UIColor(rgb: 0x2f8cff))
+        case .teal:
+            return self.solidGradient(UIColor(rgb: 0x1fc7c1))
+        case .green:
+            return self.solidGradient(UIColor(rgb: 0x34c759))
+        case .gold:
+            return self.solidGradient(UIColor(rgb: 0xf5b80f))
+        case .orange:
+            return self.solidGradient(UIColor(rgb: 0xff8a1f))
+        case .red:
+            return self.solidGradient(UIColor(rgb: 0xff3b30))
+        case .pink:
+            return self.solidGradient(UIColor(rgb: 0xff4f9a))
+        case .purple:
+            return self.solidGradient(UIColor(rgb: 0xa259ff))
+        case .white:
+            return [UIColor(white: 1.0, alpha: 1.0), UIColor(white: 0.62, alpha: 1.0), UIColor(white: 0.95, alpha: 1.0), UIColor(white: 0.5, alpha: 1.0), UIColor(white: 1.0, alpha: 1.0)]
+        case .aurora:
+            return self.loop([0x34e89e, 0x0fb5d7, 0x7b5cff, 0x1fd1a5])
+        case .sunset:
+            return self.loop([0xff5f6d, 0xffc371, 0xff8a5c, 0xc850c0])
+        case .ocean:
+            return self.loop([0x00c6ff, 0x0052d4, 0x00e0c7, 0x4364f7])
+        case .neon:
+            return self.loop([0xff00cc, 0x00f0ff, 0x7a00ff, 0x39ff14])
+        case .fire:
+            return self.loop([0xff2e00, 0xffb300, 0xff5e00, 0xffe259])
+        case .rainbow:
+            return self.loop([0xff3b30, 0xff9500, 0xffcc00, 0x34c759, 0x00c7be, 0x007aff, 0xaf52de])
+        }
+    }
+
+    private static func loop(_ values: [UInt32]) -> [UIColor] {
+        var colors = values.map { UIColor(rgb: $0) }
+        if let first = colors.first {
+            colors.append(first)
+        }
+        return colors
+    }
+
+    private static func solidGradient(_ color: UIColor) -> [UIColor] {
+        return [
+            color,
+            self.adjusted(color, hueDelta: 0.0, saturation: 0.55, brightnessDelta: 0.3),
+            color,
+            self.adjusted(color, hueDelta: 0.0, saturation: 1.0, brightnessDelta: -0.32),
+            color
+        ]
+    }
+
+    private static func accentGradient(_ accent: UIColor) -> [UIColor] {
+        return [
+            accent,
+            self.adjusted(accent, hueDelta: 0.14, saturation: nil, brightnessDelta: 0.18),
+            self.adjusted(accent, hueDelta: 0.28, saturation: nil, brightnessDelta: 0.05),
+            self.adjusted(accent, hueDelta: -0.12, saturation: nil, brightnessDelta: 0.1),
+            accent
+        ]
+    }
+
+    private static func adjusted(_ color: UIColor, hueDelta: CGFloat, saturation: CGFloat?, brightnessDelta: CGFloat) -> UIColor {
         var hue: CGFloat = 0.0
-        var saturation: CGFloat = 0.0
+        var currentSaturation: CGFloat = 0.0
         var brightness: CGFloat = 0.0
         var alpha: CGFloat = 0.0
-        guard accent.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) else {
-            return [accent, accent.withAlphaComponent(0.35), accent]
+        guard color.getHue(&hue, saturation: &currentSaturation, brightness: &brightness, alpha: &alpha) else {
+            return color
         }
-        func shifted(_ delta: CGFloat, brightnessDelta: CGFloat) -> UIColor {
-            var value = hue + delta
-            value -= floor(value)
-            return UIColor(hue: value, saturation: max(0.35, saturation), brightness: max(0.0, min(1.0, brightness + brightnessDelta)), alpha: 1.0)
+        var value = hue + hueDelta
+        value -= floor(value)
+        let resultSaturation: CGFloat
+        if let saturation {
+            resultSaturation = max(0.0, min(1.0, currentSaturation * saturation))
+        } else {
+            resultSaturation = max(0.45, currentSaturation)
         }
-        return [accent, shifted(0.09, brightnessDelta: 0.12), shifted(-0.09, brightnessDelta: 0.05), accent]
+        return UIColor(hue: value, saturation: resultSaturation, brightness: max(0.0, min(1.0, brightness + brightnessDelta)), alpha: 1.0)
     }
 }

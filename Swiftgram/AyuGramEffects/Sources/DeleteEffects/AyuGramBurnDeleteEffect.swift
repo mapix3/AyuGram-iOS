@@ -3,9 +3,10 @@ import UIKit
 import QuartzCore
 
 enum AyuGramBurnDeleteEffect {
-    private static let burnDuration: Double = 0.9
-    private static let frameCount = 26
+    private static let burnDuration: Double = 1.05
+    private static let frameCount = 34
     private static let maxCellCount: CGFloat = 36000.0
+    static let collapseDelay: Double = burnDuration * 0.82
 
     static func run(in container: CALayer, image: CGImage, imageScale: CGFloat) -> Double {
         let size = container.bounds.size
@@ -83,7 +84,8 @@ enum AyuGramBurnDeleteEffect {
         var glowBytes = [UInt8](repeating: 0, count: cellCount * 4)
 
         for frame in 0 ..< frameCount {
-            let progress = Float(frame) / Float(frameCount - 1)
+            let linear = Float(frame) / Float(frameCount - 1)
+            let progress = linear * linear * (3.0 - 2.0 * linear) * 0.7 + linear * 0.3
             let threshold = -0.06 + progress * 1.2
 
             var edgeMinX = Int.max
@@ -101,7 +103,7 @@ enum AyuGramBurnDeleteEffect {
                     if d > -fireInner && d < fireOuter {
                         fire = d < 0.0 ? (1.0 + d / fireInner) : (1.0 - d / fireOuter)
                     }
-                    let char: Float = (d >= 0.0 && d < charWidth) ? 0.6 * (1.0 - d / charWidth) : 0.0
+                    let char: Float = (d >= 0.0 && d < charWidth) ? 0.7 * (1.0 - d / charWidth) * (1.0 - d / charWidth) : 0.0
                     let charVisible = char * (1.0 - fire)
 
                     let a = coverage[i]
@@ -174,22 +176,64 @@ enum AyuGramBurnDeleteEffect {
         maskLayer.add(contentsAnimation(values: maskFrames), forKey: "ayuBurn")
         glowLayer.add(contentsAnimation(values: glowFrames), forKey: "ayuBurn")
 
+        if let smokeImage = AyuGramDeleteEffectSupport.radialGlowImage(diameter: 32, inner: UIColor(white: 0.55, alpha: 0.5), outer: UIColor(white: 0.4, alpha: 0.22)) {
+            let smoke = CAEmitterCell()
+            smoke.contents = smokeImage
+            smoke.birthRate = Float(min(36.0, max(10.0, (size.width + size.height) / 14.0)))
+            smoke.lifetime = 0.9
+            smoke.lifetimeRange = 0.25
+            smoke.velocity = 16.0
+            smoke.velocityRange = 8.0
+            smoke.emissionLongitude = -CGFloat.pi / 2.0
+            smoke.emissionRange = CGFloat.pi / 5.0
+            smoke.yAcceleration = -18.0
+            smoke.scale = 0.35
+            smoke.scaleRange = 0.12
+            smoke.scaleSpeed = 0.45
+            smoke.alphaSpeed = -0.75
+            smoke.spinRange = 1.2
+
+            let smokeEmitter = CAEmitterLayer()
+            smokeEmitter.frame = container.bounds
+            smokeEmitter.emitterShape = .rectangle
+            smokeEmitter.emitterMode = .surface
+            smokeEmitter.emitterPosition = lastEdgePosition
+            smokeEmitter.emitterSize = CGSize(width: 1.0, height: 1.0)
+            smokeEmitter.emitterCells = [smoke]
+            container.insertSublayer(smokeEmitter, at: 0)
+
+            let smokePosition = CAKeyframeAnimation(keyPath: "emitterPosition")
+            smokePosition.values = edgePositions
+            smokePosition.duration = burnDuration
+            smokeEmitter.add(smokePosition, forKey: "ayuBurnSmokePosition")
+
+            let smokeSize = CAKeyframeAnimation(keyPath: "emitterSize")
+            smokeSize.values = edgeSizes
+            smokeSize.duration = burnDuration
+            smokeEmitter.add(smokeSize, forKey: "ayuBurnSmokeSize")
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + burnDuration * 0.8, execute: { [weak smokeEmitter] in
+                smokeEmitter?.birthRate = 0.0
+            })
+        }
+
         var emberLifetime: Double = 0.0
         if let emberImage = AyuGramDeleteEffectSupport.radialGlowImage(diameter: 16, inner: UIColor(white: 1.0, alpha: 1.0), outer: UIColor(red: 1.0, green: 0.55, blue: 0.1, alpha: 0.9)) {
             let cell = CAEmitterCell()
             cell.contents = emberImage
-            cell.birthRate = Float(min(160.0, max(40.0, size.width * size.height / 250.0)))
-            cell.lifetime = 0.75
+            cell.birthRate = Float(min(140.0, max(36.0, (size.width + size.height) / 2.5)))
+            cell.lifetime = 0.7
             cell.lifetimeRange = 0.3
-            cell.velocity = 30.0
-            cell.velocityRange = 22.0
+            cell.velocity = 34.0
+            cell.velocityRange = 24.0
             cell.emissionLongitude = -CGFloat.pi / 2.0
             cell.emissionRange = CGFloat.pi / 2.5
             cell.yAcceleration = -40.0
-            cell.scale = 0.3
-            cell.scaleRange = 0.15
-            cell.scaleSpeed = -0.25
-            cell.alphaSpeed = -1.2
+            cell.scale = 0.26
+            cell.scaleRange = 0.14
+            cell.scaleSpeed = -0.3
+            cell.alphaSpeed = -1.3
+            cell.alphaRange = 0.3
             cell.color = UIColor(red: 1.0, green: 0.62, blue: 0.22, alpha: 1.0).cgColor
             cell.greenRange = 0.2
 
@@ -216,7 +260,7 @@ enum AyuGramBurnDeleteEffect {
             DispatchQueue.main.asyncAfter(deadline: .now() + burnDuration * 0.9, execute: { [weak emitter] in
                 emitter?.birthRate = 0.0
             })
-            emberLifetime = 0.6
+            emberLifetime = 1.0
         }
 
         return burnDuration + emberLifetime
@@ -227,6 +271,7 @@ enum AyuGramBurnDeleteEffect {
         animation.values = values
         animation.duration = burnDuration
         animation.calculationMode = .linear
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
         return animation
     }
 

@@ -809,6 +809,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
     private var allowDustEffect: Bool = true
     private var dustEffectLayer: DustEffectLayer?
     private var ayuDeleteEffectLayer: AyuGramDeleteEffectLayer?
+    private var ayuDeleteCollapseDurations: [UInt32: Double] = [:]
     
     var frozenMessageForScrollingReset: EngineMessage.Id?
     
@@ -1030,6 +1031,9 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
 
         self.listView.getCustomItemDeleteAnimationDuration = { [weak self] itemNode in
             guard let self else { return nil }
+            if let duration = self.ayuDeleteCollapseDuration(itemNode: itemNode) {
+                return duration
+            }
             if !self.currentAppliedDeleteAnimationCorrelationIds.isEmpty {
                 if let itemNode = itemNode as? ChatMessageItemView, let item = itemNode.item {
                     for (message, _) in item.content {
@@ -4328,6 +4332,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         var appliedDeleteAnimationCorrelationIds = Set<UInt32>()
         let ayuDeleteStyle = AyuGramDeleteEffect.currentStyle
         let ayuUsesCustomDeleteLayer = AyuGramDeleteEffect.usesCustomLayer(ayuDeleteStyle)
+        var ayuCollapseDelay: Double = 0.0
         if !self.currentDeleteAnimationCorrelationIds.isEmpty && (self.allowDustEffect || ayuDeleteStyle != .standard) {
             var foundItemNodes: [ChatMessageItemView] = []
             self.forEachItemNode { itemNode in
@@ -4349,7 +4354,9 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
             }
             if !foundItemNodes.isEmpty && foundItemNodes.allSatisfy({ $0.bounds.height <= 1800.0 }) {
                 if ayuUsesCustomDeleteLayer {
-                    self.ayuApplyDeleteEffect(itemNodes: foundItemNodes, style: ayuDeleteStyle)
+                    if self.ayuApplyDeleteEffect(itemNodes: foundItemNodes, style: ayuDeleteStyle) {
+                        ayuCollapseDelay = AyuGramDeleteEffect.collapseDelay(ayuDeleteStyle)
+                    }
                 } else if self.dustEffectLayer == nil {
                     let dustEffectLayer = DustEffectLayer()
                     dustEffectLayer.position = self.bounds.center
@@ -4389,7 +4396,24 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         }
         
         self.currentAppliedDeleteAnimationCorrelationIds = appliedDeleteAnimationCorrelationIds
-        
+        if !self.ayuDeleteCollapseDurations.isEmpty {
+            self.ayuDeleteCollapseDurations = self.ayuDeleteCollapseDurations.filter { appliedDeleteAnimationCorrelationIds.contains($0.key) }
+        }
+
+        if ayuCollapseDelay > 0.0 {
+            Queue.mainQueue().after(ayuCollapseDelay * UIView.animationDurationFactor(), { [weak self] in
+                guard let self else {
+                    return
+                }
+                self.ayuDeleteEffectLayer?.stopTracking()
+                self.applyDequeuedHistoryViewTransition(transition)
+            })
+        } else {
+            self.applyDequeuedHistoryViewTransition(transition)
+        }
+    }
+
+    private func applyDequeuedHistoryViewTransition(_ transition: ChatHistoryListViewTransition) {
         let animated = transition.options.contains(.AnimateInsertion)
         
         var previousCloneView: UIView?
@@ -4470,6 +4494,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         let completion: (Bool, ListViewDisplayedItemRange) -> Void = { [weak self] wasTransformed, visibleRange in
             if let strongSelf = self {
                 strongSelf.currentAppliedDeleteAnimationCorrelationIds.removeAll()
+                strongSelf.ayuDeleteCollapseDurations.removeAll()
                 
                 var newIncomingReactions: [MessageId: (value: MessageReaction.Reaction, isLarge: Bool)] = [:]
                 
@@ -5828,7 +5853,22 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
 }
 
 private extension ChatHistoryListNodeImpl {
-    func ayuApplyDeleteEffect(itemNodes: [ChatMessageItemView], style: AyuGramEffectsSettings.DeleteStyle) {
+    func ayuDeleteCollapseDuration(itemNode: ListViewItemNode) -> Double? {
+        if self.ayuDeleteCollapseDurations.isEmpty {
+            return nil
+        }
+        guard let itemNode = itemNode as? ChatMessageItemView, let item = itemNode.item else {
+            return nil
+        }
+        for (message, _) in item.content {
+            if let duration = self.ayuDeleteCollapseDurations[message.stableId] {
+                return duration
+            }
+        }
+        return nil
+    }
+
+    func ayuApplyDeleteEffect(itemNodes: [ChatMessageItemView], style: AyuGramEffectsSettings.DeleteStyle) -> Bool {
         let effectLayer: AyuGramDeleteEffectLayer
         if let current = self.ayuDeleteEffectLayer {
             effectLayer = current
@@ -5841,27 +5881,42 @@ private extension ChatHistoryListNodeImpl {
                 effectLayer.transform = CATransform3DMakeRotation(CGFloat(Double.pi), 0.0, 0.0, 1.0)
             }
             self.layer.addSublayer(effectLayer)
-            effectLayer.becameEmpty = { [weak self] in
-                guard let self else {
+            effectLayer.becameEmpty = { [weak self, weak effectLayer] in
+                guard let self, let effectLayer, self.ayuDeleteEffectLayer === effectLayer else {
                     return
                 }
-                self.ayuDeleteEffectLayer?.removeFromSuperlayer()
+                effectLayer.removeFromSuperlayer()
                 self.ayuDeleteEffectLayer = nil
             }
             self.ayuDeleteEffectLayer = effectLayer
         }
+        let collapseDuration = AyuGramDeleteEffect.collapseDuration(style)
+        var addedAny = false
         for itemNode in itemNodes {
             guard let (image, subFrame) = itemNode.makeContentSnapshot() else {
                 continue
             }
             let itemFrame = itemNode.layer.convert(subFrame, to: effectLayer)
-            if effectLayer.addItem(frame: itemFrame, image: image, style: style) {
+            let track: () -> CGRect? = { [weak itemNode, weak effectLayer] in
+                guard let itemNode, let effectLayer, itemNode.isNodeLoaded, itemNode.layer.superlayer != nil, effectLayer.superlayer != nil else {
+                    return nil
+                }
+                return itemNode.layer.convert(subFrame, to: effectLayer)
+            }
+            if effectLayer.addItem(frame: itemFrame, image: image, style: style, track: track) {
+                addedAny = true
                 itemNode.isHidden = true
+                if let item = itemNode.item {
+                    for (message, _) in item.content {
+                        self.ayuDeleteCollapseDurations[message.stableId] = collapseDuration
+                    }
+                }
             }
         }
         if !effectLayer.hasActiveItems {
             effectLayer.removeFromSuperlayer()
             self.ayuDeleteEffectLayer = nil
         }
+        return addedAny
     }
 }

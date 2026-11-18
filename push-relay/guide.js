@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 8;
+export const GUIDE_VERSION = 9;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -30,10 +30,10 @@ Video settings: AyuGram > Video > Video settings (just above Client). Round vide
 Round video from gallery: in a chat open the attachment menu, select exactly one video, hold the send button and choose "Send as Round Video"; then drag and pinch to choose the part of the frame inside the circle, pick the fragment start and length (up to 60 seconds) and tap Send.
 
 Visual effects (custom build only, the standard build has none of these): Telegram Settings > Appearance > Effects, also AyuGram > Client > Effects and at the bottom of AyuGram > Client > Appearance. A master switch turns all of them off at once; they pause by themselves with Reduce Motion or Low Power Mode.
-- Chat background: particles over the wallpaper (snow, stars, fireflies, petals, bubbles) with density and speed sliders and "React to touch"; Aurora gradient (more drifting colours on gradient wallpapers); Grain slider (film grain on gradient wallpapers); Deep parallax (gradient and pattern move at different depths when you tilt the phone); Water ripple (tap or drag on empty background).
-- Bubbles: Glow around your own bubbles; Glass bubbles (translucent, the wallpaper shows through).
-- Animations: Delete style (standard, dust, burn, shatter, implode); Send style (standard, spring, sparkles, warp; sparkles and warp only for messages from the text field); Incoming text reveal (new incoming messages appear word by word).
-- Interface: Avatar rings (rotating gradient ring around avatars of people who are online, in the chat list).
+- Chat background: Aurora gradient (more drifting colours on gradient wallpapers); Grain slider (film grain on gradient wallpapers); Deep parallax (gradient and pattern move at different depths when you tilt the phone); Water ripple (tap or drag on empty background).
+- Bubbles: Glow around your own bubbles; Glass bubbles (liquid glass tinted by the wallpaper colour: a lighter glass on dark wallpapers, a darker one on light wallpapers, with a soft blur of the wallpaper and a bright edge highlight). The old chat background particles and "React to touch" were removed.
+- Animations: Delete style (standard, dust, burn, shatter, implode; burn, shatter and implode play on a snapshot where the message was, follow it while you scroll, and the gap closes only once the effect fades out, so the effect is not drawn over neighbouring messages); Send style (standard, spring, sparkles, warp; sparkles and warp only for messages from the text field); Incoming text reveal (a new incoming text message appears word by word as it arrives, once per message).
+- Interface: Avatar rings (a gradient ring that runs around the avatars of people who are online, in the chat list). Ring colour: theme accent, solid colours (blue, teal, green, gold, orange, red, pink, purple, silver) or gradients (aurora, sunset, ocean, neon, fire, rainbow). Rings stop moving with Reduce Motion or Low Power Mode.
 
 Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode. At the bottom of Appearance, "Font and badge": Font (system styles: rounded, serif, monospaced; iOS fonts like Avenir Next, Futura, Georgia; or import your own .ttf/.otf; applies after restarting the app) and App badge (the AYUGRAM pill under the Dynamic Island: your own text, picture and colors).
 
