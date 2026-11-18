@@ -7,7 +7,6 @@ sgdeps = [
     "//submodules/BuildConfig:BuildConfig",
     "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
     "//Swiftgram/SGStrings:SGStrings",
-    "//Swiftgram/SGSettingsUI:SGSettingsUI",
 ]
 
 sgsrc = [
