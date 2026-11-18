@@ -7,48 +7,60 @@ import DeviceModel
 import Camera
 
 public enum AyuGramRoundVideoQuality {
+    public static let standardSide: Int = 480
+    public static let standardFrameRate: Double = 30.0
+
     public static var side: Int = 480 {
         didSet {
-            let clamped = max(480, min(1080, side))
-            if clamped % 2 != 0 || clamped != side {
-                side = clamped - clamped % 2
+            let clamped = max(standardSide, min(1080, side))
+            let aligned = clamped - clamped % 16
+            if aligned != side {
+                side = aligned
             }
         }
     }
     public static var requestedFrameRate: Double = 30.0 {
         didSet {
-            activeFrameRate = min(activeFrameRate, requestedFrameRate)
-            if activeFrameRate < 30.0 {
-                activeFrameRate = 30.0
+            if !requestedFrameRate.isFinite || requestedFrameRate < standardFrameRate {
+                requestedFrameRate = standardFrameRate
+            } else if requestedFrameRate > 120.0 {
+                requestedFrameRate = 120.0
             }
         }
     }
-    static var activeFrameRate: Double = 30.0
 
     public static var isOverridden: Bool {
-        return side != 480 || requestedFrameRate > 30.0
+        return side != standardSide || requestedFrameRate > standardFrameRate
     }
 
-    static var bitrate: Int {
-        let area = Double(side * side) / Double(480 * 480)
-        let motion = activeFrameRate > 30.0 ? pow(activeFrameRate / 30.0, 0.6) : 1.0
-        return Int(min(16_000_000.0, max(1_200_000.0, 1_200_000.0 * area * motion)))
+    static var allowsDualCamera: Bool {
+        return side <= 720 && requestedFrameRate <= standardFrameRate
     }
 
     static var candidateFrameRates: [Double] {
         var result: [Double] = []
-        for value in [requestedFrameRate, 60.0, 30.0] where value <= requestedFrameRate && !result.contains(value) {
+        for value in [requestedFrameRate, 120.0, 60.0, standardFrameRate] where value <= requestedFrameRate && !result.contains(value) {
             result.append(value)
         }
-        if result.isEmpty {
-            result = [30.0]
+        if !result.contains(standardFrameRate) {
+            result.append(standardFrameRate)
         }
         return result
     }
-}
 
-var roundVideoCaptureFrameRate: Double {
-    return AyuGramRoundVideoQuality.activeFrameRate
+    static func isStandard(side: Int, frameRate: Double) -> Bool {
+        return side == standardSide && frameRate <= standardFrameRate
+    }
+
+    static func bitrate(side: Int, frameRate: Double) -> Int {
+        let area = Double(side * side) / Double(standardSide * standardSide)
+        let motion = frameRate > standardFrameRate ? pow(frameRate / standardFrameRate, 0.6) : 1.0
+        return Int(min(16_000_000.0, max(1_200_000.0, 1_200_000.0 * area * motion)))
+    }
+
+    static func outputPoolAllocationThreshold(side: Int, frameRate: Double) -> Int {
+        return isStandard(side: side, frameRate: frameRate) ? 6 : 12
+    }
 }
 
 enum RoundVideoCaptureProfile: Int, CaseIterable {
@@ -57,11 +69,13 @@ enum RoundVideoCaptureProfile: Int, CaseIterable {
     case medium
     case vga
 
-    init?(width: Int32, height: Int32, position: AVCaptureDevice.Position) {
+    init?(width: Int32, height: Int32, position: AVCaptureDevice.Position, allowsWideFront: Bool = false) {
         switch (position, width, height) {
         case (.back, 1920, 1080), (.front, 1920, 1440): self = .high
         case (.back, 1280, 720), (.front, 1280, 960): self = .medium
         case (_, 640, 480): self = .vga
+        case (.front, 1920, 1080) where allowsWideFront: self = .high
+        case (.front, 1280, 720) where allowsWideFront: self = .medium
         default: return nil
         }
     }
@@ -127,7 +141,9 @@ func roundVideoCaptureFormat(
     for device: AVCaptureDevice,
     requiresMultiCam: Bool,
     mode: NeoCameraImpl.RoundVideoMode,
-    maximumProfile: RoundVideoCaptureProfile = .high
+    maximumProfile: RoundVideoCaptureProfile = .high,
+    frameRate: Double,
+    outputSide: Int
 ) -> AVCaptureDevice.Format? {
     let formats = device.formats
     let candidates = formats.map { format -> RoundVideoCaptureFormatCandidate in
@@ -140,24 +156,42 @@ func roundVideoCaptureFormat(
             supportsMultiCam = false
         }
         return RoundVideoCaptureFormatCandidate(
-            profile: RoundVideoCaptureProfile(width: dimensions.width, height: dimensions.height, position: device.position),
+            profile: RoundVideoCaptureProfile(width: dimensions.width, height: dimensions.height, position: device.position, allowsWideFront: frameRate > AyuGramRoundVideoQuality.standardFrameRate),
             isNV12: subtype == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || subtype == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
             frameRateRanges: format.videoSupportedFrameRateRanges.map { $0.minFrameRate ... $0.maxFrameRate },
             supportsMultiCam: supportsMultiCam,
             supportsStandardStabilization: format.isVideoStabilizationModeSupported(.standard)
         )
     }
-    for frameRate in AyuGramRoundVideoQuality.candidateFrameRates {
-        if let index = selectRoundVideoCaptureFormat(
-            candidates,
-            requiresMultiCam: requiresMultiCam,
-            preferStabilization: mode != .vga && device.position == .back && frameRate <= 30.0,
-            preferMediumProfile: device.position == .front && AyuGramRoundVideoQuality.side <= 720,
-            maximumProfile: mode == .vga ? .vga : maximumProfile,
-            frameRate: frameRate
-        ) {
-            AyuGramRoundVideoQuality.activeFrameRate = frameRate
-            return formats[index]
+    guard let index = selectRoundVideoCaptureFormat(
+        candidates,
+        requiresMultiCam: requiresMultiCam,
+        preferStabilization: mode != .vga && device.position == .back && frameRate <= AyuGramRoundVideoQuality.standardFrameRate,
+        preferMediumProfile: device.position == .front && outputSide <= 720,
+        maximumProfile: mode == .vga ? .vga : maximumProfile,
+        frameRate: frameRate
+    ) else {
+        return nil
+    }
+    return formats[index]
+}
+
+func roundVideoNegotiatedFrameRate(
+    devices: [AVCaptureDevice],
+    requiresMultiCam: Bool,
+    mode: NeoCameraImpl.RoundVideoMode,
+    outputSide: Int,
+    candidates: [Double]
+) -> Double? {
+    guard !devices.isEmpty else {
+        return nil
+    }
+    for frameRate in candidates {
+        let supported = devices.allSatisfy { device in
+            return roundVideoCaptureFormat(for: device, requiresMultiCam: requiresMultiCam, mode: mode, frameRate: frameRate, outputSide: outputSide) != nil
+        }
+        if supported {
+            return frameRate
         }
     }
     return nil
@@ -170,12 +204,18 @@ private func supportsDualCameraCapture(forRoundVideo: Bool, mode: NeoCameraImpl.
     if forRoundVideo && DeviceModel.current == .iPhoneXR {
         return false
     }
+    if forRoundVideo && AyuGramRoundVideoQuality.isOverridden {
+        if !AyuGramRoundVideoQuality.allowsDualCamera || ProcessInfo.processInfo.isLowPowerModeEnabled {
+            return false
+        }
+    }
+    let outputSide = AyuGramRoundVideoQuality.side
     let positions: [AVCaptureDevice.Position] = [.back, .front]
     return positions.allSatisfy { position in
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position) else {
             return false
         }
-        return roundVideoCaptureFormat(for: device, requiresMultiCam: true, mode: mode) != nil
+        return roundVideoCaptureFormat(for: device, requiresMultiCam: true, mode: mode, frameRate: AyuGramRoundVideoQuality.standardFrameRate, outputSide: outputSide) != nil
     }
 }
 

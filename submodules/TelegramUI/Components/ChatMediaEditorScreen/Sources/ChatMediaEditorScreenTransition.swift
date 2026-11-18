@@ -77,6 +77,7 @@ public struct ChatMediaEditorGalleryConfiguration {
     public var dismissAll: () -> Void
     public var camera: ChatMediaEditorGalleryCamera?
     public var tabPolicy: ChatMediaEditorTabPolicy
+    public var sendAsRoundVideo: ((_ uniqueId: String) -> (title: String, action: () -> Void)?)?
 
     public init(
         doneButton: TGPhotoEditorDoneButton,
@@ -101,7 +102,8 @@ public struct ChatMediaEditorGalleryConfiguration {
         send: @escaping (_ uniqueId: String, _ silently: Bool, _ scheduleTime: Int32?, _ completion: @escaping () -> Void) -> Bool,
         dismissAll: @escaping () -> Void,
         camera: ChatMediaEditorGalleryCamera? = nil,
-        tabPolicy: ChatMediaEditorTabPolicy = .standard
+        tabPolicy: ChatMediaEditorTabPolicy = .standard,
+        sendAsRoundVideo: ((_ uniqueId: String) -> (title: String, action: () -> Void)?)? = nil
     ) {
         self.doneButton = doneButton
         self.hasSendMenu = hasSendMenu
@@ -126,6 +128,7 @@ public struct ChatMediaEditorGalleryConfiguration {
         self.dismissAll = dismissAll
         self.camera = camera
         self.tabPolicy = tabPolicy
+        self.sendAsRoundVideo = sendAsRoundVideo
     }
 }
 

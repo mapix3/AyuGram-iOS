@@ -467,6 +467,12 @@ private final class VideoMessageCameraScreenComponent: CombinedComponent {
                         }
                     }, error: { [weak self] _ in
                         if let self, let controller = self.getController() {
+                            if controller.camera !== camera {
+                                return
+                            }
+                            if controller.node.fallbackToLegacyCamera() {
+                                return
+                            }
                             controller.completion(nil, nil, nil, nil)
                         }
                     }))
@@ -903,7 +909,10 @@ public class VideoMessageCameraScreen: ViewController {
     fileprivate final class Node: ViewControllerTracingNode, ASGestureRecognizerDelegate {
         private weak var controller: VideoMessageCameraScreen?
         private let context: AccountContext
-        private let cameraImpl: CameraImpl
+        private var cameraImpl: CameraImpl
+        private let usesAyuGramRoundVideoCamera: Bool
+        private var didFallbackToLegacyCamera = false
+        private let cameraFailureDisposable = MetaDisposable()
         fileprivate var camera: CameraProtocol?
         private var pinchStartTimestamp: Double?
         private let updateState: ActionSlot<CameraState>
@@ -983,13 +992,15 @@ public class VideoMessageCameraScreen: ViewController {
             let ayuVideo = AyuGramSettings.shared.video
             AyuGramRoundVideoQuality.side = ayuVideo.roundSide
             AyuGramRoundVideoQuality.requestedFrameRate = ayuVideo.roundFps
-            let useModernVideoMessagePipeline = (experimentalSettings.useModernVideoMessagePipeline ?? false) || AyuGramRoundVideoQuality.isOverridden
+            let ayuRoundVideoOverridden = AyuGramRoundVideoQuality.isOverridden
+            let ayuRoundVideoMode: NeoCameraImpl.RoundVideoMode = AyuGramRoundVideoQuality.requestedFrameRate > AyuGramRoundVideoQuality.standardFrameRate ? .hdBilinear : .hdLanczos
+            let useModernVideoMessagePipeline = (experimentalSettings.useModernVideoMessagePipeline ?? false) || ayuRoundVideoOverridden
             let mode: NeoCameraImpl.RoundVideoMode?
             switch useModernVideoMessagePipeline ? experimentalSettings.videoMessageCameraMode : .legacy {
             case .legacy:
-                mode = AyuGramRoundVideoQuality.isOverridden ? .hdLanczos : nil
+                mode = ayuRoundVideoOverridden ? ayuRoundVideoMode : nil
             case .vga:
-                mode = AyuGramRoundVideoQuality.isOverridden ? .hdLanczos : .vga
+                mode = ayuRoundVideoOverridden ? ayuRoundVideoMode : .vga
             case .hdBilinear:
                 mode = .hdBilinear
             case .hdLanczos:
@@ -1002,6 +1013,7 @@ public class VideoMessageCameraScreen: ViewController {
             } else {
                 self.cameraImpl = LegacyCameraImpl.shared
             }
+            self.usesAyuGramRoundVideoCamera = ayuRoundVideoOverridden && mode != nil
             self.updateState = ActionSlot<CameraState>()
             
             self.presentationData = controller.updatedPresentationData?.initial ?? self.context.sharedContext.currentPresentationData.with { $0 }
@@ -1093,6 +1105,7 @@ public class VideoMessageCameraScreen: ViewController {
         
         deinit {
             self.cameraStateDisposable?.dispose()
+            self.cameraFailureDisposable.dispose()
             self.idleTimerExtensionDisposable.dispose()
             self.backgroundView.removeFromSuperview()
         }
@@ -1170,6 +1183,20 @@ public class VideoMessageCameraScreen: ViewController {
                 self.requestUpdateLayout(transition: .easeInOut(duration: 0.2))
             })
             
+            if self.usesAyuGramRoundVideoCamera && !self.didFallbackToLegacyCamera, let reporting = camera as? RoundVideoCameraInitializationReporting {
+                self.cameraFailureDisposable.set((reporting.roundVideoInitializationFailed
+                |> filter { $0 }
+                |> take(1)
+                |> deliverOnMainQueue).startStrict(next: { [weak self] _ in
+                    Queue.mainQueue().justDispatch {
+                        guard let self else {
+                            return
+                        }
+                        let _ = self.fallbackToLegacyCamera()
+                    }
+                }))
+            }
+            
             camera.focus(at: CGPoint(x: 0.5, y: 0.5), autoFocus: true)
             camera.startCapture()
             
@@ -1178,6 +1205,76 @@ public class VideoMessageCameraScreen: ViewController {
             Queue.mainQueue().justDispatch {
                 self.startRecording.invoke(Void())
             }
+        }
+        
+        fileprivate func fallbackToLegacyCamera() -> Bool {
+            guard self.usesAyuGramRoundVideoCamera, !self.didFallbackToLegacyCamera, self.results.isEmpty, let controller = self.controller, !controller.didSend else {
+                return false
+            }
+            self.didFallbackToLegacyCamera = true
+            Logger.shared.log("CameraNeo", "round video camera initialization failed, falling back to legacy camera")
+            
+            self.cameraFailureDisposable.set(nil)
+            self.cameraStateDisposable?.dispose()
+            self.cameraStateDisposable = nil
+            self.camera?.stopCapture(invalidate: true)
+            self.camera = nil
+            
+            let cameraImpl: CameraImpl = LegacyCameraImpl.shared
+            self.cameraImpl = cameraImpl
+            let isDualCameraEnabled = cameraImpl.isDualCameraSupported(forRoundVideo: true)
+            let position = self.cameraState.position
+            
+            let previousMainPreviewView = self.mainPreviewView
+            let previousAdditionalPreviewView = self.additionalPreviewView
+            let mainPreviewView = cameraImpl.makeCameraSimplePreviewView(frame: previousMainPreviewView.frame, main: true, roundVideo: true)
+            let additionalPreviewView = cameraImpl.makeCameraSimplePreviewView(frame: previousAdditionalPreviewView.frame, main: false, roundVideo: true)
+            if isDualCameraEnabled {
+                mainPreviewView.resetPlaceholder(front: false)
+                additionalPreviewView.resetPlaceholder(front: true)
+            } else {
+                mainPreviewView.resetPlaceholder(front: position == .front)
+            }
+            self.previewContainerContentView.insertSubview(mainPreviewView, belowSubview: self.progressView)
+            if isDualCameraEnabled {
+                self.previewContainerContentView.insertSubview(additionalPreviewView, belowSubview: self.progressView)
+            }
+            previousMainPreviewView.removeFromSuperview()
+            previousAdditionalPreviewView.removeFromSuperview()
+            self.mainPreviewView = mainPreviewView
+            self.additionalPreviewView = additionalPreviewView
+            
+            let currentState = self.cameraState
+            self.cameraState = CameraState(
+                position: position,
+                flashMode: currentState.flashMode,
+                flashModeDidChange: false,
+                flashTint: currentState.flashTint,
+                flashTintSize: currentState.flashTintSize,
+                recording: .none,
+                duration: 0.0,
+                isDualCameraEnabled: isDualCameraEnabled,
+                isViewOnceEnabled: currentState.isViewOnceEnabled
+            )
+            controller.lastActionTimestamp = nil
+            self.loadingView.alpha = 1.0
+            self.requestUpdateLayout(transition: .immediate)
+            
+            if isDualCameraEnabled {
+                mainPreviewView.removePlaceholder(delay: 0.0)
+            }
+            self.setupCamera()
+            self.withReadyCamera(isFirstTime: true, { [weak self] in
+                guard let self else {
+                    return
+                }
+                if !isDualCameraEnabled {
+                    self.mainPreviewView.removePlaceholder(delay: 0.0)
+                }
+                self.loadingView.alpha = 0.0
+                self.additionalPreviewView.removePlaceholder(delay: 0.0)
+            })
+            return true
         }
         
         @objc private func handlePinch(_ gestureRecognizer: UIPinchGestureRecognizer) {

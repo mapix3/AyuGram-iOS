@@ -911,9 +911,19 @@ public final class ChatMediaEditorScreen: ViewController, ChatMediaGalleryContro
             guard let controller = self.controller, !self.isSending, !controller.isDismissing else {
                 return
             }
+            var roundVideoItem: (title: String, action: () -> Void)?
+            if self.isGallery, let sendAsRoundVideo = controller.gallery?.sendAsRoundVideo, let item = sendAsRoundVideo(self.pageModel.currentItem.uniqueId) {
+                roundVideoItem = (item.title, { [weak self, weak controller] in
+                    guard let self, let controller, !self.isSending, !controller.isDismissing else {
+                        return
+                    }
+                    controller.dismissAnimated()
+                    item.action()
+                })
+            }
             let presenter = makeLegacyMediaPickerSendActionMenuPresenter(context: self.context, presentInGlobalOverlay: { [weak controller] menuController in
                 controller?.presentInGlobalOverlay(menuController)
-            })
+            }, extraItem: roundVideoItem)
             let options = chatMediaEditorSendMenuOptions(hasSchedule: controller.hasSchedule, sendWhenOnlineAvailable: canSendWhenOnline, hasTimer: self.sendMenuHasTimer, hasAnyTimer: self.currentItemHasAnyTimer)
             let _ = presenter(
                 sourceView,

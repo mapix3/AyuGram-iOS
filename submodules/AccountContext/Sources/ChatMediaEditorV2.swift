@@ -87,6 +87,7 @@ public final class ChatMediaGalleryParameters {
     public let dismissAll: () -> Void
     public let isFilePreview: Bool
     public let isCropOnly: Bool
+    public let sendAsRoundVideo: (title: String, action: (PHAsset) -> Void)?
 
     public init(
         source: ChatMediaGallerySource,
@@ -118,7 +119,8 @@ public final class ChatMediaGalleryParameters {
         sendSelected: @escaping (_ currentItem: Any, _ silently: Bool, _ scheduleTime: Int32?, _ completion: @escaping () -> Void) -> Bool,
         dismissAll: @escaping () -> Void,
         isFilePreview: Bool = false,
-        isCropOnly: Bool = false
+        isCropOnly: Bool = false,
+        sendAsRoundVideo: (title: String, action: (PHAsset) -> Void)? = nil
     ) {
         self.source = source
         self.itemStore = itemStore
@@ -150,6 +152,7 @@ public final class ChatMediaGalleryParameters {
         self.dismissAll = dismissAll
         self.isFilePreview = isFilePreview
         self.isCropOnly = isCropOnly
+        self.sendAsRoundVideo = sendAsRoundVideo
     }
 }
 

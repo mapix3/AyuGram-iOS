@@ -580,23 +580,6 @@ final class ChatSendMessageContextScreenComponent: Component {
                         }
                     )))
                     
-                    if let ayuSendAsRoundVideo = component.ayuSendAsRoundVideo {
-                        items.append(.action(ContextMenuActionItem(
-                            id: AnyHashable("ayuRoundVideo"),
-                            text: ayuSendAsRoundVideo.title,
-                            icon: { theme in
-                                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Input/Text/IconVideo"), color: theme.contextMenu.primaryColor)
-                            }, action: { [weak self] _, _ in
-                                guard let self else {
-                                    return
-                                }
-                                self.animateOutToEmpty = true
-                                self.environment?.controller()?.dismiss()
-                                ayuSendAsRoundVideo.action()
-                            }
-                        )))
-                    }
-
                     if sendMessage.canSendWhenOnline && canSchedule {
                         items.append(.action(ContextMenuActionItem(
                             id: AnyHashable("whenOnline"),
@@ -619,6 +602,22 @@ final class ChatSendMessageContextScreenComponent: Component {
                             }
                         )))
                     }
+                }
+                if let ayuSendAsRoundVideo = component.ayuSendAsRoundVideo {
+                    items.append(.action(ContextMenuActionItem(
+                        id: AnyHashable("ayuRoundVideo"),
+                        text: ayuSendAsRoundVideo.title,
+                        icon: { theme in
+                            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Input/Text/IconVideo"), color: theme.contextMenu.primaryColor)
+                        }, action: { [weak self] _, _ in
+                            guard let self else {
+                                return
+                            }
+                            self.animateOutToEmpty = true
+                            self.environment?.controller()?.dismiss()
+                            ayuSendAsRoundVideo.action()
+                        }
+                    )))
                 }
                 if canSchedule {
                     items.append(.action(ContextMenuActionItem(
