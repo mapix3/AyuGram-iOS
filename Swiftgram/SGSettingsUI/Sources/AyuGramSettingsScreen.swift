@@ -197,7 +197,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 615, section: .client, link: .effects, symbol: "sparkles", tint: .purple, title: s("Ayu.Effects.Title"), label: ""))
     if hasAppearance {
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
-        entries.append(.toggle(id: 630, section: .client, key: .disableLiquidGlass, symbol: "drop.fill", tint: .teal, title: s("Ayu.DisableLiquidGlass"), subtitle: s("Ayu.DisableLiquidGlassInfo"), value: extra.disableLiquidGlass, enabled: true))
+        entries.append(.toggle(id: 630, section: .client, key: .disableLiquidGlass, symbol: "drop.fill", tint: .teal, title: s("Ayu.DisableLiquidGlass"), subtitle: s("Ayu.DisableLiquidGlassInfo") + (extra.disableLiquidGlass != AyuLegacyUI.isEnabled ? "\n" + s("Ayu.RestartPending") : ""), value: extra.disableLiquidGlass, enabled: true))
     }
     entries.append(.footer(id: 650, section: .client, text: s("Ayu.LocalOnly")))
 
@@ -274,7 +274,15 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .disableLiquidGlass:
             settings.updateExtra { $0.disableLiquidGlass = value }
             let data = context.sharedContext.currentPresentationData.with { $0 }
-            presentController?(textAlertController(context: context, title: nil, text: i18n("Ayu.RestartToApply", data.strings.baseLanguageCode), actions: [TextAlertAction(type: .defaultAction, title: data.strings.Common_OK, action: {})]))
+            let lang = data.strings.baseLanguageCode
+            if value != AyuLegacyUI.isEnabled {
+                presentController?(textAlertController(context: context, title: i18n("Common.RestartRequired", lang), text: i18n("Ayu.RestartToApply", lang), actions: [
+                    TextAlertAction(type: .genericAction, title: i18n("Ayu.Later", lang), action: {}),
+                    TextAlertAction(type: .defaultAction, title: i18n("Common.RestartNow", lang), action: {
+                        exit(0)
+                    })
+                ]))
+            }
         }
     }, open: { link in
         switch link {

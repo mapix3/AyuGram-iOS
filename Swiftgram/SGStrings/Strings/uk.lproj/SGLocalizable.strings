@@ -570,8 +570,11 @@
 "Ayu.AISuggest2" = "Допоможи написати повідомлення";
 "Ayu.AISuggest3" = "Переклади текст";
 "Ayu.DisableLiquidGlass" = "Вимкнути Liquid Glass";
-"Ayu.DisableLiquidGlassInfo" = "Панелі та кнопки використовують класичне розмиття замість Liquid Glass.";
-"Ayu.RestartToApply" = "Перезапустіть AyuGram, щоб застосувати.";
+"Ayu.DisableLiquidGlassInfo" = "Повертає класичний інтерфейс Telegram часів iOS 18: панелі на всю ширину, класичні таб-бар, поле введення, меню та списки налаштувань. Застосовується після перезапуску.";
+"Ayu.RestartToApply" = "Перезапустіть AyuGram, щоб змінити інтерфейс.";
+"Ayu.RestartPending" = "Застосується після перезапуску";
+"Ayu.Later" = "Пізніше";
+"Ayu.LegacyUICrashGuard" = "Класичний інтерфейс вимкнено після повторюваних збоїв.";
 "Ayu.DonateSection" = "Підтримати проєкт";
 "Ayu.Donate" = "Донат";
 "Ayu.DonateFooter" = "AyuGram безкоштовний і без реклами. Донати допомагають розвивати його далі.";

@@ -167,11 +167,15 @@ final class LegacyGlassView: UIView {
                 colorMatrixFilter.setValue(NSValue(bytes: &matrix, objCType: "{CAColorMatrix=ffffffffffffffffffff}"), forKey: "inputColorMatrix")
                 colorMatrixFilter.setValue(true as NSNumber, forKey: "inputBackdropAware")
                 
+                if AyuLegacyUI.isEnabled {
+                    backdropLayer.filters = [blurFilter]
+                } else {
                 switch style {
                 case .clear:
                     backdropLayer.filters = [blurFilter]
                 case .normal:
                     backdropLayer.filters = [colorMatrixFilter, blurFilter]
+                }
                 }
             }
         }

@@ -364,8 +364,11 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
     private let regularDeviceToken = Promise<Data?>(nil)
     
     private var recaptchaClientsBySiteKey: [String: Promise<RecaptchaClient>] = [:]
+    
+    private var ayuLegacyLaunchMarked = false
         
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        AyuLegacyUILaunch.prime(countsAsUserLaunch: application.applicationState != .background)
         precondition(!testIsLaunched)
         testIsLaunched = true
         CrashReportCollector.shared.start()
@@ -1901,6 +1904,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
     }
 
     func attach(scene: UIWindowScene, connectionOptions: UIScene.ConnectionOptions) {
+        AyuLegacyUILaunch.countUserLaunch()
         self.statusBarHost?.scene = scene
         self.window?.windowScene = scene
 
@@ -2276,6 +2280,13 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         self.maybeCheckForUpdates()
         
         SharedDisplayLinkDriver.shared.updateForegroundState(self.isActiveValue)
+        
+        if AyuLegacyUI.isEnabled && !self.ayuLegacyLaunchMarked {
+            self.ayuLegacyLaunchMarked = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                AyuLegacyUILaunch.markLaunchSucceeded()
+            }
+        }
         
         func cancelWindowPanGestures(view: UIView) {
             if let gestureRecognizers = view.gestureRecognizers {
