@@ -31,6 +31,8 @@ public final class ChatListSearchFiltersContainerNode: ASDisplayNode {
     private let backgroundContainer: GlassBackgroundContainerView
     private let backgroundView: GlassBackgroundView
     private let tabs = ComponentView<Empty>()
+    private let legacyBackgroundNode: NavigationBackgroundNode?
+    private let legacySeparatorNode: ASDisplayNode?
     
     public var filterPressed: ((ChatListSearchFilter) -> Void)?
     
@@ -39,9 +41,28 @@ public final class ChatListSearchFiltersContainerNode: ASDisplayNode {
         self.backgroundView = GlassBackgroundView()
         self.backgroundContainer.contentView.addSubview(self.backgroundView)
         
+        if AyuLegacyUI.isEnabled {
+            self.legacyBackgroundNode = NavigationBackgroundNode(color: .clear)
+            let legacySeparatorNode = ASDisplayNode()
+            legacySeparatorNode.isLayerBacked = true
+            self.legacySeparatorNode = legacySeparatorNode
+        } else {
+            self.legacyBackgroundNode = nil
+            self.legacySeparatorNode = nil
+        }
+        
         super.init()
         
-        self.view.addSubview(self.backgroundContainer)
+        if AyuLegacyUI.isEnabled {
+            if let legacyBackgroundNode = self.legacyBackgroundNode {
+                self.addSubnode(legacyBackgroundNode)
+            }
+            if let legacySeparatorNode = self.legacySeparatorNode {
+                self.addSubnode(legacySeparatorNode)
+            }
+        } else {
+            self.view.addSubview(self.backgroundContainer)
+        }
     }
     
     public func update(size: CGSize, sideInset: CGFloat, filters: [ChatListSearchFilterEntry], displayGlobalPostsNewBadge: Bool, selectedFilter: ChatListSearchFilterEntryId?, transitionFraction: CGFloat, presentationData: PresentationData, transition proposedTransition: ContainedViewLayoutTransition) {
@@ -49,12 +70,24 @@ public final class ChatListSearchFiltersContainerNode: ASDisplayNode {
         let isFirstTime = self.tabs.view == nil
         let componentTransition: ComponentTransition = isFirstTime ? .immediate : ComponentTransition(proposedTransition)
         
-        componentTransition.setFrame(view: self.backgroundContainer, frame: CGRect(origin: CGPoint(), size: size))
-        self.backgroundContainer.update(size: size, isDark: presentationData.theme.overallDarkAppearance, transition: componentTransition)
-        componentTransition.setFrame(view: self.backgroundView, frame: CGRect(origin: CGPoint(), size: size))
-        self.backgroundView.update(size: size, cornerRadius: size.height * 0.5, isDark: presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isInteractive: true, transition: componentTransition)
+        if AyuLegacyUI.isEnabled {
+            if let legacyBackgroundNode = self.legacyBackgroundNode {
+                legacyBackgroundNode.updateColor(color: presentationData.theme.rootController.navigationBar.blurredBackgroundColor, transition: .immediate)
+                componentTransition.setFrame(view: legacyBackgroundNode.view, frame: CGRect(origin: CGPoint(), size: size))
+                legacyBackgroundNode.update(size: size, transition: componentTransition.containedViewLayoutTransition)
+            }
+            if let legacySeparatorNode = self.legacySeparatorNode {
+                legacySeparatorNode.backgroundColor = presentationData.theme.rootController.navigationBar.separatorColor
+                componentTransition.setFrame(layer: legacySeparatorNode.layer, frame: CGRect(origin: CGPoint(), size: CGSize(width: size.width, height: UIScreenPixel)))
+            }
+        } else {
+            componentTransition.setFrame(view: self.backgroundContainer, frame: CGRect(origin: CGPoint(), size: size))
+            self.backgroundContainer.update(size: size, isDark: presentationData.theme.overallDarkAppearance, transition: componentTransition)
+            componentTransition.setFrame(view: self.backgroundView, frame: CGRect(origin: CGPoint(), size: size))
+            self.backgroundView.update(size: size, cornerRadius: size.height * 0.5, isDark: presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isInteractive: true, transition: componentTransition)
+        }
         
-        let color = presentationData.theme.chat.inputPanel.panelControlColor
+        let color = AyuLegacyUI.isEnabled ? presentationData.theme.list.itemSecondaryTextColor : presentationData.theme.chat.inputPanel.panelControlColor
         
         let tabs = filters.map { entry -> HorizontalTabsComponent.Tab in
             let filter: ChatListSearchFilter
@@ -149,8 +182,12 @@ public final class ChatListSearchFiltersContainerNode: ASDisplayNode {
         )
         if let tabsView = self.tabs.view as? HorizontalTabsComponent.View {
             if tabsView.superview == nil {
-                self.backgroundView.contentView.addSubview(tabsView)
-                tabsView.setOverlayContainerView(overlayContainerView: self.backgroundContainer.contentView)
+                if AyuLegacyUI.isEnabled {
+                    self.view.addSubview(tabsView)
+                } else {
+                    self.backgroundView.contentView.addSubview(tabsView)
+                    tabsView.setOverlayContainerView(overlayContainerView: self.backgroundContainer.contentView)
+                }
             }
             componentTransition.setFrame(view: tabsView, frame: CGRect(origin: CGPoint(x: sideInset, y: 0.0), size: tabsSize))
             

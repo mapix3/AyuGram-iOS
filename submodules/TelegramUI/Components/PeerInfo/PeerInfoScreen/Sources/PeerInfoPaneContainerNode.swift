@@ -607,6 +607,8 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, ASGestureRecognizerDelegat
     
     private let tabsBackgroundContainer: GlassBackgroundContainerView
     private let tabsBackgroundView: GlassBackgroundView
+    private let legacyTabsBackgroundNode: NavigationBackgroundNode?
+    private let legacyTabsSeparatorView: UIView?
     private let tabsContainer = ComponentView<Empty>()
     private var didJustReorderTabs = false
     
@@ -688,10 +690,29 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, ASGestureRecognizerDelegat
         
         self.headerContainer = SparseContainerView()
         
+        if AyuLegacyUI.isEnabled {
+            self.legacyTabsBackgroundNode = NavigationBackgroundNode(color: .clear)
+            let legacyTabsSeparatorView = UIView()
+            legacyTabsSeparatorView.isUserInteractionEnabled = false
+            self.legacyTabsSeparatorView = legacyTabsSeparatorView
+        } else {
+            self.legacyTabsBackgroundNode = nil
+            self.legacyTabsSeparatorView = nil
+        }
+        
         super.init()
         
         self.tabsBackgroundContainer.contentView.addSubview(self.tabsBackgroundView)
-        self.headerContainer.addSubview(self.tabsBackgroundContainer)
+        if AyuLegacyUI.isEnabled {
+            if let legacyTabsBackgroundNode = self.legacyTabsBackgroundNode {
+                self.headerContainer.addSubview(legacyTabsBackgroundNode.view)
+            }
+            if let legacyTabsSeparatorView = self.legacyTabsSeparatorView {
+                self.headerContainer.addSubview(legacyTabsSeparatorView)
+            }
+        } else {
+            self.headerContainer.addSubview(self.tabsBackgroundContainer)
+        }
     }
     
     override func didLoad() {
@@ -1008,8 +1029,8 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, ASGestureRecognizerDelegat
 
         let isScrollingLockedAtTop = expansionFraction < 1.0 - CGFloat.ulpOfOne
 
-        let tabsHeight: CGFloat = 40.0
-        let effectiveTabsHeight: CGFloat = areTabsHidden ? 0.0 : (10.0 + tabsHeight + 10.0 + 6.0)
+        let tabsHeight: CGFloat = AyuLegacyUI.isEnabled ? 48.0 : 40.0
+        let effectiveTabsHeight: CGFloat = areTabsHidden ? 0.0 : (AyuLegacyUI.isEnabled ? 48.0 : (10.0 + tabsHeight + 10.0 + 6.0))
         
         let paneFrame = CGRect(origin: CGPoint(x: self.stripInsets.left, y: -topInset), size: CGSize(width: size.width - self.stripInsets.left - self.stripInsets.right, height: topInset + size.height))
         
@@ -1291,7 +1312,7 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, ASGestureRecognizerDelegat
             }
         }
         
-        let tabsSideInset: CGFloat = sideInset + 16.0
+        let tabsSideInset: CGFloat = AyuLegacyUI.isEnabled ? sideInset : sideInset + 16.0
         
         let tabsContainerSize = CGSize(width: size.width - self.stripInsets.left - self.stripInsets.right - tabsSideInset * 2.0, height: tabsHeight)
         let tabsContainerEffectiveSize = self.tabsContainer.update(
@@ -1410,7 +1431,7 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, ASGestureRecognizerDelegat
                 // only its border, reading as a bare chip. Its title sits on the glass capsule instead.
                 selectedTab: availablePanes.count > 1 ? self.currentPaneKey.flatMap { HorizontalTabsComponent.Tab.Id($0) } : nil,
                 isEditing: false,
-                layout: .fit,
+                layout: AyuLegacyUI.isEnabled ? .fill : .fit,
                 liftWhileSwitching: deviceMetrics.type != .tablet
             )),
             environment: {},
@@ -1418,22 +1439,46 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, ASGestureRecognizerDelegat
         )
         
         let tabContainerFrameOriginX = self.stripInsets.left + floorToScreenPixels((size.width - self.stripInsets.left - self.stripInsets.right - tabsContainerEffectiveSize.width) / 2.0)
-        let tabContainerFrame = CGRect(origin: CGPoint(x: tabContainerFrameOriginX, y: 10.0), size: tabsContainerEffectiveSize)
+        let tabContainerFrame = AyuLegacyUI.isEnabled ? CGRect(origin: CGPoint(x: tabContainerFrameOriginX, y: -tabsOffset), size: tabsContainerEffectiveSize) : CGRect(origin: CGPoint(x: tabContainerFrameOriginX, y: 10.0), size: tabsContainerEffectiveSize)
         
-        transition.updateFrame(view: self.tabsBackgroundContainer, frame: tabContainerFrame)
-        self.tabsBackgroundContainer.update(size: tabContainerFrame.size, isDark: presentationData.theme.overallDarkAppearance, transition: ComponentTransition(transition))
-        
-        transition.updateFrame(view: self.tabsBackgroundView, frame: CGRect(origin: CGPoint(), size: tabContainerFrame.size))
-        self.tabsBackgroundView.update(size: tabContainerFrame.size, cornerRadius: tabContainerFrame.height * 0.5, isDark: presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), transition: ComponentTransition(transition))
-        
-        ComponentTransition(transition).setAlpha(view: self.tabsBackgroundContainer, alpha: tabsAlpha)
+        if AyuLegacyUI.isEnabled {
+            let legacyStripFrame = CGRect(origin: CGPoint(x: self.stripInsets.left, y: -tabsOffset), size: CGSize(width: size.width - self.stripInsets.left - self.stripInsets.right, height: tabsHeight))
+            if let legacyTabsBackgroundNode = self.legacyTabsBackgroundNode {
+                legacyTabsBackgroundNode.updateColor(color: presentationData.theme.rootController.navigationBar.opaqueBackgroundColor, transition: .immediate)
+                transition.updateFrame(node: legacyTabsBackgroundNode, frame: legacyStripFrame)
+                legacyTabsBackgroundNode.update(size: legacyStripFrame.size, transition: transition)
+                ComponentTransition(transition).setAlpha(view: legacyTabsBackgroundNode.view, alpha: tabsAlpha)
+            }
+            if let legacyTabsSeparatorView = self.legacyTabsSeparatorView {
+                legacyTabsSeparatorView.backgroundColor = presentationData.theme.list.itemBlocksSeparatorColor
+                transition.updateFrame(view: legacyTabsSeparatorView, frame: CGRect(origin: CGPoint(x: legacyStripFrame.minX, y: legacyStripFrame.maxY - UIScreenPixel), size: CGSize(width: legacyStripFrame.width, height: UIScreenPixel)))
+                ComponentTransition(transition).setAlpha(view: legacyTabsSeparatorView, alpha: tabsAlpha)
+            }
+        } else {
+            transition.updateFrame(view: self.tabsBackgroundContainer, frame: tabContainerFrame)
+            self.tabsBackgroundContainer.update(size: tabContainerFrame.size, isDark: presentationData.theme.overallDarkAppearance, transition: ComponentTransition(transition))
+            
+            transition.updateFrame(view: self.tabsBackgroundView, frame: CGRect(origin: CGPoint(), size: tabContainerFrame.size))
+            self.tabsBackgroundView.update(size: tabContainerFrame.size, cornerRadius: tabContainerFrame.height * 0.5, isDark: presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), transition: ComponentTransition(transition))
+            
+            ComponentTransition(transition).setAlpha(view: self.tabsBackgroundContainer, alpha: tabsAlpha)
+        }
         
         if let tabsContainerView = self.tabsContainer.view as? HorizontalTabsComponent.View {
             if tabsContainerView.superview == nil {
-                self.tabsBackgroundView.contentView.addSubview(tabsContainerView)
-                tabsContainerView.setOverlayContainerView(overlayContainerView: self.headerContainer)
+                if AyuLegacyUI.isEnabled {
+                    self.headerContainer.addSubview(tabsContainerView)
+                } else {
+                    self.tabsBackgroundView.contentView.addSubview(tabsContainerView)
+                    tabsContainerView.setOverlayContainerView(overlayContainerView: self.headerContainer)
+                }
             }
-            transition.updateFrame(view: tabsContainerView, frame: CGRect(origin: CGPoint(), size: tabContainerFrame.size))
+            if AyuLegacyUI.isEnabled {
+                transition.updateFrame(view: tabsContainerView, frame: tabContainerFrame)
+                ComponentTransition(transition).setAlpha(view: tabsContainerView, alpha: tabsAlpha)
+            } else {
+                transition.updateFrame(view: tabsContainerView, frame: CGRect(origin: CGPoint(), size: tabContainerFrame.size))
+            }
             
             tabsContainerView.updateTabSwitchFraction(fraction: self.transitionFraction, isDragging: self.isDraggingTabs, transition: ComponentTransition(transition))
         }
