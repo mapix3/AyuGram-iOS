@@ -169,7 +169,15 @@ public protocol CustomViewControllerNavigationDataSummary: AnyObject {
         return false
     }
     open var _presentedInModal: Bool = false
-    open var _hasGlassStyle: Bool = false
+    private var _hasGlassStyleValue: Bool = false
+    open var _hasGlassStyle: Bool {
+        get {
+            return self._hasGlassStyleValue && !AyuLegacyUI.isEnabled
+        }
+        set {
+            self._hasGlassStyleValue = newValue
+        }
+    }
     open var flatReceivesModalTransition: Bool = false
     /// A full-screen viewer (a web page, a document) presented as a modal fills the screen beside a top-right status
     /// island (iPhone Duo, unfolded portrait) rather than becoming a card below it; its bar then sits beside the island.

@@ -569,8 +569,8 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         let immediateExperimentalUISettingsValue = self.immediateExperimentalUISettingsValue
         let _ = immediateExperimentalUISettingsValue.swap(initialPresentationDataAndSettings.experimentalUISettings)
         
-        GlassBackgroundView.useCustomGlassImpl = immediateExperimentalUISettingsValue.with({ $0.fakeGlass }) || AyuGramSettings.shared.extra.disableLiquidGlass
-        GlassBackgroundView.useFlatImpl = AyuGramSettings.shared.extra.disableLiquidGlass
+        GlassBackgroundView.useCustomGlassImpl = immediateExperimentalUISettingsValue.with({ $0.fakeGlass }) || AyuLegacyUI.isEnabled
+        GlassBackgroundView.useFlatImpl = AyuLegacyUI.isEnabled
         ManagedAudioSessionImpl.respectsSystemRecordingInput = immediateExperimentalUISettingsValue.with({ $0.respectSystemMicrophone })
         MediaEditorVideoExport.forceLegacyStoryWriter = immediateExperimentalUISettingsValue.with({ $0.storyLegacyVideoWriter })
         MediaEditorVideoExport.forceLegacyChatWriter = immediateExperimentalUISettingsValue.with({ $0.chatLegacyVideoWriter })
@@ -581,7 +581,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                 let _ = immediateExperimentalUISettingsValue.swap(settings)
                 
                 flatBuffers_checkedGet = settings.checkSerializedData
-                GlassBackgroundView.useCustomGlassImpl = settings.fakeGlass || AyuGramSettings.shared.extra.disableLiquidGlass
+                GlassBackgroundView.useCustomGlassImpl = settings.fakeGlass || AyuLegacyUI.isEnabled
                 ManagedAudioSessionImpl.respectsSystemRecordingInput = settings.respectSystemMicrophone
                 MediaEditorVideoExport.forceLegacyStoryWriter = settings.storyLegacyVideoWriter
                 MediaEditorVideoExport.forceLegacyChatWriter = settings.chatLegacyVideoWriter
@@ -5013,7 +5013,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     }
     
     public func makeShareScreen(context: AccountContext, params: ShareControllerParams) -> ViewController {
-        if params.immediateExternalShare {
+        if params.immediateExternalShare || AyuLegacyUI.isEnabled {
             return self.makeShareController(context: context, params: params)
         }
         func mapSubject(_ subject: ShareControllerSubject) -> (ShareScreenSubject, ShareControllerSubject.MediaParameters?) {

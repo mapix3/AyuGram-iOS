@@ -10,6 +10,13 @@ public class EdgeEffectView: UIView {
         case top
         case bottom
     }
+    
+    public enum LegacyUIBehavior {
+        case hidden
+        case keep
+    }
+    
+    public var legacyUIBehavior: LegacyUIBehavior = .hidden
 
     private let contentView: UIView
     private let contentMaskView: UIView
@@ -61,6 +68,18 @@ public class EdgeEffectView: UIView {
     }
     
     public func update(content: UIColor?, blur: Bool = false, blurRadius: CGFloat = 1.0, alpha: CGFloat = 0.75, contentGradient: [GradientStop]? = nil, rect: CGRect, edge: Edge, edgeSize: CGFloat, transition: ComponentTransition) {
+        if AyuLegacyUI.isEnabled {
+            if self.legacyUIBehavior == .hidden {
+                self.contentView.isHidden = true
+                if let blurView = self.blurView {
+                    self.blurView = nil
+                    blurView.removeFromSuperview()
+                }
+                return
+            }
+            self.contentView.isHidden = false
+        }
+        
         #if DEBUG && false
         let content: UIColor = .blue
         //let blur: Bool = !"".isEmpty
