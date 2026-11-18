@@ -1,4 +1,5 @@
 import Foundation
+import SGSimpleSettings
 import UIKit
 import AVFoundation
 import Display
@@ -21,6 +22,9 @@ public func chatMediaEditorVideoQualityPreset(storedLegacyPreset: Int?) -> Media
 }
 
 func chatMediaEditorPreferredVideoQualityPreset() -> MediaQualityPreset {
+    if AyuGramSettings.shared.video.videoBestQuality {
+        return .compressedVeryHigh
+    }
     let storedValue = (UserDefaults.standard.object(forKey: chatMediaEditorPreferredVideoPresetKey) as? NSNumber)?.intValue
     return chatMediaEditorVideoQualityPreset(storedLegacyPreset: storedValue)
 }

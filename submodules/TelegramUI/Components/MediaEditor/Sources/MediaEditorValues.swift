@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import Display
+import SGSimpleSettings
 import TelegramCore
 import AVFoundation
 import VideoToolbox
@@ -2068,7 +2069,9 @@ func targetSize(cropSize: CGSize, rotateSideward: Bool = false) -> CGSize {
 }
 
 private struct VideoMessageExportSettings {
-    static let maximumDimension: CGFloat = 480.0
+    static var maximumDimension: CGFloat {
+        return CGFloat(AyuGramSettings.shared.video.roundSide)
+    }
 
     let dimensions: CGSize
     let bitrateKbps: Int
@@ -2085,7 +2088,13 @@ private struct VideoMessageExportSettings {
             cropSize: CGSize(width: cropSize.width * scale, height: cropSize.height * scale),
             rotateSideward: rotateSideward
         )
-        self.bitrateKbps = max(self.dimensions.width, self.dimensions.height) <= 400.0 ? 1000 : 1200
+        let side = max(self.dimensions.width, self.dimensions.height)
+        if side > 480.0 {
+            let video = AyuGramSettings.shared.video
+            self.bitrateKbps = video.roundBitrate(side: Int(side), fps: video.roundFps) / 1000
+        } else {
+            self.bitrateKbps = side <= 400.0 ? 1000 : 1200
+        }
     }
 }
 
@@ -2147,6 +2156,14 @@ public func recommendedVideoExportConfiguration(values: MediaEditorValues, durat
             let maxSize = CGSize(width: qualityPreset.maximumDimensions, height: qualityPreset.maximumDimensions)
             resultSize = targetSize(cropSize: cropSize.aspectFitted(maxSize), rotateSideward: rotateSideward)
             videoBitrate = qualityPreset.videoBitrateKbps
+            switch qualityPreset {
+            case .compressedVeryLow, .compressedLow, .compressedMedium, .compressedHigh, .compressedVeryHigh:
+                if AyuGramSettings.shared.video.videoHighBitrate {
+                    videoBitrate = videoBitrate * 8 / 5
+                }
+            default:
+                break
+            }
         }
         
         width = Int(resultSize.width)

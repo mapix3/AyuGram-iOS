@@ -622,7 +622,8 @@ final class VideoRecorder {
         assetWriter.shouldOptimizeForNetworkUse = false
 
         let compressionProperties: [String: Any] = [
-            AVVideoAverageBitRateKey: 1_200_000,
+            AVVideoAverageBitRateKey: AyuGramRoundVideoQuality.bitrate,
+            AVVideoExpectedSourceFrameRateKey: Int(roundVideoCaptureFrameRate),
             AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
             AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC
         ]

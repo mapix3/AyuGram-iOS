@@ -55,6 +55,7 @@ swift_library(
         ":MediaEditorBundle",
     ],
     deps = [
+        "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
         "//submodules/AsyncDisplayKit",
         "//submodules/Display",
         "//submodules/Postbox",

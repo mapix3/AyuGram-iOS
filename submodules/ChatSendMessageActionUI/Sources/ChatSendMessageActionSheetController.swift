@@ -92,7 +92,8 @@ public func makeChatSendMessageActionSheetController(
     reactionItems: [ReactionItem]? = nil,
     availableMessageEffects: AvailableMessageEffects? = nil,
     isPremium: Bool = false,
-    richTextPreview: ChatSendMessageContextScreenRichTextPreview? = nil
+    richTextPreview: ChatSendMessageContextScreenRichTextPreview? = nil,
+    ayuSendAsRoundVideo: (title: String, action: () -> Void)? = nil
 ) -> ChatSendMessageActionSheetController {
     return ChatSendMessageContextScreen(
         sgTranslationContext: sgTranslationContext,
@@ -115,6 +116,7 @@ public func makeChatSendMessageActionSheetController(
         reactionItems: reactionItems,
         availableMessageEffects: availableMessageEffects,
         isPremium: isPremium,
-        richTextPreview: richTextPreview
+        richTextPreview: richTextPreview,
+        ayuSendAsRoundVideo: ayuSendAsRoundVideo
     )
 }

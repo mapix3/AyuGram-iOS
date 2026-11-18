@@ -1590,6 +1590,9 @@ extension ChatControllerImpl {
                 self.interfaceInteraction?.openBoostToUnrestrict()
             }
         }
+        if !isEditingMessage && bannedSendVideos == nil, case .assets(_, .default) = subject {
+            controller.ayuSendAsRoundVideo = self.ayuRoundVideoFromGalleryHandler()
+        }
         let mediaPickerContext = controller.mediaPickerContext
         controller.opensChatCameraWithHolder = true
         controller.openCamera = { [weak self] cameraView in

@@ -13,7 +13,7 @@ import SGSimpleSettings
 import SGStrings
 
 private enum AyuScreenSection: Int32 {
-    case hero, ghost, hide, behavior, content, chats, history, transfer, client, update, security, support, assistant, donate
+    case hero, ghost, hide, behavior, content, chats, history, transfer, video, client, update, security, support, assistant, donate
 }
 
 private enum AyuScreenToggle: Equatable {
@@ -26,7 +26,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, effects, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, supporter
+    case history, appearance, effects, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, supporter, video
 }
 
 private enum AyuScreenTint: Equatable {
@@ -186,6 +186,10 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.header(id: 550, section: .transfer, text: s("Ayu.ChatTransferSection")))
     entries.append(.link(id: 560, section: .transfer, link: .importChat, symbol: "square.and.arrow.down.fill", tint: .green, title: s("Ayu.ImportChat"), label: ""))
     entries.append(.footer(id: 570, section: .transfer, text: s("Ayu.ImportChatFooter")))
+
+    entries.append(.header(id: 580, section: .video, text: s("Ayu.Video.Section")))
+    entries.append(.link(id: 585, section: .video, link: .video, symbol: "video.fill", tint: .orange, title: s("Ayu.Video.Title"), label: ""))
+    entries.append(.footer(id: 590, section: .video, text: s("Ayu.Video.SectionFooter")))
 
     entries.append(.header(id: 600, section: .client, text: s("Ayu.ClientSection")))
     entries.append(.link(id: 605, section: .client, link: .supporter, symbol: "heart.circle.fill", tint: .red, title: s("Ayu.SupporterBadge"), label: ""))
@@ -377,6 +381,8 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             }))
         case .supporter:
             pushController?(ayuGramSupporterController(context: context))
+        case .video:
+            pushController?(ayuGramVideoSettingsController(context: context))
         case .aiModel:
             let data = context.sharedContext.currentPresentationData.with { $0 }
             let config = AyuGramAssistantConfig.current

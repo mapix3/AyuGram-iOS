@@ -400,6 +400,7 @@ public final class MediaPickerScreenImpl: ViewController, MediaPickerScreen, Att
     public var isMinimized: Bool = false
     
     public var getCurrentSendMessageContextMediaPreview: (() -> ChatSendMessageContextScreenMediaPreview?)? = nil
+    public var ayuSendAsRoundVideo: (title: String, action: (PHAsset) -> Void)?
     
     fileprivate let usesMediaGridV2: Bool
     fileprivate let gridModeKind: MediaPickerGridModeKind
@@ -4052,6 +4053,18 @@ public final class MediaPickerScreenImpl: ViewController, MediaPickerScreen, Att
 
 final class MediaPickerContext: AttachmentMediaPickerContext {
     private weak var controller: MediaPickerScreenImpl?
+
+    var ayuSendAsRoundVideo: (title: String, action: () -> Void)? {
+        guard let controller = self.controller, let handler = controller.ayuSendAsRoundVideo else {
+            return nil
+        }
+        guard let items = controller.interaction?.selectionState?.selectedItems(), items.count == 1, let item = items.first as? TGMediaAsset, item.isVideo, let asset = item.backingAsset else {
+            return nil
+        }
+        return (handler.title, {
+            handler.action(asset)
+        })
+    }
     
     var selectionCount: Signal<Int, NoError> {
         if let controller = self.controller, case .assets(_, .story) = controller.subject {

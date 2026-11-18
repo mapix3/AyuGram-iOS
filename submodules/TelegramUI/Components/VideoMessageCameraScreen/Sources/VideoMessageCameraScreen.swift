@@ -980,13 +980,16 @@ public class VideoMessageCameraScreen: ViewController {
             self.context = controller.context
             
             let experimentalSettings = self.context.sharedContext.immediateExperimentalUISettings
-            let useModernVideoMessagePipeline = experimentalSettings.useModernVideoMessagePipeline ?? false
+            let ayuVideo = AyuGramSettings.shared.video
+            AyuGramRoundVideoQuality.side = ayuVideo.roundSide
+            AyuGramRoundVideoQuality.requestedFrameRate = ayuVideo.roundFps
+            let useModernVideoMessagePipeline = (experimentalSettings.useModernVideoMessagePipeline ?? false) || AyuGramRoundVideoQuality.isOverridden
             let mode: NeoCameraImpl.RoundVideoMode?
             switch useModernVideoMessagePipeline ? experimentalSettings.videoMessageCameraMode : .legacy {
             case .legacy:
-                mode = nil
+                mode = AyuGramRoundVideoQuality.isOverridden ? .hdLanczos : nil
             case .vga:
-                mode = .vga
+                mode = AyuGramRoundVideoQuality.isOverridden ? .hdLanczos : .vga
             case .hdBilinear:
                 mode = .hdBilinear
             case .hdLanczos:
@@ -2138,7 +2141,7 @@ public class VideoMessageCameraScreen: ViewController {
                     outputDimensions = video.dimensions
                 } else {
                     resource = LocalFileVideoMediaResource(randomId: Int64.random(in: Int64.min ... Int64.max), paths: videoPaths, adjustments: resourceAdjustments)
-                    let exportConfiguration = recommendedVideoExportConfiguration(values: values, duration: duration, frameRate: 30.0)
+                    let exportConfiguration = recommendedVideoExportConfiguration(values: values, duration: duration, frameRate: Float(AyuGramSettings.shared.video.roundFps))
                     outputDimensions = PixelDimensions(
                         width: Int32(exportConfiguration.videoSettings[AVVideoWidthKey] as? Int ?? Int(video.dimensions.width)),
                         height: Int32(exportConfiguration.videoSettings[AVVideoHeightKey] as? Int ?? Int(video.dimensions.height))

@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 7;
+export const GUIDE_VERSION = 8;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -25,6 +25,9 @@ Supporter badge: AyuGram > Client > Supporter badge, above Local Premium. For a 
 Client: Local Premium (premium features shown locally), Disable Liquid Glass (flat panels, needs an app restart).
 Security: Report a scam (with screenshots or videos), Anonymous stats.
 Support: AyuGram channel, developer, AyuGram log, Check for updates. Donate is at the very bottom of AyuGram (Crypto Bot, xRocket, TON wallet with QR codes).
+
+Video settings: AyuGram > Video > Video settings (just above Client). Round videos: Quality (Standard 480p, 720p, 1080p Full HD; 4K is not possible because the camera gives round videos at most 1080 pixels on the short side), Frame rate (30, 60 or 120 fps; falls back to the closest lower rate the camera supports), Round video from gallery (on by default). Videos: Always best quality (sends up to 1080p by default) and Higher bitrate. Regular videos keep their original frame rate up to 60 fps.
+Round video from gallery: in a chat open the attachment menu, select exactly one video, hold the send button and choose "Send as Round Video"; then drag and pinch to choose the part of the frame inside the circle, pick the fragment start and length (up to 60 seconds) and tap Send.
 
 Visual effects (custom build only, the standard build has none of these): Telegram Settings > Appearance > Effects, also AyuGram > Client > Effects and at the bottom of AyuGram > Client > Appearance. A master switch turns all of them off at once; they pause by themselves with Reduce Motion or Low Power Mode.
 - Chat background: particles over the wallpaper (snow, stars, fireflies, petals, bubbles) with density and speed sliders and "React to touch"; Aurora gradient (more drifting colours on gradient wallpapers); Grain slider (film grain on gradient wallpapers); Deep parallax (gradient and pattern move at different depths when you tilt the phone); Water ripple (tap or drag on empty background).

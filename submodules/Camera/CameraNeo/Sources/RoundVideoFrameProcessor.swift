@@ -222,8 +222,12 @@ private final class RoundVideoLanczosScaler {
 }
 
 final class RoundVideoFrameProcessor {
-    static let outputWidth = 480
-    static let outputHeight = 480
+    static var outputWidth: Int {
+        return AyuGramRoundVideoQuality.side
+    }
+    static var outputHeight: Int {
+        return AyuGramRoundVideoQuality.side
+    }
 
     private let device: MTLDevice
     private let mediaQueue: DispatchQueue

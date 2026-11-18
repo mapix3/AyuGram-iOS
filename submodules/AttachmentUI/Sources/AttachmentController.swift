@@ -306,9 +306,15 @@ public protocol AttachmentMediaPickerContext {
     func setCaption(_ caption: NSAttributedString)
     func send(mode: AttachmentMediaPickerSendMode, attachmentMode: AttachmentMediaPickerAttachmentMode, parameters: ChatSendMessageActionSheetController.SendParameters?)
     func schedule(parameters: ChatSendMessageActionSheetController.SendParameters?)
+
+    var ayuSendAsRoundVideo: (title: String, action: () -> Void)? { get }
 }
 
 public extension AttachmentMediaPickerContext {
+    var ayuSendAsRoundVideo: (title: String, action: () -> Void)? {
+        return nil
+    }
+
     var selectionCount: Signal<Int, NoError> {
         return .single(0)
     }

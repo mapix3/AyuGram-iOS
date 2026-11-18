@@ -1443,11 +1443,13 @@ final class AttachmentPanel: ASDisplayNode, ASScrollViewDelegate, ASGestureRecog
                 var canMakePaidContent = false
                 var currentPrice: Int64?
                 var hasTimers = false
+                var ayuSendAsRoundVideo: (title: String, action: () -> Void)?
                 if let controller = strongSelf.controller, let mediaPickerContext = controller.mediaPickerContext {
                     captionIsAboveMedia = mediaPickerContext.captionIsAboveMedia
                     canMakePaidContent = mediaPickerContext.canMakePaidContent
                     currentPrice = mediaPickerContext.price
                     hasTimers = mediaPickerContext.hasTimers
+                    ayuSendAsRoundVideo = mediaPickerContext.ayuSendAsRoundVideo
                 }
 
                 let _ = (combineLatest(
@@ -1518,7 +1520,8 @@ final class AttachmentPanel: ASDisplayNode, ASScrollViewDelegate, ASGestureRecog
                         },
                         reactionItems: effectItems,
                         availableMessageEffects: availableMessageEffects,
-                        isPremium: hasPremium
+                        isPremium: hasPremium,
+                        ayuSendAsRoundVideo: ayuSendAsRoundVideo
                     )
                     strongSelf.presentInGlobalOverlay(controller)
                 })

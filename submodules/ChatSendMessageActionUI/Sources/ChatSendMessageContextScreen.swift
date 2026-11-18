@@ -99,6 +99,7 @@ final class ChatSendMessageContextScreenComponent: Component {
     let availableMessageEffects: AvailableMessageEffects?
     let isPremium: Bool
     let richTextPreview: ChatSendMessageContextScreenRichTextPreview?
+    let ayuSendAsRoundVideo: (title: String, action: () -> Void)?
     // MARK: Swiftgram
     init(
         sgTranslationContext: (outgoingMessageTranslateToLang: String?, translate: (() -> Void)?, changeTranslationLanguage: (() -> ())?) = (outgoingMessageTranslateToLang: nil, translate: nil, changeTranslationLanguage: nil),
@@ -121,8 +122,10 @@ final class ChatSendMessageContextScreenComponent: Component {
         reactionItems: [ReactionItem]?,
         availableMessageEffects: AvailableMessageEffects?,
         isPremium: Bool,
-        richTextPreview: ChatSendMessageContextScreenRichTextPreview? = nil
+        richTextPreview: ChatSendMessageContextScreenRichTextPreview? = nil,
+        ayuSendAsRoundVideo: (title: String, action: () -> Void)? = nil
     ) {
+        self.ayuSendAsRoundVideo = ayuSendAsRoundVideo
         self.sgTranslationContext = sgTranslationContext
         self.initialData = initialData
         self.context = context
@@ -577,6 +580,23 @@ final class ChatSendMessageContextScreenComponent: Component {
                         }
                     )))
                     
+                    if let ayuSendAsRoundVideo = component.ayuSendAsRoundVideo {
+                        items.append(.action(ContextMenuActionItem(
+                            id: AnyHashable("ayuRoundVideo"),
+                            text: ayuSendAsRoundVideo.title,
+                            icon: { theme in
+                                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Input/Text/IconVideo"), color: theme.contextMenu.primaryColor)
+                            }, action: { [weak self] _, _ in
+                                guard let self else {
+                                    return
+                                }
+                                self.animateOutToEmpty = true
+                                self.environment?.controller()?.dismiss()
+                                ayuSendAsRoundVideo.action()
+                            }
+                        )))
+                    }
+
                     if sendMessage.canSendWhenOnline && canSchedule {
                         items.append(.action(ContextMenuActionItem(
                             id: AnyHashable("whenOnline"),
@@ -1593,7 +1613,8 @@ public class ChatSendMessageContextScreen: ViewControllerComponentContainer, Cha
         reactionItems: [ReactionItem]?,
         availableMessageEffects: AvailableMessageEffects?,
         isPremium: Bool,
-        richTextPreview: ChatSendMessageContextScreenRichTextPreview? = nil
+        richTextPreview: ChatSendMessageContextScreenRichTextPreview? = nil,
+        ayuSendAsRoundVideo: (title: String, action: () -> Void)? = nil
     ) {
         self.context = context
 
@@ -1620,7 +1641,8 @@ public class ChatSendMessageContextScreen: ViewControllerComponentContainer, Cha
                 reactionItems: reactionItems,
                 availableMessageEffects: availableMessageEffects,
                 isPremium: isPremium,
-                richTextPreview: richTextPreview
+                richTextPreview: richTextPreview,
+                ayuSendAsRoundVideo: ayuSendAsRoundVideo
             ),
             navigationBarAppearance: .none,
             statusBarStyle: .none,
