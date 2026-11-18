@@ -46,11 +46,23 @@ public extension ToolbarTheme {
 }
 
 public extension NavigationBarTheme {
-    convenience init(rootControllerTheme: PresentationTheme, hideBadge: Bool = false, edgeEffectColor: UIColor? = nil, glassStyle: NavigationBar.GlassStyle = .default) {
+    convenience init(rootControllerTheme: PresentationTheme, hideBadge: Bool = false, edgeEffectColor: UIColor? = nil, glassStyle: NavigationBar.GlassStyle = .default, legacyHidesBackground: Bool? = nil) {
         let theme = rootControllerTheme.rootController.navigationBar
-        let buttonColor = rootControllerTheme.chat.inputPanel.panelControlColor
-        let badgeTextColor: UIColor = rootControllerTheme.overallDarkAppearance ? .black : rootControllerTheme.list.itemCheckColors.foregroundColor
-        self.init(overallDarkAppearance: rootControllerTheme.overallDarkAppearance, buttonColor: buttonColor, disabledButtonColor: buttonColor.withMultipliedAlpha(0.5), primaryTextColor: theme.primaryTextColor, badgeBackgroundColor: hideBadge ? .clear : buttonColor, badgeTextColor: hideBadge ? .clear : badgeTextColor, edgeEffectColor: edgeEffectColor ?? rootControllerTheme.list.plainBackgroundColor, accentButtonColor: rootControllerTheme.list.itemCheckColors.fillColor, accentDisabledButtonColor: rootControllerTheme.chat.inputPanel.panelControlDisabledColor, accentForegroundColor: rootControllerTheme.list.itemCheckColors.foregroundColor, glassStyle: glassStyle)
+        if AyuLegacyUI.isEnabled {
+            let hideBackground: Bool
+            if let legacyHidesBackground {
+                hideBackground = legacyHidesBackground
+            } else if let edgeEffectColor {
+                hideBackground = edgeEffectColor.alpha.isZero
+            } else {
+                hideBackground = false
+            }
+            self.init(overallDarkAppearance: rootControllerTheme.overallDarkAppearance, buttonColor: theme.buttonColor, disabledButtonColor: theme.disabledButtonColor, primaryTextColor: theme.primaryTextColor, badgeBackgroundColor: hideBadge ? .clear : theme.badgeBackgroundColor, badgeTextColor: hideBadge ? .clear : theme.badgeTextColor, edgeEffectColor: edgeEffectColor ?? rootControllerTheme.list.plainBackgroundColor, accentButtonColor: rootControllerTheme.list.itemCheckColors.fillColor, accentDisabledButtonColor: rootControllerTheme.chat.inputPanel.panelControlDisabledColor, accentForegroundColor: rootControllerTheme.list.itemCheckColors.foregroundColor, glassStyle: glassStyle, backgroundColor: hideBackground ? .clear : theme.blurredBackgroundColor, opaqueBackgroundColor: hideBackground ? .clear : theme.opaqueBackgroundColor, enableBackgroundBlur: true, separatorColor: hideBackground ? .clear : theme.separatorColor, badgeStrokeColor: hideBadge ? .clear : theme.badgeStrokeColor)
+        } else {
+            let buttonColor = rootControllerTheme.chat.inputPanel.panelControlColor
+            let badgeTextColor: UIColor = rootControllerTheme.overallDarkAppearance ? .black : rootControllerTheme.list.itemCheckColors.foregroundColor
+            self.init(overallDarkAppearance: rootControllerTheme.overallDarkAppearance, buttonColor: buttonColor, disabledButtonColor: buttonColor.withMultipliedAlpha(0.5), primaryTextColor: theme.primaryTextColor, badgeBackgroundColor: hideBadge ? .clear : buttonColor, badgeTextColor: hideBadge ? .clear : badgeTextColor, edgeEffectColor: edgeEffectColor ?? rootControllerTheme.list.plainBackgroundColor, accentButtonColor: rootControllerTheme.list.itemCheckColors.fillColor, accentDisabledButtonColor: rootControllerTheme.chat.inputPanel.panelControlDisabledColor, accentForegroundColor: rootControllerTheme.list.itemCheckColors.foregroundColor, glassStyle: glassStyle)
+        }
     }
 }
 

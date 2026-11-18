@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Display
 import TelegramCore
 import TelegramUIPreferences
 
@@ -335,6 +336,7 @@ public let defaultDarkWallpaperGradientColors: [UIColor] = [
 ]
 
 public func makeDefaultDarkPresentationTheme(extendingThemeReference: PresentationThemeReference? = nil, preview: Bool) -> PresentationTheme {
+    let legacyUI = AyuLegacyUI.isEnabled
     let rootNavigationBar = PresentationThemeRootNavigationBar(
         buttonColor: UIColor(rgb: 0xffffff),
         disabledButtonColor: UIColor(rgb: 0x525252),
@@ -348,8 +350,8 @@ public func makeDefaultDarkPresentationTheme(extendingThemeReference: Presentati
         badgeBackgroundColor:  UIColor(rgb: 0xffffff),
         badgeStrokeColor: UIColor(rgb: 0x1c1c1d),
         badgeTextColor:  UIColor(rgb: 0x000000),
-        segmentedBackgroundColor: UIColor(rgb: 0xffffff, alpha: 0.11),
-        segmentedForegroundColor: UIColor(rgb: 0xffffff, alpha: 0.36),
+        segmentedBackgroundColor: legacyUI ? UIColor(rgb: 0x3a3b3d) : UIColor(rgb: 0xffffff, alpha: 0.11),
+        segmentedForegroundColor: legacyUI ? UIColor(rgb: 0x6f7075) : UIColor(rgb: 0xffffff, alpha: 0.36),
         segmentedTextColor: UIColor(rgb: 0xffffff),
         segmentedDividerColor: UIColor(rgb: 0x505155),
         clearButtonBackgroundColor: UIColor(rgb: 0xffffff, alpha: 0.1),
@@ -359,9 +361,9 @@ public func makeDefaultDarkPresentationTheme(extendingThemeReference: Presentati
     let rootTabBar = PresentationThemeRootTabBar(
         backgroundColor: rootNavigationBar.blurredBackgroundColor,
         separatorColor: UIColor(rgb: 0x545458, alpha: 0.55),
-        iconColor: UIColor(rgb: 0xffffff),
+        iconColor: legacyUI ? UIColor(rgb: 0x828282) : UIColor(rgb: 0xffffff),
         selectedIconColor: UIColor(rgb: 0xffffff),
-        textColor: UIColor(rgb: 0xffffff),
+        textColor: legacyUI ? UIColor(rgb: 0x828282) : UIColor(rgb: 0xffffff),
         selectedTextColor: UIColor(rgb: 0xffffff),
         badgeBackgroundColor:  UIColor(rgb: 0xffffff),
         badgeStrokeColor: UIColor(rgb: 0x1c1c1d),
@@ -371,7 +373,7 @@ public func makeDefaultDarkPresentationTheme(extendingThemeReference: Presentati
     let navigationSearchBar = PresentationThemeNavigationSearchBar(
         backgroundColor: UIColor(rgb: 0x1c1c1d),
         accentColor: UIColor(rgb: 0xffffff),
-        inputFillColor: UIColor(white: 1.0, alpha: 0.1),
+        inputFillColor: legacyUI ? UIColor(rgb: 0x0f0f0f) : UIColor(white: 1.0, alpha: 0.1),
         inputTextColor: UIColor(rgb: 0xffffff),
         inputPlaceholderTextColor: UIColor(rgb: 0x8f8f8f),
         inputIconColor: UIColor(rgb: 0x8f8f8f),
@@ -504,8 +506,8 @@ public func makeDefaultDarkPresentationTheme(extendingThemeReference: Presentati
         pinnedBadgeColor: UIColor(rgb: 0x767677),
         pinnedSearchBarColor: UIColor(rgb: 0x272728),
         regularSearchBarColor: UIColor(rgb: 0x272728),
-        sectionHeaderFillColor: .black,
-        sectionHeaderTextColor: UIColor(rgb: 0x8d8e93),
+        sectionHeaderFillColor: legacyUI ? UIColor(rgb: 0x1c1c1d) : .black,
+        sectionHeaderTextColor: legacyUI ? UIColor(rgb: 0xffffff) : UIColor(rgb: 0x8d8e93),
         verifiedIconFillColor: UIColor(rgb: 0xffffff),
         verifiedIconForegroundColor:  UIColor(rgb: 0x000000),
         secretIconColor: UIColor(rgb: 0x00b12c),
@@ -663,14 +665,14 @@ public func makeDefaultDarkPresentationTheme(extendingThemeReference: Presentati
         panelBackgroundColorNoWallpaper: UIColor(rgb: 0x000000),
         panelSeparatorColor: UIColor(rgb: 0x545458, alpha: 0.55),
         panelControlAccentColor: UIColor(rgb: 0xffffff),
-        panelControlColor: UIColor(rgb: 0xffffff),
+        panelControlColor: legacyUI ? UIColor(rgb: 0x808080) : UIColor(rgb: 0xffffff),
         panelControlDisabledColor: UIColor(rgb: 0x808080, alpha: 0.5),
         panelControlDestructiveColor: UIColor(rgb: 0xff3b30),
-        inputBackgroundColor: UIColor(rgb: 0xffffff, alpha: 0.14).blitOver(.black, alpha: 1.0).withAlphaComponent(0.95),
+        inputBackgroundColor: legacyUI ? UIColor(rgb: 0x060606) : UIColor(rgb: 0xffffff, alpha: 0.14).blitOver(.black, alpha: 1.0).withAlphaComponent(0.95),
         inputStrokeColor: UIColor(rgb: 0xffffff, alpha: 0.1),
-        inputPlaceholderColor: UIColor(rgb: 0xffffff, alpha: 0.48),
+        inputPlaceholderColor: legacyUI ? UIColor(rgb: 0x7b7b7b) : UIColor(rgb: 0xffffff, alpha: 0.48),
         inputTextColor: UIColor(rgb: 0xffffff),
-        inputControlColor: UIColor(rgb: 0xffffff, alpha: 0.5),
+        inputControlColor: legacyUI ? UIColor(rgb: 0x7b7b7b) : UIColor(rgb: 0xffffff, alpha: 0.5),
         actionControlFillColor: UIColor(rgb: 0xffffff),
         actionControlForegroundColor:  UIColor(rgb: 0x000000),
         primaryTextColor: UIColor(rgb: 0xffffff),
@@ -697,14 +699,14 @@ public func makeDefaultDarkPresentationTheme(extendingThemeReference: Presentati
         panelContentOpaqueSearchOverlayColor: UIColor(rgb: 0x808080),
         panelContentOpaqueSearchOverlaySelectedColor: UIColor(rgb: 0x808080),
         panelContentOpaqueSearchOverlayHighlightColor: UIColor(rgb: 0x808080).withMultipliedAlpha(0.25),
-        stickersBackgroundColor: inputMediaBackgroundColor,
+        stickersBackgroundColor: legacyUI ? UIColor(rgb: 0x000000) : inputMediaBackgroundColor,
         stickersSectionTextColor: UIColor(rgb: 0x7b7b7b),
         stickersSearchBackgroundColor: UIColor(rgb: 0x1c1c1d),
         stickersSearchPlaceholderColor: UIColor(rgb: 0x8d8e93),
         stickersSearchPrimaryColor: UIColor(rgb: 0xffffff),
         stickersSearchControlColor: UIColor(rgb: 0x8d8e93),
-        gifsBackgroundColor: inputMediaBackgroundColor,
-        backgroundColor: inputMediaBackgroundColor
+        gifsBackgroundColor: legacyUI ? UIColor(rgb: 0x000000) : inputMediaBackgroundColor,
+        backgroundColor: legacyUI ? UIColor(rgb: 0x000000, alpha: 0.75) : inputMediaBackgroundColor
     )
 
     let inputButtonPanel = PresentationThemeInputButtonPanel(

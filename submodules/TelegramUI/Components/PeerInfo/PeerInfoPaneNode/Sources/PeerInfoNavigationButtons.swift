@@ -176,7 +176,7 @@ public func peerInfoNavigationBarTheme(glass: PeerInfoNavigationGlass, base: Nav
         buttonColor = .white
         glassTintColor = color
     }
-    return NavigationBarTheme(overallDarkAppearance: base.overallDarkAppearance, buttonColor: buttonColor, disabledButtonColor: base.disabledButtonColor, primaryTextColor: base.primaryTextColor, badgeBackgroundColor: base.badgeBackgroundColor, badgeTextColor: base.badgeTextColor, edgeEffectColor: .clear, accentButtonColor: base.accentButtonColor, accentDisabledButtonColor: base.accentDisabledButtonColor, accentForegroundColor: base.accentForegroundColor, glassStyle: base.glassStyle, glassTintColor: glassTintColor)
+    return NavigationBarTheme(overallDarkAppearance: base.overallDarkAppearance, buttonColor: buttonColor, disabledButtonColor: base.disabledButtonColor, primaryTextColor: base.primaryTextColor, badgeBackgroundColor: base.badgeBackgroundColor, badgeTextColor: base.badgeTextColor, edgeEffectColor: .clear, accentButtonColor: base.accentButtonColor, accentDisabledButtonColor: base.accentDisabledButtonColor, accentForegroundColor: base.accentForegroundColor, glassStyle: base.glassStyle, glassTintColor: glassTintColor, backgroundColor: .clear, opaqueBackgroundColor: base.opaqueBackgroundColor, enableBackgroundBlur: base.enableBackgroundBlur, separatorColor: .clear, badgeStrokeColor: base.badgeStrokeColor)
 }
 
 /// How many of `keys` the row holds: on iPhone Duo the side column takes the icons.

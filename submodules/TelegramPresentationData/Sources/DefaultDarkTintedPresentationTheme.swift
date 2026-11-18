@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Display
 import TelegramCore
 import TelegramUIPreferences
 
@@ -42,6 +43,7 @@ public func customizeDefaultDarkTintedPresentationTheme(theme: PresentationTheme
         return theme
     }
     
+    let legacyUI = AyuLegacyUI.isEnabled
     var accentColor = accentColor
     if accentColor == PresentationThemeBaseColor.blue.color {
         accentColor = defaultDarkTintedAccentColor
@@ -123,9 +125,9 @@ public func customizeDefaultDarkTintedPresentationTheme(theme: PresentationTheme
             tabBar: rootController.tabBar.withUpdated(
                 backgroundColor: mainBackgroundColor?.withAlphaComponent(0.9),
                 separatorColor: mainSeparatorColor,
-                iconColor: UIColor(rgb: 0xffffff),
+                iconColor: legacyUI ? mainForegroundColor : UIColor(rgb: 0xffffff),
                 selectedIconColor: accentColor,
-                textColor: UIColor(rgb: 0xffffff),
+                textColor: legacyUI ? mainForegroundColor : UIColor(rgb: 0xffffff),
                 selectedTextColor: accentColor
             ),
             navigationBar: rootController.navigationBar.withUpdated(
@@ -138,13 +140,13 @@ public func customizeDefaultDarkTintedPresentationTheme(theme: PresentationTheme
                 opaqueBackgroundColor: mainBackgroundColor,
                 separatorColor: mainSeparatorColor,
                 segmentedBackgroundColor: mainInputColor,
-                segmentedForegroundColor: mainSecondaryTextColor?.withAlphaComponent(0.4),
+                segmentedForegroundColor: legacyUI ? mainBackgroundColor : mainSecondaryTextColor?.withAlphaComponent(0.4),
                 segmentedDividerColor: mainSecondaryTextColor?.withAlphaComponent(0.5)
             ),
             navigationSearchBar: rootController.navigationSearchBar.withUpdated(
                 backgroundColor: mainBackgroundColor,
                 accentColor: accentColor,
-                inputFillColor: UIColor(white: 1.0, alpha: 0.1),
+                inputFillColor: legacyUI ? mainInputColor : UIColor(white: 1.0, alpha: 0.1),
                 inputPlaceholderTextColor: mainSecondaryColor,
                 inputIconColor: mainSecondaryColor,
                 inputClearButtonColor: mainSecondaryColor,
@@ -428,7 +430,7 @@ public func customizeDefaultDarkTintedPresentationTheme(theme: PresentationTheme
             panelBackgroundColor: mainBackgroundColor?.withAlphaComponent(0.9),
             panelSeparatorColor: mainSeparatorColor,
             panelControlAccentColor: accentColor,
-            panelControlColor: UIColor(rgb: 0xffffff),
+            panelControlColor: legacyUI ? mainSecondaryTextColor?.withAlphaComponent(0.5) : UIColor(rgb: 0xffffff),
             inputBackgroundColor: inputBackgroundColor,
             inputStrokeColor: accentColor?.withMultiplied(hue: 1.038, saturation: 0.463, brightness: 0.26),
             inputPlaceholderColor: mainSecondaryTextColor?.withAlphaComponent(0.4),
@@ -509,6 +511,7 @@ public func customizeDefaultDarkTintedPresentationTheme(theme: PresentationTheme
 }
 
 public func makeDefaultDarkTintedPresentationTheme(extendingThemeReference: PresentationThemeReference? = nil, preview: Bool) -> PresentationTheme {
+    let legacyUI = AyuLegacyUI.isEnabled
     let accentColor = defaultDarkTintedAccentColor
     
     let secondaryBadgeTextColor: UIColor
@@ -547,9 +550,9 @@ public func makeDefaultDarkTintedPresentationTheme(extendingThemeReference: Pres
     let rootTabBar = PresentationThemeRootTabBar(
         backgroundColor: mainBackgroundColor,
         separatorColor: mainSeparatorColor,
-        iconColor: UIColor(rgb: 0xffffff),
+        iconColor: legacyUI ? mainForegroundColor : UIColor(rgb: 0xffffff),
         selectedIconColor: accentColor,
-        textColor: UIColor(rgb: 0xffffff),
+        textColor: legacyUI ? mainForegroundColor : UIColor(rgb: 0xffffff),
         selectedTextColor: accentColor,
         badgeBackgroundColor: UIColor(rgb: 0xef5b5b),
         badgeStrokeColor: UIColor(rgb: 0xef5b5b),
@@ -570,7 +573,7 @@ public func makeDefaultDarkTintedPresentationTheme(extendingThemeReference: Pres
         badgeStrokeColor: UIColor(rgb: 0xef5b5b),
         badgeTextColor: UIColor(rgb: 0xffffff),
         segmentedBackgroundColor: mainInputColor,
-        segmentedForegroundColor: mainSecondaryTextColor.withAlphaComponent(0.4),
+        segmentedForegroundColor: legacyUI ? mainBackgroundColor : mainSecondaryTextColor.withAlphaComponent(0.4),
         segmentedTextColor: UIColor(rgb: 0xffffff),
         segmentedDividerColor: mainSecondaryTextColor.withAlphaComponent(0.5),
         clearButtonBackgroundColor: UIColor(rgb: 0xffffff, alpha: 0.1),
@@ -580,7 +583,7 @@ public func makeDefaultDarkTintedPresentationTheme(extendingThemeReference: Pres
     let navigationSearchBar = PresentationThemeNavigationSearchBar(
         backgroundColor: mainBackgroundColor,
         accentColor: accentColor,
-        inputFillColor: UIColor(white: 1.0, alpha: 0.1),
+        inputFillColor: legacyUI ? mainInputColor : UIColor(white: 1.0, alpha: 0.1),
         inputTextColor: UIColor(rgb: 0xffffff),
         inputPlaceholderTextColor: mainSecondaryColor,
         inputIconColor: mainSecondaryColor,
@@ -713,7 +716,7 @@ public func makeDefaultDarkTintedPresentationTheme(extendingThemeReference: Pres
         pinnedBadgeColor: mainSecondaryTextColor.withAlphaComponent(0.5),
         pinnedSearchBarColor: accentColor.withMultiplied(hue: 1.029, saturation: 0.609, brightness: 0.12),
         regularSearchBarColor: accentColor.withMultiplied(hue: 1.029, saturation: 0.609, brightness: 0.12),
-        sectionHeaderFillColor: .black,
+        sectionHeaderFillColor: legacyUI ? mainBackgroundColor : .black,
         sectionHeaderTextColor: mainSecondaryTextColor.withAlphaComponent(0.5),
         verifiedIconFillColor: accentColor,
         verifiedIconForegroundColor: .white,
@@ -873,7 +876,7 @@ public func makeDefaultDarkTintedPresentationTheme(extendingThemeReference: Pres
         panelBackgroundColorNoWallpaper: accentColor.withMultiplied(hue: 1.024, saturation: 0.573, brightness: 0.18),
         panelSeparatorColor: mainSeparatorColor,
         panelControlAccentColor: accentColor,
-        panelControlColor: UIColor(rgb: 0xffffff),
+        panelControlColor: legacyUI ? mainSecondaryTextColor.withAlphaComponent(0.5) : UIColor(rgb: 0xffffff),
         panelControlDisabledColor: UIColor(rgb: 0x90979F, alpha: 0.5),
         panelControlDestructiveColor: UIColor(rgb: 0xff6767),
         inputBackgroundColor: inputBackgroundColor,

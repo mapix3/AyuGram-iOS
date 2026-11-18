@@ -61,6 +61,7 @@ import ContextMenuScreen
 import MetalEngine
 import RecaptchaEnterprise
 import NavigationBarNode
+import LegacyNavigationBarNode
 import NavigationBarComponent
 import NavigationExpansionTransition
 import ContextUI
@@ -390,6 +391,13 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         }
         defaultNavigationExpansionRenderer = { source, destination, operation in
             return NavigationExpansionRendererImpl.make(source: source, destination: destination, operation: operation)
+        }
+        if AyuLegacyUI.isEnabled {
+            defaultNavigationBarImpl = { presentationData in
+                return LegacyNavigationBarNode(presentationData: presentationData)
+            }
+            defaultNavigationBarTransitionRenderer = nil
+            defaultNavigationExpansionRenderer = nil
         }
         makeContextControllerImpl = { context, presentationData, configuration, recognizer, gesture, workaroundUseLegacyImplementation, disableScreenshots, hideReactionPanelTail in
             return ContextControllerImpl(
