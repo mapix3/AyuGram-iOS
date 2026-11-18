@@ -360,6 +360,7 @@ public struct PresentationResourcesItemList {
     }
     
     public static func cornersImage(_ theme: PresentationTheme, top: Bool, bottom: Bool, glass: Bool = false) -> UIImage? {
+        let glass = glass && !AyuLegacyUI.isEnabled
         if !top && !bottom {
             return nil
         }

@@ -102,6 +102,7 @@ open class GalleryControllerNode: ASDisplayNode, ASScrollViewDelegate, ASGesture
         
         self.headerEdgeEffectView = EdgeEffectView()
         self.headerEdgeEffectView.isUserInteractionEnabled = false
+        self.headerEdgeEffectView.legacyUIBehavior = .keep
 
         self.pager = GalleryPagerNode(pageGap: pageGap, disableTapNavigation: disableTapNavigation)
         let accessibilityStrings = context.sharedContext.currentPresentationData.with { $0 }.strings

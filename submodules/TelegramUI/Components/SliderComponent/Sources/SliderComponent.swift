@@ -250,7 +250,7 @@ public final class SliderComponent: Component {
             
             let size = CGSize(width: availableSize.width, height: 44.0)
             
-            if #available(iOS 26.0, *), component.useNative {
+            if #available(iOS 26.0, *), component.useNative, !AyuLegacyUI.isEnabled {
                 if let sliderView = self.sliderView {
                     self.sliderView = nil
                     sliderView.removeFromSuperview()

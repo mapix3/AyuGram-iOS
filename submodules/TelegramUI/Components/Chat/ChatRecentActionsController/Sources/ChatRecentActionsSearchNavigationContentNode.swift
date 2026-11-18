@@ -42,17 +42,21 @@ final class ChatRecentActionsSearchNavigationContentNode: NavigationBarContentNo
         self.close = (GlassBackgroundView(), UIImageView())
         self.close.background.contentView.addSubview(self.close.icon)
 
-        self.searchBar = SearchBarNode(theme: ChatRecentActionsSearchNavigationContentNode.searchBarTheme(theme), presentationTheme: theme, preferClearGlass: preferClearGlass, strings: strings, fieldStyle: .inlineNavigation, forceSeparator: false, displayBackground: false, cancelText: nil)
+        self.searchBar = AyuLegacyUI.isEnabled ? SearchBarNode(theme: SearchBarNodeTheme(theme: theme, hasSeparator: false), presentationTheme: theme, strings: strings, fieldStyle: .modern, displayBackground: false) : SearchBarNode(theme: ChatRecentActionsSearchNavigationContentNode.searchBarTheme(theme), presentationTheme: theme, preferClearGlass: preferClearGlass, strings: strings, fieldStyle: .inlineNavigation, forceSeparator: false, displayBackground: false, cancelText: nil)
         let placeholderText = strings.Common_Search
-        self.searchBar.placeholderString = NSAttributedString(string: placeholderText, font: searchBarFont, textColor: theme.chat.inputPanel.inputPlaceholderColor)
+        self.searchBar.placeholderString = NSAttributedString(string: placeholderText, font: searchBarFont, textColor: AyuLegacyUI.isEnabled ? theme.rootController.navigationSearchBar.inputPlaceholderTextColor : theme.chat.inputPanel.inputPlaceholderColor)
 
         super.init()
 
+        if AyuLegacyUI.isEnabled {
+            self.addSubnode(self.searchBar)
+        } else {
         self.view.addSubview(self.backgroundContainer)
         self.backgroundView.contentView.addSubview(self.searchBar.view)
 
         self.backgroundContainer.contentView.addSubview(self.close.background)
         self.close.background.contentView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.onCloseTapGesture(_:))))
+        }
 
         self.searchBar.cancel = { [weak self] in
             self?.searchBar.deactivate(clear: false)
@@ -94,6 +98,10 @@ final class ChatRecentActionsSearchNavigationContentNode: NavigationBarContentNo
             self.preferClearGlass = preferClearGlass
             self.strings = strings
 
+            if AyuLegacyUI.isEnabled {
+                self.searchBar.updateThemeAndStrings(theme: SearchBarNodeTheme(theme: theme, hasSeparator: false), presentationTheme: theme, strings: strings)
+                self.searchBar.placeholderString = NSAttributedString(string: strings.Common_Search, font: searchBarFont, textColor: theme.rootController.navigationSearchBar.inputPlaceholderTextColor)
+            } else {
             self.searchBar.updateThemeAndStrings(
                 theme: ChatRecentActionsSearchNavigationContentNode.searchBarTheme(theme),
                 presentationTheme: theme,
@@ -101,6 +109,7 @@ final class ChatRecentActionsSearchNavigationContentNode: NavigationBarContentNo
                 strings: strings
             )
             self.searchBar.placeholderString = NSAttributedString(string: strings.Common_Search, font: searchBarFont, textColor: theme.chat.inputPanel.inputPlaceholderColor)
+            }
         }
 
         if let params = self.params {
@@ -109,11 +118,18 @@ final class ChatRecentActionsSearchNavigationContentNode: NavigationBarContentNo
     }
 
     override var nominalHeight: CGFloat {
-        return 60.0
+        return AyuLegacyUI.isEnabled ? 54.0 : 60.0
     }
 
     override func updateLayout(size: CGSize, leftInset: CGFloat, rightInset: CGFloat, transition: ContainedViewLayoutTransition) -> CGSize {
         self.params = (size, leftInset, rightInset)
+
+        if AyuLegacyUI.isEnabled {
+            let legacySearchBarFrame = CGRect(origin: CGPoint(x: 0.0, y: size.height - 54.0), size: CGSize(width: size.width, height: 54.0))
+            self.searchBar.frame = legacySearchBarFrame
+            self.searchBar.updateLayout(boundingSize: legacySearchBarFrame.size, leftInset: leftInset, rightInset: rightInset, transition: transition)
+            return size
+        }
 
         let transition = ComponentTransition(transition)
 

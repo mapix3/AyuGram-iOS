@@ -268,6 +268,8 @@ public final class ChatChannelSubscriberInputPanelNode: ChatInputPanelNode {
     
     private var presentationInterfaceState: ChatPresentationInterfaceState?
     
+    private var legacyBar: LegacySubscriberBar?
+    
     private var layoutData: (CGFloat, CGFloat, CGFloat, CGFloat, UIEdgeInsets, CGFloat, CGFloat, Bool, LayoutMetrics, DeviceMetrics)?
     
     public override init() {
@@ -775,8 +777,8 @@ public final class ChatChannelSubscriberInputPanelNode: ChatInputPanelNode {
             }
             #endif*/
             
-            let giftItemView = (self.panel.view as? GlassControlPanelComponent.View)?.leftItemView?.itemView(id: AnyHashable("gift"))
-            let suggestPostItemView = (self.panel.view as? GlassControlPanelComponent.View)?.leftItemView?.itemView(id: AnyHashable("suggestPost"))
+            let giftItemView = AyuLegacyUI.isEnabled ? self.legacyBar?.itemView(id: AnyHashable("gift")) : (self.panel.view as? GlassControlPanelComponent.View)?.leftItemView?.itemView(id: AnyHashable("gift"))
+            let suggestPostItemView = AyuLegacyUI.isEnabled ? self.legacyBar?.itemView(id: AnyHashable("suggestPost")) : (self.panel.view as? GlassControlPanelComponent.View)?.leftItemView?.itemView(id: AnyHashable("suggestPost"))
             
             if giftCount < 2, let giftItemView {
                 let _ = ApplicationSpecificNotice.incrementChannelSendGiftTooltip(accountManager: context.sharedContext.accountManager).start()
@@ -999,6 +1001,86 @@ public final class ChatChannelSubscriberInputPanelNode: ChatInputPanelNode {
         let _ = isFirstTime
         let panelFrame = CGRect(origin: CGPoint(x: leftInset, y: 0.0), size: CGSize(width: width - leftInset - rightInset, height: panelHeight))
         
+        if AyuLegacyUI.isEnabled {
+            if islandContent == nil {
+                let legacyBar: LegacySubscriberBar
+                if let current = self.legacyBar {
+                    legacyBar = current
+                } else {
+                    legacyBar = LegacySubscriberBar(frame: CGRect())
+                    legacyBar.centerAction = { [weak self] in
+                        self?.buttonPressed()
+                    }
+                    legacyBar.sideAction = { [weak self] id in
+                        guard let self else {
+                            return
+                        }
+                        switch id {
+                        case "suggestPost":
+                            self.suggestedPostPressed()
+                        case "gift":
+                            self.giftPressed()
+                        case "help":
+                            self.helpPressed()
+                        case "search":
+                            self.interfaceInteraction?.beginMessageSearch(.everything, "")
+                        default:
+                            break
+                        }
+                    }
+                    self.legacyBar = legacyBar
+                    self.view.addSubview(legacyBar)
+                }
+                legacyBar.isHidden = false
+                self.panelContainer.isHidden = true
+                if let islandView = self.islandView {
+                    self.islandView = nil
+                    islandView.removeFromSuperview()
+                }
+                
+                var leftIds: [String] = []
+                if displaySuggestPost {
+                    leftIds.append("suggestPost")
+                }
+                if displayGift {
+                    leftIds.append("gift")
+                }
+                if displayHelp {
+                    leftIds.append("help")
+                }
+                let centerTitle: String?
+                var centerColor = interfaceState.theme.chat.inputPanel.panelControlAccentColor
+                if let action = self.action, centerAction != nil {
+                    let (title, color) = titleAndColorForAction(action, theme: interfaceState.theme, strings: interfaceState.strings)
+                    centerTitle = title
+                    centerColor = color
+                } else {
+                    centerTitle = nil
+                }
+                var isCenterEnabled = !self.isJoining
+                if self.action == .kicked {
+                    isCenterEnabled = false
+                }
+                legacyBar.update(
+                    theme: interfaceState.theme,
+                    size: CGSize(width: width, height: panelHeight),
+                    leftInset: leftInset - 8.0 - compactBottomSideInset,
+                    rightInset: rightInset - 8.0 - compactBottomSideInset,
+                    leftIds: leftIds,
+                    displaySearch: !canJoinInaccessibleCommunityChat(interfaceState),
+                    centerTitle: centerTitle,
+                    centerColor: centerColor,
+                    isCenterEnabled: isCenterEnabled,
+                    isCenterWide: centerAction?.isAccent ?? false
+                )
+                transition.updateFrame(view: legacyBar, frame: CGRect(origin: CGPoint(), size: CGSize(width: width, height: panelHeight)))
+                return panelHeight
+            } else {
+                self.legacyBar?.isHidden = true
+                self.panelContainer.isHidden = false
+            }
+        }
+        
         let _ = self.panel.update(
             transition: ComponentTransition(transition),
             component: AnyComponent(GlassControlPanelComponent(
@@ -1104,6 +1186,9 @@ public final class ChatChannelSubscriberInputPanelNode: ChatInputPanelNode {
     }
     
     override public func updateOverscrollIsland(_ island: ChatInputPanelOverscrollIsland?, animated: Bool) -> Bool {
+        if AyuLegacyUI.isEnabled {
+            return false
+        }
         let anchor = self.overscrollIslandAnchor()
         guard let island else {
             self.overscrollIsland?.dismiss(anchorFrame: anchor?.anchorFrame, animated: animated)
@@ -1126,5 +1211,126 @@ public final class ChatChannelSubscriberInputPanelNode: ChatInputPanelNode {
     
     override public func minimalHeight(interfaceState: ChatPresentationInterfaceState, metrics: LayoutMetrics) -> CGFloat {
         return defaultHeight(metrics: metrics)
+    }
+}
+
+private final class LegacySubscriberBar: UIView {
+    private let centerButton: HighlightableButton
+    private var sideButtons: [String: HighlightableButton] = [:]
+    private var currentTheme: PresentationTheme?
+    
+    var centerAction: (() -> Void)?
+    var sideAction: ((String) -> Void)?
+    
+    override init(frame: CGRect) {
+        self.centerButton = HighlightableButton()
+        
+        super.init(frame: frame)
+        
+        self.addSubview(self.centerButton)
+        self.centerButton.addTarget(self, action: #selector(self.centerPressed), for: .touchUpInside)
+    }
+    
+    required init?(coder: NSCoder) {
+        preconditionFailure()
+    }
+    
+    @objc private func centerPressed() {
+        self.centerAction?()
+    }
+    
+    @objc private func sidePressed(_ sender: UIButton) {
+        for (id, button) in self.sideButtons {
+            if button === sender {
+                self.sideAction?(id)
+                break
+            }
+        }
+    }
+    
+    func itemView(id: AnyHashable) -> UIView? {
+        guard let id = id.base as? String, let button = self.sideButtons[id], !button.isHidden else {
+            return nil
+        }
+        return button
+    }
+    
+    private static func imageName(id: String) -> String {
+        switch id {
+        case "suggestPost":
+            return "Chat/Input/Accessory Panels/SuggestPost"
+        case "gift":
+            return "Chat/Input/Accessory Panels/Gift"
+        case "help":
+            return "Chat/Input/Accessory Panels/Help"
+        default:
+            return "Chat List/SearchIcon"
+        }
+    }
+    
+    private func sideButton(id: String, theme: PresentationTheme, themeUpdated: Bool) -> HighlightableButton {
+        let button: HighlightableButton
+        if let current = self.sideButtons[id] {
+            button = current
+        } else {
+            button = HighlightableButton()
+            button.addTarget(self, action: #selector(self.sidePressed(_:)), for: .touchUpInside)
+            self.sideButtons[id] = button
+            self.addSubview(button)
+            button.setImage(generateTintedImage(image: UIImage(bundleImageName: LegacySubscriberBar.imageName(id: id)), color: theme.chat.inputPanel.panelControlAccentColor), for: [])
+        }
+        if themeUpdated {
+            button.setImage(generateTintedImage(image: UIImage(bundleImageName: LegacySubscriberBar.imageName(id: id)), color: theme.chat.inputPanel.panelControlAccentColor), for: [])
+        }
+        button.isHidden = false
+        return button
+    }
+    
+    func update(theme: PresentationTheme, size: CGSize, leftInset: CGFloat, rightInset: CGFloat, leftIds: [String], displaySearch: Bool, centerTitle: String?, centerColor: UIColor, isCenterEnabled: Bool, isCenterWide: Bool) {
+        let themeUpdated = self.currentTheme !== theme
+        self.currentTheme = theme
+        
+        let buttonSize = CGSize(width: 40.0, height: 40.0)
+        let buttonY = floor((size.height - buttonSize.height) / 2.0)
+        
+        var visibleIds = Set<String>()
+        var leftEdge = leftInset + 5.0
+        for id in leftIds {
+            let button = self.sideButton(id: id, theme: theme, themeUpdated: themeUpdated)
+            button.frame = CGRect(origin: CGPoint(x: leftEdge, y: buttonY), size: buttonSize)
+            leftEdge += buttonSize.width
+            visibleIds.insert(id)
+        }
+        var rightEdge = size.width - rightInset - 5.0
+        if displaySearch {
+            let button = self.sideButton(id: "search", theme: theme, themeUpdated: themeUpdated)
+            rightEdge -= buttonSize.width
+            button.frame = CGRect(origin: CGPoint(x: rightEdge, y: buttonY), size: buttonSize)
+            visibleIds.insert("search")
+        }
+        for (id, button) in self.sideButtons {
+            if !visibleIds.contains(id) {
+                button.isHidden = true
+            }
+        }
+        
+        if let centerTitle {
+            self.centerButton.isHidden = false
+            self.centerButton.setAttributedTitle(NSAttributedString(string: centerTitle, font: Font.regular(17.0), textColor: centerColor), for: [])
+            self.centerButton.isEnabled = isCenterEnabled
+            self.centerButton.alpha = isCenterEnabled ? 1.0 : 0.5
+            let sideWidth = max(leftEdge - leftInset, size.width - rightInset - rightEdge)
+            let availableWidth = max(1.0, size.width - leftInset - rightInset - sideWidth * 2.0)
+            let titleSize = self.centerButton.sizeThatFits(CGSize(width: availableWidth, height: size.height))
+            let buttonWidth: CGFloat
+            if isCenterWide {
+                buttonWidth = availableWidth
+            } else {
+                buttonWidth = min(availableWidth, titleSize.width + 24.0)
+            }
+            self.centerButton.frame = CGRect(origin: CGPoint(x: leftInset + floor((size.width - leftInset - rightInset - buttonWidth) / 2.0), y: 0.0), size: CGSize(width: buttonWidth, height: size.height))
+        } else {
+            self.centerButton.isHidden = true
+        }
     }
 }

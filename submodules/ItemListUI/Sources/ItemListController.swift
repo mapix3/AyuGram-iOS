@@ -403,6 +403,9 @@ open class ItemListController: ViewController, KeyShortcutResponder, Presentable
                                 }
                             case let .textWithTabs(title, sections, index):
                                 strongSelf.title = title
+                                if AyuLegacyUI.isEnabled {
+                                    strongSelf.navigationBar?.setBackdropAlpha(1.0, transition: .immediate)
+                                }
                                 if let tabsNavigationContentNode = strongSelf.tabsNavigationContentNode, tabsNavigationContentNode.segments == sections {
                                     tabsNavigationContentNode.index = index
                                 } else {

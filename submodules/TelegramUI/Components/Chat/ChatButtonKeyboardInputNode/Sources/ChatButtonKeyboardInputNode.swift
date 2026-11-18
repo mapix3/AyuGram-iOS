@@ -75,7 +75,7 @@ private final class ChatButtonKeyboardInputButtonNode: HighlightTrackingButtonNo
         }
         
         if self.backgroundView.image == nil {
-            self.backgroundView.image = generateStretchableFilledCircleImage(diameter: 20.0, color: .white)?.withRenderingMode(.alwaysTemplate)
+            self.backgroundView.image = generateStretchableFilledCircleImage(diameter: AyuLegacyUI.isEnabled ? 10.0 : 20.0, color: .white)?.withRenderingMode(.alwaysTemplate)
             self.tintMaskView.image = self.backgroundView.image
         }
         self.tintMaskView.tintColor = .black
@@ -95,7 +95,7 @@ private final class ChatButtonKeyboardInputButtonNode: HighlightTrackingButtonNo
                 titleColor = .white
             }
         } else {
-            self.backgroundView.tintColor = theme.overallDarkAppearance ? UIColor(white: 1.0, alpha: 0.25) : UIColor(white: 1.0, alpha: 0.85)
+            self.backgroundView.tintColor = AyuLegacyUI.isEnabled ? theme.chat.inputButtonPanel.buttonFillColor : (theme.overallDarkAppearance ? UIColor(white: 1.0, alpha: 0.25) : UIColor(white: 1.0, alpha: 0.85))
         }
         
         let title = NSAttributedString(string: button.title, font: Font.regular(16.0), textColor: titleColor, paragraphAlignment: .center)
@@ -254,12 +254,12 @@ public final class ChatButtonKeyboardInputNode: ChatInputNode, UIScrollViewDeleg
         self.scrollNode.view.delegate = self
         
         self.scrollNode.view.clipsToBounds = true
-        self.scrollNode.cornerRadius = 30.0
+        self.scrollNode.cornerRadius = AyuLegacyUI.isEnabled ? 0.0 : 30.0
         self.scrollNode.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         self.scrollNode.view.scrollsToTop = false
         
         self.backgroundTintMaskView.clipsToBounds = true
-        self.backgroundTintMaskView.layer.cornerRadius = 30.0
+        self.backgroundTintMaskView.layer.cornerRadius = AyuLegacyUI.isEnabled ? 0.0 : 30.0
         self.backgroundTintMaskView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
     }
     
@@ -359,14 +359,16 @@ public final class ChatButtonKeyboardInputNode: ChatInputNode, UIScrollViewDeleg
             
             var backgroundFrame = CGRect(origin: CGPoint(), size: CGSize(width: width, height: panelHeight))
             backgroundFrame.size.height += 32.0
-            let keyboardCornerRadius: CGFloat = 30.0
+            let keyboardCornerRadius: CGFloat = AyuLegacyUI.isEnabled ? 0.0 : 30.0
             
-            if self.backgroundChromeView.image == nil || updatedTheme {
+            if AyuLegacyUI.isEnabled {
+                self.backgroundChromeView.image = nil
+            } else if self.backgroundChromeView.image == nil || updatedTheme {
                 self.backgroundChromeView.image = GlassBackgroundView.generateForegroundImage(size: CGSize(width: keyboardCornerRadius * 2.0, height: keyboardCornerRadius * 2.0), isDark: interfaceState.theme.overallDarkAppearance, fillColor: .clear)
             }
             
             if self.backgroundTintView.image == nil {
-                self.backgroundTintView.image = generateStretchableFilledCircleImage(diameter: keyboardCornerRadius * 2.0, color: .white)?.withRenderingMode(.alwaysTemplate)
+                self.backgroundTintView.image = AyuLegacyUI.isEnabled ? generateStretchableFilledCircleImage(diameter: 2.0, color: .white)?.withRenderingMode(.alwaysTemplate) : generateStretchableFilledCircleImage(diameter: keyboardCornerRadius * 2.0, color: .white)?.withRenderingMode(.alwaysTemplate)
             }
             self.backgroundTintView.tintColor = interfaceState.theme.chat.inputButtonPanel.panelBackgroundColor
             

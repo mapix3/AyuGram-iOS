@@ -91,6 +91,7 @@ private let badgeFont = Font.regular(13.0)
 
 private final class TabBarItemNode: ASDisplayNode {
     let extractedContainerNode: ContextExtractedContentContainingNode
+    let contextSourceView: ContextExtractedContentContainingView
     let containerNode: ContextControllerSourceNode
     let imageNode: ASImageNode
     let animationContainerNode: ASDisplayNode
@@ -119,6 +120,8 @@ private final class TabBarItemNode: ASDisplayNode {
 
     override init() {
         self.extractedContainerNode = ContextExtractedContentContainingNode()
+        self.contextSourceView = ContextExtractedContentContainingView()
+        self.contextSourceView.isUserInteractionEnabled = false
         self.containerNode = ContextControllerSourceNode()
         
         self.ringImageNode = ASImageNode()
@@ -188,6 +191,8 @@ private final class TabBarItemNode: ASDisplayNode {
     override func didLoad() {
         super.didLoad()
         
+        self.view.addSubview(self.contextSourceView)
+        
         self.pointerInteraction = PointerInteraction(node: self, style: .rectangle(CGSize(width: 90.0, height: 50.0)))
     }
     
@@ -229,7 +234,7 @@ private final class TabBarNodeContainer {
     var selectedImageValue: UIImage?
     var appliedSelectedImageValue: UIImage?
     
-    init(item: TabBarNodeItem, imageNode: TabBarItemNode, updateBadge: @escaping (String) -> Void, updateTitle: @escaping (String, Bool) -> Void, updateImage: @escaping (UIImage?) -> Void, updateSelectedImage: @escaping (UIImage?) -> Void, contextAction: @escaping (ContextExtractedContentContainingNode, ContextGesture) -> Void, swipeAction: @escaping (TabBarItemSwipeDirection) -> Void) {
+    init(item: TabBarNodeItem, imageNode: TabBarItemNode, updateBadge: @escaping (String) -> Void, updateTitle: @escaping (String, Bool) -> Void, updateImage: @escaping (UIImage?) -> Void, updateSelectedImage: @escaping (UIImage?) -> Void, contextAction: @escaping (ContextExtractedContentContainingView, ContextGesture) -> Void, swipeAction: @escaping (TabBarItemSwipeDirection) -> Void) {
         self.item = item.item
         
         self.imageNode = imageNode
@@ -279,7 +284,7 @@ private final class TabBarNodeContainer {
             guard let strongSelf = self else {
                 return
             }
-            contextAction(strongSelf.imageNode.extractedContainerNode, gesture)
+            contextAction(strongSelf.imageNode.contextSourceView, gesture)
         }
         imageNode.swiped = { [weak imageNode] direction in
             guard let imageNode = imageNode, imageNode.isSelected else {
@@ -343,7 +348,7 @@ class TabBarNode: ASDisplayNode, ASGestureRecognizerDelegate {
     }
     
     private let itemSelected: (Int, Bool, [ASDisplayNode]) -> Void
-    private let contextAction: (Int, ContextExtractedContentContainingNode, ContextGesture) -> Void
+    private let contextAction: (Int, ContextExtractedContentContainingView, ContextGesture) -> Void
     private let swipeAction: (Int, TabBarItemSwipeDirection) -> Void
     
     private var theme: PresentationTheme
@@ -354,18 +359,24 @@ class TabBarNode: ASDisplayNode, ASGestureRecognizerDelegate {
     private var badgeImage: UIImage
 
     let backgroundNode: NavigationBackgroundNode
+    let separatorNode: ASDisplayNode
     private var tabBarNodeContainers: [TabBarNodeContainer] = []
     
     private var tapRecognizer: TapLongTapOrDoubleTapGestureRecognizer?
     
 
-    init(theme: PresentationTheme, itemSelected: @escaping (Int, Bool, [ASDisplayNode]) -> Void, contextAction: @escaping (Int, ContextExtractedContentContainingNode, ContextGesture) -> Void, swipeAction: @escaping (Int, TabBarItemSwipeDirection) -> Void) {
+    init(theme: PresentationTheme, itemSelected: @escaping (Int, Bool, [ASDisplayNode]) -> Void, contextAction: @escaping (Int, ContextExtractedContentContainingView, ContextGesture) -> Void, swipeAction: @escaping (Int, TabBarItemSwipeDirection) -> Void) {
         self.itemSelected = itemSelected
         self.contextAction = contextAction
         self.swipeAction = swipeAction
         self.theme = theme
 
         self.backgroundNode = NavigationBackgroundNode(color: theme.rootController.tabBar.backgroundColor)
+        
+        self.separatorNode = ASDisplayNode()
+        self.separatorNode.backgroundColor = theme.rootController.tabBar.separatorColor
+        self.separatorNode.isOpaque = true
+        self.separatorNode.isLayerBacked = true
         
         self.badgeImage = generateStretchableFilledCircleImage(diameter: 18.0, color: theme.rootController.tabBar.badgeBackgroundColor, strokeColor: theme.rootController.tabBar.badgeStrokeColor, strokeWidth: 1.0, backgroundColor: nil)!
         
@@ -380,6 +391,7 @@ class TabBarNode: ASDisplayNode, ASGestureRecognizerDelegate {
         self.isExclusiveTouch = true
 
         self.addSubnode(self.backgroundNode)
+        self.addSubnode(self.separatorNode)
     }
     
     override func didLoad() {
@@ -419,6 +431,7 @@ class TabBarNode: ASDisplayNode, ASGestureRecognizerDelegate {
             self.theme = theme
             
             self.backgroundNode.updateColor(color: theme.rootController.tabBar.backgroundColor, transition: .immediate)
+            self.separatorNode.backgroundColor = theme.rootController.tabBar.separatorColor
             
             self.badgeImage = generateStretchableFilledCircleImage(diameter: 18.0, color: theme.rootController.tabBar.badgeBackgroundColor, strokeColor: theme.rootController.tabBar.badgeStrokeColor, strokeWidth: 1.0, backgroundColor: nil)!
             for container in self.tabBarNodeContainers {
@@ -439,12 +452,24 @@ class TabBarNode: ASDisplayNode, ASGestureRecognizerDelegate {
         }
     }
     
+    func updateBackgroundAlpha(_ alpha: CGFloat, transition: ContainedViewLayoutTransition) {
+        let alpha = max(0.0, min(1.0, alpha))
+        transition.updateAlpha(node: self.backgroundNode, alpha: alpha, delay: 0.1)
+        transition.updateAlpha(node: self.separatorNode, alpha: alpha, delay: 0.1)
+    }
+    
     func frameForControllerTab(at index: Int) -> CGRect? {
+        guard index >= 0 && index < self.tabBarNodeContainers.count else {
+            return nil
+        }
         let container = self.tabBarNodeContainers[index]
         return container.imageNode.frame
     }
     
     func viewForControllerTab(at index: Int) -> UIView? {
+        guard index >= 0 && index < self.tabBarNodeContainers.count else {
+            return nil
+        }
         let container = self.tabBarNodeContainers[index]
         return container.imageNode.view
     }
@@ -662,6 +687,7 @@ class TabBarNode: ASDisplayNode, ASGestureRecognizerDelegate {
 
         transition.updateFrame(node: self.backgroundNode, frame: CGRect(origin: CGPoint(), size: size))
         self.backgroundNode.update(size: size, transition: transition)
+        transition.updateFrame(node: self.separatorNode, frame: CGRect(origin: CGPoint(), size: CGSize(width: size.width, height: separatorHeight)))
         
         let horizontal = !leftInset.isZero
         if self.horizontal != horizontal {
@@ -713,6 +739,9 @@ class TabBarNode: ASDisplayNode, ASGestureRecognizerDelegate {
                 node.extractedContainerNode.contentNode.frame = node.extractedContainerNode.bounds
                 node.extractedContainerNode.contentRect = node.extractedContainerNode.bounds
                 node.containerNode.frame = CGRect(origin: CGPoint(), size: nodeFrame.size)
+                node.contextSourceView.frame = CGRect(origin: CGPoint(), size: nodeFrame.size)
+                node.contextSourceView.contentView.frame = CGRect(origin: CGPoint(), size: nodeFrame.size)
+                node.contextSourceView.contentRect = CGRect(origin: CGPoint(), size: nodeFrame.size)
                 node.hitTestSlop = UIEdgeInsets(top: -3.0, left: -horizontalHitTestInset, bottom: -3.0, right: -horizontalHitTestInset)
                 node.containerNode.hitTestSlop = UIEdgeInsets(top: -3.0, left: -horizontalHitTestInset, bottom: -3.0, right: -horizontalHitTestInset)
                 node.accessibilityFrame = nodeFrame.insetBy(dx: -horizontalHitTestInset, dy: 0.0).offsetBy(dx: 0.0, dy: size.height - nodeSize.height - bottomInset)
@@ -724,8 +753,10 @@ class TabBarNode: ASDisplayNode, ASGestureRecognizerDelegate {
                 node.contextTextImageNode.frame = CGRect(origin: CGPoint(), size: nodeFrame.size)
                                 
 
-                node.imageNode.frame = CGRect(origin: CGPoint(x: 0.0, y: 6.0), size: nodeFrame.size)
-                node.textImageNode.frame = CGRect(origin: CGPoint(), size: CGSize())
+                if !SGSimpleSettings.shared.showTabNames {
+                    node.imageNode.frame = CGRect(origin: CGPoint(x: 0.0, y: 6.0), size: nodeFrame.size)
+                    node.textImageNode.frame = CGRect(origin: CGPoint(), size: CGSize())
+                }
                 
                 
                 let scaleFactor: CGFloat = horizontal ? 0.8 : 1.0

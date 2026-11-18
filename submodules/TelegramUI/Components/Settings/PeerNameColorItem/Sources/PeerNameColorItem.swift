@@ -287,7 +287,7 @@ public final class PeerNameColorItem: ListViewItem, ItemListItem, ListItemCompon
     public init(theme: PresentationTheme, systemStyle: ItemListSystemStyle = .legacy, colors: PeerNameColors, mode: Mode, displayEmptyColor: Bool = false, currentColor: PeerNameColor?, isLocked: Bool = false, updated: @escaping (PeerNameColor?) -> Void, tag: ItemListItemTag? = nil, sectionId: ItemListSectionId, strings: PresentationStrings) {
         self.strings = strings
         self.theme = theme
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.colors = colors
         self.mode = mode
         self.displayEmptyColor = displayEmptyColor

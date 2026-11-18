@@ -23,7 +23,7 @@ public class SliderPercentageItem: ListViewItem, ItemListItem {
         self.strings = strings
         self.value = value
         self.sectionId = sectionId
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.updated = updated
     }
     

@@ -67,7 +67,7 @@ final class AutodownloadSizeLimitItem: ListViewItem, ItemListItem {
         self.accessibilityLabel = accessibilityLabel
         self.theme = theme
         self.strings = strings
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.decimalSeparator = decimalSeparator
         self.text = text
         self.value = value

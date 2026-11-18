@@ -209,8 +209,8 @@ final class ChatHistoryNavigationButtons: ASDisplayNode {
     }
     
     func updateLayout(transition: ContainedViewLayoutTransition) -> CGSize {
-        let buttonSize = CGSize(width: 40.0, height: 40.0)
-        let completeSize = CGSize(width: buttonSize.width, height: buttonSize.height * 2.0 + 8.0)
+        let buttonSize = AyuLegacyUI.isEnabled ? CGSize(width: 38.0, height: 38.0) : CGSize(width: 40.0, height: 40.0)
+        let completeSize = CGSize(width: buttonSize.width, height: buttonSize.height * 2.0 + (AyuLegacyUI.isEnabled ? 12.0 : 8.0))
         var upOffset: CGFloat = 0.0
         var mentionsOffset: CGFloat = 0.0
         var reactionsOffset: CGFloat = 0.0

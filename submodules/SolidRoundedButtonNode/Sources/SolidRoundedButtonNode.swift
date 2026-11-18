@@ -349,7 +349,7 @@ public final class SolidRoundedButtonNode: ASDisplayNode {
     
     public init(title: String? = nil, icon: UIImage? = nil, theme: SolidRoundedButtonTheme, glass: Bool = false, glassInset: Bool = false, font: SolidRoundedButtonFont = .bold, fontSize: CGFloat = 17.0, height: CGFloat = 48.0, cornerRadius: CGFloat = 24.0, isShimmering: Bool = false) {
         self.theme = theme
-        self.glass = glass
+        self.glass = glass && !AyuLegacyUI.isEnabled
         self.glassInset = glassInset
         self.font = font
         self.fontSize = fontSize

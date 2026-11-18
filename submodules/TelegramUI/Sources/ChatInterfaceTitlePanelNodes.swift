@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Display
 import TelegramCore
 import AccountContext
 import ChatPresentationInterfaceState
@@ -325,7 +326,7 @@ func headerTopicsPanelForChatPresentationInterfaceState(_ chatPresentationInterf
                 strings: chatPresentationInterfaceState.strings,
                 peerId: peerId,
                 kind: .monoforum,
-                location: chatPresentationInterfaceState.persistentData.topicListPanelLocation == .top ? .top : .bottom,
+                location: (chatPresentationInterfaceState.persistentData.topicListPanelLocation == .top || AyuLegacyUI.isEnabled) ? .top : .bottom,
                 topicId: chatPresentationInterfaceState.chatLocation.threadId,
                 controller: { [weak interfaceInteraction] in
                     return interfaceInteraction?.chatController()
@@ -356,7 +357,7 @@ func headerTopicsPanelForChatPresentationInterfaceState(_ chatPresentationInterf
                 strings: chatPresentationInterfaceState.strings,
                 peerId: peerId,
                 kind: .forum,
-                location: chatPresentationInterfaceState.persistentData.topicListPanelLocation == .top ? .top : .bottom,
+                location: (chatPresentationInterfaceState.persistentData.topicListPanelLocation == .top || AyuLegacyUI.isEnabled) ? .top : .bottom,
                 topicId: chatPresentationInterfaceState.chatLocation.threadId,
                 controller: { [weak interfaceInteraction] in
                     return interfaceInteraction?.chatController()
@@ -389,7 +390,7 @@ func headerTopicsPanelForChatPresentationInterfaceState(_ chatPresentationInterf
                 strings: chatPresentationInterfaceState.strings,
                 peerId: peerId,
                 kind: .botForum(forumManagedByUser: botInfo.flags.contains(.forumManagedByUser)),
-                location: chatPresentationInterfaceState.persistentData.topicListPanelLocation == .top ? .top : .bottom,
+                location: (chatPresentationInterfaceState.persistentData.topicListPanelLocation == .top || AyuLegacyUI.isEnabled) ? .top : .bottom,
                 topicId: chatPresentationInterfaceState.chatLocation.threadId,
                 controller: { [weak interfaceInteraction] in
                     return interfaceInteraction?.chatController()

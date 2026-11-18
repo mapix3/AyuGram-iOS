@@ -41,7 +41,7 @@ public class InfoListItem: ListViewItem {
     
     public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, title: String, text: InfoListItemText, style: ItemListStyle, hasDecorations: Bool = true, isWarning: Bool = false, infoStyle: InfoStyle = .default, linkAction: ((InfoListItemLinkAction) -> Void)? = nil, closeAction: (() -> Void)?) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.title = title
         self.text = text
         self.style = style

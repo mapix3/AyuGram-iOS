@@ -53,7 +53,7 @@ public final class ChatSearchNavigationContentNode: NavigationBarContentNode {
         self.close = (GlassBackgroundView(), UIImageView())
         self.close.background.contentView.addSubview(self.close.icon)
         
-        self.searchBar = SearchBarNode(
+        self.searchBar = AyuLegacyUI.isEnabled ? SearchBarNode(theme: SearchBarNodeTheme(theme: theme, hasBackground: false, hasSeparator: false), presentationTheme: theme, strings: strings, fieldStyle: .modern) : SearchBarNode(
             theme: SearchBarNodeTheme(
                 background: .clear,
                 separator: .clear,
@@ -86,15 +86,19 @@ public final class ChatSearchNavigationContentNode: NavigationBarContentNode {
                 placeholderText = strings.Conversation_SearchPlaceholder
             }
         }
-        self.searchBar.placeholderString = NSAttributedString(string: placeholderText, font: searchBarFont, textColor: theme.chat.inputPanel.inputPlaceholderColor)
+        self.searchBar.placeholderString = NSAttributedString(string: placeholderText, font: searchBarFont, textColor: AyuLegacyUI.isEnabled ? theme.rootController.navigationSearchBar.inputPlaceholderTextColor : theme.chat.inputPanel.inputPlaceholderColor)
         
         super.init()
         
+        if AyuLegacyUI.isEnabled {
+            self.addSubnode(self.searchBar)
+        } else {
         self.view.addSubview(self.backgroundContainer)
         self.backgroundView.contentView.addSubview(self.searchBar.view)
         
         self.backgroundContainer.contentView.addSubview(self.close.background)
         self.close.background.contentView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.onCloseTapGesture(_:))))
+        }
         
         self.searchBar.cancel = { [weak self] in
             self?.searchBar.deactivate(clear: false)
@@ -125,6 +129,10 @@ public final class ChatSearchNavigationContentNode: NavigationBarContentNode {
                 guard let self else {
                     return
                 }
+                if AyuLegacyUI.isEnabled {
+                    self.searchBar.activity = value
+                    return
+                }
                 if self.hasActivity != value {
                     self.hasActivity = value
                     if let params = self.params {
@@ -140,7 +148,7 @@ public final class ChatSearchNavigationContentNode: NavigationBarContentNode {
     }
     
     override public var nominalHeight: CGFloat {
-        return 60.0
+        return AyuLegacyUI.isEnabled ? 54.0 : 60.0
     }
     
     @objc private func onCloseTapGesture(_ recognizer: UITapGestureRecognizer) {
@@ -151,6 +159,13 @@ public final class ChatSearchNavigationContentNode: NavigationBarContentNode {
     
     override public func updateLayout(size: CGSize, leftInset: CGFloat, rightInset: CGFloat, transition: ContainedViewLayoutTransition) -> CGSize {
         self.params = (size, leftInset, rightInset)
+        
+        if AyuLegacyUI.isEnabled {
+            let legacySearchBarFrame = CGRect(origin: CGPoint(x: 0.0, y: size.height - 54.0), size: CGSize(width: size.width, height: 54.0))
+            self.searchBar.frame = legacySearchBarFrame
+            self.searchBar.updateLayout(boundingSize: legacySearchBarFrame.size, leftInset: leftInset, rightInset: rightInset, transition: transition)
+            return size
+        }
         
         let transition = ComponentTransition(transition)
         
@@ -239,6 +254,9 @@ public final class ChatSearchNavigationContentNode: NavigationBarContentNode {
     
     public func update(presentationInterfaceState: ChatPresentationInterfaceState) {
         if let search = presentationInterfaceState.search {
+            if AyuLegacyUI.isEnabled {
+                self.searchBar.updateThemeAndStrings(theme: SearchBarNodeTheme(theme: presentationInterfaceState.theme, hasBackground: false, hasSeparator: false), presentationTheme: presentationInterfaceState.theme, strings: presentationInterfaceState.strings)
+            } else {
             self.searchBar.updateThemeAndStrings(
                 theme: SearchBarNodeTheme(
                     background: .clear,
@@ -255,6 +273,7 @@ public final class ChatSearchNavigationContentNode: NavigationBarContentNode {
                 preferClearGlass: presentationInterfaceState.preferredGlassType == .clear,
                 strings: presentationInterfaceState.strings
             )
+            }
             
             switch search.domain {
             case .everything, .tag:
@@ -275,10 +294,10 @@ public final class ChatSearchNavigationContentNode: NavigationBarContentNode {
                         placeholderText = self.strings.Conversation_SearchPlaceholder
                     }
                 }
-                self.searchBar.placeholderString = NSAttributedString(string: placeholderText, font: searchBarFont, textColor: presentationInterfaceState.theme.chat.inputPanel.inputPlaceholderColor)
+                self.searchBar.placeholderString = NSAttributedString(string: placeholderText, font: searchBarFont, textColor: AyuLegacyUI.isEnabled ? presentationInterfaceState.theme.rootController.navigationSearchBar.inputPlaceholderTextColor : presentationInterfaceState.theme.chat.inputPanel.inputPlaceholderColor)
             case .members:
                 self.searchBar.tokens = []
-                self.searchBar.prefixString = NSAttributedString(string: strings.Conversation_SearchByName_Prefix, font: searchBarFont, textColor: presentationInterfaceState.theme.chat.inputPanel.inputTextColor)
+                self.searchBar.prefixString = NSAttributedString(string: strings.Conversation_SearchByName_Prefix, font: searchBarFont, textColor: AyuLegacyUI.isEnabled ? presentationInterfaceState.theme.rootController.navigationSearchBar.inputTextColor : presentationInterfaceState.theme.chat.inputPanel.inputTextColor)
                 self.searchBar.placeholderString = nil
             case let .member(peer):
                 self.searchBar.tokens = [SearchBarToken(id: peer.id, icon: UIImage(bundleImageName: "Chat List/Search/User"), title: EnginePeer(peer).compactDisplayTitle, permanent: false)]

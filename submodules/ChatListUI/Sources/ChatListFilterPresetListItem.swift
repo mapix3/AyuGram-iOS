@@ -58,7 +58,7 @@ final class ChatListFilterPresetListItem: ListViewItem, ItemListItem, ItemListRe
     ) {
         self.context = context
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.preset = preset
         self.title = title
         self.label = label

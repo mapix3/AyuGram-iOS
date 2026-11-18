@@ -43,6 +43,7 @@ final class ChatUnblockInputPanelNode: ChatInputPanelNode {
         self.strings = strings
         
         self.backgroundView = GlassBackgroundView()
+        self.backgroundView.hidesBackgroundInLegacyUI = true
         self.backgroundView.isUserInteractionEnabled = false
         
         self.button = HighlightTrackingButton()

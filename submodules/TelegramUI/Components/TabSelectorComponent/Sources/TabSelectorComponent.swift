@@ -164,7 +164,7 @@ public final class TabSelectorComponent: Component {
         self.context = context
         self.colors = colors
         self.theme = theme
-        self.style = style
+        self.style = AyuLegacyUI.isEnabled ? .legacy : style
         self.customLayout = customLayout
         self.items = items
         self.selectedId = selectedId

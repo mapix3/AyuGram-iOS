@@ -82,7 +82,7 @@ final class ItemListInviteLinkTimeLimitItem: ListViewItem, ItemListItem {
     
     init(theme: PresentationTheme, systemStyle: ItemListSystemStyle, strings: PresentationStrings, value: InviteLinkTimeLimit, enabled: Bool, sectionId: ItemListSectionId, updated: @escaping (InviteLinkTimeLimit) -> Void) {
         self.theme = theme
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.strings = strings
         self.value = value
         self.enabled = enabled

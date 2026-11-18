@@ -79,8 +79,8 @@ public final class ChatAvatarNavigationNode: ASDisplayNode {
             strongSelf.contextAction?(strongSelf.containerNode, gesture)
         }
         
-        self.containerNode.frame = CGRect(origin: CGPoint(), size: CGSize(width: 44.0, height: 44.0))
-        self.avatarNode.frame = self.containerNode.bounds.insetBy(dx: 3.0, dy: 3.0)
+        self.containerNode.frame = AyuLegacyUI.isEnabled ? CGRect(origin: CGPoint(x: 10.0, y: 1.0), size: CGSize(width: 37.0, height: 37.0)) : CGRect(origin: CGPoint(), size: CGSize(width: 44.0, height: 44.0))
+        self.avatarNode.frame = AyuLegacyUI.isEnabled ? self.containerNode.bounds : self.containerNode.bounds.insetBy(dx: 3.0, dy: 3.0)
     }
     
     deinit {
@@ -346,7 +346,7 @@ public final class ChatAvatarNavigationNode: ASDisplayNode {
     }
     
     override public func calculateSizeThatFits(_ constrainedSize: CGSize) -> CGSize {
-        return CGSize(width: 44.0, height: 44.0)
+        return AyuLegacyUI.isEnabled ? CGSize(width: 37.0, height: 37.0) : CGSize(width: 44.0, height: 44.0)
     }
     
     public func onLayout() {

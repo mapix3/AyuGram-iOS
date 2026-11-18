@@ -313,7 +313,7 @@ final class ContextControllerExtractedPresentationNode: ASDisplayNode, ContextCo
             super.init()
             
             self.clipsToBounds = true
-            self.cornerRadius = 30.0
+            self.cornerRadius = AyuLegacyUI.isEnabled ? 14.0 : 30.0
             
             self.addSubnode(self.controller.displayNode)
         }

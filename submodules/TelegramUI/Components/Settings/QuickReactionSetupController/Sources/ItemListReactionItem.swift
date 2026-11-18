@@ -32,7 +32,7 @@ public class ItemListReactionItem: ListViewItem, ItemListItem {
     public init(context: AccountContext, presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, icon: UIImage? = nil, title: String, arrowStyle: ItemListReactionArrowStyle = .none, reaction: MessageReaction.Reaction, availableReactions: AvailableReactions?, sectionId: ItemListSectionId, style: ItemListStyle, action: (() -> Void)?, tag: ItemListItemTag? = nil) {
         self.context = context
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.icon = icon
         self.title = title
         self.arrowStyle = arrowStyle

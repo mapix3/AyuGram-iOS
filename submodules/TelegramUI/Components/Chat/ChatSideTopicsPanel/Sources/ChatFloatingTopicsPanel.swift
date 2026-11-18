@@ -83,6 +83,8 @@ public final class ChatFloatingTopicsPanel: Component {
         private let containerView: GlassBackgroundContainerView
         
         private var sharedPanelBackgroundView: GlassBackgroundView?
+        private var classicBackground: NavigationBackgroundNode?
+        private var classicSeparator: SimpleLayer?
         private var sidePanel: ComponentView<ChatSidePanelEnvironment>?
         private var topPanel: ComponentView<ChatSidePanelEnvironment>?
         
@@ -157,12 +159,39 @@ public final class ChatFloatingTopicsPanel: Component {
                     },
                     containerSize: CGSize(width: 72.0 + 8.0, height: availableSize.height)
                 )
-                let sidePanelFrame = CGRect(origin: CGPoint(x: 8.0, y: 0.0), size: CGSize(width: 16.0 + 80.0, height: availableSize.height - 8.0 - environment.insets.bottom))
+                let legacyColumnHeight = max(0.0, availableSize.height - environment.insets.bottom)
+                let sidePanelFrame = AyuLegacyUI.isEnabled ? CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: CGSize(width: 80.0, height: legacyColumnHeight)) : CGRect(origin: CGPoint(x: 8.0, y: 0.0), size: CGSize(width: 16.0 + 80.0, height: availableSize.height - 8.0 - environment.insets.bottom))
                 let sidePanelBackgroundFrame = CGRect(origin: CGPoint(x: 16.0, y: 8.0), size: CGSize(width: 80.0, height: availableSize.height - 8.0 - 8.0 - environment.insets.bottom))
-                currentPanelBackgroundFrame = sidePanelBackgroundFrame
+                currentPanelBackgroundFrame = AyuLegacyUI.isEnabled ? nil : sidePanelBackgroundFrame
+                if AyuLegacyUI.isEnabled {
+                    let classicBackgroundFrame = CGRect(origin: CGPoint(x: -environment.insets.left, y: 0.0), size: CGSize(width: environment.insets.left + 80.0, height: legacyColumnHeight))
+                    let classicBackground: NavigationBackgroundNode
+                    if let current = self.classicBackground {
+                        classicBackground = current
+                        classicBackground.updateColor(color: component.theme.rootController.navigationBar.blurredBackgroundColor, transition: .immediate)
+                    } else {
+                        classicBackground = NavigationBackgroundNode(color: component.theme.rootController.navigationBar.blurredBackgroundColor)
+                        classicBackground.isUserInteractionEnabled = false
+                        self.classicBackground = classicBackground
+                        self.insertSubview(classicBackground.view, at: 0)
+                    }
+                    transition.setFrame(view: classicBackground.view, frame: classicBackgroundFrame)
+                    classicBackground.update(size: classicBackgroundFrame.size, transition: .immediate)
+                    
+                    let classicSeparator: SimpleLayer
+                    if let current = self.classicSeparator {
+                        classicSeparator = current
+                    } else {
+                        classicSeparator = SimpleLayer()
+                        self.classicSeparator = classicSeparator
+                        self.layer.insertSublayer(classicSeparator, above: classicBackground.layer)
+                    }
+                    classicSeparator.backgroundColor = component.theme.rootController.navigationBar.separatorColor.cgColor
+                    transition.setFrame(layer: classicSeparator, frame: CGRect(origin: CGPoint(x: classicBackgroundFrame.maxX, y: 0.0), size: CGSize(width: UIScreenPixel, height: legacyColumnHeight)))
+                }
                 if let sidePanelView = sidePanel.view as? ChatSideTopicsPanel.View {
                     if sidePanelView.superview == nil {
-                        sidePanelView.layer.cornerRadius = 20.0
+                        sidePanelView.layer.cornerRadius = AyuLegacyUI.isEnabled ? 0.0 : 20.0
                         sidePanelView.clipsToBounds = true
                         self.addSubview(sidePanelView)
                         
@@ -172,6 +201,16 @@ public final class ChatFloatingTopicsPanel: Component {
                 }
             } else if let sidePanel = self.sidePanel {
                 self.sidePanel = nil
+                if AyuLegacyUI.isEnabled {
+                    if let classicBackground = self.classicBackground {
+                        self.classicBackground = nil
+                        classicBackground.view.removeFromSuperview()
+                    }
+                    if let classicSeparator = self.classicSeparator {
+                        self.classicSeparator = nil
+                        classicSeparator.removeFromSuperlayer()
+                    }
+                }
                 if let sidePanelView = sidePanel.view as? ChatSideTopicsPanel.View {
                     sidePanelView.clipsToBounds = true
                     transition.setFrame(view: sidePanelView, frame: CGRect(origin: CGPoint(x: 8.0, y: 0.0), size: CGSize(width: sidePanelView.bounds.width, height: 8.0 + 40.0)), completion: { [weak sidePanelView] _ in

@@ -28,7 +28,7 @@ public final class ItemListAddressItem: ListViewItem, ItemListItem {
     
     public init(theme: PresentationTheme, systemStyle: ItemListSystemStyle = .legacy, label: String, text: String, imageSignal: Signal<(TransformImageArguments) -> DrawingContext?, NoError>?, selected: Bool? = nil, sectionId: ItemListSectionId, style: ItemListStyle, displayDecorations: Bool = true, action: (() -> Void)?, longTapAction: ((ASDisplayNode, String) -> Void)? = nil, linkItemAction: ((TextLinkItemActionType, TextLinkItem) -> Void)? = nil, tag: Any? = nil) {
         self.theme = theme
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.label = label
         self.text = text
         self.imageSignal = imageSignal

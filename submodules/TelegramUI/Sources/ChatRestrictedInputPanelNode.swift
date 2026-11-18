@@ -26,6 +26,7 @@ final class ChatRestrictedInputPanelNode: ChatInputPanelNode {
     
     override init() {
         self.backgroundView = GlassBackgroundView()
+        self.backgroundView.hidesBackgroundInLegacyUI = true
         
         self.textNode = ImmediateTextNode()
         self.textNode.maximumNumberOfLines = 2

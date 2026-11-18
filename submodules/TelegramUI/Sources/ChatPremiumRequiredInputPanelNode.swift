@@ -73,6 +73,7 @@ final class ChatPremiumRequiredInputPanelNode: ChatInputPanelNode {
     
     init(theme: PresentationTheme) {
         self.backgroundView = GlassBackgroundView()
+        self.backgroundView.hidesBackgroundInLegacyUI = true
         
         super.init()
         

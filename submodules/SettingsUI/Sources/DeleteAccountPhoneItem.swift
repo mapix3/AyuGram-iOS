@@ -94,7 +94,7 @@ final class DeleteAccountPhoneItem: ListViewItem, ItemListItem {
     
     public init(theme: PresentationTheme, systemStyle: ItemListSystemStyle = .legacy, strings: PresentationStrings, value: (Int32?, String?, String), sectionId: ItemListSectionId, selectCountryCode: @escaping () -> Void, updated: @escaping (Int) -> Void) {
         self.theme = theme
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.strings = strings
         self.value = value
         self.sectionId = sectionId

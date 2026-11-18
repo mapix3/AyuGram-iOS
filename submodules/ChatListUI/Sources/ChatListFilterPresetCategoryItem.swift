@@ -47,7 +47,7 @@ final class ChatListFilterPresetCategoryItem: ListViewItem, ItemListItem, ItemLi
         remove: @escaping () -> Void
     ) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.title = title
         self.icon = icon
         self.isRevealed = isRevealed

@@ -62,6 +62,8 @@ final class TabBarControllerNode: ASDisplayNode {
     private let contextAction: (Int, ContextExtractedContentContainingView, ContextGesture) -> Void
     
     private let tabBarView = ComponentView<Empty>()
+    private let legacyTabBarNode: TabBarNode?
+    private var legacyToolbarNode: ToolbarNode?
     
     private let disabledOverlayNode: ASDisplayNode
     private var toolbar: ComponentView<Empty>?
@@ -127,6 +129,11 @@ final class TabBarControllerNode: ASDisplayNode {
         self.disabledPressed = disabledPressed
         self.activateSearch = activateSearch
         self.deactivateSearch = deactivateSearch
+        if AyuLegacyUI.isEnabled {
+            self.legacyTabBarNode = TabBarNode(theme: theme, itemSelected: itemSelected, contextAction: contextAction, swipeAction: swipeAction)
+        } else {
+            self.legacyTabBarNode = nil
+        }
 
         super.init()
         
@@ -150,6 +157,10 @@ final class TabBarControllerNode: ASDisplayNode {
         
         //self.addSubnode(self.tabBarNode)
         //self.addSubnode(self.disabledOverlayNode)
+        if let legacyTabBarNode = self.legacyTabBarNode {
+            self.addSubnode(legacyTabBarNode)
+            self.addSubnode(self.disabledOverlayNode)
+        }
     }
     
     override func didLoad() {
@@ -169,6 +180,8 @@ final class TabBarControllerNode: ASDisplayNode {
         self.backgroundColor = theme.list.plainBackgroundColor
         
         self.disabledOverlayNode.backgroundColor = theme.rootController.tabBar.backgroundColor.withAlphaComponent(0.5)
+        self.legacyTabBarNode?.updateTheme(theme)
+        self.legacyToolbarNode?.updateTheme(ToolbarTheme(rootControllerTheme: theme))
         self.requestUpdate()
     }
     
@@ -187,6 +200,9 @@ final class TabBarControllerNode: ASDisplayNode {
     /// Where the bar goes in `layout` when it is vertical, nil for the horizontal bar. Every path that lays
     /// out a tab asks this, so they agree on whether the bar's inset applies.
     func sidePlacement(for layout: ContainerViewLayout) -> TabBarSidePlacement? {
+        if self.legacyTabBarNode != nil {
+            return nil
+        }
         return tabBarSidePlacement(layout: layout, itemCount: self.tabBarItems.count)
     }
     
@@ -207,7 +223,71 @@ final class TabBarControllerNode: ASDisplayNode {
         self.view.setNeedsLayout()
     }
     
+    func legacyTabBarHeight(layout: ContainerViewLayout) -> CGFloat? {
+        guard self.legacyTabBarNode != nil else {
+            return nil
+        }
+        var options: ContainerViewLayoutInsetOptions = []
+        if layout.metrics.widthClass == .regular {
+            options.insert(.input)
+        }
+        let bottomInset = layout.insets(options: options).bottom
+        let isSmaller = !layout.safeInsets.left.isZero
+        return sgTabBarHeightModifier(tabBarHeight: (isSmaller ? 34.0 : 49.0) + bottomInset, layout: layout, defaultBarSmaller: isSmaller)
+    }
+    
+    func updateLegacyBackgroundAlpha(_ alpha: CGFloat, transition: ContainedViewLayoutTransition) {
+        self.legacyTabBarNode?.updateBackgroundAlpha(alpha, transition: transition)
+    }
+    
+    private func updateLegacyImpl(params: Params, tabBarNode: TabBarNode, transition: ContainedViewLayoutTransition) -> CGFloat? {
+        let layout = params.layout
+        var options: ContainerViewLayoutInsetOptions = []
+        if layout.metrics.widthClass == .regular {
+            options.insert(.input)
+        }
+        let bottomInset = layout.insets(options: options).bottom
+        let tabBarHeight = self.legacyTabBarHeight(layout: layout) ?? (49.0 + bottomInset)
+        let tabBarFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - (self.tabBarHidden ? 0.0 : tabBarHeight)), size: CGSize(width: layout.size.width, height: tabBarHeight))
+        
+        transition.updateFrame(node: tabBarNode, frame: tabBarFrame)
+        tabBarNode.updateLayout(size: layout.size, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, additionalSideInsets: layout.additionalInsets, bottomInset: bottomInset, transition: transition)
+        tabBarNode.view.accessibilityElementsHidden = self.tabBarHidden
+        transition.updateFrame(node: self.disabledOverlayNode, frame: tabBarFrame)
+        
+        if let toolbar = params.toolbar {
+            if let toolbarNode = self.legacyToolbarNode {
+                transition.updateFrame(node: toolbarNode, frame: tabBarFrame)
+                toolbarNode.updateLayout(size: tabBarFrame.size, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, additionalSideInsets: layout.additionalInsets, bottomInset: bottomInset, toolbar: toolbar, transition: transition)
+            } else {
+                let toolbarNode = ToolbarNode(theme: ToolbarTheme(rootControllerTheme: self.theme), displaySeparator: true, left: { [weak self] in
+                    self?.toolbarActionSelected(.left)
+                }, right: { [weak self] in
+                    self?.toolbarActionSelected(.right)
+                }, middle: { [weak self] in
+                    self?.toolbarActionSelected(.middle)
+                })
+                toolbarNode.frame = tabBarFrame
+                toolbarNode.updateLayout(size: tabBarFrame.size, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, additionalSideInsets: layout.additionalInsets, bottomInset: bottomInset, toolbar: toolbar, transition: .immediate)
+                self.addSubnode(toolbarNode)
+                self.legacyToolbarNode = toolbarNode
+                if transition.isAnimated {
+                    toolbarNode.layer.animateAlpha(from: 0.0, to: 1.0, duration: 0.2)
+                }
+            }
+        } else if let toolbarNode = self.legacyToolbarNode {
+            self.legacyToolbarNode = nil
+            transition.updateAlpha(node: toolbarNode, alpha: 0.0, completion: { [weak toolbarNode] _ in
+                toolbarNode?.removeFromSupernode()
+            })
+        }
+        return layout.size.height - tabBarFrame.minY
+    }
+    
     private func updateImpl(params: Params, transition: ContainedViewLayoutTransition) -> CGFloat? {
+        if let legacyTabBarNode = self.legacyTabBarNode {
+            return self.updateLegacyImpl(params: params, tabBarNode: legacyTabBarNode, transition: transition)
+        }
         var panelsBottomInset: CGFloat = params.layout.insets(options: []).bottom
         if params.layout.metrics.widthClass == .regular, let inputHeight = params.layout.inputHeight, inputHeight != 0.0 {
             panelsBottomInset = inputHeight + 8.0
@@ -485,6 +565,12 @@ final class TabBarControllerNode: ASDisplayNode {
     }
     
     func frameForControllerTab(at index: Int) -> CGRect? {
+        if let legacyTabBarNode = self.legacyTabBarNode {
+            guard let itemFrame = legacyTabBarNode.frameForControllerTab(at: index) else {
+                return nil
+            }
+            return self.view.convert(itemFrame, from: legacyTabBarNode.view)
+        }
         guard let tabBarView = self.tabBarView.view as? TabBarComponent.View else {
             return nil
         }
@@ -495,6 +581,9 @@ final class TabBarControllerNode: ASDisplayNode {
     }
     
     func isPointInsideContentArea(point: CGPoint) -> Bool {
+        if let legacyTabBarNode = self.legacyTabBarNode {
+            return point.y < legacyTabBarNode.frame.minY
+        }
         guard let tabBarView = self.tabBarView.view else {
             return false
         }
@@ -514,11 +603,13 @@ final class TabBarControllerNode: ASDisplayNode {
     
     func updateTabBarItems(items: [TabBarNodeItem]) {
         self.tabBarItems = items
+        self.legacyTabBarNode?.tabBarItems = items
         self.requestUpdate()
     }
     
     func updateSelectedIndex(index: Int) {
         self.selectedIndex = index
+        self.legacyTabBarNode?.selectedIndex = index
         self.isChangingSelectedIndex = true
         self.requestUpdate()
     }

@@ -48,6 +48,10 @@ public func textAlertController(
         return presentationData
     }
     
+    if AyuLegacyUI.isEnabled {
+        return textAlertController(alertContext: AlertControllerContext(theme: AlertControllerTheme(presentationData: presentationData), themeSignal: updatedPresentationDataSignal |> map { presentationData in AlertControllerTheme(presentationData: presentationData) }), title: title, text: text, actions: actions, actionLayout: actionLayout, allowInputInset: allowInputInset, parseMarkdown: parseMarkdown, dismissOnOutsideTap: dismissOnOutsideTap, linkAction: linkAction)
+    }
+    
     let mappedActions: [AlertScreen.Action] = actions.map { action in
         let mappedType: AlertScreen.Action.ActionType
         switch action.type {

@@ -135,7 +135,8 @@ private final class ScheduleVideoChatSheetContentComponent: Component {
                         centralItem: nil,
                         rightItem: nil,
                         centerAlignmentIfPossible: true,
-                        isDark: true
+                        isDark: true,
+                        legacyPlain: true
                     )
                 ),
                 environment: {},

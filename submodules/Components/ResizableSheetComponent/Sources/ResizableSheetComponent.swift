@@ -8,6 +8,8 @@ import DynamicCornerRadiusView
 import TelegramPresentationData
 import EdgeEffect
 
+private let sheetTopCornerRadius: CGFloat = AyuLegacyUI.isEnabled ? 12.0 : 40.0
+
 public final class ResizableSheetComponentEnvironment: Equatable {
     public struct BoundsUpdate {
         public let bounds: CGRect
@@ -386,12 +388,12 @@ public final class ResizableSheetComponent<ChildEnvironmentType: Sendable & Equa
             self.containerView = UIView()
 
             self.containerView.clipsToBounds = true
-            self.containerView.layer.cornerRadius = 40.0
+            self.containerView.layer.cornerRadius = sheetTopCornerRadius
             self.containerView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
 
             self.backgroundLayer = SimpleLayer()
             self.backgroundLayer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-            self.backgroundLayer.cornerRadius = 40.0
+            self.backgroundLayer.cornerRadius = sheetTopCornerRadius
 
             self.backgroundHandleView = UIImageView()
 
@@ -408,13 +410,13 @@ public final class ResizableSheetComponent<ChildEnvironmentType: Sendable & Equa
             self.topEdgeEffectView = EdgeEffectView()
             self.topEdgeEffectView.clipsToBounds = true
             self.topEdgeEffectView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-            self.topEdgeEffectView.layer.cornerRadius = 40.0
+            self.topEdgeEffectView.layer.cornerRadius = sheetTopCornerRadius
             self.topEdgeEffectView.isUserInteractionEnabled = false
 
             self.bottomEdgeEffectView = EdgeEffectView()
             self.bottomEdgeEffectView.clipsToBounds = true
             self.bottomEdgeEffectView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-            self.bottomEdgeEffectView.layer.cornerRadius = 40.0
+            self.bottomEdgeEffectView.layer.cornerRadius = sheetTopCornerRadius
             self.bottomEdgeEffectView.isUserInteractionEnabled = false
 
             self.bottomEdgeEffectFillView = UIView()
@@ -1024,8 +1026,8 @@ public final class ResizableSheetComponent<ChildEnvironmentType: Sendable & Equa
                     self.scrollContentView.addSubview(contentView)
                 }
                 contentView.clipsToBounds = component.clipsContent
-                contentView.layer.cornerRadius = 40.0
-                let _ = contentView.layer.applyCornerRadiiIfNeeded(clipCornerRadii(40.0))
+                contentView.layer.cornerRadius = sheetTopCornerRadius
+                let _ = contentView.layer.applyCornerRadiiIfNeeded(clipCornerRadii(sheetTopCornerRadius))
                 
                 transition.setFrame(view: contentView, frame: CGRect(origin: CGPoint(x: rawSideInset, y: 0.0), size: contentViewSize))
             }
@@ -1266,8 +1268,8 @@ public final class ResizableSheetComponent<ChildEnvironmentType: Sendable & Equa
             let bottomEdgeEffectExtension = max(0.0, component.bottomEdgeEffectExtension)
             let bottomEdgeEffectFrame = CGRect(origin: CGPoint(x: rawSideInset, y: layoutSize.height - bottomInsets.bottom - bottomEdgeEffectHeight - bottomEdgeEffectExtension), size: CGSize(width: fillingSize, height: bottomEdgeEffectHeight + bottomInsets.bottom))
             transition.setFrame(view: self.bottomEdgeEffectView, frame: bottomEdgeEffectFrame)
-            if !self.bottomEdgeEffectView.layer.applyCornerRadiiIfNeeded(bottomEdgeEffectExtension > 0.0 ? nil : clipCornerRadii(40.0).map { CornerRadii(topLeft: 0.0, topRight: 0.0, bottomLeft: $0.bottomLeft, bottomRight: $0.bottomRight) }) {
-                transition.setCornerRadius(layer: self.bottomEdgeEffectView.layer, cornerRadius: bottomEdgeEffectExtension > 0.0 ? 0.0 : 40.0)
+            if !self.bottomEdgeEffectView.layer.applyCornerRadiiIfNeeded(bottomEdgeEffectExtension > 0.0 ? nil : clipCornerRadii(sheetTopCornerRadius).map { CornerRadii(topLeft: 0.0, topRight: 0.0, bottomLeft: $0.bottomLeft, bottomRight: $0.bottomRight) }) {
+                transition.setCornerRadius(layer: self.bottomEdgeEffectView.layer, cornerRadius: bottomEdgeEffectExtension > 0.0 ? 0.0 : sheetTopCornerRadius)
             }
             self.bottomEdgeEffectView.update(content: component.bottomEdgeEffectColor ?? backgroundColor, blur: true, alpha: 1.0, rect: bottomEdgeEffectFrame, edge: .bottom, edgeSize: bottomEdgeEffectHeight, transition: transition)
             if self.bottomEdgeEffectView.superview == nil {
@@ -1295,10 +1297,10 @@ public final class ResizableSheetComponent<ChildEnvironmentType: Sendable & Equa
             
             let scrollContentHeight = max(topInset + contentHeight + containerInset + sheetEnvironment.inputHeight, layoutSize.height - containerInset)
 
-            self.scrollContentClippingView.layer.cornerRadius = 40.0
-            let _ = self.scrollContentClippingView.layer.applyCornerRadiiIfNeeded(clipCornerRadii(40.0))
+            self.scrollContentClippingView.layer.cornerRadius = sheetTopCornerRadius
+            let _ = self.scrollContentClippingView.layer.applyCornerRadiiIfNeeded(clipCornerRadii(sheetTopCornerRadius))
 
-            let containerCornerRadius: CGFloat = isCentered ? 40.0 : max(22.0, sheetEnvironment.deviceMetrics.screenCornerRadius)
+            let containerCornerRadius: CGFloat = isCentered ? sheetTopCornerRadius : max(22.0, sheetEnvironment.deviceMetrics.screenCornerRadius)
             // iPhone Duo's cover screen: the container's bottom corners, which reach the screen's, follow each screen
             // corner (8pt on the hinge side, 59pt outside) instead of one radius. Nil where the corners are uniform.
             let containerBottomCornerRadii: CornerRadii? = screenBottomCornerRadii.map { CornerRadii(topLeft: 0.0, topRight: 0.0, bottomLeft: $0.left, bottomRight: $0.right) }

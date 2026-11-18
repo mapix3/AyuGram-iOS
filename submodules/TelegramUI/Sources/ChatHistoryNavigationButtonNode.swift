@@ -26,6 +26,9 @@ class ChatHistoryNavigationButtonNode: ContextControllerSourceNode {
     private let badgeBackgroundView: GlassBackgroundView
     private let badgeTextNode: ImmediateAnimatedCountLabelNode
     private var tapRecognizer: UITapGestureRecognizer?
+    private var legacyBackgroundNode: NavigationBackgroundNode?
+    private var legacyStrokeView: UIImageView?
+    private var legacyBadgeImageView: UIImageView?
     
     var tapped: (() -> Void)? {
         didSet {
@@ -92,16 +95,42 @@ class ChatHistoryNavigationButtonNode: ContextControllerSourceNode {
         
         self.addSubnode(self.containerNode)
         
-        let size = CGSize(width: 40.0, height: 40.0)
+        let size = AyuLegacyUI.isEnabled ? CGSize(width: 38.0, height: 38.0) : CGSize(width: 40.0, height: 40.0)
         
         self.containerNode.contentNode.frame = CGRect(origin: CGPoint(), size: size)
         self.containerNode.contentRect = CGRect(origin: CGPoint(), size: size)
+        
+        if AyuLegacyUI.isEnabled {
+            self.backgroundView.hidesBackgroundInLegacyUI = true
+            self.badgeBackgroundView.hidesBackgroundInLegacyUI = true
+            
+            let legacyBackgroundNode = NavigationBackgroundNode(color: theme.chat.inputPanel.panelBackgroundColor)
+            legacyBackgroundNode.isUserInteractionEnabled = false
+            legacyBackgroundNode.frame = CGRect(origin: CGPoint(), size: size)
+            legacyBackgroundNode.update(size: size, cornerRadius: size.height * 0.5, transition: .immediate)
+            self.legacyBackgroundNode = legacyBackgroundNode
+            self.containerNode.contentNode.view.addSubview(legacyBackgroundNode.view)
+            
+            let legacyStrokeView = UIImageView()
+            legacyStrokeView.isUserInteractionEnabled = false
+            legacyStrokeView.image = PresentationResourcesChat.chatHistoryNavigationButtonBackground(theme)
+            legacyStrokeView.frame = CGRect(origin: CGPoint(), size: size)
+            self.legacyStrokeView = legacyStrokeView
+            self.containerNode.contentNode.view.addSubview(legacyStrokeView)
+            
+            let legacyBadgeImageView = UIImageView()
+            legacyBadgeImageView.isUserInteractionEnabled = false
+            legacyBadgeImageView.image = PresentationResourcesChat.chatHistoryNavigationButtonBadgeImage(theme)
+            legacyBadgeImageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            self.legacyBadgeImageView = legacyBadgeImageView
+            self.badgeBackgroundView.contentView.addSubview(legacyBadgeImageView)
+        }
         
         self.containerNode.contentNode.view.addSubview(self.backgroundView)
 
         self.backgroundView.frame = CGRect(origin: CGPoint(), size: size)
         self.backgroundView.update(size: size, cornerRadius: size.height * 0.5, isDark: theme.overallDarkAppearance, tintColor: .init(kind: self.preferClearGlass ? .clear : .panel), isInteractive: true, transition: .immediate)
-        self.imageView.tintColor = theme.chat.inputPanel.panelControlColor
+        self.imageView.tintColor = AyuLegacyUI.isEnabled ? theme.rootController.navigationBar.accentTextColor : theme.chat.inputPanel.panelControlColor
 
         self.backgroundView.contentView.addSubview(self.imageView)
         self.imageView.frame = CGRect(origin: CGPoint(), size: size)
@@ -118,7 +147,16 @@ class ChatHistoryNavigationButtonNode: ContextControllerSourceNode {
             self.preferClearGlass = preferClearGlass
 
             self.backgroundView.update(size: self.backgroundView.bounds.size, cornerRadius: self.backgroundView.bounds.size.height * 0.5, isDark: theme.overallDarkAppearance, tintColor: .init(kind: self.preferClearGlass ? .clear : .panel), isInteractive: true, transition: .immediate)
-            self.imageView.tintColor = theme.chat.inputPanel.panelControlColor
+            self.imageView.tintColor = AyuLegacyUI.isEnabled ? theme.rootController.navigationBar.accentTextColor : theme.chat.inputPanel.panelControlColor
+            if let legacyBackgroundNode = self.legacyBackgroundNode {
+                legacyBackgroundNode.updateColor(color: theme.chat.inputPanel.panelBackgroundColor, transition: .immediate)
+            }
+            if let legacyStrokeView = self.legacyStrokeView {
+                legacyStrokeView.image = PresentationResourcesChat.chatHistoryNavigationButtonBackground(theme)
+            }
+            if let legacyBadgeImageView = self.legacyBadgeImageView {
+                legacyBadgeImageView.image = PresentationResourcesChat.chatHistoryNavigationButtonBadgeImage(theme)
+            }
             
             switch self.type {
             case .down:
@@ -175,8 +213,15 @@ class ChatHistoryNavigationButtonNode: ContextControllerSourceNode {
             self.badgeTextNode.segments = segments
             
             let badgeSize = self.badgeTextNode.updateLayout(size: CGSize(width: 200.0, height: 100.0), animated: true)
-            let backgroundSize = CGSize(width: self.badge.count == 1 ? 20.0 : max(20.0, badgeSize.width + 10.0 + 1.0), height: 20.0)
-            let backgroundFrame = CGRect(origin: CGPoint(x: floor((40.0 - backgroundSize.width) / 2.0), y: -7.0), size: backgroundSize)
+            let backgroundSize: CGSize
+            let backgroundFrame: CGRect
+            if AyuLegacyUI.isEnabled {
+                backgroundSize = CGSize(width: max(18.0, badgeSize.width + 10.0 + 1.0), height: 18.0)
+                backgroundFrame = CGRect(origin: CGPoint(x: floor((38.0 - backgroundSize.width) / 2.0), y: -9.0), size: backgroundSize)
+            } else {
+                backgroundSize = CGSize(width: self.badge.count == 1 ? 20.0 : max(20.0, badgeSize.width + 10.0 + 1.0), height: 20.0)
+                backgroundFrame = CGRect(origin: CGPoint(x: floor((40.0 - backgroundSize.width) / 2.0), y: -7.0), size: backgroundSize)
+            }
             if backgroundFrame.width < self.badgeBackgroundView.frame.width {
                 self.badgeBackgroundView.layer.animateFrame(from: self.badgeBackgroundView.frame, to: backgroundFrame, duration: 0.2)
                 self.badgeBackgroundView.frame = backgroundFrame
@@ -187,7 +232,10 @@ class ChatHistoryNavigationButtonNode: ContextControllerSourceNode {
             let transition: ContainedViewLayoutTransition = .animated(duration: 0.2, curve: .easeInOut)
             self.badgeBackgroundView.update(size: backgroundFrame.size, cornerRadius: backgroundFrame.height * 0.5, isDark: theme.overallDarkAppearance, tintColor: .init(kind: .custom(style: .default, color: self.theme.chat.inputPanel.actionControlFillColor)), transition: ComponentTransition(transition))
             
-            self.badgeTextNode.frame = CGRect(origin: CGPoint(x: floorToScreenPixels((backgroundFrame.width - badgeSize.width) / 2.0), y: 2.0), size: badgeSize)
+            if let legacyBadgeImageView = self.legacyBadgeImageView {
+                legacyBadgeImageView.frame = CGRect(origin: CGPoint(), size: backgroundFrame.size)
+            }
+            self.badgeTextNode.frame = CGRect(origin: CGPoint(x: floorToScreenPixels((backgroundFrame.width - badgeSize.width) / 2.0), y: AyuLegacyUI.isEnabled ? 1.0 : 2.0), size: badgeSize)
             
             if self.badgeBackgroundView.alpha < 1.0 {
                 self.badgeBackgroundView.alpha = 1.0

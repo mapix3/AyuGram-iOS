@@ -1,5 +1,6 @@
 import Foundation
 import QuartzCore
+import Display
 
 /// Keeps a glass button's context menu from opening and closing faster than its liquid morph can follow: opened again
 /// right after closing, or closed right after opening, the morph glitches. An open waits until the interval has passed
@@ -7,6 +8,9 @@ import QuartzCore
 /// (`dismissDelay`). One cooldown per button.
 public final class ContextMenuCooldown {
     public static var interval: Double {
+        if AyuLegacyUI.isEnabled {
+            return 0.0
+        }
         if #available(iOS 27.0, *) {
             return 1.0
         } else if #available(iOS 26.0, *) {

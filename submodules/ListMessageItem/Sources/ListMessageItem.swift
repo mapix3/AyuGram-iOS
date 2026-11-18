@@ -127,7 +127,7 @@ public final class ListMessageItem: ListViewItem, ItemListItem {
         sectionId: ItemListSectionId = 0
     ) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.context = context
         self.chatLocation = chatLocation
         self.interaction = interaction

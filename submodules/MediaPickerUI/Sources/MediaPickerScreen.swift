@@ -2691,6 +2691,7 @@ public final class MediaPickerScreenImpl: ViewController, MediaPickerScreen, Att
         mainButtonAction: (() -> Void)? = nil,
         secondaryButtonAction: (() -> Void)? = nil
     ) {
+        let style: Style = AyuLegacyUI.isEnabled ? .legacy : style
         self.context = context
         self.routesFilePicker = context.routesToChatMediaEditorV2(.filePicker)
         self.routesPickerGallery = context.routesToChatMediaEditorV2(.pickerGallery)
