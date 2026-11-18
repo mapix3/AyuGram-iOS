@@ -6,7 +6,8 @@ import AppBundle
 private let gradientImage = UIImage(bundleImageName: "Item List/Icons/Gradient")
 private let backdropImage = UIImage(bundleImageName: "Item List/Icons/Backdrop")
 public func renderSettingsIcon(name: String, scaleFactor: CGFloat = 1.0, backgroundColors: [UIColor]? = nil) -> UIImage? {
-    return generateImage(CGSize(width: 30.0, height: 30.0), contextGenerator: { size, context in
+    let legacy = AyuLegacyUI.isEnabled
+    return generateImage(legacy ? CGSize(width: 29.0, height: 29.0) : CGSize(width: 30.0, height: 30.0), contextGenerator: { size, context in
         let bounds = CGRect(origin: CGPoint(), size: size)
         context.clear(bounds)
         
@@ -19,12 +20,12 @@ public func renderSettingsIcon(name: String, scaleFactor: CGFloat = 1.0, backgro
             
             context.drawLinearGradient(gradient, start: CGPoint(x: size.width, y: size.height), end: CGPoint(x: 0.0, y: 0.0), options: CGGradientDrawingOptions())
             
-            if let gradientImage, let cgImage = gradientImage.cgImage {
+            if !legacy, let gradientImage, let cgImage = gradientImage.cgImage {
                 context.setBlendMode(.plusLighter)
                 context.draw(cgImage, in: CGRect(origin: .zero, size: size))
             }
             
-            if let backdropImage, let cgImage = backdropImage.cgImage {
+            if !legacy, let backdropImage, let cgImage = backdropImage.cgImage {
                 context.setBlendMode(.overlay)
                 context.draw(cgImage, in: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: size))
             }
@@ -43,7 +44,7 @@ public func renderSettingsIcon(name: String, scaleFactor: CGFloat = 1.0, backgro
             }
             
             let outerPath = UIBezierPath(rect: CGRect(origin: .zero, size: size))
-            let innerPath = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 8.0)
+            let innerPath = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: legacy ? 7.0 : 8.0)
             outerPath.append(innerPath)
 
             context.saveGState()

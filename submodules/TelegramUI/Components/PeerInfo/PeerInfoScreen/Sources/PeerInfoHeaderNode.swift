@@ -248,6 +248,10 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     var searchEdgeEffectView: EdgeEffectView?
     let searchBarContainer: SparseNode
     let editingEdgeEffectView: EdgeEffectView
+    private var legacyBackgroundNode: NavigationBackgroundNode?
+    private var legacySeparatorNode: ASDisplayNode?
+    private var legacyEditingBackgroundNode: NavigationBackgroundNode?
+    private var legacyEditingSeparatorNode: ASDisplayNode?
     
     var musicBackground: UIView?
     var music: ComponentView<Empty>?
@@ -456,6 +460,31 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         self.addSubnode(self.editingContentNode)
         self.addSubnode(self.avatarOverlayNode)
         self.view.addSubview(self.editingEdgeEffectView)
+        
+        if AyuLegacyUI.isEnabled {
+            let legacyBackgroundNode = NavigationBackgroundNode(color: .clear)
+            legacyBackgroundNode.isUserInteractionEnabled = false
+            self.insertSubnode(legacyBackgroundNode, at: 0)
+            self.legacyBackgroundNode = legacyBackgroundNode
+            
+            let legacyEditingBackgroundNode = NavigationBackgroundNode(color: .clear, enableBlur: true)
+            legacyEditingBackgroundNode.isUserInteractionEnabled = false
+            legacyEditingBackgroundNode.alpha = 0.0
+            self.addSubnode(legacyEditingBackgroundNode)
+            self.legacyEditingBackgroundNode = legacyEditingBackgroundNode
+            
+            let legacyEditingSeparatorNode = ASDisplayNode()
+            legacyEditingSeparatorNode.isLayerBacked = true
+            legacyEditingSeparatorNode.alpha = 0.0
+            self.addSubnode(legacyEditingSeparatorNode)
+            self.legacyEditingSeparatorNode = legacyEditingSeparatorNode
+            
+            let legacySeparatorNode = ASDisplayNode()
+            legacySeparatorNode.isLayerBacked = true
+            legacySeparatorNode.alpha = 0.0
+            self.addSubnode(legacySeparatorNode)
+            self.legacySeparatorNode = legacySeparatorNode
+        }
         
         self.addSubnode(self.searchContainer)
         self.addSubnode(self.searchBarContainer)
@@ -917,6 +946,19 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         }
         ComponentTransition(transition).setAlpha(view: self.editingEdgeEffectView, alpha: editingBackgroundAlpha)
         
+        if let legacyEditingBackgroundNode = self.legacyEditingBackgroundNode, let legacyEditingSeparatorNode = self.legacyEditingSeparatorNode {
+            legacyEditingSeparatorNode.backgroundColor = presentationData.theme.rootController.navigationBar.separatorColor
+            legacyEditingBackgroundNode.updateColor(color: presentationData.theme.rootController.navigationBar.blurredBackgroundColor, transition: .immediate)
+            
+            let legacyEditingBackgroundFrame = CGRect(origin: CGPoint(), size: CGSize(width: width, height: navigationHeight))
+            transition.updateFrame(node: legacyEditingBackgroundNode, frame: legacyEditingBackgroundFrame)
+            legacyEditingBackgroundNode.update(size: legacyEditingBackgroundFrame.size, transition: transition)
+            transition.updateFrame(node: legacyEditingSeparatorNode, frame: CGRect(origin: CGPoint(x: 0.0, y: legacyEditingBackgroundFrame.maxY), size: CGSize(width: width, height: UIScreenPixel)))
+            
+            transition.updateAlpha(node: legacyEditingBackgroundNode, alpha: editingBackgroundAlpha)
+            transition.updateAlpha(node: legacyEditingSeparatorNode, alpha: editingBackgroundAlpha)
+        }
+        
         if isSearching {
             let searchNavigationHeight: CGFloat
             if isSettings {
@@ -964,6 +1006,12 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             } else {
                 let contentOffset = max(0.0, contentOffset - backgroundTransitionDistance)
                 innerBackgroundTransitionFraction = max(0.0, min(1.0, contentOffset / backgroundTransitionStepDistance))
+            }
+            
+            if let legacyBackgroundNode = self.legacyBackgroundNode {
+                let headerBackgroundColor: UIColor = presentationData.theme.list.blocksBackgroundColor
+                legacyBackgroundNode.updateColor(color: presentationData.theme.rootController.navigationBar.opaqueBackgroundColor.mixedWith(headerBackgroundColor, alpha: 1.0 - innerBackgroundTransitionFraction), forceKeepBlur: true, transition: transition)
+                navigationTransition.updateAlpha(node: legacyBackgroundNode, alpha: state.isEditing ? 0.0 : 1.0)
             }
             
             if state.isEditing {
@@ -1967,6 +2015,19 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             realAreaExpansionFraction = effectiveAreaExpansionFraction
         }
         
+        if let legacySeparatorNode = self.legacySeparatorNode {
+            legacySeparatorNode.backgroundColor = presentationData.theme.list.itemBlocksSeparatorColor
+            var legacySeparatorAlpha: CGFloat = innerBackgroundTransitionFraction
+            let legacySecondarySeparatorAlpha = 1.0 - effectiveAreaExpansionFraction
+            if !self.isSettings && legacySeparatorAlpha == 1.0 && legacySecondarySeparatorAlpha < 1.0 {
+                legacySeparatorAlpha = legacySecondarySeparatorAlpha
+            }
+            if self.customNavigationContentNode != nil || state.isEditing {
+                legacySeparatorAlpha = 0.0
+            }
+            transition.updateAlpha(node: legacySeparatorNode, alpha: legacySeparatorAlpha)
+        }
+        
         self.titleNode.update(stateFractions: [
             TitleNodeStateRegular: self.isAvatarExpanded ? 0.0 : 1.0,
             TitleNodeStateExpanded: self.isAvatarExpanded ? 1.0 : 0.0
@@ -2558,6 +2619,24 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         }
         
         transition.updateFrame(node: self.regularContentNode, frame: CGRect(origin: CGPoint(), size: CGSize(width: width, height: resolvedHeight)))
+        
+        if let legacyBackgroundNode = self.legacyBackgroundNode, let legacySeparatorNode = self.legacySeparatorNode {
+            let legacySeparatorFrame: CGRect
+            if state.isEditing {
+                legacySeparatorFrame = CGRect(origin: CGPoint(x: 0.0, y: max(navigationHeight, resolvedHeight - contentOffset)), size: CGSize(width: width, height: UIScreenPixel))
+            } else {
+                legacySeparatorFrame = CGRect(origin: CGPoint(x: 0.0, y: apparentHeight), size: CGSize(width: width, height: UIScreenPixel))
+            }
+            if additive {
+                transition.updateFrameAdditive(node: legacyBackgroundNode, frame: backgroundFrame)
+                legacyBackgroundNode.update(size: legacyBackgroundNode.bounds.size, transition: transition)
+                transition.updateFrameAdditive(node: legacySeparatorNode, frame: legacySeparatorFrame)
+            } else {
+                transition.updateFrame(node: legacyBackgroundNode, frame: backgroundFrame)
+                legacyBackgroundNode.update(size: legacyBackgroundNode.bounds.size, transition: transition)
+                transition.updateFrame(node: legacySeparatorNode, frame: legacySeparatorFrame)
+            }
+        }
         
         transition.updateFrameAdditive(node: self.buttonsContainerNode, frame: CGRect(origin: CGPoint(x: 0.0, y: apparentBackgroundHeight - backgroundHeight), size: CGSize(width: width, height: 1000.0)))
         

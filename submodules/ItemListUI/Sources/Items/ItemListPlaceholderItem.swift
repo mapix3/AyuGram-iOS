@@ -15,7 +15,7 @@ public class ItemListPlaceholderItem: ListViewItem, ItemListItem {
     
     public init(theme: PresentationTheme, systemStyle: ItemListSystemStyle = .legacy, text: String, sectionId: ItemListSectionId, style: ItemListStyle, tag: ItemListItemTag? = nil) {
         self.theme = theme
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.text = text
         self.sectionId = sectionId
         self.style = style

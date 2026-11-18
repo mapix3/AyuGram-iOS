@@ -42,7 +42,7 @@ public class LocalizationListItem: ListViewItem, ItemListItem {
     
     public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, id: String, title: String, subtitle: String, checked: Bool, activity: Bool, loading: Bool, editing: LocalizationListItemEditing, enabled: Bool = true, sectionId: ItemListSectionId, alwaysPlain: Bool, action: @escaping () -> Void, setItemWithRevealedOptions: ((String?, String?) -> Void)?, removeItem: ((String) -> Void)?) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.id = id
         self.title = title
         self.subtitle = subtitle

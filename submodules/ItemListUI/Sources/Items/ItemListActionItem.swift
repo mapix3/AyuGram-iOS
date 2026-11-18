@@ -32,7 +32,7 @@ public class ItemListActionItem: ListViewItem, ItemListItem {
     
     public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, title: String, kind: ItemListActionKind, alignment: ItemListActionAlignment, sectionId: ItemListSectionId, style: ItemListStyle, action: @escaping () -> Void, longTapAction: (() -> Void)? = nil, clearHighlightAutomatically: Bool = true, tag: Any? = nil) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.title = title
         self.kind = kind
         self.alignment = alignment

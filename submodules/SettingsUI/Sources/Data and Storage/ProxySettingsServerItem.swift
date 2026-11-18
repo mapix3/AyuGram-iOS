@@ -42,7 +42,7 @@ final class ProxySettingsServerItem: ListViewItem, ItemListItem, ItemListRevealO
     init(theme: PresentationTheme, strings: PresentationStrings, systemStyle: ItemListSystemStyle = .legacy, server: ProxyServerSettings, activity: Bool, active: Bool, color: ItemListCheckboxItemColor, label: String, labelAccent: Bool, editing: ProxySettingsServerItemEditing, sectionId: ItemListSectionId, action: @escaping () -> Void, infoAction: @escaping () -> Void, setServerWithRevealedOptions: @escaping (ProxyServerSettings?, ProxyServerSettings?) -> Void, removeServer: @escaping (ProxyServerSettings) -> Void) {
         self.theme = theme
         self.strings = strings
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.server = server
         self.activity = activity
         self.active = active

@@ -20,7 +20,7 @@ class EnergyUsageBatteryLevelItem: ListViewItem, ItemListItem {
     let updated: (Int32) -> Void
     
     init(systemStyle: ItemListSystemStyle = .legacy, theme: PresentationTheme, strings: PresentationStrings, value: Int32, sectionId: ItemListSectionId, updated: @escaping (Int32) -> Void) {
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.theme = theme
         self.strings = strings
         self.value = value

@@ -33,7 +33,7 @@ class ReactionChatPreviewItem: ListViewItem, ItemListItem {
         self.context = context
         self.theme = theme
         self.strings = strings
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.sectionId = sectionId
         self.fontSize = fontSize
         self.chatBubbleCorners = chatBubbleCorners

@@ -31,7 +31,7 @@ public final class LensTransitionContainer: UIView {
     private var replacementVisibilityAssertion: AnyObject?
 
     public static var isMorphSupported: Bool {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !AyuLegacyUI.isEnabled {
             return LiquidMorphTransition.isSupported
         }
         return false
@@ -70,7 +70,7 @@ public final class LensTransitionContainer: UIView {
         }
         transition.setBounds(view: self.backgroundView, bounds: CGRect(origin: .zero, size: size))
         transition.setPosition(view: self.backgroundView, position: CGPoint(x: size.width * 0.5, y: size.height * 0.5))
-        self.backgroundView.update(size: size, cornerRadius: cornerRadius, isDark: isDark, tintColor: tintColor, transition: transition)
+        self.backgroundView.update(size: size, cornerRadius: cornerRadius, isDark: isDark, tintColor: tintColor, isVisible: !AyuLegacyUI.isEnabled, transition: transition)
         transition.setCornerRadius(layer: self.contentsView.layer, cornerRadius: cornerRadius)
     }
 

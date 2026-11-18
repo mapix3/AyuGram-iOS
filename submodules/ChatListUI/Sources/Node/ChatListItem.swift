@@ -5723,7 +5723,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                     // Separators stay out of the side safe areas. The content-aligned ones end 16pt
                     // before the right inset; the full-width ones run to the edge unless there is a
                     // right inset, in which case they end where the content-aligned ones do.
-                    let contentRightSeparatorInset: CGFloat = params.rightInset + 16.0
+                    let contentRightSeparatorInset: CGFloat = params.rightInset + (AyuLegacyUI.isEnabled ? 0.0 : 16.0)
                     let fullWidthRightSeparatorInset: CGFloat = params.rightInset.isZero ? 0.0 : contentRightSeparatorInset
                     if case let .groupReference(groupReferenceData) = item.content, groupReferenceData.hiddenByDefault {
                         leftSeparatorInset = params.leftInset

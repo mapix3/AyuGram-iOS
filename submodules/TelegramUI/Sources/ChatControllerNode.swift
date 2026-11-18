@@ -266,6 +266,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
     private let inputPanelOverlayNode: SparseNode
     private let inputPanelClippingNode: SparseNode
     let inputPanelBackgroundNode: NavigationBackgroundNode
+    private let legacyInputPanelSeparatorNode: ASDisplayNode?
     
     private var intrinsicInputPanelBackgroundNodeSize: CGSize?
     private var inputPanelBottomBackgroundSeparatorBaseOffset: CGFloat = 0.0
@@ -859,14 +860,22 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         self.inputPanelClippingNode = SparseNode()
         
         if case let .color(color) = self.chatPresentationInterfaceState.chatWallpaper, UIColor(rgb: color).isEqual(self.chatPresentationInterfaceState.theme.chat.inputPanel.panelBackgroundColorNoWallpaper) {
-            self.inputPanelBackgroundNode = NavigationBackgroundNode(color: .clear)
+            self.inputPanelBackgroundNode = NavigationBackgroundNode(color: AyuLegacyUI.isEnabled ? self.chatPresentationInterfaceState.theme.chat.inputPanel.panelBackgroundColorNoWallpaper : .clear)
             self.usePlainInputSeparator = true
         } else {
-            self.inputPanelBackgroundNode = NavigationBackgroundNode(color: .clear)
+            self.inputPanelBackgroundNode = NavigationBackgroundNode(color: AyuLegacyUI.isEnabled ? self.chatPresentationInterfaceState.theme.chat.inputPanel.panelBackgroundColor : .clear)
             self.usePlainInputSeparator = false
             self.plainInputSeparatorAlpha = nil
         }
         self.inputPanelBackgroundNode.isUserInteractionEnabled = false
+        if AyuLegacyUI.isEnabled {
+            let legacyInputPanelSeparatorNode = ASDisplayNode()
+            legacyInputPanelSeparatorNode.backgroundColor = self.chatPresentationInterfaceState.theme.chat.inputPanel.panelSeparatorColor
+            legacyInputPanelSeparatorNode.isLayerBacked = true
+            self.legacyInputPanelSeparatorNode = legacyInputPanelSeparatorNode
+        } else {
+            self.legacyInputPanelSeparatorNode = nil
+        }
         
         self.navigateButtons = ChatHistoryNavigationButtons(theme: self.chatPresentationInterfaceState.theme, preferClearGlass: self.chatPresentationInterfaceState.preferredGlassType == .clear, dateTimeFormat: self.chatPresentationInterfaceState.dateTimeFormat, backgroundNode: self.backgroundNode, isChatRotated: historyNodeRotated)
         self.navigateButtons.accessibilityElementsHidden = true
@@ -974,6 +983,9 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         self.inputPanelContainerNode.addSubnode(self.inputPanelClippingNode)
         self.inputPanelContainerNode.addSubnode(self.inputPanelOverlayNode)
         self.inputPanelClippingNode.addSubnode(self.inputPanelBackgroundNode)
+        if let legacyInputPanelSeparatorNode = self.legacyInputPanelSeparatorNode {
+            self.inputPanelClippingNode.addSubnode(legacyInputPanelSeparatorNode)
+        }
         
         self.wrappingNode.contentNode.addSubnode(self.messageTransitionNode.overlayContainerNode)
 
@@ -983,7 +995,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         
         self.navigationBar?.additionalContentNode.addSubnode(self.titleAccessoryPanelContainer)
         
-        self.textInputPanelNode = ChatTextInputPanelNode(context: context, presentationInterfaceState: chatPresentationInterfaceState, presentationContext: ChatPresentationContext(context: context, backgroundNode: backgroundNode), presentController: { [weak self] controller in
+        self.textInputPanelNode = ChatTextInputPanelNode(context: context, presentationInterfaceState: chatPresentationInterfaceState, presentationContext: ChatPresentationContext(context: context, backgroundNode: backgroundNode), classicChrome: true, presentController: { [weak self] controller in
             self?.interfaceInteraction?.presentController(controller, nil)
         })
         self.textInputPanelNode?.mediaItemViewFactory = { items, existing in
@@ -1563,6 +1575,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         self.validLayout = (layout, navigationBarHeight)
         
         let cleanInsets = layout.intrinsicInsets
+        let legacyChrome = AyuLegacyUI.isEnabled
         
         var previousInputHeight: CGFloat = 0.0
         if let (previousLayout, _) = self.containerLayoutAndNavigationBarHeight {
@@ -1591,7 +1604,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 orderIndex: 0,
                 component: headerTopicsPanel
             )
-            if self.chatPresentationInterfaceState.persistentData.topicListPanelLocation == .top {
+            if self.chatPresentationInterfaceState.persistentData.topicListPanelLocation == .top || legacyChrome {
                 headerPanels.append(panel)
             } else {
                 footerPanels.append(panel)
@@ -1881,18 +1894,21 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 component: AnyComponent(HeaderPanelContainerComponent(
                     theme: self.chatPresentationInterfaceState.theme,
                     preferClearGlass: self.chatPresentationInterfaceState.preferredGlassType == .clear,
+                    classicLayout: legacyChrome ? HeaderPanelContainerComponent.ClassicLayout(leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right) : nil,
                     tabs: nil,
                     panels: headerPanels
                 )),
                 environment: {},
-                containerSize: CGSize(width: layout.size.width - layout.safeInsets.left - layout.safeInsets.right, height: layout.size.height)
+                containerSize: CGSize(width: legacyChrome ? layout.size.width : (layout.size.width - layout.safeInsets.left - layout.safeInsets.right), height: layout.size.height)
             )
             headerPanelsSize = headerPanelsSizeValue
             floatingTopicsPanelInsets.top += headerPanelsSizeValue.height
         } else if let headerPanelsView = self.headerPanelsView {
             self.headerPanelsView = nil
             if let headerPanelsComponentView = headerPanelsView.view {
-                transition.updateTransformScale(layer: headerPanelsComponentView.layer, scale: 0.001)
+                if !legacyChrome {
+                    transition.updateTransformScale(layer: headerPanelsComponentView.layer, scale: 0.001)
+                }
                 transition.updateAlpha(layer: headerPanelsComponentView.layer, alpha: 0.0, completion: { [weak headerPanelsComponentView] _ in
                     headerPanelsComponentView?.removeFromSuperview()
                 })
@@ -1917,7 +1933,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             
             switch floatingTopicsPanelComponent.location {
             case .side:
-                floatingTopicsPanelInsets.left += 72.0 + 10.0 + 10.0
+                floatingTopicsPanelInsets.left += legacyChrome ? 80.0 : (72.0 + 10.0 + 10.0)
             case .top, .bottom:
                 floatingTopicsPanelInsets.top += 40.0 + 10.0
             }
@@ -1926,7 +1942,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             dismissedFloatingTopicsPanel = floatingTopicsPanel
         }
         
-        if floatingTopicsPanelInsets.top != 0.0 {
+        if floatingTopicsPanelInsets.top != 0.0 && !legacyChrome {
             floatingTopicsPanelInsets.top += 8.0
         }
         
@@ -1936,12 +1952,28 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         }
         self.controllerInteraction.isSidePanelOpen = isSidebarOpen
         
+        let legacyRowPadding: (top: CGFloat, bottom: CGFloat)
+        if legacyChrome {
+            if case .regular = layout.metrics.widthClass, case .regular = layout.metrics.heightClass {
+                legacyRowPadding = (4.0, 5.0)
+            } else {
+                legacyRowPadding = (2.0, 3.0)
+            }
+        } else {
+            legacyRowPadding = (0.0, 0.0)
+        }
+        
         var inputPanelNodeBaseHeight: CGFloat = 0.0
         if let inputPanelNode = self.inputPanelNode {
             inputPanelNodeBaseHeight += inputPanelNode.minimalHeight(interfaceState: self.chatPresentationInterfaceState, metrics: layout.metrics)
+            if legacyChrome {
+                inputPanelNodeBaseHeight += legacyRowPadding.top + legacyRowPadding.bottom
+            }
         }
         if let secondaryInputPanelNode = self.secondaryInputPanelNode {
-            inputPanelNodeBaseHeight += 8.0
+            if !legacyChrome {
+                inputPanelNodeBaseHeight += 8.0
+            }
             inputPanelNodeBaseHeight += secondaryInputPanelNode.minimalHeight(interfaceState: self.chatPresentationInterfaceState, metrics: layout.metrics)
         }
         
@@ -1957,7 +1989,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         })
         
         // The gap between the bottom inset and the bottom panels.
-        let inputPanelsInset: CGFloat = 8.0
+        let inputPanelsInset: CGFloat = legacyChrome ? 0.0 : 8.0
         // The bottom inset with neither a keyboard nor an input node, the least the panels sit above.
         var restingBottomInset = cleanInsets.bottom
         // iPad: the bottom panels' row (a panel's default height, 40pt) rests centred on the tab bar in the master
@@ -2008,12 +2040,14 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             // We still need the panel for messages multi-select or search. Likely can break in future.
             if self.chatPresentationInterfaceState.interfaceState.selectionState != nil || self.chatPresentationInterfaceState.search != nil {
                 self.inputPanelBackgroundNode.isHidden = false
+                self.legacyInputPanelSeparatorNode?.isHidden = self.inputPanelBackgroundNode.isHidden
             } else if (inputPanelNodes.primary != nil || inputPanelNodes.secondary != nil)  {
                 // So there should be some panel, but user don't want it. Let's check if our logic will hide it
                 inputPanelNodes = inputPanelForChatPresentationIntefaceState(self.chatPresentationInterfaceState, context: self.context, currentPanel: self.inputPanelNode, currentSecondaryPanel: self.secondaryInputPanelNode, textInputPanelNode: self.textInputPanelNode, chatControllerInteraction: self.controllerInteraction, interfaceInteraction: self.interfaceInteraction, forceHideChannelButton: true)
                 if inputPanelNodes.primary == nil && inputPanelNodes.secondary == nil {
                     // Looks like we're eligible to hide the panel, let's remove safe area fill as well
                     self.inputPanelBackgroundNode.isHidden = true
+                    self.legacyInputPanelSeparatorNode?.isHidden = self.inputPanelBackgroundNode.isHidden
                 }
             }
         }
@@ -2250,7 +2284,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
 
         updateExtraNavigationBarBackgroundHeight(0.0, 0.0, transition)
         
-        var sidePanelTopInset: CGFloat = insets.top - 4.0
+        var sidePanelTopInset: CGFloat = legacyChrome ? insets.top : (insets.top - 4.0)
         
         let contentBounds = CGRect(x: 0.0, y: 0.0, width: layout.size.width - wrappingInsets.left - wrappingInsets.right, height: layout.size.height - wrappingInsets.top - wrappingInsets.bottom)
         
@@ -2495,7 +2529,11 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                 additionalOffset = 80.0
             }
             if let _ = inputPanelSize {
-                inputPanelHideOffset += -56.0 - additionalOffset
+                if legacyChrome {
+                    inputPanelHideOffset += -(inputPanelSize!.height + legacyRowPadding.top + legacyRowPadding.bottom) - additionalOffset
+                } else {
+                    inputPanelHideOffset += -56.0 - additionalOffset
+                }
             }
             if let accessoryPanelSize = accessoryPanelSize {
                 inputPanelHideOffset += -accessoryPanelSize.height - additionalOffset
@@ -2503,20 +2541,36 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         }
         
         if self.inputPanelNode != nil {
-            inputPanelFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - inputPanelsHeight - inputPanelsInset - inputPanelSize!.height), size: CGSize(width: layout.size.width, height: inputPanelSize!.height))
+            if legacyChrome {
+                inputPanelFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - inputPanelsHeight - inputPanelsInset - legacyRowPadding.bottom - inputPanelSize!.height), size: CGSize(width: layout.size.width, height: inputPanelSize!.height))
+            } else {
+                inputPanelFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - inputPanelsHeight - inputPanelsInset - inputPanelSize!.height), size: CGSize(width: layout.size.width, height: inputPanelSize!.height))
+            }
             inputPanelFrame = inputPanelFrame!.offsetBy(dx: 0.0, dy: inputPanelHideOffset)
             if self.dismissedAsOverlay {
                 inputPanelFrame!.origin.y = layout.size.height
             }
-            inputPanelsHeight += inputPanelSize!.height
+            if legacyChrome {
+                inputPanelsHeight += inputPanelSize!.height + legacyRowPadding.top + legacyRowPadding.bottom
+            } else {
+                inputPanelsHeight += inputPanelSize!.height
+            }
         }
         
         if self.secondaryInputPanelNode != nil {
-            secondaryInputPanelFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - inputPanelsHeight - 8.0 - secondaryInputPanelSize!.height - 8.0), size: CGSize(width: layout.size.width, height: secondaryInputPanelSize!.height))
+            if legacyChrome {
+                secondaryInputPanelFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - inputPanelsHeight - secondaryInputPanelSize!.height), size: CGSize(width: layout.size.width, height: secondaryInputPanelSize!.height))
+            } else {
+                secondaryInputPanelFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - inputPanelsHeight - 8.0 - secondaryInputPanelSize!.height - 8.0), size: CGSize(width: layout.size.width, height: secondaryInputPanelSize!.height))
+            }
             if self.dismissedAsOverlay {
                 secondaryInputPanelFrame!.origin.y = layout.size.height
             }
-            inputPanelsHeight += 8.0 + secondaryInputPanelSize!.height
+            if legacyChrome {
+                inputPanelsHeight += secondaryInputPanelSize!.height
+            } else {
+                inputPanelsHeight += 8.0 + secondaryInputPanelSize!.height
+            }
         }
         
         var accessoryPanelFrame: CGRect?
@@ -2543,6 +2597,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             }
         }
         
+        let inputPanelsHeightWithoutFooters = inputPanelsHeight
         var footerPanelsSize: CGSize?
         if !footerPanels.isEmpty {
             let footerPanelsView: ComponentView<Empty>
@@ -2594,7 +2649,29 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             }
         }
         
-        var inputBackgroundFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - inputPanelsHeight - inputPanelsInset), size: CGSize(width: layout.size.width, height: inputPanelsHeight))
+        var inputBackgroundFrame: CGRect
+        if legacyChrome {
+            let inputBackgroundInset: CGFloat
+            if cleanInsets.bottom < insets.bottom {
+                if case .regular = layout.metrics.widthClass, insets.bottom < 88.0 {
+                    inputBackgroundInset = insets.bottom
+                } else {
+                    inputBackgroundInset = 0.0
+                }
+            } else {
+                inputBackgroundInset = cleanInsets.bottom
+            }
+            var legacyPanelsHeight = inputPanelsHeightWithoutFooters
+            if self.dismissedAsOverlay {
+                legacyPanelsHeight = 0.0
+            }
+            if let inputNode = self.inputNode, inputNode.hideInput && inputNode.adjustLayoutForHiddenInput {
+                legacyPanelsHeight = 0.0
+            }
+            inputBackgroundFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - legacyPanelsHeight), size: CGSize(width: layout.size.width, height: legacyPanelsHeight + inputBackgroundInset))
+        } else {
+            inputBackgroundFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - insets.bottom - bottomOverflowOffset - inputPanelsHeight - inputPanelsInset), size: CGSize(width: layout.size.width, height: inputPanelsHeight))
+        }
         if self.dismissedAsOverlay {
             inputBackgroundFrame.origin.y = layout.size.height
         }
@@ -2612,7 +2689,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         }
         
         var bottomBackgroundEdgeEffectNode: WallpaperEdgeEffectNode?
-        if self.historyNode.rotated && !isOverlay {
+        if self.historyNode.rotated && !isOverlay && !legacyChrome {
             if let current = self.bottomBackgroundEdgeEffectNode {
                 bottomBackgroundEdgeEffectNode = current
             } else {
@@ -2651,7 +2728,9 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         }
         
         var contentBottomInset: CGFloat = inputPanelsHeight + inputPanelsInset
-        if previewing {
+        if legacyChrome {
+            contentBottomInset = inputPanelsHeight + 4.0
+        } else if previewing {
         } else {
             contentBottomInset += 11.0
         }
@@ -2660,7 +2739,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             transition.updateFrame(node: scrollContainerNode, frame: CGRect(origin: CGPoint(), size: layout.size))
         }
         
-        let visibleAreaInset = UIEdgeInsets(top: containerInsets.top, left: 0.0, bottom: containerInsets.bottom + inputPanelsHeight + 8.0 + 8.0, right: 0.0)
+        let visibleAreaInset = UIEdgeInsets(top: containerInsets.top, left: 0.0, bottom: containerInsets.bottom + inputPanelsHeight + (legacyChrome ? 0.0 : 8.0 + 8.0), right: 0.0)
         self.visibleAreaInset = visibleAreaInset
         
         var loadingNodeInsets = visibleAreaInset
@@ -2820,7 +2899,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         })
         
         var topBackgroundEdgeEffectNode: WallpaperEdgeEffectNode?
-        if self.historyNode.rotated && !isOverlay {
+        if self.historyNode.rotated && !isOverlay && !legacyChrome {
             if let current = self.topBackgroundEdgeEffectNode {
                 topBackgroundEdgeEffectNode = current
             } else {
@@ -2865,11 +2944,11 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         self.historyNode.scrollEnabled = !(self.isScrollingLockedAtTop || self.chatPresentationInterfaceState.focusedPollAddOptionMessageId != nil)
         
         let navigateButtonsSize = self.navigateButtons.updateLayout(transition: transition)
-        let navigateButtonsMinY = layout.size.height - containerInsets.bottom - inputPanelsHeight - navigateButtonsSize.height - 20.0
+        let navigateButtonsMinY = layout.size.height - containerInsets.bottom - inputPanelsHeight - navigateButtonsSize.height - (legacyChrome ? 6.0 : 20.0)
         // iPhone Duo: beside a free bottom corner the input panel runs into the strip; the buttons follow it
         // (and keep the strip beside the column). Without corner blocks this is the plain safe inset.
         let navigateButtonsRightInset = sideColumnBandInsets(layout: layout, bandMinY: navigateButtonsMinY, bandMaxY: navigateButtonsMinY + navigateButtonsSize.height, column: sideColumnExtent).right
-        var navigateButtonsFrame = CGRect(origin: CGPoint(x: layout.size.width - navigateButtonsRightInset - navigateButtonsSize.width - 8.0, y: navigateButtonsMinY), size: navigateButtonsSize)
+        var navigateButtonsFrame = CGRect(origin: CGPoint(x: layout.size.width - navigateButtonsRightInset - navigateButtonsSize.width - (legacyChrome ? 6.0 : 8.0), y: navigateButtonsMinY), size: navigateButtonsSize)
         // Over the panels' right edge on iPad, which does not step in there.
         navigateButtonsFrame.origin.x -= chatBottomControlsCompactSideInset(bottomInset: containerInsets.bottom, deviceMetrics: layout.deviceMetrics)
         if case .overlay = self.chatPresentationInterfaceState.mode {
@@ -2910,19 +2989,27 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         transition.updatePosition(node: self.inputPanelOverlayNode, position: CGRect(origin: apparentInputBackgroundFrame.origin, size: layout.size).center, beginWithCurrentState: true)
         transition.updateBounds(node: self.inputPanelOverlayNode, bounds: CGRect(origin: CGPoint(x: 0.0, y: apparentInputBackgroundFrame.origin.y), size: layout.size), beginWithCurrentState: true)
         transition.updateFrame(node: self.inputPanelBackgroundNode, frame: apparentInputBackgroundFrame, beginWithCurrentState: true)
+        if let legacyInputPanelSeparatorNode = self.legacyInputPanelSeparatorNode {
+            self.inputPanelBackgroundNode.update(size: apparentInputBackgroundFrame.size, transition: transition, beginWithCurrentState: true)
+            transition.updateFrame(node: legacyInputPanelSeparatorNode, frame: CGRect(origin: CGPoint(x: 0.0, y: apparentInputBackgroundFrame.origin.y), size: CGSize(width: apparentInputBackgroundFrame.size.width, height: UIScreenPixel)))
+        }
         
         if let headerPanelsComponentView = self.headerPanelsView?.view, let headerPanelsSize {
-            sidePanelTopInset += 8.0
-            let headerPanelsFrame = CGRect(origin: CGPoint(x: layout.safeInsets.left, y: sidePanelTopInset), size: headerPanelsSize)
+            if !legacyChrome {
+                sidePanelTopInset += 8.0
+            }
+            let headerPanelsFrame = CGRect(origin: CGPoint(x: legacyChrome ? 0.0 : layout.safeInsets.left, y: sidePanelTopInset), size: headerPanelsSize)
             var headerPanelsTransition = ComponentTransition(transition)
             if headerPanelsComponentView.superview == nil {
                 headerPanelsTransition.animateAlpha(view: headerPanelsComponentView, from: 0.0, to: 1.0)
-                headerPanelsTransition.animateScale(view: headerPanelsComponentView, from: 0.001, to: 1.0)
+                if !legacyChrome {
+                    headerPanelsTransition.animateScale(view: headerPanelsComponentView, from: 0.001, to: 1.0)
+                }
                 headerPanelsTransition = headerPanelsTransition.withAnimation(.none)
                 self.floatingTopicsPanelContainer.view.addSubview(headerPanelsComponentView)
             }
             headerPanelsTransition.setFrame(view: headerPanelsComponentView, frame: headerPanelsFrame)
-            sidePanelTopInset += headerPanelsSize.height + 2.0
+            sidePanelTopInset += headerPanelsSize.height + (legacyChrome ? 0.0 : 2.0)
         }
         
         if let footerPanelsComponentView = self.footerPanelsView?.view, let footerPanelsSize {
@@ -2947,7 +3034,7 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
                     ChatSidePanelEnvironment(insets: UIEdgeInsets(
                         top: 0.0,
                         left: layout.safeInsets.left,
-                        bottom: containerInsets.bottom + inputPanelsHeight + 8.0,
+                        bottom: legacyChrome ? max(0.0, layout.size.height - inputBackgroundFrame.minY) : (containerInsets.bottom + inputPanelsHeight + 8.0),
                         right: layout.safeInsets.right
                     ))
                 },
@@ -3991,11 +4078,18 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             if themeUpdated {
                 self.ayuBackdrop?.overlayColor = chatPresentationInterfaceState.theme.chatList.backgroundColor
                 if case let .color(color) = self.chatPresentationInterfaceState.chatWallpaper, UIColor(rgb: color).isEqual(self.chatPresentationInterfaceState.theme.chat.inputPanel.panelBackgroundColorNoWallpaper) {
+                    if AyuLegacyUI.isEnabled {
+                        self.inputPanelBackgroundNode.updateColor(color: self.chatPresentationInterfaceState.theme.chat.inputPanel.panelBackgroundColorNoWallpaper, transition: .immediate)
+                    }
                     self.usePlainInputSeparator = true
                 } else {
+                    if AyuLegacyUI.isEnabled {
+                        self.inputPanelBackgroundNode.updateColor(color: self.chatPresentationInterfaceState.theme.chat.inputPanel.panelBackgroundColor, transition: .immediate)
+                    }
                     self.usePlainInputSeparator = false
                     self.plainInputSeparatorAlpha = nil
                 }
+                self.legacyInputPanelSeparatorNode?.backgroundColor = self.chatPresentationInterfaceState.theme.chat.inputPanel.panelSeparatorColor
                                 
                 self.updatePlainInputSeparator(transition: .immediate)
 
@@ -4548,6 +4642,9 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
             
             let inputPanelsOffset = self.bounds.size.height - self.inputPanelBackgroundNode.frame.minY
             transition.animateFrame(node: self.inputPanelBackgroundNode, from: self.inputPanelBackgroundNode.frame.offsetBy(dx: 0.0, dy: inputPanelsOffset))
+            if let legacyInputPanelSeparatorNode = self.legacyInputPanelSeparatorNode {
+                transition.animateFrame(node: legacyInputPanelSeparatorNode, from: legacyInputPanelSeparatorNode.frame.offsetBy(dx: 0.0, dy: inputPanelsOffset))
+            }
             if let inputPanelNode = self.inputPanelNode {
                 transition.animateFrame(node: inputPanelNode, from: inputPanelNode.frame.offsetBy(dx: 0.0, dy: inputPanelsOffset))
             }
@@ -5796,6 +5893,9 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         }
         
         resolvedValue = resolvedValue * (1.0 - self.inputPanelContainerNode.expansionFraction)
+        if let legacyInputPanelSeparatorNode = self.legacyInputPanelSeparatorNode, resolvedValue != legacyInputPanelSeparatorNode.alpha {
+            transition.updateAlpha(node: legacyInputPanelSeparatorNode, alpha: resolvedValue, beginWithCurrentState: true)
+        }
     }
     
     private var previousConfettiAnimationTimestamp: Double?

@@ -40,7 +40,7 @@ public class ItemListPeerActionItem: ListViewItem, ItemListItem {
     public init(presentationData: ItemListPresentationData, style: ItemListStyle = .blocks, systemStyle: ItemListSystemStyle = .legacy, icon: UIImage?, iconSignal: Signal<UIImage?, NoError>? = nil, title: String, additionalBadgeIcon: UIImage? = nil, alwaysPlain: Bool = false, hasSeparator: Bool = true, sectionId: ItemListSectionId, height: ItemListPeerActionItemHeight = .peerList, color: ItemListPeerActionItemColor = .accent, noInsets: Bool = false, editing: Bool = false, action: (() -> Void)?, tag: Any? = nil) {
         self.presentationData = presentationData
         self.style = style
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.icon = icon
         self.iconSignal = iconSignal
         self.title = title

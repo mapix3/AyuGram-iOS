@@ -272,6 +272,7 @@ public final class ChatInputMessageAccessoryPanel: Component {
         private let longPressGestureRecognizer: UILongPressGestureRecognizer
         
         private let lineView: UIImageView
+        private var legacyIconView: UIImageView?
         private let imageNode: TransformImageNode
         private var previousMediaReference: AnyMediaReference?
         private let titleNode: CompositeTextNode
@@ -509,12 +510,40 @@ public final class ChatInputMessageAccessoryPanel: Component {
             
             let size = CGSize(width: availableSize.width, height: 52.0)
             
-            let containerInsets = UIEdgeInsets(top: 8.0, left: 12.0, bottom: 6.0, right: 0.0)
+            let containerInsets = UIEdgeInsets(top: 8.0, left: AyuLegacyUI.isEnabled ? 55.0 : 12.0, bottom: 6.0, right: 0.0)
             
             let lineSize = CGSize(width: 2.0, height: size.height - containerInsets.top - containerInsets.bottom)
             let lineFrame = CGRect(origin: CGPoint(x: containerInsets.left, y: containerInsets.top), size: lineSize)
             transition.setFrame(view: self.lineView, frame: lineFrame)
             self.lineView.tintColor = environment.theme.chat.inputPanel.panelControlAccentColor
+            if AyuLegacyUI.isEnabled {
+                let legacyIconView: UIImageView
+                if let current = self.legacyIconView {
+                    legacyIconView = current
+                } else {
+                    legacyIconView = UIImageView()
+                    legacyIconView.isUserInteractionEnabled = false
+                    self.legacyIconView = legacyIconView
+                    self.addSubview(legacyIconView)
+                }
+                let legacyIconName: String
+                switch component.contents {
+                case .reply:
+                    legacyIconName = "Chat/Input/Accessory Panels/ReplyIcon"
+                case .edit:
+                    legacyIconName = "Chat/Input/Accessory Panels/EditIcon"
+                case .forward:
+                    legacyIconName = "Chat/Input/Accessory Panels/ForwardIcon"
+                case .linkPreview:
+                    legacyIconName = "Chat/Input/Accessory Panels/WebpageIcon"
+                case .suggestPost:
+                    legacyIconName = "Chat/Input/Accessory Panels/SuggestPostIcon"
+                }
+                legacyIconView.image = UIImage(bundleImageName: legacyIconName)?.withRenderingMode(.alwaysTemplate)
+                legacyIconView.tintColor = environment.theme.chat.inputPanel.panelControlAccentColor
+                let legacyIconSize = legacyIconView.image?.size ?? CGSize()
+                transition.setFrame(view: legacyIconView, frame: CGRect(origin: CGPoint(x: floor((55.0 - legacyIconSize.width) * 0.5), y: floor((size.height - legacyIconSize.height) * 0.5)), size: legacyIconSize))
+            }
             
             let closeButtonSize = CGSize(width: 44.0, height: 44.0)
             let closeButtonFrame = CGRect(origin: CGPoint(x: availableSize.width - closeButtonSize.width, y: floor((size.height - closeButtonSize.height) * 0.5)), size: closeButtonSize)

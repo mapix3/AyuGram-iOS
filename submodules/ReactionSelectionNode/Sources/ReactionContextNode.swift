@@ -552,6 +552,10 @@ public final class ReactionContextNode: ASDisplayNode, ASScrollViewDelegate {
         (self.animationRenderer as? DCTMultiAnimationRendererImpl)?.useYuvA = context.sharedContext.immediateExperimentalUISettings.compressedEmojiCache
         
         self.backgroundMaskNode = ASDisplayNode()
+        if AyuLegacyUI.isEnabled {
+            self.isGlassStyle = false
+            self.backgroundNode = ReactionContextBackgroundNode(glass: nil, largeCircleSize: largeCircleSize, smallCircleSize: smallCircleSize, maskNode: self.backgroundMaskNode)
+        } else {
         let backgroundGlassParams: ReactionContextBackgroundNode.GlassParams
         switch style {
         case let .glass(isTinted):
@@ -559,6 +563,7 @@ public final class ReactionContextNode: ASDisplayNode, ASScrollViewDelegate {
         }
         self.isGlassStyle = true
         self.backgroundNode = ReactionContextBackgroundNode(glass: backgroundGlassParams, largeCircleSize: largeCircleSize, smallCircleSize: smallCircleSize, maskNode: self.backgroundMaskNode)
+        }
         self.leftBackgroundMaskNode = ASDisplayNode()
         self.leftBackgroundMaskNode.backgroundColor = .black
         self.rightBackgroundMaskNode = ASDisplayNode()

@@ -72,7 +72,11 @@ public final class ListSectionContentView: UIView {
             backgroundColor: UIColor? = nil
         ) {
             self.theme = theme
-            self.style = style
+            if case .glass = style, AyuLegacyUI.isEnabled {
+                self.style = .legacy
+            } else {
+                self.style = style
+            }
             self.isModal = isModal
             self.displaySeparators = displaySeparators
             self.extendsItemHighlightToSection = extendsItemHighlightToSection
@@ -421,7 +425,11 @@ public final class ListSectionComponent: Component {
         extendsItemHighlightToSection: Bool = false
     ) {
         self.theme = theme
-        self.style = style
+        if case .glass = style, AyuLegacyUI.isEnabled {
+            self.style = .legacy
+        } else {
+            self.style = style
+        }
         self.background = background
         self.backgroundColor = backgroundColor
         self.header = header

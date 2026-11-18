@@ -244,7 +244,7 @@ final class NavigationButtonComponent: Component {
             self.isEnabled = component.isEnabled
 
             let environmentValue = environment[NavigationButtonEnvironment.self].value
-            let color = component.color
+            let color = (AyuLegacyUI.isEnabled && component.color.isEqual(environmentValue.theme.accentForegroundColor)) ? environmentValue.theme.buttonColor : component.color
             // Rebuilt on a color change, not on a new theme object: a host may recreate an equal theme every update.
             let colorUpdated = self.currentColor != color
             self.currentColor = color
@@ -289,8 +289,12 @@ final class NavigationButtonComponent: Component {
 
                 textView.attributedText = textString
                 let textSize = textView.updateLayout(availableSize)
-                let textInset: CGFloat = 12.0
-                size.width = max(44.0, textSize.width + textInset * 2.0)
+                if AyuLegacyUI.isEnabled {
+                    size.width = textSize.width
+                } else {
+                    let textInset: CGFloat = 12.0
+                    size.width = max(44.0, textSize.width + textInset * 2.0)
+                }
 
                 textView.frame = CGRect(origin: CGPoint(x: floor((size.width - textSize.width) / 2.0), y: floor((availableSize.height - textSize.height) / 2.0)), size: textSize)
             } else if let textView = self.textView {

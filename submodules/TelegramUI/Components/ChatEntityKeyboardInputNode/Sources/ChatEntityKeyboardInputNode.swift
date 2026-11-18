@@ -33,7 +33,7 @@ import EntityKeyboardGifContent
 import LegacyMessageInputPanelInputView
 import GlassBackgroundComponent
 
-private let keyboardCornerRadius: CGFloat = 30.0
+private let keyboardCornerRadius: CGFloat = AyuLegacyUI.isEnabled ? 0.0 : 30.0
 
 public final class EmptyInputView: UIView, UIInputViewAudioFeedback {
     public var enableInputClicksWhenVisible: Bool {
@@ -2026,11 +2026,13 @@ public final class ChatEntityKeyboardInputNode: ChatInputNode {
             }
             backgroundFrame.size.height += 32.0
 
-            if backgroundChromeView.image == nil {
+            if AyuLegacyUI.isEnabled {
+                backgroundChromeView.image = nil
+            } else if backgroundChromeView.image == nil {
                 backgroundChromeView.image = GlassBackgroundView.generateForegroundImage(size: CGSize(width: keyboardCornerRadius * 2.0, height: keyboardCornerRadius * 2.0), isDark: interfaceState.theme.overallDarkAppearance, fillColor: .clear)
             }
             if backgroundTintView.image == nil {
-                backgroundTintView.image = generateStretchableFilledCircleImage(diameter: keyboardCornerRadius * 2.0, color: .white)?.withRenderingMode(.alwaysTemplate)
+                backgroundTintView.image = AyuLegacyUI.isEnabled ? generateStretchableFilledCircleImage(diameter: 2.0, color: .white)?.withRenderingMode(.alwaysTemplate) : generateStretchableFilledCircleImage(diameter: keyboardCornerRadius * 2.0, color: .white)?.withRenderingMode(.alwaysTemplate)
             }
             backgroundTintView.tintColor = interfaceState.theme.chat.inputMediaPanel.backgroundColor
 

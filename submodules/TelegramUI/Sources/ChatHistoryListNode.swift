@@ -2828,14 +2828,14 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
         }
         // Bubble-free mode: the next channel is an island growing out of the input panel's glass, when the panel has
         // glass to grow it from; otherwise, and with bubbles, the control below.
-        if !self.currentPresentationData.chatBubbleCorners.bubbleMode, let offset = offset, offset < -0.1, self.offerNextChannelToRead, let chatControllerNode = self.controllerInteraction.chatControllerNode() as? ChatControllerNode, chatControllerNode.shouldAllowOverscrollActions, let inputPanelNode = chatControllerNode.inputPanelNode, self.updateOverscrollIsland(offset: offset, inputPanelNode: inputPanelNode) {
+        if !AyuLegacyUI.isEnabled, !self.currentPresentationData.chatBubbleCorners.bubbleMode, let offset = offset, offset < -0.1, self.offerNextChannelToRead, let chatControllerNode = self.controllerInteraction.chatControllerNode() as? ChatControllerNode, chatControllerNode.shouldAllowOverscrollActions, let inputPanelNode = chatControllerNode.inputPanelNode, self.updateOverscrollIsland(offset: offset, inputPanelNode: inputPanelNode) {
             if let overscrollView = self.overscrollView {
                 self.overscrollView = nil
                 overscrollView.removeFromSuperview()
             }
             return
         }
-        if !self.currentPresentationData.chatBubbleCorners.bubbleMode, self.overscrollIslandPanel != nil {
+        if !AyuLegacyUI.isEnabled, !self.currentPresentationData.chatBubbleCorners.bubbleMode, self.overscrollIslandPanel != nil {
             // Released or no longer offered: the island sinks back, and the hold goes with it as it does with the
             // control's removal below (the control's branch sets its own hold if it takes over).
             if self.overscrollView == nil, self.isDraggingForOverscrollAction, self.listView.holdsOverscrollActionDuringDrag,

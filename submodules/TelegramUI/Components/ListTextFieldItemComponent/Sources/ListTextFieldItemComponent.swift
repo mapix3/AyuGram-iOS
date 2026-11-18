@@ -64,7 +64,11 @@ public final class ListTextFieldItemComponent: Component {
         onReturn: (() -> Void)? = nil,
         tag: AnyObject? = nil
     ) {
-        self.style = style
+        if case .glass = style, AyuLegacyUI.isEnabled {
+            self.style = .legacy
+        } else {
+            self.style = style
+        }
         self.theme = theme
         self.initialText = initialText
         self.resetText = resetText

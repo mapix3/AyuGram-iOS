@@ -178,9 +178,9 @@ private final class PeerInfoScreenSwitchItemNode: PeerInfoScreenItemNode {
         self.switchNode.view.isAccessibilityElement = false
         
         let textSize = self.textNode.updateLayout(CGSize(width: width - leftInset - rightInset, height: .greatestFiniteMagnitude))
-        let textFrame = CGRect(origin: CGPoint(x: leftInset, y: 16.0), size: textSize)
+        let textFrame = CGRect(origin: CGPoint(x: leftInset, y: PeerInfoListMetrics.verticalPadding), size: textSize)
         
-        let height = textSize.height + 32.0
+        let height = textSize.height + PeerInfoListMetrics.verticalPadding * 2.0
         
         if let icon = item.icon {
             if self.iconNode.supernode == nil {
@@ -227,7 +227,7 @@ private final class PeerInfoScreenSwitchItemNode: PeerInfoScreenItemNode {
         self.selectionNode.update(size: CGSize(width: width, height: height + highlightNodeOffset), theme: presentationData.theme, transition: transition)
         transition.updateFrame(node: self.selectionNode, frame: CGRect(origin: CGPoint(x: 0.0, y: -highlightNodeOffset), size: CGSize(width: width, height: height + highlightNodeOffset)))
         
-        let separatorRightInset: CGFloat = 16.0
+        let separatorRightInset: CGFloat = PeerInfoListMetrics.separatorRightInset
         
         transition.updateFrame(node: self.bottomSeparatorNode, frame: CGRect(origin: CGPoint(x: sideInset, y: height - UIScreenPixel), size: CGSize(width: width - sideInset - separatorRightInset, height: UIScreenPixel)))
         transition.updateAlpha(node: self.bottomSeparatorNode, alpha: bottomItem == nil ? 0.0 : 1.0)

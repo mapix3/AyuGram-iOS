@@ -23,7 +23,7 @@ public class NotificationsCategoryItemListItem: ListViewItem, ItemListItem {
     
     public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .glass, icon: UIImage? = nil, title: String, subtitle: String, enabled: Bool = true, label: String, sectionId: ItemListSectionId, style: ItemListStyle, action: (() -> Void)?, tag: ItemListItemTag? = nil, shimmeringIndex: Int? = nil) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.icon = icon
         self.title = title
         self.subtitle = subtitle

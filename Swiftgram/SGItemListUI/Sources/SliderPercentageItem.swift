@@ -27,7 +27,7 @@ public class SliderPercentageItem: ListViewItem, ItemListItem {
         self.maximum = min(100, max(self.minimum, maximum))
         self.value = min(self.maximum, max(self.minimum, value))
         self.sectionId = sectionId
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.updated = updated
     }
     

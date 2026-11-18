@@ -107,7 +107,7 @@ public final class SheetComponent<ChildEnvironmentType: Sendable & Equatable>: C
     ) {
         self.content = content
         self.headerContent = headerContent
-        self.style = style
+        self.style = AyuLegacyUI.isEnabled ? .legacy : style
         self.backgroundColor = backgroundColor
         self.followContentSizeChanges = followContentSizeChanges
         self.clipsContent = clipsContent

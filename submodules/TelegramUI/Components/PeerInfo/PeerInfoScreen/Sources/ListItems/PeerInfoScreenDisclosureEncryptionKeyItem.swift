@@ -99,9 +99,9 @@ private final class PeerInfoScreenDisclosureEncryptionKeyItemNode: PeerInfoScree
         
         let arrowInset: CGFloat = 18.0
         
-        let textFrame = CGRect(origin: CGPoint(x: sideInset, y: 16.0), size: textSize)
+        let textFrame = CGRect(origin: CGPoint(x: sideInset, y: PeerInfoListMetrics.verticalPadding), size: textSize)
         
-        let height = textSize.height + 32.0
+        let height = textSize.height + PeerInfoListMetrics.verticalPadding * 2.0
         
         if let arrowImage = PresentationResourcesItemList.disclosureArrowImage(presentationData.theme) {
             self.arrowNode.image = arrowImage

@@ -17,6 +17,8 @@ final class NavigationBarBackButtonView: ContextControllerSourceView {
     private let button: HighlightableButton
     let arrowView: UIImageView
     private var badgeNode: NavigationBarBadgeNode?
+    private var legacyTextView: ImmediateTextView?
+    private var currentLegacyText: String?
 
     private var currentColor: UIColor?
     private var currentKind: Kind?
@@ -78,6 +80,10 @@ final class NavigationBarBackButtonView: ContextControllerSourceView {
         self.isGestureEnabled = contextAction != nil
         self.accessibilityLabel = kind == .close ? strings.close : strings.back
 
+        if AyuLegacyUI.isEnabled {
+            return self.updateLegacy(kind: kind, badge: badge, theme: theme, strings: strings, availableSize: availableSize, transition: transition)
+        }
+
         if self.currentColor != theme.buttonColor || self.currentKind != kind {
             self.currentColor = theme.buttonColor
             self.currentKind = kind
@@ -134,6 +140,75 @@ final class NavigationBarBackButtonView: ContextControllerSourceView {
         transition.setPosition(view: self.arrowView, position: arrowFrame.center)
         transition.setBounds(view: self.arrowView, bounds: CGRect(origin: CGPoint(), size: arrowFrame.size))
 
+        return size
+    }
+
+    private func updateLegacy(kind: Kind, badge: String?, theme: NavigationBarTheme, strings: NavigationBarStrings, availableSize: CGSize, transition: ComponentTransition) -> CGSize {
+        if self.currentColor != theme.buttonColor || self.currentKind != kind {
+            self.currentColor = theme.buttonColor
+            self.currentKind = kind
+            self.currentLegacyText = nil
+            switch kind {
+            case .back:
+                self.arrowView.image = navigationBarBackArrowImage(color: theme.buttonColor)
+            case .close:
+                self.arrowView.image = nil
+            }
+            self.arrowView.tintColor = nil
+        }
+
+        let title = kind == .close ? strings.close : strings.back
+        let textView: ImmediateTextView
+        if let current = self.legacyTextView {
+            textView = current
+        } else {
+            textView = ImmediateTextView()
+            textView.isUserInteractionEnabled = false
+            self.legacyTextView = textView
+            self.button.addSubview(textView)
+        }
+        if self.currentLegacyText != title {
+            self.currentLegacyText = title
+            textView.attributedText = NSAttributedString(string: title, font: Font.regular(17.0), textColor: theme.buttonColor)
+        }
+        let textSize = textView.updateLayout(CGSize(width: 200.0, height: availableSize.height))
+
+        let arrowSize = self.arrowView.image?.size ?? CGSize()
+        let textOriginX: CGFloat
+        if kind == .back {
+            let arrowFrame = CGRect(origin: CGPoint(x: 8.0, y: floor((availableSize.height - arrowSize.height) * 0.5)), size: arrowSize)
+            transition.setPosition(view: self.arrowView, position: arrowFrame.center)
+            transition.setBounds(view: self.arrowView, bounds: CGRect(origin: CGPoint(), size: arrowFrame.size))
+            textOriginX = 27.0
+        } else {
+            textOriginX = 8.0
+        }
+        let textFrame = CGRect(origin: CGPoint(x: textOriginX, y: floor((availableSize.height - textSize.height) * 0.5)), size: textSize)
+        transition.setFrame(view: textView, frame: textFrame)
+
+        var width: CGFloat = max(44.0, textFrame.maxX + 4.0)
+        if let badge, !badge.isEmpty {
+            let badgeNode: NavigationBarBadgeNode
+            if let current = self.badgeNode {
+                badgeNode = current
+            } else {
+                badgeNode = NavigationBarBadgeNode(fillColor: theme.buttonColor, strokeColor: theme.buttonColor, textColor: theme.badgeTextColor)
+                badgeNode.isUserInteractionEnabled = false
+                self.badgeNode = badgeNode
+                self.button.addSubnode(badgeNode)
+            }
+            badgeNode.updateTheme(fillColor: theme.buttonColor, strokeColor: theme.buttonColor, textColor: theme.badgeTextColor)
+            badgeNode.text = badge
+            let badgeSize = badgeNode.measure(CGSize(width: 200.0, height: 100.0))
+            badgeNode.frame = CGRect(origin: CGPoint(x: textFrame.maxX + 6.0, y: floor((availableSize.height - badgeSize.height) * 0.5)), size: badgeSize)
+            width = badgeNode.frame.maxX + 4.0
+        } else if let badgeNode = self.badgeNode {
+            self.badgeNode = nil
+            badgeNode.removeFromSupernode()
+        }
+
+        let size = CGSize(width: width, height: availableSize.height)
+        transition.setFrame(view: self.button, frame: CGRect(origin: CGPoint(), size: size))
         return size
     }
 }

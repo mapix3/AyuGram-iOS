@@ -83,6 +83,7 @@ public final class GalleryTitleView: UIView, NavigationBarTitleView {
         
         self.backgroundContainer = GlassBackgroundContainerView()
         self.backgroundView = GlassBackgroundView()
+        self.backgroundView.hidesBackgroundInLegacyUI = true
         self.backgroundContainer.contentView.addSubview(self.backgroundView)
         
         self.authorNameNode = ASTextNode()
@@ -97,6 +98,7 @@ public final class GalleryTitleView: UIView, NavigationBarTitleView {
         
         self.titleBackgroundContainer = GlassBackgroundContainerView()
         self.titleBackground = GlassBackgroundView()
+        self.titleBackground.hidesBackgroundInLegacyUI = true
         
         self.titleBackgroundContainer.contentView.addSubview(self.titleBackground)
         

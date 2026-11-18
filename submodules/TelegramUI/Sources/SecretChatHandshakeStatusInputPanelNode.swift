@@ -27,6 +27,7 @@ final class SecretChatHandshakeStatusInputPanelNode: ChatInputPanelNode {
         self.button.titleNode.truncationMode = .byTruncatingMiddle
         
         self.titleBackground = GlassBackgroundView()
+        self.titleBackground.hidesBackgroundInLegacyUI = true
         
         super.init()
         

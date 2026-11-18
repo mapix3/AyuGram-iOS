@@ -97,7 +97,9 @@ final class ChatTagSearchInputPanelNode: ChatInputPanelNode {
         
         self.backgroundContainerView = GlassBackgroundContainerView()
         self.leftControlsBackgroundView = GlassBackgroundView()
+        self.leftControlsBackgroundView.hidesBackgroundInLegacyUI = true
         self.rightControlsBackgroundView = GlassBackgroundView()
+        self.rightControlsBackgroundView.hidesBackgroundInLegacyUI = true
         
         super.init()
         

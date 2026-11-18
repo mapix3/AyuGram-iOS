@@ -21,7 +21,7 @@ class ChatUnrestrictBoostersItem: ListViewItem, ItemListItem {
     init(theme: PresentationTheme, strings: PresentationStrings, systemStyle: ItemListSystemStyle = .legacy, value: Int32, enabled: Bool, sectionId: ItemListSectionId, updated: @escaping (Int32) -> Void) {
         self.theme = theme
         self.strings = strings
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.value = value
         self.sectionId = sectionId
         self.updated = updated

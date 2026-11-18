@@ -473,6 +473,9 @@ public final class ChatTitleComponent: Component {
 
         /// The pill's frame in this view, nil without one.
         public var glassPillFrame: CGRect? {
+            if AyuLegacyUI.isEnabled {
+                return nil
+            }
             guard let backgroundView = self.backgroundView, !backgroundView.frame.isEmpty else {
                 return nil
             }
@@ -1598,7 +1601,7 @@ public final class ChatTitleComponent: Component {
                 nextRightIconX += rightTitleIconSpacing + rightIconSize.width
             }
             
-            if component.displayBackground {
+            if component.displayBackground && !AyuLegacyUI.isEnabled {
                 let backgroundView: GlassBackgroundView
                 if let current = self.backgroundView {
                     backgroundView = current

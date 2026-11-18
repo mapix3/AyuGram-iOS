@@ -35,7 +35,7 @@ public final class MessagePriceItem: Equatable, ListViewItem, ItemListItem, List
     public init(theme: PresentationTheme, strings: PresentationStrings, systemStyle: ItemListSystemStyle = .legacy, isEnabled: Bool, minValue: Int64, maxValue: Int64, value: Int64, price: String, sectionId: ItemListSectionId, updated: @escaping (Int64, Bool) -> Void, openSetCustom: (() -> Void)? = nil, openPremiumInfo: (() -> Void)? = nil, tag: ItemListItemTag? = nil) {
         self.theme = theme
         self.strings = strings
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.isEnabled = isEnabled
         self.minValue = minValue
         self.maxValue = maxValue

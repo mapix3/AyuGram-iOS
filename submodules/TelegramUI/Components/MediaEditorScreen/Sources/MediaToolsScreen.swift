@@ -283,6 +283,7 @@ private final class MediaToolsScreenComponent: Component {
             self.previewContainerView.addSubview(self.optionsContainerView)
             self.optionsContainerView.addSubview(self.optionsBackgroundView)
             self.optionsEdgeEffectView.isUserInteractionEnabled = false
+            self.optionsEdgeEffectView.legacyUIBehavior = .keep
             self.buttonsContainerView.addSubview(self.buttonsBackgroundView)
 
             self.selectedToolBackgroundLayer.path = UIBezierPath(roundedRect: CGRect(origin: .zero, size: CGSize(width: 33.0, height: 33.0)), cornerRadius: 16.5).cgPath

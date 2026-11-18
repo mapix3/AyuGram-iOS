@@ -142,6 +142,9 @@ private final class GlassButtonView: UIView {
     override init(frame: CGRect) {
         self.backgroundView = GlassBackgroundView()
         self.backgroundView.morphsIntoContextMenu = true
+        if AyuLegacyUI.isEnabled {
+            self.backgroundView.hidesBackgroundInLegacyUI = true
+        }
         
         self.iconView = GlassBackgroundView.ContentImageView()
         self.backgroundView.contentView.addSubview(self.iconView)
@@ -181,7 +184,12 @@ private final class GlassButtonView: UIView {
         self.backgroundView.update(size: params.size, cornerRadius: min(params.size.width, params.size.height) * 0.5, isDark: params.theme.overallDarkAppearance, tintColor: .init(kind: params.preferClearGlass ? .clear : .panel), isInteractive: true, transition: transition)
         self.backgroundView.isUserInteractionEnabled = isEnabled
         
+        if AyuLegacyUI.isEnabled {
+            self.iconView.tintColor = isEnabled ? params.theme.chat.inputPanel.panelControlAccentColor : params.theme.chat.inputPanel.panelControlDisabledColor
+            self.iconView.alpha = 1.0
+        } else {
         self.iconView.alpha = isEnabled ? 1.0 : 0.5
+        }
         self.iconView.tintMask.alpha = self.iconView.alpha
         
         self.button.isEnabled = isEnabled
@@ -519,10 +527,10 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
     override public func updateLayout(width: CGFloat, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat, additionalSideInsets: UIEdgeInsets, maxHeight: CGFloat, maxOverlayHeight: CGFloat, isSecondary: Bool, transition: ContainedViewLayoutTransition, interfaceState: ChatPresentationInterfaceState, metrics: LayoutMetrics, deviceMetrics: DeviceMetrics, isMediaInputExpanded: Bool) -> CGFloat {
         self.validLayout = (width, leftInset, rightInset, bottomInset, additionalSideInsets, maxHeight, maxOverlayHeight, metrics, isSecondary, isMediaInputExpanded, deviceMetrics)
         
-        var leftInset = leftInset + 8.0
-        var rightInset = rightInset + 8.0
+        var leftInset = AyuLegacyUI.isEnabled ? leftInset : leftInset + 8.0
+        var rightInset = AyuLegacyUI.isEnabled ? rightInset : rightInset + 8.0
         
-        let compactBottomSideInset = self.compactBottomSideInset(bottomInset: bottomInset, deviceMetrics: deviceMetrics)
+        let compactBottomSideInset = AyuLegacyUI.isEnabled ? 0.0 : self.compactBottomSideInset(bottomInset: bottomInset, deviceMetrics: deviceMetrics)
         leftInset += compactBottomSideInset
         rightInset += compactBottomSideInset
         
@@ -654,7 +662,7 @@ public final class ChatMessageSelectionInputPanelNode: ChatInputPanelNode {
             }
         }
         
-        let buttonSize = CGSize(width: 40.0, height: 40.0)
+        let buttonSize = AyuLegacyUI.isEnabled ? CGSize(width: 57.0, height: panelHeight) : CGSize(width: 40.0, height: 40.0)
 
         // MARK: Swiftgram
         reportButton.isHidden = true

@@ -4,6 +4,7 @@ import Display
 import ComponentFlow
 import TelegramPresentationData
 import GlassBackgroundComponent
+import ComponentDisplayAdapters
 
 public protocol HeaderPanelContainerChildView: UIView {
     func setOverlayContainerView(overlayContainerView: UIView)
@@ -35,19 +36,32 @@ public final class HeaderPanelContainerComponent: Component {
         }
     }
     
+    public struct ClassicLayout: Equatable {
+        public var leftInset: CGFloat
+        public var rightInset: CGFloat
+        
+        public init(leftInset: CGFloat, rightInset: CGFloat) {
+            self.leftInset = leftInset
+            self.rightInset = rightInset
+        }
+    }
+    
     public let theme: PresentationTheme
     public let preferClearGlass: Bool
+    public let classicLayout: ClassicLayout?
     public let tabs: AnyComponent<Empty>?
     public let panels: [Panel]
     
     public init(
         theme: PresentationTheme,
         preferClearGlass: Bool = false,
+        classicLayout: ClassicLayout? = nil,
         tabs: AnyComponent<Empty>?,
         panels: [Panel]
     ) {
         self.theme = theme
         self.preferClearGlass = preferClearGlass
+        self.classicLayout = classicLayout
         self.tabs = tabs
         self.panels = panels
     }
@@ -57,6 +71,9 @@ public final class HeaderPanelContainerComponent: Component {
             return false
         }
         if lhs.preferClearGlass != rhs.preferClearGlass {
+            return false
+        }
+        if lhs.classicLayout != rhs.classicLayout {
             return false
         }
         if lhs.tabs != rhs.tabs {
@@ -87,6 +104,8 @@ public final class HeaderPanelContainerComponent: Component {
         private let contentContainer: UIView
         
         private var tabsView: ComponentView<Empty>?
+        private var classicBackground: NavigationBackgroundNode?
+        private var classicBottomSeparator: SimpleLayer?
         private var panelViews: [AnyHashable: PanelItemView] = [:]
         
         private var component: HeaderPanelContainerComponent?
@@ -119,6 +138,9 @@ public final class HeaderPanelContainerComponent: Component {
         }
         
         func update(component: HeaderPanelContainerComponent, availableSize: CGSize, state: EmptyComponentState, environment: Environment<Empty>, transition: ComponentTransition) -> CGSize {
+            if let classicLayout = component.classicLayout {
+                return self.updateClassic(component: component, classicLayout: classicLayout, availableSize: availableSize, state: state, transition: transition)
+            }
             var isAnimatingReplacement = false
             if let previousComponent = self.component {
                 isAnimatingReplacement = !component.panels.contains(where: { panel in previousComponent.panels.contains(where: { $0.key == panel.key }) })
@@ -274,6 +296,175 @@ public final class HeaderPanelContainerComponent: Component {
             transition.setCornerRadius(layer: self.contentContainer.layer, cornerRadius: min(cornerRadius, backgroundFrame.height * 0.5))
             
             return size
+        }
+        
+        private func updateClassic(component: HeaderPanelContainerComponent, classicLayout: ClassicLayout, availableSize: CGSize, state: EmptyComponentState, transition: ComponentTransition) -> CGSize {
+            var isAnimatingReplacement = false
+            if let previousComponent = self.component {
+                isAnimatingReplacement = !component.panels.contains(where: { panel in previousComponent.panels.contains(where: { $0.key == panel.key }) })
+            }
+            
+            self.component = component
+            self.state = state
+            
+            self.backgroundContainer.isHidden = true
+            if self.contentContainer.superview !== self {
+                self.contentContainer.removeFromSuperview()
+                self.addSubview(self.contentContainer)
+            }
+            
+            let backgroundColor = component.theme.rootController.navigationBar.blurredBackgroundColor
+            let classicBackground: NavigationBackgroundNode
+            if let current = self.classicBackground {
+                classicBackground = current
+                classicBackground.updateColor(color: backgroundColor, transition: .immediate)
+            } else {
+                classicBackground = NavigationBackgroundNode(color: backgroundColor)
+                classicBackground.isUserInteractionEnabled = false
+                self.classicBackground = classicBackground
+                self.insertSubview(classicBackground.view, at: 0)
+            }
+            
+            let classicBottomSeparator: SimpleLayer
+            if let current = self.classicBottomSeparator {
+                classicBottomSeparator = current
+            } else {
+                classicBottomSeparator = SimpleLayer()
+                self.classicBottomSeparator = classicBottomSeparator
+                self.layer.addSublayer(classicBottomSeparator)
+            }
+            
+            let separatorColor = component.theme.rootController.navigationBar.separatorColor
+            let contentWidth = max(0.0, availableSize.width - classicLayout.leftInset - classicLayout.rightInset)
+            
+            var size = CGSize(width: availableSize.width, height: 0.0)
+            
+            if let tabs = component.tabs {
+                let tabsView: ComponentView<Empty>
+                var tabsTransition = transition
+                if let current = self.tabsView {
+                    tabsView = current
+                } else {
+                    tabsTransition = tabsTransition.withAnimation(.none)
+                    tabsView = ComponentView()
+                    self.tabsView = tabsView
+                }
+                let tabsSize = tabsView.update(
+                    transition: tabsTransition,
+                    component: tabs,
+                    environment: {},
+                    containerSize: CGSize(width: contentWidth, height: 40.0)
+                )
+                let tabsFrame = CGRect(origin: CGPoint(x: classicLayout.leftInset, y: size.height), size: tabsSize)
+                if let tabsComponentView = tabsView.view {
+                    if tabsComponentView.superview == nil {
+                        self.contentContainer.addSubview(tabsComponentView)
+                        if let tabsComponentView = tabsComponentView as? HeaderPanelContainerChildView {
+                            tabsComponentView.setOverlayContainerView(overlayContainerView: self)
+                        }
+                        transition.animateAlpha(view: tabsComponentView, from: 0.0, to: 1.0)
+                    }
+                    tabsTransition.setFrame(view: tabsComponentView, frame: tabsFrame)
+                }
+                size.height += tabsSize.height
+            } else if let tabsView = self.tabsView {
+                self.tabsView = nil
+                if let tabsComponentView = tabsView.view {
+                    transition.setAlpha(view: tabsComponentView, alpha: 0.0, completion: { [weak tabsComponentView] _ in
+                        tabsComponentView?.removeFromSuperview()
+                    })
+                }
+            }
+            
+            var validPanelKeys: [AnyHashable] = []
+            for panel in component.panels {
+                validPanelKeys.append(panel.key)
+                
+                var panelTransition = transition
+                let panelView: PanelItemView
+                if let current = self.panelViews[panel.key] {
+                    panelView = current
+                } else {
+                    panelTransition = panelTransition.withAnimation(.none)
+                    panelView = PanelItemView()
+                    self.panelViews[panel.key] = panelView
+                    self.contentContainer.addSubview(panelView)
+                    self.contentContainer.layer.addSublayer(panelView.separator)
+                }
+                
+                let panelSize = panelView.view.update(
+                    transition: panelTransition,
+                    component: panel.component,
+                    environment: {},
+                    containerSize: CGSize(width: contentWidth, height: 10000.0)
+                )
+                let panelFrame = CGRect(origin: CGPoint(x: classicLayout.leftInset, y: size.height), size: panelSize)
+                if let panelComponentView = panelView.view.view {
+                    if panelComponentView.superview == nil {
+                        panelView.addSubview(panelComponentView)
+                        transition.animateAlpha(view: panelView, from: 0.0, to: 1.0)
+                        panelView.separator.opacity = 0.0
+                        panelView.clipsToBounds = true
+                        if isAnimatingReplacement {
+                            panelView.frame = panelFrame
+                        } else {
+                            panelView.frame = CGRect(origin: panelFrame.origin, size: CGSize(width: panelFrame.width, height: 0.0))
+                        }
+                    }
+                    
+                    panelView.separator.backgroundColor = separatorColor.cgColor
+                    
+                    let isFrameUpdated = panelComponentView.frame != panelFrame
+                    transition.setFrame(view: panelView, frame: panelFrame, completion: { [weak panelView] completed in
+                        if let panelView, completed, isFrameUpdated {
+                            panelView.clipsToBounds = false
+                        }
+                    })
+                    panelTransition.setFrame(view: panelComponentView, frame: CGRect(origin: CGPoint(), size: panelFrame.size))
+                    panelTransition.setFrame(layer: panelView.separator, frame: CGRect(origin: CGPoint(x: 0.0, y: panelFrame.minY), size: CGSize(width: availableSize.width, height: UIScreenPixel)))
+                    
+                    transition.setAlpha(layer: panelView.separator, alpha: 1.0)
+                }
+                size.height += panelSize.height
+            }
+            
+            var removedPanelKeys: [AnyHashable] = []
+            for (key, panelView) in self.panelViews {
+                if !validPanelKeys.contains(key) {
+                    removedPanelKeys.append(key)
+                    transition.setAlpha(view: panelView, alpha: 0.0, completion: { [weak panelView] _ in
+                        panelView?.removeFromSuperview()
+                    })
+                    let separator = panelView.separator
+                    transition.setAlpha(layer: separator, alpha: 0.0, completion: { [weak separator] _ in
+                        separator?.removeFromSuperlayer()
+                    })
+                    if !isAnimatingReplacement {
+                        panelView.clipsToBounds = true
+                        transition.setFrame(view: panelView, frame: CGRect(origin: panelView.frame.origin, size: CGSize(width: panelView.bounds.width, height: 0.0)))
+                    }
+                }
+            }
+            for key in removedPanelKeys {
+                self.panelViews.removeValue(forKey: key)
+            }
+            
+            let hasContent = component.tabs != nil || !component.panels.isEmpty
+            let backgroundFrame = CGRect(origin: CGPoint(), size: CGSize(width: availableSize.width, height: size.height))
+            
+            transition.setFrame(view: classicBackground.view, frame: backgroundFrame)
+            classicBackground.update(size: backgroundFrame.size, cornerRadius: 0.0, transition: transition.containedViewLayoutTransition)
+            transition.setAlpha(view: classicBackground.view, alpha: hasContent ? 1.0 : 0.0)
+            
+            classicBottomSeparator.backgroundColor = separatorColor.cgColor
+            transition.setFrame(layer: classicBottomSeparator, frame: CGRect(origin: CGPoint(x: 0.0, y: size.height), size: CGSize(width: availableSize.width, height: UIScreenPixel)))
+            transition.setAlpha(layer: classicBottomSeparator, alpha: hasContent ? 1.0 : 0.0)
+            
+            self.contentContainer.clipsToBounds = true
+            transition.setFrame(view: self.contentContainer, frame: backgroundFrame)
+            transition.setCornerRadius(layer: self.contentContainer.layer, cornerRadius: 0.0)
+            
+            return CGSize(width: availableSize.width, height: size.height)
         }
     }
     

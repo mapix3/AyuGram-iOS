@@ -387,7 +387,8 @@ public final class PaneSearchContainerNode: ASDisplayNode, EntitySearchContainer
                     background: .panel
                 ),
                 centerAlignmentIfPossible: true,
-                isDark: self.theme.overallDarkAppearance
+                isDark: self.theme.overallDarkAppearance,
+                legacyPlain: true
             )),
             environment: {},
             containerSize: navigationButtonsFrame.size

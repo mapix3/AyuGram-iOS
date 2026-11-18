@@ -44,7 +44,7 @@ public class ItemListSwitchItem: ListViewItem, ItemListItem {
     
     public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, icon: UIImage? = nil, title: String, text: String? = nil, textColor: TextColor = .primary, titleBadgeComponent: AnyComponent<Empty>? = nil, value: Bool, type: ItemListSwitchItemNodeType = .regular, enableInteractiveChanges: Bool = true, enabled: Bool = true, displayLocked: Bool = false, disableLeadingInset: Bool = false, maximumNumberOfLines: Int = 1, noCorners: Bool = false, sectionId: ItemListSectionId, style: ItemListStyle, updated: @escaping (Bool) -> Void, activatedWhileDisabled: @escaping () -> Void = {}, action: (() -> Void)? = nil, tag: ItemListItemTag? = nil, switchTintColor: UIColor? = nil) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.icon = icon
         self.title = title
         self.text = text
@@ -613,7 +613,11 @@ public class ItemListSwitchItemNode: ListViewItemNode, ItemListItemNode {
                                 
                                 iconOrigin = CGPoint(x: item.value ? switchFrame.maxX - icon.size.width - 16.0 + UIScreenPixel + offset.x : switchFrame.minX + 16.0 - UIScreenPixel - offset.x, y: switchFrame.minY + 8.0 + offset.y)
                             case .legacy:
-                                iconOrigin = CGPoint(x: item.value ? switchFrame.maxX - icon.size.width - 11.0 : switchFrame.minX + 11.0, y: switchFrame.minY + 9.0)
+                                if #available(iOS 26.0, *), AyuLegacyUI.isEnabled {
+                                    iconOrigin = CGPoint(x: item.value ? switchFrame.maxX - icon.size.width - 16.0 + UIScreenPixel : switchFrame.minX + 16.0 - UIScreenPixel, y: switchFrame.minY + 8.0)
+                                } else {
+                                    iconOrigin = CGPoint(x: item.value ? switchFrame.maxX - icon.size.width - 11.0 : switchFrame.minX + 11.0, y: switchFrame.minY + 9.0)
+                                }
                             }
                             lockedIconTransition.updateFrame(node: lockedIconNode, frame: CGRect(origin: iconOrigin, size: icon.size))
                         }

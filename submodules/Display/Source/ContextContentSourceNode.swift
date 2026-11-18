@@ -12,6 +12,9 @@ public extension UIView {
     /// handed out as a button's `menuSourceView`.
     var morphsIntoContextMenu: Bool {
         get {
+            if AyuLegacyUI.isEnabled {
+                return false
+            }
             return (objc_getAssociatedObject(self, &morphsIntoContextMenuKey) as? Bool) ?? false
         }
         set {

@@ -1042,7 +1042,8 @@ final class OverlayAudioPlayerControllerNode: ViewControllerTracingNode, ASGestu
                             background: .panel
                         ),
                         centerAlignmentIfPossible: true,
-                        isDark: self.presentationData.theme.overallDarkAppearance
+                        isDark: self.presentationData.theme.overallDarkAppearance,
+                        legacyPlain: true
                     )
                 ),
                 environment: {},

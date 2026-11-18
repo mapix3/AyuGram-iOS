@@ -233,6 +233,10 @@ final class ChatRecentActionsControllerNode: ViewControllerTracingNode {
     private var bottomBackgroundEdgeEffectNode: WallpaperEdgeEffectNode?
     private let panelButtonNode: RecentActionsGlassTextButtonView
     private let panelInfoButtonNode: RecentActionsGlassButtonView
+    private var legacyPanelBackgroundNode: NavigationBackgroundNode?
+    private var legacyPanelSeparatorNode: ASDisplayNode?
+    private var legacyPanelButtonNode: HighlightableButtonNode?
+    private var legacyPanelInfoButtonNode: HighlightableButtonNode?
     private var preferredGlassType: ChatPresentationInterfaceState.GlassType = .default
     
     fileprivate let listNode: ListView
@@ -319,6 +323,34 @@ final class ChatRecentActionsControllerNode: ViewControllerTracingNode {
 
         self.panelButtonNode.button.addTarget(self, action: #selector(self.settingsButtonPressed), for: .touchUpInside)
         self.panelInfoButtonNode.button.addTarget(self, action: #selector(self.infoButtonPressed), for: .touchUpInside)
+
+        if AyuLegacyUI.isEnabled {
+            self.panelButtonNode.isHidden = true
+            self.panelInfoButtonNode.isHidden = true
+
+            let legacyPanelBackgroundNode = NavigationBackgroundNode(color: self.presentationData.theme.chat.inputPanel.panelBackgroundColor)
+            self.legacyPanelBackgroundNode = legacyPanelBackgroundNode
+            self.addSubnode(legacyPanelBackgroundNode)
+
+            let legacyPanelSeparatorNode = ASDisplayNode()
+            legacyPanelSeparatorNode.backgroundColor = self.presentationData.theme.chat.inputPanel.panelSeparatorColor
+            self.legacyPanelSeparatorNode = legacyPanelSeparatorNode
+            self.addSubnode(legacyPanelSeparatorNode)
+
+            let legacyPanelButtonNode = HighlightableButtonNode()
+            legacyPanelButtonNode.setTitle(self.presentationData.strings.Channel_AdminLog_Settings, with: Font.regular(17.0), with: self.presentationData.theme.chat.inputPanel.panelControlAccentColor, for: [])
+            legacyPanelButtonNode.accessibilityLabel = self.presentationData.strings.Channel_AdminLog_Settings
+            legacyPanelButtonNode.addTarget(self, action: #selector(self.settingsButtonPressed), forControlEvents: .touchUpInside)
+            self.legacyPanelButtonNode = legacyPanelButtonNode
+            self.addSubnode(legacyPanelButtonNode)
+
+            let legacyPanelInfoButtonNode = HighlightableButtonNode()
+            legacyPanelInfoButtonNode.setImage(generateTintedImage(image: UIImage(bundleImageName: "Chat/Recent Actions/Info"), color: self.presentationData.theme.chat.inputPanel.panelControlAccentColor), for: [])
+            legacyPanelInfoButtonNode.accessibilityLabel = self.presentationData.strings.Channel_AdminLog_InfoPanelAlertTitle
+            legacyPanelInfoButtonNode.addTarget(self, action: #selector(self.infoButtonPressed), forControlEvents: .touchUpInside)
+            self.legacyPanelInfoButtonNode = legacyPanelInfoButtonNode
+            self.addSubnode(legacyPanelInfoButtonNode)
+        }
 
         self.backgroundNode.contentStatsUpdated = { [weak self] in
             self?.contentStatsUpdated()
@@ -975,6 +1007,21 @@ final class ChatRecentActionsControllerNode: ViewControllerTracingNode {
         self.panelButtonNode.accessibilityLabel = presentationData.strings.Channel_AdminLog_Settings
         self.panelInfoButtonNode.accessibilityLabel = presentationData.strings.Channel_AdminLog_InfoPanelAlertTitle
         self.updatePanelButtons(transition: .immediate)
+
+        if let legacyPanelBackgroundNode = self.legacyPanelBackgroundNode {
+            legacyPanelBackgroundNode.updateColor(color: presentationData.theme.chat.inputPanel.panelBackgroundColor, transition: .immediate)
+        }
+        if let legacyPanelSeparatorNode = self.legacyPanelSeparatorNode {
+            legacyPanelSeparatorNode.backgroundColor = presentationData.theme.chat.inputPanel.panelSeparatorColor
+        }
+        if let legacyPanelButtonNode = self.legacyPanelButtonNode {
+            legacyPanelButtonNode.setTitle(presentationData.strings.Channel_AdminLog_Settings, with: Font.regular(17.0), with: presentationData.theme.chat.inputPanel.panelControlAccentColor, for: [])
+            legacyPanelButtonNode.accessibilityLabel = presentationData.strings.Channel_AdminLog_Settings
+        }
+        if let legacyPanelInfoButtonNode = self.legacyPanelInfoButtonNode {
+            legacyPanelInfoButtonNode.setImage(generateTintedImage(image: UIImage(bundleImageName: "Chat/Recent Actions/Info"), color: presentationData.theme.chat.inputPanel.panelControlAccentColor), for: [])
+            legacyPanelInfoButtonNode.accessibilityLabel = presentationData.strings.Channel_AdminLog_InfoPanelAlertTitle
+        }
     }
 
     var backgroundContentIsSaturated: Bool {
@@ -1012,8 +1059,8 @@ final class ChatRecentActionsControllerNode: ViewControllerTracingNode {
         transition.updateFrame(node: self.backgroundNode, frame: CGRect(origin: CGPoint(), size: layout.size))
         self.backgroundNode.updateLayout(size: self.backgroundNode.bounds.size, displayMode: .aspectFill, transition: transition)
 
-        let intrinsicPanelHeight: CGFloat = 40.0
-        var panelHeight = intrinsicPanelHeight + cleanInsets.bottom + 8.0
+        let intrinsicPanelHeight: CGFloat = AyuLegacyUI.isEnabled ? 47.0 : 40.0
+        var panelHeight = AyuLegacyUI.isEnabled ? (intrinsicPanelHeight + cleanInsets.bottom) : (intrinsicPanelHeight + cleanInsets.bottom + 8.0)
         var panelOffset: CGFloat = panelHeight
         if insets.bottom > cleanInsets.bottom {
             panelHeight = intrinsicPanelHeight
@@ -1028,7 +1075,9 @@ final class ChatRecentActionsControllerNode: ViewControllerTracingNode {
         }
 
         let bottomBackgroundEdgeEffectNode: WallpaperEdgeEffectNode?
-        if let current = self.bottomBackgroundEdgeEffectNode {
+        if AyuLegacyUI.isEnabled {
+            bottomBackgroundEdgeEffectNode = nil
+        } else if let current = self.bottomBackgroundEdgeEffectNode {
             bottomBackgroundEdgeEffectNode = current
         } else if let value = self.backgroundNode.makeEdgeEffectNode() {
             bottomBackgroundEdgeEffectNode = value
@@ -1078,6 +1127,15 @@ final class ChatRecentActionsControllerNode: ViewControllerTracingNode {
         let infoButtonFrame = CGRect(origin: CGPoint(x: width - rightInset - buttonSize.width, y: layout.size.height - panelOffset), size: buttonSize)
         transition.updateFrame(view: self.panelInfoButtonNode, frame: infoButtonFrame)
         self.panelInfoButtonNode.update(theme: self.presentationData.theme, preferClearGlass: self.preferredGlassType == .clear, size: infoButtonFrame.size, transition: ComponentTransition(transition))
+
+        if let legacyPanelBackgroundNode = self.legacyPanelBackgroundNode, let legacyPanelSeparatorNode = self.legacyPanelSeparatorNode, let legacyPanelButtonNode = self.legacyPanelButtonNode, let legacyPanelInfoButtonNode = self.legacyPanelInfoButtonNode {
+            let legacyPanelFrame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height - panelOffset), size: CGSize(width: layout.size.width, height: panelHeight))
+            transition.updateFrame(node: legacyPanelBackgroundNode, frame: legacyPanelFrame)
+            legacyPanelBackgroundNode.update(size: legacyPanelFrame.size, transition: transition)
+            transition.updateFrame(node: legacyPanelSeparatorNode, frame: CGRect(origin: legacyPanelFrame.origin, size: CGSize(width: legacyPanelFrame.width, height: UIScreenPixel)))
+            transition.updateFrame(node: legacyPanelInfoButtonNode, frame: CGRect(origin: CGPoint(x: layout.size.width - insets.right - 56.0, y: legacyPanelFrame.minY), size: CGSize(width: 56.0, height: intrinsicPanelHeight)))
+            transition.updateFrame(node: legacyPanelButtonNode, frame: CGRect(origin: CGPoint(x: insets.left + 56.0, y: legacyPanelFrame.minY), size: CGSize(width: max(0.0, layout.size.width - insets.left - insets.right - 112.0), height: intrinsicPanelHeight)))
+        }
 
         self.visibleAreaInset = UIEdgeInsets(top: 0.0, left: 0.0, bottom: panelHeight, right: 0.0)
 

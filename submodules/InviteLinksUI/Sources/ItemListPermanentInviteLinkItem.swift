@@ -74,7 +74,7 @@ public class ItemListPermanentInviteLinkItem: ListViewItem, ItemListItem {
     ) {
         self.context = context
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.invite = invite
         self.count = count
         self.peers = peers

@@ -33,7 +33,7 @@ final class GroupStickerPackCurrentItem: ListViewItem, ItemListItem {
     init(theme: PresentationTheme, strings: PresentationStrings, systemStyle: ItemListSystemStyle = .legacy, account: Account, content: GroupStickerPackCurrentItemContent, sectionId: ItemListSectionId, action: (() -> Void)?, remove: (() -> Void)?) {
         self.theme = theme
         self.strings = strings
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.account = account
         self.content = content
         self.sectionId = sectionId

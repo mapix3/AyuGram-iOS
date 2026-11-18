@@ -20,6 +20,7 @@ final class DeleteChatInputPanelNode: ChatInputPanelNode {
     
     override init() {
         self.backgroundView = GlassBackgroundView()
+        self.backgroundView.hidesBackgroundInLegacyUI = true
         self.backgroundView.isUserInteractionEnabled = false
         
         self.button = HighlightTrackingButton()

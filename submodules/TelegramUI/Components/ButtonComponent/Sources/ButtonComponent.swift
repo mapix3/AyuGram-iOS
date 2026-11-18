@@ -373,6 +373,7 @@ public final class ButtonComponent: Component {
         public var cornerRadius: CGFloat
         public var isShimmering: Bool
         public var gradient: Gradient?
+        public internal(set) var isLegacyRemapped: Bool = false
 
         public init(
             style: Style = .legacy,
@@ -393,7 +394,7 @@ public final class ButtonComponent: Component {
         }
         
         public func withIsShimmering(_ isShimmering: Bool) -> Background {
-            return Background(
+            var result = Background(
                 style: self.style,
                 color: self.color,
                 foreground: self.foreground,
@@ -402,6 +403,8 @@ public final class ButtonComponent: Component {
                 isShimmering: isShimmering,
                 gradient: self.gradient
             )
+            result.isLegacyRemapped = self.isLegacyRemapped
+            return result
         }
     }
 
@@ -432,7 +435,14 @@ public final class ButtonComponent: Component {
         longPressAction: (() -> Void)? = nil,
         accessibility: ComponentAccessibility? = nil
     ) {
-        self.background = background
+        if AyuLegacyUI.isEnabled, case .glass = background.style {
+            var background = background
+            background.style = .legacy
+            background.isLegacyRemapped = true
+            self.background = background
+        } else {
+            self.background = background
+        }
         self.content = content
         self.restrictContentAnimations = restrictContentAnimations
         self.contentInsets = contentInsets
@@ -781,6 +791,9 @@ public final class ButtonComponent: Component {
             var cornerRadius: CGFloat = component.background.cornerRadius
             if [.glass, .actualGlass].contains(component.background.style), component.background.cornerRadius == 10.0 {
                 cornerRadius = availableSize.height * 0.5
+            }
+            if component.background.isLegacyRemapped, availableSize.width > availableSize.height * 1.5, cornerRadius >= availableSize.height * 0.5 - 1.0 {
+                cornerRadius = 10.0
             }
             
             var maxContentWidth = availableSize.width - cornerRadius

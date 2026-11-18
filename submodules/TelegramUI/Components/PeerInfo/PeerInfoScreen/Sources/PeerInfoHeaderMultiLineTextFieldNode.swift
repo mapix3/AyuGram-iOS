@@ -122,7 +122,7 @@ final class PeerInfoHeaderMultiLineTextFieldNode: ASDisplayNode, PeerInfoHeaderT
         
         self.topSeparator.backgroundColor = presentationData.theme.list.itemBlocksSeparatorColor
         
-        let separatorRightInset: CGFloat = 16.0
+        let separatorRightInset: CGFloat = PeerInfoListMetrics.separatorRightInset
         
         let separatorX = leftInset + (hasPrevious ? 16.0 : 0.0)
         self.topSeparator.frame = CGRect(origin: CGPoint(x: separatorX, y: 0.0), size: CGSize(width: width - separatorX - rightInset - separatorRightInset, height: UIScreenPixel))

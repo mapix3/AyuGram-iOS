@@ -25,7 +25,7 @@ public final class StatsGraphItem: ListViewItem, ItemListItem, ListItemComponent
     
     public init(presentationData: ItemListPresentationData, systemStyle: ItemListSystemStyle = .legacy, graph: StatsGraph, type: ChartType, noInitialZoom: Bool = false, conversionRate: Double = 1.0, getDetailsData: ((Date, @escaping (String?) -> Void) -> Void)? = nil, sectionId: ItemListSectionId, style: ItemListStyle) {
         self.presentationData = presentationData
-        self.systemStyle = systemStyle
+        self.systemStyle = systemStyle.resolved
         self.graph = graph
         self.type = type
         self.noInitialZoom = noInitialZoom

@@ -205,6 +205,9 @@ open class TabBarControllerImpl: ViewController, TabBarController {
                         } else {
                             tabBarHeight = 49.0 + bottomInset
                         }
+                        if let legacyHeight = strongSelf.tabBarControllerNode.legacyTabBarHeight(layout: validLayout) {
+                            tabBarHeight = legacyHeight
+                        }
                         updatedLayout.intrinsicInsets.bottom = tabBarHeight
                     }
                     
@@ -283,6 +286,7 @@ open class TabBarControllerImpl: ViewController, TabBarController {
     }
     
     public func updateBackgroundAlpha(_ alpha: CGFloat, transition: ContainedViewLayoutTransition) {
+        self.tabBarControllerNode.updateLegacyBackgroundAlpha(alpha, transition: transition)
     }
     
     private func updateSelectedIndex(animated: Bool = false) {
@@ -377,6 +381,9 @@ open class TabBarControllerImpl: ViewController, TabBarController {
     // Along the bottom unless its layout places it at a side. A bar hidden for a moment (search, selection) still counts,
     // so that what lines up with it does not move meanwhile.
     override open var showsBottomTabBar: Bool {
+        if AyuLegacyUI.isEnabled {
+            return false
+        }
         guard let layout = self.validLayout else {
             return false
         }
@@ -422,6 +429,9 @@ open class TabBarControllerImpl: ViewController, TabBarController {
                 tabBarHeight = 34.0 + bottomInset
             } else {
                 tabBarHeight = 49.0 + bottomInset
+            }
+            if let legacyHeight = self.tabBarControllerNode.legacyTabBarHeight(layout: updatedLayout) {
+                tabBarHeight = legacyHeight
             }
             if !self.tabBarControllerNode.tabBarHidden && self.tabBarControllerNode.sidePlacement(for: layout) == nil {
                 updatedLayout.intrinsicInsets.bottom = tabBarHeight
