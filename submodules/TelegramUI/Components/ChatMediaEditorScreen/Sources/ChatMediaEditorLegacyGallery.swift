@@ -497,6 +497,28 @@ public func makeChatMediaEditorGalleryController(context: AccountContext, parame
     let livePhotos = ChatMediaEditorLegacyLivePhotoAdapter(editingContext: editingContext, resolver: resolver)
 
     let sendSelected = parameters.sendSelected
+    let sendAsRoundVideo: ((String) -> (title: String, action: () -> Void)?)?
+    if let roundVideoHandler = parameters.sendAsRoundVideo {
+        sendAsRoundVideo = { uniqueId in
+            guard let mediaAsset = resolver.item(for: uniqueId) as? TGMediaAsset, mediaAsset.isVideo, let backingAsset = mediaAsset.backingAsset else {
+                return nil
+            }
+            if let selectionContext {
+                let selectedItems = selectionContext.selectedItems() ?? []
+                if selectedItems.count > 1 {
+                    return nil
+                }
+                if let selectedItem = selectedItems.first as? TGMediaSelectableItem, selectedItem.uniqueIdentifier != mediaAsset.uniqueIdentifier {
+                    return nil
+                }
+            }
+            return (roundVideoHandler.title, {
+                roundVideoHandler.action(backingAsset)
+            })
+        }
+    } else {
+        sendAsRoundVideo = nil
+    }
     let gallery = ChatMediaEditorGalleryConfiguration(
         doneButton: chatMediaEditorGalleryDoneButton(isScheduledMessages: parameters.isScheduledMessages, isActionButtonDone: parameters.isActionButtonDone),
         hasSendMenu: parameters.hasSendMenu,
@@ -524,7 +546,8 @@ public func makeChatMediaEditorGalleryController(context: AccountContext, parame
             return sendSelected(item, silently, scheduleTime, completion)
         },
         dismissAll: parameters.dismissAll,
-        tabPolicy: parameters.isFilePreview ? .filePreview : (parameters.isCropOnly ? .cropOnly : .standard)
+        tabPolicy: parameters.isFilePreview ? .filePreview : (parameters.isCropOnly ? .cropOnly : .standard),
+        sendAsRoundVideo: sendAsRoundVideo
     )
 
     let getCaptionPanelView = parameters.getCaptionPanelView

@@ -42,6 +42,8 @@ final class VideoRecordingStatistics {
     private let id = UUID().uuidString
     private let mode: NeoCameraImpl.RoundVideoMode
     private let usesMultiCam: Bool
+    private let outputDescription: String
+    private let targetFrameRate: Double
     private let log: ((String) -> Void)?
     private let thermalStart = String(describing: ProcessInfo.processInfo.thermalState)
     private var finalFields: [String: Any]?
@@ -68,9 +70,11 @@ final class VideoRecordingStatistics {
     var gpu = Timing()
     var renderCallbackWall = Timing()
 
-    init(mode: NeoCameraImpl.RoundVideoMode, usesMultiCam: Bool, log: ((String) -> Void)?) {
+    init(mode: NeoCameraImpl.RoundVideoMode, usesMultiCam: Bool, outputWidth: Int, outputHeight: Int, targetFrameRate: Double, log: ((String) -> Void)?) {
         self.mode = mode
         self.usesMultiCam = usesMultiCam
+        self.outputDescription = "\(outputWidth)x\(outputHeight)"
+        self.targetFrameRate = targetFrameRate
         self.log = log
     }
 
@@ -111,8 +115,8 @@ final class VideoRecordingStatistics {
         fields["device"] = String(describing: DeviceModel.current)
         fields["iOS"] = UIDevice.current.systemVersion
         fields["thermalStart"] = self.thermalStart
-        fields["output"] = "\(RoundVideoFrameProcessor.outputWidth)x\(RoundVideoFrameProcessor.outputHeight)"
-        fields["targetFps"] = roundVideoCaptureFrameRate
+        fields["output"] = self.outputDescription
+        fields["targetFps"] = self.targetFrameRate
         fields["inputFormats"] = self.inputFormats.map { "\($0.position == Camera.Position.front.rawValue ? "front" : "back"):\($0.width)x\($0.height)" }.sorted()
         fields["receivedActiveFrames"] = self.activeFramesReceived
         fields["writtenFrames"] = self.framesWritten
@@ -212,6 +216,7 @@ final class VideoRecorder {
 
     private let mediaQueue: DispatchQueue
     private let processor: RoundVideoFrameProcessor
+    private let frameRate: Double
     private let statistics: VideoRecordingStatistics
     private let url: URL
     private let hasAudio: Bool
@@ -260,6 +265,7 @@ final class VideoRecorder {
         initialPosition: Camera.Position,
         mode: NeoCameraImpl.RoundVideoMode,
         usesMultiCam: Bool,
+        frameRate: Double,
         log: ((String) -> Void)?,
         durationUpdated: @escaping (Double) -> Void,
         transitionImageUpdated: @escaping (UIImage?) -> Void,
@@ -268,7 +274,9 @@ final class VideoRecorder {
     ) {
         self.mediaQueue = mediaQueue
         self.processor = processor
-        self.statistics = VideoRecordingStatistics(mode: mode, usesMultiCam: usesMultiCam, log: log)
+        let effectiveFrameRate = frameRate.isFinite && frameRate > 0.0 ? frameRate : AyuGramRoundVideoQuality.standardFrameRate
+        self.frameRate = effectiveFrameRate
+        self.statistics = VideoRecordingStatistics(mode: mode, usesMultiCam: usesMultiCam, outputWidth: processor.outputWidth, outputHeight: processor.outputHeight, targetFrameRate: effectiveFrameRate, log: log)
         self.url = url
         self.hasAudio = hasAudio
         self.activePosition = initialPosition
@@ -621,19 +629,30 @@ final class VideoRecorder {
         }
         assetWriter.shouldOptimizeForNetworkUse = false
 
-        let compressionProperties: [String: Any] = [
-            AVVideoAverageBitRateKey: AyuGramRoundVideoQuality.bitrate,
-            AVVideoExpectedSourceFrameRateKey: Int(roundVideoCaptureFrameRate),
+        let outputWidth = self.processor.outputWidth
+        let outputHeight = self.processor.outputHeight
+        var compressionProperties: [String: Any] = [
+            AVVideoAverageBitRateKey: AyuGramRoundVideoQuality.bitrate(side: max(outputWidth, outputHeight), frameRate: self.frameRate),
             AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
             AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC
         ]
-        let videoSettings: [String: Any] = [
+        if !AyuGramRoundVideoQuality.isStandard(side: max(outputWidth, outputHeight), frameRate: self.frameRate) {
+            compressionProperties[AVVideoExpectedSourceFrameRateKey] = Int(self.frameRate.rounded())
+            compressionProperties[AVVideoMaxKeyFrameIntervalKey] = Int((self.frameRate * 2.0).rounded())
+        }
+        let colorProperties = RoundVideoFrameProcessor.videoColorProperties(from: firstVideoFrame.source)
+        var videoSettings: [String: Any] = [
             AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: RoundVideoFrameProcessor.outputWidth,
-            AVVideoHeightKey: RoundVideoFrameProcessor.outputHeight,
+            AVVideoWidthKey: outputWidth,
+            AVVideoHeightKey: outputHeight,
             AVVideoCompressionPropertiesKey: compressionProperties,
-            AVVideoColorPropertiesKey: RoundVideoFrameProcessor.videoColorProperties(from: firstVideoFrame.source)
+            AVVideoColorPropertiesKey: colorProperties
         ]
+        if !assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) {
+            compressionProperties.removeValue(forKey: AVVideoExpectedSourceFrameRateKey)
+            compressionProperties.removeValue(forKey: AVVideoMaxKeyFrameIntervalKey)
+            videoSettings[AVVideoCompressionPropertiesKey] = compressionProperties
+        }
         guard assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) else {
             self.fail()
             return
@@ -649,8 +668,8 @@ final class VideoRecorder {
 
         let sourcePixelBufferAttributes: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey as String: RoundVideoFrameProcessor.outputWidth,
-            kCVPixelBufferHeightKey as String: RoundVideoFrameProcessor.outputHeight,
+            kCVPixelBufferWidthKey as String: outputWidth,
+            kCVPixelBufferHeightKey as String: outputHeight,
             kCVPixelBufferMetalCompatibilityKey as String: true,
             kCVPixelBufferIOSurfacePropertiesKey as String: [:] as NSDictionary
         ]
@@ -794,7 +813,7 @@ final class VideoRecorder {
             let gap = (frame.presentationTime - lastVideoTime).seconds
             if gap.isFinite, gap > 0.0 {
                 self.statistics.maximumFrameGap = max(self.statistics.maximumFrameGap, gap)
-                self.statistics.timelineMissingFrames += max(0, Int((gap * roundVideoCaptureFrameRate).rounded()) - 1)
+                self.statistics.timelineMissingFrames += max(0, Int((gap * self.frameRate).rounded()) - 1)
             }
         }
         if self.recordingStartTime == nil {

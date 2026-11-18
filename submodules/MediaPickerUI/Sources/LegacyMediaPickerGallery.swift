@@ -138,7 +138,8 @@ func presentLegacyMediaPickerGallery(
     finishedTransitionIn: @escaping () -> Void,
     willTransitionOut: @escaping () -> Void,
     dismissAll: @escaping () -> Void,
-    editCover: @escaping (CGSize, @escaping (UIImage) -> Void) -> Void = { _, _ in }
+    editCover: @escaping (CGSize, @escaping (UIImage) -> Void) -> Void = { _, _ in },
+    ayuSendAsRoundVideo: (title: String, action: (PHAsset) -> Void)? = nil
 ) -> TGModernGalleryController {
     let reminder = peer?.id == context.account.peerId
     let hasSilentPosting = hasSilentPosting && peer?.id != context.account.peerId
@@ -153,7 +154,7 @@ func presentLegacyMediaPickerGallery(
     legacyController.statusBar.statusBarStyle = presentationData.theme.rootController.statusBarStyle.style
     
     let paintStickersContext = LegacyPaintStickersContext(context: context)
-    paintStickersContext.presentMediaPickerSendActionMenu = makeLegacyMediaPickerSendActionMenuPresenter(context: context, presentationData: presentationData, presentInGlobalOverlay: { [weak legacyController] controller in
+    let presentSendActionMenuInGlobalOverlay: (ViewController) -> Void = { [weak legacyController] controller in
         if let legacyController {
             legacyController.presentInGlobalOverlay(controller)
         } else if let mainWindow = context.sharedContext.mainWindow {
@@ -161,7 +162,8 @@ func presentLegacyMediaPickerGallery(
         } else {
             context.sharedContext.presentGlobalController(controller, nil)
         }
-    })
+    }
+    paintStickersContext.presentMediaPickerSendActionMenu = makeLegacyMediaPickerSendActionMenuPresenter(context: context, presentationData: presentationData, presentInGlobalOverlay: presentSendActionMenuInGlobalOverlay)
     paintStickersContext.captionPanelView = {
         return getCaptionPanelView()
     }
@@ -403,7 +405,25 @@ func presentLegacyMediaPickerGallery(
                         }
                     }
 
-                    if let sourceView, let paintStickersContext, paintStickersContext.presentMediaPickerSendActionMenu?(sourceView, hasSilentPosting, sendWhenOnlineAvailable && effectiveHasSchedule, effectiveHasSchedule, reminder, hasTimer, sendSilently, sendWhenOnline, schedule, sendWithTimer) == true {
+                    var roundVideoItem: (title: String, action: () -> Void)?
+                    if let ayuSendAsRoundVideo, let mediaAsset = item.asset as? TGMediaAsset, mediaAsset.isVideo, let backingAsset = mediaAsset.backingAsset {
+                        let selectedItems = selectionContext.selectedItems() ?? []
+                        var isSingleItem = selectedItems.count == 0
+                        if selectedItems.count == 1, let selectedItem = selectedItems.first as? TGMediaSelectableItem, selectedItem.uniqueIdentifier == mediaAsset.uniqueIdentifier {
+                            isSingleItem = true
+                        }
+                        if isSingleItem {
+                            roundVideoItem = (ayuSendAsRoundVideo.title, {
+                                dismissImpl()
+                                ayuSendAsRoundVideo.action(backingAsset)
+                            })
+                        }
+                    }
+                    var sendActionMenuPresenter = paintStickersContext?.presentMediaPickerSendActionMenu
+                    if let roundVideoItem {
+                        sendActionMenuPresenter = makeLegacyMediaPickerSendActionMenuPresenter(context: context, presentationData: presentationData, presentInGlobalOverlay: presentSendActionMenuInGlobalOverlay, extraItem: roundVideoItem)
+                    }
+                    if let sourceView, let sendActionMenuPresenter, sendActionMenuPresenter(sourceView, hasSilentPosting, sendWhenOnlineAvailable && effectiveHasSchedule, effectiveHasSchedule, reminder, hasTimer, sendSilently, sendWhenOnline, schedule, sendWithTimer) == true {
                         let hapticFeedback = HapticFeedback()
                         hapticFeedback.impact()
                         return

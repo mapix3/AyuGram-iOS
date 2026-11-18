@@ -1738,7 +1738,7 @@ public final class MediaPickerScreenImpl: ViewController, MediaPickerScreen, Att
                 self?.controller?.dismissAll()
             }, editCover: { [weak self] dimensions, completion in
                 self?.controller?.editCover(dimensions, completion)
-            })
+            }, ayuSendAsRoundVideo: controller.subjectIsFile ? nil : controller.ayuSendAsRoundVideo)
         }
         
         fileprivate func openSelectedMedia(item: TGMediaSelectableItem, immediateThumbnail: UIImage?) {
@@ -1785,7 +1785,7 @@ public final class MediaPickerScreenImpl: ViewController, MediaPickerScreen, Att
                 self?.controller?.dismissAll()
             }, editCover: { _, _ in
                 
-            })
+            }, ayuSendAsRoundVideo: controller.subjectIsFile ? nil : controller.ayuSendAsRoundVideo)
         }
         
         private func openChatMediaGallery(source: ChatMediaGallerySource, immediateThumbnail: UIImage?, transitionHostView: @escaping () -> UIView?) -> Bool {
@@ -1852,6 +1852,7 @@ public final class MediaPickerScreenImpl: ViewController, MediaPickerScreen, Att
             let presentSchedulePicker = controller.presentSchedulePicker
             let presentTimerPicker = controller.presentTimerPicker
             let getCaptionPanelView = controller.getCaptionPanelView
+            let sendAsRoundVideo: (title: String, action: (PHAsset) -> Void)? = isFilePreview || isPassport || controller.isScheduledMessages ? nil : controller.ayuSendAsRoundVideo
             let parameters = ChatMediaGalleryParameters(
                 source: source,
                 itemStore: store,
@@ -1910,7 +1911,8 @@ public final class MediaPickerScreenImpl: ViewController, MediaPickerScreen, Att
                     self?.controller?.dismissAll()
                 },
                 isFilePreview: isFilePreview,
-                isCropOnly: isPassport
+                isCropOnly: isPassport,
+                sendAsRoundVideo: sendAsRoundVideo
             )
             guard let galleryController = context.sharedContext.makeChatMediaGalleryController(context: context, parameters: parameters) else {
                 return false
