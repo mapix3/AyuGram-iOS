@@ -9,10 +9,11 @@ import Camera
 public enum AyuGramRoundVideoQuality {
     public static let standardSide: Int = 480
     public static let standardFrameRate: Double = 30.0
+    public static let maximumSide: Int = 640
 
     public static var side: Int = 480 {
         didSet {
-            let clamped = max(standardSide, min(1080, side))
+            let clamped = max(standardSide, min(maximumSide, side))
             let aligned = clamped - clamped % 16
             if aligned != side {
                 side = aligned
