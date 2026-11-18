@@ -586,6 +586,7 @@ swift_library(
         "//submodules/TelegramUI/Components/Contacts/NewContactScreen",
         "//submodules/TelegramUI/Components/Chat/ChatSendAsContextMenu",
         "//submodules/TelegramUI/Components/NavigationBarNode",
+        "//submodules/TelegramUI/Components/LegacyNavigationBarNode",
         "//submodules/TelegramUI/Components/NavigationExpansionTransition",
         "//submodules/TelegramUI/Components/NavigationBarComponent",
         "//submodules/TelegramUI/Components/GlassBarButtonComponent",
