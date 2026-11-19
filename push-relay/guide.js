@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 11;
+export const GUIDE_VERSION = 12;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -36,5 +36,12 @@ Visual effects (custom build only, the standard build has none of these): Telegr
 - Interface: Avatar rings (rotating gradient ring around avatars of people who are online, in the chat list).
 
 Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode. At the bottom of Appearance, "Font and badge": Font (system styles: rounded, serif, monospaced; iOS fonts like Avenir Next, Futura, Georgia; or import your own .ttf/.otf; applies after restarting the app) and App badge (the AYUGRAM pill under the Dynamic Island: your own text, picture and colors).
+
+Profile extras (custom build only): AyuGram > Client > Profile extras. Everything here is decoration that every AyuGram user sees on your profile; it is not real and other Telegram apps do not show it.
+- Fake NFTs: add up to 30 collectible gifts, either a real gift by its link or slug (like PlushPepe-1) or your own (collection, model, backdrop, pattern, number); drag to reorder and pin up to 6 to the top of the profile, like pinned gifts in Telegram. Tapping one always shows a "Fake NFT" label; they cannot be transferred, sold, upgraded or opened as real gifts.
+- Fake usernames: up to 10 extra collectible-style usernames (4-32 letters, digits or underscores, names like telegram, support or admin are not allowed). Tapping one always shows "Fake username"; they are not real Telegram usernames, nobody can find or message you by them.
+- Profile bubbles: a switch that shows your pinned fake NFTs as floating bubbles around the avatar in the profile header.
+- Profile background: your own photo (JPEG, PNG or HEIC up to 1.5 MB) or video (MP4 or MOV up to 8 MB and 15 seconds) behind the profile header; up to 8 uploads a day. Remove it or all extras with Delete.
+Before the first change you confirm that the Telegram account is yours: tap Verify ownership in Profile extras, the AyuGram bot opens, tap Start and then Confirm (the code in the bot matches the one in the app), go back to AyuGram and editing unlocks by itself. The link works for 10 minutes, only from the same Telegram account and only once; never confirm a link someone else sent you. Your extras are then tied to this install, so nobody else can change them; verifying again from a new install of the same account moves them there. Backgrounds are checked by the AyuGram team and can be removed.
 
 Updates come from the @ayugramiosupdates channel; the IPA is installed with a signing app.`;

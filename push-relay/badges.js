@@ -26,12 +26,12 @@ export function cleanBadge(value) {
   };
 }
 
-function accountId(value) {
+export function accountId(value) {
   const text = typeof value === 'number' ? String(value) : typeof value === 'string' ? value : '';
   return /^[1-9][0-9]{0,15}$/.test(text) ? text : '';
 }
 
-async function lockOf(secret) {
+export async function lockOf(secret) {
   if (typeof secret !== 'string' || !/^[A-Za-z0-9_-]{24,80}$/.test(secret)) {
     return '';
   }

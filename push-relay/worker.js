@@ -10,8 +10,10 @@ import { GUIDE, GUIDE_VERSION } from './guide.js';
 import { handleBadges, handleCryptoPayHook, handleRocketHook, checkBadgePayments } from './badges.js';
 import { handleStats, ipTag } from './stats.js';
 import { handleBot } from './bot.js';
+import { handleProfile } from './profile.js';
 
 export { Stats } from './stats.js';
+export { Profiles } from './profile.js';
 
 const BARK_BASE = 'https://api.day.app';
 const BARK_PUSH = BARK_BASE + '/push';
@@ -1100,6 +1102,9 @@ export default {
     }
     if (url.pathname === '/pay/xrocket') {
       return handleRocketHook(request, env);
+    }
+    if (url.pathname === '/profile' || url.pathname.startsWith('/profile/')) {
+      return handleProfile(request, env, url, ctx);
     }
     if (url.pathname.startsWith('/stats/')) {
       return handleStats(request, env, url, ctx);

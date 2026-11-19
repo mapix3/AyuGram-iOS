@@ -322,6 +322,14 @@ export class Stats {
     if (badge) {
       return badge;
     }
+    if (request.method === 'POST' && url.pathname === '/profile-guard') {
+      const body = await request.json();
+      if (!/^[1-9][0-9]{0,15}$/.test(String(body.id || ''))) {
+        return new Response('bad request\n', { status: 400 });
+      }
+      const ban = await storage.get('ban:' + (await accountHash(body.id)));
+      return Response.json({ banned: Boolean(ban) });
+    }
     if (request.method === 'POST' && url.pathname === '/ping') {
       const install = await request.json();
       const previous = await storage.get('i:' + install.id);
