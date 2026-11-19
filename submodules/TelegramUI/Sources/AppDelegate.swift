@@ -367,6 +367,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
     private var recaptchaClientsBySiteKey: [String: Promise<RecaptchaClient>] = [:]
     
     private var ayuLegacyLaunchMarked = false
+    private var ayuLegacyCrashGuardToastShown = false
         
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         AyuLegacyUILaunch.prime(countsAsUserLaunch: application.applicationState != .background)
@@ -2294,6 +2295,19 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                 AyuLegacyUILaunch.markLaunchSucceeded()
             }
+        }
+        
+        if AyuLegacyUILaunch.wasDisabledByCrashGuard && !self.ayuLegacyCrashGuardToastShown {
+            self.ayuLegacyCrashGuardToastShown = true
+            let _ = (self.authorizedContext()
+            |> take(1)
+            |> deliverOnMainQueue).start(next: { context in
+                Queue.mainQueue().after(1.0, {
+                    let presentationData = context.context.sharedContext.currentPresentationData.with { $0 }
+                    let text = "Ayu.LegacyUICrashGuard".i18n(presentationData.strings.baseLanguageCode)
+                    context.context.sharedContext.presentGlobalController(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), action: { _ in return false }), nil)
+                })
+            })
         }
         
         func cancelWindowPanGestures(view: UIView) {

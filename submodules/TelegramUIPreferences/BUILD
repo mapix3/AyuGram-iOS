@@ -1,5 +1,9 @@
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
+sgdeps = [
+    "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+]
+
 sgsrcs = [
     "//Swiftgram/SGStatus:SGStatus"
 ]
@@ -13,7 +17,7 @@ swift_library(
     copts = [
         "-warnings-as-errors",
     ],
-    deps = [
+    deps = sgdeps + [
         "//submodules/TelegramCore:TelegramCore",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
     ],

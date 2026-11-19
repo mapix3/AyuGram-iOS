@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import AppBundle
+import SGSimpleSettings
 
 /// A shape drawn with an image captured from iOS 27 glass instead of live glass: what the chat shows per message
 /// without bubbles, where live glass costs a backdrop effect per button. Laid out as GlassBackgroundView is: content goes
@@ -8,6 +9,7 @@ import AppBundle
 public final class StaticGlassBackgroundView: UIView {
     public let contentView: UIView
     private let imageView: UIImageView
+    private var legacyBackgroundView: UIView?
 
     override public init(frame: CGRect) {
         self.imageView = UIImageView()
@@ -31,6 +33,32 @@ public final class StaticGlassBackgroundView: UIView {
             view.frame = frame
         }
         setFrame(self.contentView, CGRect(origin: CGPoint(), size: size))
+        if AyuLegacyUILaunch.isEnabled {
+            let legacyBackgroundView: UIView
+            if let current = self.legacyBackgroundView {
+                legacyBackgroundView = current
+            } else {
+                legacyBackgroundView = UIView()
+                legacyBackgroundView.isUserInteractionEnabled = false
+                legacyBackgroundView.clipsToBounds = true
+                self.insertSubview(legacyBackgroundView, belowSubview: self.contentView)
+                self.legacyBackgroundView = legacyBackgroundView
+            }
+            self.imageView.image = nil
+            let fillColor: UIColor
+            switch tint {
+            case .panel:
+                fillColor = isDark ? UIColor(white: 1.0, alpha: 0.1) : UIColor(white: 0.0, alpha: 0.06)
+            case let .color(color):
+                fillColor = color
+            case .media:
+                fillColor = UIColor(white: 0.0, alpha: 0.3)
+            }
+            legacyBackgroundView.backgroundColor = fillColor
+            legacyBackgroundView.layer.cornerRadius = min(cornerRadius, min(size.width, size.height) * 0.5)
+            setFrame(legacyBackgroundView, CGRect(origin: CGPoint(), size: size))
+            return
+        }
         guard let (image, margins) = StaticGlassImageCache.shared.image(size: size, cornerRadius: cornerRadius, isDark: isDark, tint: tint) else {
             self.imageView.image = nil
             return

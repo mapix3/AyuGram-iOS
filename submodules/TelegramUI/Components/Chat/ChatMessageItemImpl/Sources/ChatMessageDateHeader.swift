@@ -254,6 +254,7 @@ private final class ChatMessageDateContentNode: ASDisplayNode {
     private var hasBubblelessState = false
     private var isFlashing = true
     private var glassView: GlassBackgroundView?
+    private var legacyIslandNode: NavigationBackgroundNode?
     private var parkedLabelNode: TextNode?
     
     init(presentationData: ChatPresentationData, controllerInteraction: ChatControllerInteraction?, localTimestamp: Int32, scheduled: Bool) {
@@ -388,6 +389,8 @@ private final class ChatMessageDateContentNode: ASDisplayNode {
                 self.labelNode.alpha = 1.0
                 self.glassView?.removeFromSuperview()
                 self.glassView = nil
+                self.legacyIslandNode?.removeFromSupernode()
+                self.legacyIslandNode = nil
                 self.parkedLabelNode?.removeFromSupernode()
                 self.parkedLabelNode = nil
             }
@@ -398,30 +401,56 @@ private final class ChatMessageDateContentNode: ASDisplayNode {
         self.backgroundContent?.alpha = 0.0
         
         let state = chatMessageBubblelessDateState(stickDistanceFactor: self.stickDistanceFactor, isFlashing: self.isFlashing)
-        var materialisesLater = false
-        if state.showsIsland, self.glassView == nil {
-            let glassView = GlassBackgroundView()
-            glassView.isUserInteractionEnabled = false
-            self.glassView = glassView
-            self.view.insertSubview(glassView, belowSubview: self.labelNode.view)
-            let parkedLabelNode = TextNode()
-            parkedLabelNode.isUserInteractionEnabled = false
-            parkedLabelNode.displaysAsynchronously = false
-            parkedLabelNode.alpha = 0.0
-            self.parkedLabelNode = parkedLabelNode
-            self.addSubnode(parkedLabelNode)
-            self.layoutParkedLabel(parkedLabelNode)
-            if let lastBackgroundFrame = self.lastBackgroundFrame {
-                glassView.frame = lastBackgroundFrame.insetBy(dx: -6.0, dy: -3.0)
+        if AyuLegacyUI.isEnabled {
+            if state.showsIsland, self.legacyIslandNode == nil {
+                let legacyIslandNode = NavigationBackgroundNode(color: self.presentationData.theme.theme.rootController.navigationBar.blurredBackgroundColor)
+                legacyIslandNode.isUserInteractionEnabled = false
+                legacyIslandNode.alpha = 0.0
+                self.legacyIslandNode = legacyIslandNode
+                self.insertSubnode(legacyIslandNode, belowSubnode: self.labelNode)
+                let parkedLabelNode = TextNode()
+                parkedLabelNode.isUserInteractionEnabled = false
+                parkedLabelNode.displaysAsynchronously = false
+                parkedLabelNode.alpha = 0.0
+                self.parkedLabelNode = parkedLabelNode
+                self.addSubnode(parkedLabelNode)
+                self.layoutParkedLabel(parkedLabelNode)
+                if let lastBackgroundFrame = self.lastBackgroundFrame {
+                    let islandFrame = lastBackgroundFrame.insetBy(dx: -6.0, dy: -3.0)
+                    legacyIslandNode.frame = islandFrame
+                    legacyIslandNode.update(size: islandFrame.size, cornerRadius: islandFrame.height * 0.5, transition: .immediate)
+                }
             }
-            // Glass animates from the state it was last committed in: it materialises a frame later.
-            materialisesLater = true
-            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 1.0 / 60.0) { [weak self] in
-                self?.updateBubblelessIsland(transition: transition)
+            if let legacyIslandNode = self.legacyIslandNode {
+                legacyIslandNode.updateColor(color: self.presentationData.theme.theme.rootController.navigationBar.blurredBackgroundColor, transition: .immediate)
+                transition.setAlpha(view: legacyIslandNode.view, alpha: state.showsIsland ? 1.0 : 0.0)
             }
-        }
-        if let glassView = self.glassView {
-            glassView.update(size: glassView.bounds.size, cornerRadius: glassView.bounds.height * 0.5, isDark: self.presentationData.theme.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isVisible: state.showsIsland && !materialisesLater, transition: materialisesLater ? .immediate : transition)
+        } else {
+            var materialisesLater = false
+            if state.showsIsland, self.glassView == nil {
+                let glassView = GlassBackgroundView()
+                glassView.isUserInteractionEnabled = false
+                self.glassView = glassView
+                self.view.insertSubview(glassView, belowSubview: self.labelNode.view)
+                let parkedLabelNode = TextNode()
+                parkedLabelNode.isUserInteractionEnabled = false
+                parkedLabelNode.displaysAsynchronously = false
+                parkedLabelNode.alpha = 0.0
+                self.parkedLabelNode = parkedLabelNode
+                self.addSubnode(parkedLabelNode)
+                self.layoutParkedLabel(parkedLabelNode)
+                if let lastBackgroundFrame = self.lastBackgroundFrame {
+                    glassView.frame = lastBackgroundFrame.insetBy(dx: -6.0, dy: -3.0)
+                }
+                // Glass animates from the state it was last committed in: it materialises a frame later.
+                materialisesLater = true
+                DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 1.0 / 60.0) { [weak self] in
+                    self?.updateBubblelessIsland(transition: transition)
+                }
+            }
+            if let glassView = self.glassView {
+                glassView.update(size: glassView.bounds.size, cornerRadius: glassView.bounds.height * 0.5, isDark: self.presentationData.theme.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isVisible: state.showsIsland && !materialisesLater, transition: materialisesLater ? .immediate : transition)
+            }
         }
         transition.setAlpha(view: self.labelNode.view, alpha: state.showsHistoryLabel ? 1.0 : 0.0)
         if let parkedLabelNode = self.parkedLabelNode {
@@ -474,6 +503,11 @@ private final class ChatMessageDateContentNode: ASDisplayNode {
             let glassFrame = backgroundFrame.insetBy(dx: -6.0, dy: -3.0)
             transition.updateFrame(view: glassView, frame: glassFrame)
             glassView.update(size: glassFrame.size, cornerRadius: glassFrame.height * 0.5, isDark: self.presentationData.theme.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isVisible: chatMessageBubblelessDateState(stickDistanceFactor: self.stickDistanceFactor, isFlashing: self.isFlashing).showsIsland, transition: ComponentTransition(transition))
+        }
+        if let legacyIslandNode = self.legacyIslandNode {
+            let islandFrame = backgroundFrame.insetBy(dx: -6.0, dy: -3.0)
+            transition.updateFrame(node: legacyIslandNode, frame: islandFrame)
+            legacyIslandNode.update(size: islandFrame.size, cornerRadius: islandFrame.height * 0.5, transition: transition)
         }
                 
         if let backgroundContent = self.backgroundContent {

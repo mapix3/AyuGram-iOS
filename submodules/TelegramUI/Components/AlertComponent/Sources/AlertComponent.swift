@@ -78,6 +78,7 @@ private final class AlertScreenComponent: Component {
         
         private var contentItems: [AnyHashable: ComponentView<AlertComponentEnvironment>] = [:]
         private var actionItems: [AnyHashable: ComponentView<AlertComponentEnvironment>] = [:]
+        private var legacySeparatorViews: [UIView] = []
         
         private var highlightedAction: AnyHashable?
         private let hapticFeedback = HapticFeedback()
@@ -349,16 +350,18 @@ private final class AlertScreenComponent: Component {
             
             self.component = component
             
+            let legacy = AyuLegacyUI.isEnabled
             var alertHeight: CGFloat = 0.0
-            let alertWidth: CGFloat = 300.0
+            let alertWidth: CGFloat = legacy ? 270.0 : 300.0
             let contentTopInset: CGFloat = 22.0
             let contentBottomInset: CGFloat = 21.0
             let contentSideInset: CGFloat = 30.0
             let contentSpacing: CGFloat = 8.0
-            let actionSideInset: CGFloat = 16.0
-            let actionSpacing: CGFloat = 8.0
-            let fullWidthActionSize = CGSize(width: alertWidth - actionSideInset * 2.0, height: AlertActionComponent.actionHeight)
-            let halfWidthActionSize = CGSize(width: (alertWidth - actionSideInset * 2.0 - actionSpacing) / 2.0, height: AlertActionComponent.actionHeight)
+            let actionSideInset: CGFloat = legacy ? 0.0 : 16.0
+            let actionSpacing: CGFloat = legacy ? 0.0 : 8.0
+            let actionHeight: CGFloat = legacy ? 44.0 : AlertActionComponent.actionHeight
+            let fullWidthActionSize = CGSize(width: alertWidth - actionSideInset * 2.0, height: actionHeight)
+            let halfWidthActionSize = CGSize(width: (alertWidth - actionSideInset * 2.0 - actionSpacing) / 2.0, height: actionHeight)
     
             let alertEnvironment = AlertComponentEnvironment(theme: environment.theme, strings: environment.strings)
             
@@ -428,14 +431,14 @@ private final class AlertScreenComponent: Component {
             if let actions = self.actions {
                 let genericActionTheme = AlertActionComponent.Theme(
                     background: environment.theme.actionSheet.primaryTextColor.withMultipliedAlpha(0.1),
-                    foreground: environment.theme.actionSheet.primaryTextColor,
+                    foreground: legacy ? environment.theme.actionSheet.controlAccentColor : environment.theme.actionSheet.primaryTextColor,
                     secondary: environment.theme.actionSheet.secondaryTextColor,
                     font: .regular
                 )
                 let defaultActionTheme = AlertActionComponent.Theme(
                     background: environment.theme.actionSheet.controlAccentColor,
-                    foreground: environment.theme.list.itemCheckColors.foregroundColor,
-                    secondary: environment.theme.list.itemCheckColors.foregroundColor.withMultipliedAlpha(0.85),
+                    foreground: legacy ? environment.theme.actionSheet.controlAccentColor : environment.theme.list.itemCheckColors.foregroundColor,
+                    secondary: legacy ? environment.theme.actionSheet.secondaryTextColor : environment.theme.list.itemCheckColors.foregroundColor.withMultipliedAlpha(0.85),
                     font: .bold
                 )
                 let destructiveActionTheme = AlertActionComponent.Theme(
@@ -446,8 +449,8 @@ private final class AlertScreenComponent: Component {
                 )
                 let defaultDestructiveActionTheme = AlertActionComponent.Theme(
                     background: environment.theme.list.itemDestructiveColor,
-                    foreground: .white,
-                    secondary: .white.withMultipliedAlpha(0.6),
+                    foreground: legacy ? environment.theme.list.itemDestructiveColor : .white,
+                    secondary: legacy ? environment.theme.list.itemDestructiveColor.withMultipliedAlpha(0.6) : .white.withMultipliedAlpha(0.6),
                     font: .bold
                 )
                 
@@ -493,7 +496,8 @@ private final class AlertScreenComponent: Component {
                             title: action.title,
                             isHighlighted: AnyHashable(action.id) == self.highlightedAction,
                             isEnabled: action.isEnabled,
-                            progress: action.progress
+                            progress: action.progress,
+                            isLegacy: legacy
                         )),
                         environment: { alertEnvironment },
                         containerSize: fullWidthActionSize
@@ -580,6 +584,40 @@ private final class AlertScreenComponent: Component {
                 }
             }
             
+            if legacy {
+                let legacyActions = self.actions ?? []
+                var separatorFrames: [CGRect] = []
+                if !legacyActions.isEmpty {
+                    let actionsTopY: CGFloat
+                    if self.effectiveActionLayout.isVertical {
+                        actionsTopY = alertHeight - actionHeight * CGFloat(legacyActions.count)
+                    } else {
+                        actionsTopY = alertHeight - actionHeight
+                    }
+                    separatorFrames.append(CGRect(x: 0.0, y: actionsTopY, width: alertWidth, height: UIScreenPixel))
+                    for index in 1 ..< legacyActions.count {
+                        if self.effectiveActionLayout.isVertical {
+                            separatorFrames.append(CGRect(x: 0.0, y: actionsTopY + actionHeight * CGFloat(index), width: alertWidth, height: UIScreenPixel))
+                        } else {
+                            separatorFrames.append(CGRect(x: halfWidthActionSize.width * CGFloat(index), y: actionsTopY, width: UIScreenPixel, height: actionHeight))
+                        }
+                    }
+                }
+                while self.legacySeparatorViews.count > separatorFrames.count {
+                    self.legacySeparatorViews.removeLast().removeFromSuperview()
+                }
+                while self.legacySeparatorViews.count < separatorFrames.count {
+                    let separatorView = UIView()
+                    separatorView.isUserInteractionEnabled = false
+                    self.backgroundView.contentView.addSubview(separatorView)
+                    self.legacySeparatorViews.append(separatorView)
+                }
+                for (separatorView, separatorFrame) in zip(self.legacySeparatorViews, separatorFrames) {
+                    separatorView.backgroundColor = environment.theme.actionSheet.opaqueItemSeparatorColor
+                    transition.setFrame(view: separatorView, frame: separatorFrame)
+                }
+            }
+            
             let alertSize = CGSize(width: alertWidth, height: alertHeight)
             let bounds = CGRect(origin: .zero, size: availableSize)
             
@@ -599,7 +637,7 @@ private final class AlertScreenComponent: Component {
             let sideInsets = centeredAlertSideInsets(alertWidth: alertSize.width, alertMinY: alertY, alertMaxY: alertY + alertSize.height, containerSize: availableSize, safeInsets: environment.safeInsets, reservedCorners: environment.reservedCorners)
             let alertX = sideInsets.left + floorToScreenPixels((availableSize.width - sideInsets.left - sideInsets.right - alertSize.width) / 2.0)
             transition.setFrame(view: self.backgroundView, frame: CGRect(origin: CGPoint(x: alertX, y: alertY), size: alertSize))
-            self.backgroundView.update(size: alertSize, cornerRadius: 35.0, isDark: environment.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isInteractive: true, transition: transition)
+            self.backgroundView.update(size: alertSize, cornerRadius: legacy ? 14.0 : 35.0, isDark: environment.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isInteractive: true, transition: transition)
             
             return availableSize
         }
