@@ -36,6 +36,13 @@ final class CameraSession {
         }
     }
     
+    var multiCamCostsAreSupported: Bool {
+        if #available(iOS 13.0, *), let multiSession = self.multiSession as? AVCaptureMultiCamSession {
+            return multiSession.hardwareCost <= 1.0 && multiSession.systemPressureCost <= 1.0
+        }
+        return true
+    }
+    
     var supportsDualCam: Bool {
         return self.multiSession != nil
     }
@@ -52,6 +59,11 @@ final class CameraDeviceContext {
     let device = CameraDevice()
     let input = CameraInput()
     let output: CameraOutput
+    var allowsUltraWide = true
+    
+    var usesUltraWide: Bool {
+        return self.device.isVirtualDevice && self.isRoundVideo && !self.exclusive && !self.additional
+    }
         
     init(session: CameraSession, exclusive: Bool, additional: Bool, ciContext: CIContext, colorSpace: CGColorSpace, isRoundVideo: Bool = false) {
         self.session = session
@@ -71,8 +83,14 @@ final class CameraDeviceContext {
         let captureMode = self.exclusive && !self.additional && !self.isRoundVideo ? captureMode : nil
         let audio = cameraAttachesAudio(captureMode: captureMode, configuredAudio: audio)
                 
-        self.device.configure(for: session, position: position, dual: !self.exclusive || self.additional, switchAudio: switchAudio)
+        let ultraWide = self.isRoundVideo && !self.exclusive && !self.additional && self.allowsUltraWide && session.hasMultiCam
+        self.device.configure(for: session, position: position, dual: !self.exclusive || self.additional, switchAudio: switchAudio, ultraWide: ultraWide)
         self.device.configureDeviceFormat(maxDimensions: self.maxDimensions(additional: self.additional, preferWide: preferWide), maxFramerate: self.preferredMaxFrameRate(useLower: preferLowerFramerate), captureMode: captureMode)
+        if ultraWide && self.device.isVirtualDevice && !self.device.activeFormatSupportsMultiCam {
+            self.allowsUltraWide = false
+            self.device.configure(for: session, position: position, dual: !self.exclusive || self.additional, switchAudio: switchAudio, ultraWide: false)
+            self.device.configureDeviceFormat(maxDimensions: self.maxDimensions(additional: self.additional, preferWide: preferWide), maxFramerate: self.preferredMaxFrameRate(useLower: preferLowerFramerate), captureMode: captureMode)
+        }
         self.input.configure(for: session, device: self.device, audio: audio && switchAudio)
         self.output.configure(for: session, device: self.device, input: self.input, previewView: previewView, audio: audio && switchAudio, photo: photo, metadata: metadata, captureMode: captureMode)
         
@@ -346,6 +364,13 @@ private final class CameraContext {
                 self.additionalDeviceContext?.device.queue = self.queue
                 self.additionalDeviceContext?.configure(position: .front, previewView: self.secondaryPreviewView, audio: false, photo: true, metadata: false)
             }
+            if let mainDeviceContext = self.mainDeviceContext, mainDeviceContext.usesUltraWide, !self.session.multiCamCostsAreSupported {
+                self.configure {
+                    mainDeviceContext.invalidate()
+                    mainDeviceContext.allowsUltraWide = false
+                    mainDeviceContext.configure(position: .back, previewView: self.simplePreviewView, audio: self.initialConfiguration.audio, photo: self.initialConfiguration.photo, metadata: self.initialConfiguration.metadata)
+                }
+            }
             self.mainDeviceContext?.output.processSampleBuffer = { [weak self] sampleBuffer, pixelBuffer, connection in
                 guard let self, let mainDeviceContext = self.mainDeviceContext else {
                     return
@@ -607,8 +632,8 @@ private final class CameraContext {
     
     func setZoomLevel(_ zoomLevel: CGFloat) {
         if self.initialConfiguration.isRoundVideo {
-            if self.positionValue == .front {
-                self.additionalDeviceContext?.device.setZoomLevel(zoomLevel)
+            if self.positionValue == .front, let additionalDeviceContext = self.additionalDeviceContext {
+                additionalDeviceContext.device.setZoomLevel(zoomLevel)
             } else {
                 self.mainDeviceContext?.device.setZoomLevel(zoomLevel)
             }
@@ -619,8 +644,8 @@ private final class CameraContext {
     
     func setZoomDelta(_ zoomDelta: CGFloat) {
         if self.initialConfiguration.isRoundVideo {
-            if self.positionValue == .front {
-                self.additionalDeviceContext?.device.setZoomDelta(zoomDelta)
+            if self.positionValue == .front, let additionalDeviceContext = self.additionalDeviceContext {
+                additionalDeviceContext.device.setZoomDelta(zoomDelta)
             } else {
                 self.mainDeviceContext?.device.setZoomDelta(zoomDelta)
             }
@@ -638,10 +663,10 @@ private final class CameraContext {
 
     func rampZoom(_ zoomLevel: CGFloat, rate: CGFloat) {
         if self.initialConfiguration.isRoundVideo {
-            if self.positionValue == .front {
-                self.additionalDeviceContext?.device.rampZoom(zoomLevel, rate: rate)
+            if self.positionValue == .front, let additionalDeviceContext = self.additionalDeviceContext {
+                additionalDeviceContext.device.rampZoomRelative(zoomLevel, rate: rate)
             } else {
-                self.mainDeviceContext?.device.rampZoom(zoomLevel, rate: rate)
+                self.mainDeviceContext?.device.rampZoomRelative(zoomLevel, rate: rate)
             }
         } else {
             self.mainDeviceContext?.device.rampZoom(zoomLevel, rate: rate)

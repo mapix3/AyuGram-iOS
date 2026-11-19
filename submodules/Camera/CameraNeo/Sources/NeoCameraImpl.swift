@@ -3,13 +3,15 @@ import UIKit
 import AVFoundation
 import CoreMedia
 import CoreVideo
+import VideoToolbox
 import DeviceModel
 import Camera
 
 public enum AyuGramRoundVideoQuality {
     public static let standardSide: Int = 480
     public static let standardFrameRate: Double = 30.0
-    public static let maximumSide: Int = 640
+    public static let maximumSide: Int = 1072
+    public static let maximumStandardSide: Int = 640
 
     public static var side: Int = 480 {
         didSet {
@@ -30,8 +32,29 @@ public enum AyuGramRoundVideoQuality {
         }
     }
 
+    public static var prefersHEVC: Bool = false
+    public static var bitrateOverride: Int? = nil {
+        didSet {
+            if let value = bitrateOverride, value <= 0 {
+                bitrateOverride = nil
+            }
+        }
+    }
+
     public static var isOverridden: Bool {
         return side != standardSide || requestedFrameRate > standardFrameRate
+    }
+
+    public static let supportsHEVCEncoding: Bool = {
+        let specification: [CFString: Any] = [:]
+        var encoderId: CFString?
+        var properties: CFDictionary?
+        let result = VTCopySupportedPropertyDictionaryForEncoder(width: 1920, height: 1080, codecType: kCMVideoCodecType_HEVC, encoderSpecification: specification as CFDictionary, encoderIDOut: &encoderId, supportedPropertiesOut: &properties)
+        return result == noErr
+    }()
+
+    static var usesHEVC: Bool {
+        return prefersHEVC && supportsHEVCEncoding
     }
 
     static var allowsDualCamera: Bool {
@@ -54,6 +77,9 @@ public enum AyuGramRoundVideoQuality {
     }
 
     static func bitrate(side: Int, frameRate: Double) -> Int {
+        if let bitrateOverride {
+            return bitrateOverride
+        }
         let area = Double(side * side) / Double(standardSide * standardSide)
         let motion = frameRate > standardFrameRate ? pow(frameRate / standardFrameRate, 0.6) : 1.0
         return Int(min(16_000_000.0, max(1_200_000.0, 1_200_000.0 * area * motion)))
@@ -61,6 +87,13 @@ public enum AyuGramRoundVideoQuality {
 
     static func outputPoolAllocationThreshold(side: Int, frameRate: Double) -> Int {
         return isStandard(side: side, frameRate: frameRate) ? 6 : 12
+    }
+
+    static func maximumPendingRenders(side: Int, frameRate: Double) -> Int {
+        if isStandard(side: side, frameRate: frameRate) {
+            return 1
+        }
+        return frameRate > standardFrameRate ? 3 : 2
     }
 }
 
@@ -156,8 +189,12 @@ func roundVideoCaptureFormat(
         } else {
             supportsMultiCam = false
         }
+        var profile = RoundVideoCaptureProfile(width: dimensions.width, height: dimensions.height, position: device.position, allowsWideFront: frameRate > AyuGramRoundVideoQuality.standardFrameRate)
+        if outputSide > AyuGramRoundVideoQuality.maximumStandardSide && Int(min(dimensions.width, dimensions.height)) < outputSide {
+            profile = nil
+        }
         return RoundVideoCaptureFormatCandidate(
-            profile: RoundVideoCaptureProfile(width: dimensions.width, height: dimensions.height, position: device.position, allowsWideFront: frameRate > AyuGramRoundVideoQuality.standardFrameRate),
+            profile: profile,
             isNV12: subtype == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || subtype == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
             frameRateRanges: format.videoSupportedFrameRateRanges.map { $0.minFrameRate ... $0.maxFrameRate },
             supportsMultiCam: supportsMultiCam,

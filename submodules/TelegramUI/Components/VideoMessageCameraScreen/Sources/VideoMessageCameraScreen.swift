@@ -52,6 +52,11 @@ private func storeUneditedVideoMessage(
     return id
 }
 
+private func ayuGramDeclaredRoundVideoDimensions(_ dimensions: PixelDimensions) -> PixelDimensions {
+    let declared = AyuGramVideoSettings.roundDeclaredSize(width: Int(dimensions.width), height: Int(dimensions.height))
+    return PixelDimensions(width: Int32(declared.width), height: Int32(declared.height))
+}
+
 struct CameraState: Equatable {
     enum Recording: Equatable {
         case none
@@ -992,6 +997,8 @@ public class VideoMessageCameraScreen: ViewController {
             let ayuVideo = AyuGramSettings.shared.video
             AyuGramRoundVideoQuality.side = ayuVideo.roundSide
             AyuGramRoundVideoQuality.requestedFrameRate = ayuVideo.roundFps
+            AyuGramRoundVideoQuality.prefersHEVC = ayuVideo.roundHEVC
+            AyuGramRoundVideoQuality.bitrateOverride = ayuVideo.roundBitrateOverride
             let ayuRoundVideoOverridden = AyuGramRoundVideoQuality.isOverridden
             let ayuRoundVideoMode: NeoCameraImpl.RoundVideoMode = AyuGramRoundVideoQuality.requestedFrameRate > AyuGramRoundVideoQuality.standardFrameRate ? .hdBilinear : .hdLanczos
             let useModernVideoMessagePipeline = (experimentalSettings.useModernVideoMessagePipeline ?? false) || ayuRoundVideoOverridden
@@ -2235,14 +2242,14 @@ public class VideoMessageCameraScreen: ViewController {
                 )
                 if let storedFileId {
                     resource = LocalFileMediaResource(fileId: storedFileId)
-                    outputDimensions = video.dimensions
+                    outputDimensions = ayuGramDeclaredRoundVideoDimensions(video.dimensions)
                 } else {
                     resource = LocalFileVideoMediaResource(randomId: Int64.random(in: Int64.min ... Int64.max), paths: videoPaths, adjustments: resourceAdjustments)
                     let exportConfiguration = recommendedVideoExportConfiguration(values: values, duration: duration, frameRate: Float(AyuGramSettings.shared.video.roundFps))
-                    outputDimensions = PixelDimensions(
+                    outputDimensions = ayuGramDeclaredRoundVideoDimensions(PixelDimensions(
                         width: Int32(exportConfiguration.videoSettings[AVVideoWidthKey] as? Int ?? Int(video.dimensions.width)),
                         height: Int32(exportConfiguration.videoSettings[AVVideoHeightKey] as? Int ?? Int(video.dimensions.height))
-                    )
+                    ))
                 }
                 
                 var previewRepresentations: [TelegramMediaImageRepresentation] = []

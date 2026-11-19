@@ -2075,6 +2075,7 @@ private struct VideoMessageExportSettings {
 
     let dimensions: CGSize
     let bitrateKbps: Int
+    let useHEVC: Bool
 
     init(sourceSize: CGSize, cropSize: CGSize, rotateSideward: Bool) {
         // A quality ceiling must never enlarge a legacy recording or a smaller crop.
@@ -2089,12 +2090,15 @@ private struct VideoMessageExportSettings {
             rotateSideward: rotateSideward
         )
         let side = max(self.dimensions.width, self.dimensions.height)
-        if side > 480.0 {
-            let video = AyuGramSettings.shared.video
+        let video = AyuGramSettings.shared.video
+        if let bitrateOverride = video.roundBitrateOverride {
+            self.bitrateKbps = bitrateOverride / 1000
+        } else if side > 480.0 {
             self.bitrateKbps = video.roundBitrate(side: Int(side), fps: video.roundFps) / 1000
         } else {
             self.bitrateKbps = side <= 400.0 ? 1000 : 1200
         }
+        self.useHEVC = video.roundHEVC && hasHEVCHardwareEncoder
     }
 }
 
@@ -2142,6 +2146,7 @@ public func recommendedVideoExportConfiguration(values: MediaEditorValues, durat
     var frameRate = frameRate
     
     var useHEVC = hasHEVCHardwareEncoder
+    var videoMessageUsesHEVC = false
     var useVP9 = false
     if let qualityPreset = values.qualityPreset {
         let sourceSize = values.originalDimensions.cgSize
@@ -2152,6 +2157,7 @@ public func recommendedVideoExportConfiguration(values: MediaEditorValues, durat
             let settings = VideoMessageExportSettings(sourceSize: sourceSize, cropSize: cropSize, rotateSideward: rotateSideward)
             resultSize = settings.dimensions
             videoBitrate = settings.bitrateKbps
+            videoMessageUsesHEVC = settings.useHEVC
         } else {
             let maxSize = CGSize(width: qualityPreset.maximumDimensions, height: qualityPreset.maximumDimensions)
             resultSize = targetSize(cropSize: cropSize.aspectFitted(maxSize), rotateSideward: rotateSideward)
@@ -2172,7 +2178,7 @@ public func recommendedVideoExportConfiguration(values: MediaEditorValues, durat
         audioBitrate = qualityPreset.audioBitrateKbps
         audioNumberOfChannels = qualityPreset.audioChannelsCount
         
-        useHEVC = false
+        useHEVC = videoMessageUsesHEVC
     } else {
         if isAvatar {
             width = 800

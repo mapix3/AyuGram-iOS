@@ -234,11 +234,12 @@ final class RoundVideoFrameProcessor {
     private var textureCache: CVMetalTextureCache
     private let outputPool: CVPixelBufferPool
     private let outputPoolAuxiliaryAttributes: CFDictionary
-    private var isRendering = false
+    private let maximumPendingRenders: Int
+    private var pendingRenders = 0
     private var primaryLanczosScaler: RoundVideoLanczosScaler?
     private var secondaryLanczosScaler: RoundVideoLanczosScaler?
 
-    init?(mediaQueue: DispatchQueue, decorationResources: RoundVideoDecorationResources?, mode: NeoCameraImpl.RoundVideoMode, outputSide: Int, allocationThreshold: Int) {
+    init?(mediaQueue: DispatchQueue, decorationResources: RoundVideoDecorationResources?, mode: NeoCameraImpl.RoundVideoMode, outputSide: Int, allocationThreshold: Int, maximumPendingRenders: Int) {
         let outputWidth = max(2, outputSide - outputSide % 2)
         let outputHeight = outputWidth
         guard let device = MTLCreateSystemDefaultDevice(), let commandQueue = device.makeCommandQueue() else {
@@ -298,6 +299,7 @@ final class RoundVideoFrameProcessor {
         self.device = device
         self.mediaQueue = mediaQueue
         self.commandQueue = commandQueue
+        self.maximumPendingRenders = max(1, maximumPendingRenders)
         self.mode = mode
         self.plainPipelineState = plainPipelineState
         self.decoration = decoration
@@ -331,7 +333,7 @@ final class RoundVideoFrameProcessor {
         completion: @escaping (ProcessedVideoFrame?) -> Void
     ) {
         let renderStart = CACurrentMediaTime()
-        guard !self.isRendering else {
+        guard self.pendingRenders < self.maximumPendingRenders else {
             statistics.renderBusyDrops += 1
             return
         }
@@ -499,7 +501,7 @@ final class RoundVideoFrameProcessor {
             secondaryTextures.cbcr,
             outputTexture
         ]
-        self.isRendering = true
+        self.pendingRenders += 1
         statistics.renderSubmitted += 1
         statistics.pendingRenders += 1
         if self.mode == .hdLanczos, min(primaryInputY.width, primaryInputY.height) > self.outputWidth || (secondary != nil && min(secondaryInputY.width, secondaryInputY.height) > self.outputWidth) {
@@ -524,7 +526,7 @@ final class RoundVideoFrameProcessor {
                 guard let self else {
                     return
                 }
-                self.isRendering = false
+                self.pendingRenders = max(0, self.pendingRenders - 1)
                 withExtendedLifetime(retainedPixelBuffers) {
                     withExtendedLifetime(retainedTextures) {
                         completion(processedFrame)
@@ -585,8 +587,6 @@ final class RoundVideoFrameProcessor {
             }
             scaler = current
         }
-        // All passes share one command buffer. The existing isRendering guard also
-        // prevents the next frame from overwriting these reusable working textures.
         scaler.encode(commandBuffer: commandBuffer, y: y, cbcr: cbcr)
         return (scaler.yTexture, scaler.cbcrTexture)
     }
