@@ -534,7 +534,7 @@ public final class ChatListNavigationBar: Component {
                 }
                 
                 let searchSize = CGSize(width: currentLayout.size.width, height: navigationBarSearchContentHeight)
-                var searchFrame = CGRect(origin: CGPoint(x: 0.0, y: visibleSize.height - searchSize.height - self.bottomContentsContainer.bounds.height - 2.0), size: searchSize)
+                var searchFrame = CGRect(origin: CGPoint(x: 0.0, y: AyuLegacyUI.isEnabled ? (visibleSize.height - searchSize.height - self.bottomContentsContainer.bounds.height) : (visibleSize.height - searchSize.height - self.bottomContentsContainer.bounds.height - 2.0)), size: searchSize)
                 if let activeSearch = component.activeSearch, !activeSearch.isExternal {
                     searchFrame.origin.y = component.statusBarHeight + 8.0
                 }
@@ -553,7 +553,7 @@ public final class ChatListNavigationBar: Component {
                 let searchOffsetFraction = clippedSearchOffset / searchOffsetDistance
                 searchContentNode.expansionProgress = 1.0 - searchOffsetFraction
                 embeddedSearchBarExpansionHeight = 60.0 - floorToScreenPixels((1.0 - searchOffsetFraction) * searchSize.height)
-                if searchOffsetFraction > 0.0 {
+                if searchOffsetFraction > 0.0, !AyuLegacyUI.isEnabled {
                     searchFrame.origin.y -= (60.0 - 44.0) * 0.5 * searchOffsetFraction
                 }
                 
@@ -611,7 +611,7 @@ public final class ChatListNavigationBar: Component {
                 }
                 legacyBackgroundView.updateColor(color: component.theme.rootController.navigationBar.blurredBackgroundColor, transition: .immediate)
                 legacySeparatorLayer.backgroundColor = component.theme.rootController.navigationBar.separatorColor.cgColor
-                let legacyBackgroundFrame = CGRect(origin: CGPoint(), size: CGSize(width: currentLayout.size.width, height: max(0.0, edgeEffectHeight - 14.0)))
+                let legacyBackgroundFrame = CGRect(origin: CGPoint(), size: CGSize(width: currentLayout.size.width, height: visibleSize.height))
                 transition.setFrame(view: legacyBackgroundView, frame: legacyBackgroundFrame)
                 legacyBackgroundView.update(size: legacyBackgroundFrame.size, transition: transition.containedViewLayoutTransition)
                 transition.setFrame(layer: legacySeparatorLayer, frame: CGRect(origin: CGPoint(x: 0.0, y: legacyBackgroundFrame.height), size: CGSize(width: legacyBackgroundFrame.width, height: UIScreenPixel)))
@@ -704,6 +704,8 @@ public final class ChatListNavigationBar: Component {
             let headerContentY: CGFloat
             if component.activeSearch != nil {
                 headerContentY = -headerContentSize.height
+            } else if AyuLegacyUI.isEnabled {
+                headerContentY = component.statusBarHeight < 1.0 ? 0.0 : component.statusBarHeight + 5.0
             } else {
                 // Also without a status bar (iPhone landscape), matching the regular navigation bar's
                 // 10pt button inset there.
@@ -981,6 +983,11 @@ public final class ChatListNavigationBar: Component {
             contentHeight += 3.0
             if let activeSearch = component.activeSearch {
                 if !activeSearch.isExternal {
+                    contentHeight += navigationBarSearchContentHeight
+                }
+            } else if AyuLegacyUI.isEnabled {
+                contentHeight += 44.0
+                if component.search != nil {
                     contentHeight += navigationBarSearchContentHeight
                 }
             } else {
