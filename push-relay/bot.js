@@ -1,4 +1,5 @@
 import { paymentHealth, paymentHealthText } from './badges.js';
+import { profileAdmin, profileVerify } from './profile.js';
 import { BAN_REASONS, COPY_REASONS, OFFICIAL_REPO, copyMenu, copyMessage, reasonLabel, reasonNote, reportMessage, statsStub } from './stats.js';
 
 const kyiv = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -330,6 +331,16 @@ async function handleCallback(env, query, note) {
     await answer(done && done.ok ? 'Забран' : 'Не получилось', !(done && done.ok));
     return;
   }
+  if (['P', 'J', 'O'].includes(action)) {
+    const done = await profileAdmin(env, rid, { P: 'background', J: 'block', O: 'unblock' }[action]);
+    if (message && done) {
+      const next = action === 'J' ? [[{ text: '✅ Снять запрет', callback_data: 'O:' + rid }]] : [[{ text: '⛔ Стереть всё и запретить', callback_data: 'J:' + rid }]];
+      await telegram(env, 'editMessageReplyMarkup', { chat_id: message.chat.id, message_id: message.message_id, reply_markup: { inline_keyboard: next } });
+    }
+    const texts = { P: '🗑 Фон удалён', J: '⛔ Профиль стёрт, менять его больше нельзя', O: '✅ Запрет снят' };
+    await answer(done ? texts[action] : 'Не получилось', true);
+    return;
+  }
   if (['U', 'V', 'X', 'L'].includes(action)) {
     await handleBansCallback(env, query, action, rid, answer);
     return;
@@ -405,6 +416,64 @@ async function handleCallback(env, query, note) {
   await answer(texts[action], true);
 }
 
+const VERIFY_TEXTS = {
+  ready: (code) => '🔐 AyuGram: confirm Profile extras\n\nTap the button to link Profile extras in AyuGram to this Telegram account. Check that AyuGram shows the same code: ' + code + '.\nConfirm only if you started this yourself in your own AyuGram. Never confirm a link someone sent you.\n\n🔐 AyuGram: подтверждение украшений профиля\n\nНажмите кнопку, чтобы привязать украшения профиля в AyuGram к этому аккаунту Telegram. Проверьте, что AyuGram показывает тот же код: ' + code + '.\nПодтверждайте, только если сами начали проверку в своём AyuGram. Никогда не подтверждайте ссылку, которую вам прислали.',
+  verified: '✅ Done. Go back to AyuGram: Profile extras can be edited now.\n\n✅ Готово. Вернитесь в AyuGram: теперь украшения профиля можно менять.',
+  wrong: '❌ This link was created for another Telegram account. Open it from the account you use in AyuGram.\n\n❌ Эта ссылка создана для другого аккаунта Telegram. Откройте её с того аккаунта, который используете в AyuGram.',
+  invalid: '⌛ This link has expired or was already used. Create a new one in AyuGram > Profile extras.\n\n⌛ Ссылка истекла или уже использована. Создайте новую в AyuGram > Украшения профиля.',
+  error: '⚠️ Something went wrong. Try again in a minute.\n\n⚠️ Что-то пошло не так. Попробуйте через минуту.',
+  limited: '⏳ Too many attempts today. Try again tomorrow.\n\n⏳ Слишком много попыток за сегодня. Попробуйте завтра.',
+};
+
+function forwarded(message) {
+  return Boolean(message.forward_origin || message.forward_from || message.forward_from_chat || message.forward_sender_name || message.forward_date || message.is_automatic_forward || message.via_bot || message.sender_chat);
+}
+const VERIFY_BUTTON = '✅ Confirm · Подтвердить';
+
+function verifyRequest(update) {
+  const message = update && update.message;
+  if (message && message.chat && message.chat.type === 'private' && message.from && String(message.chat.id) === String(message.from.id) && !forwarded(message) && typeof message.text === 'string') {
+    const match = /^\/start(?:@[A-Za-z0-9_]+)?\s+pv_(\S*)\s*$/.exec(message.text.trim());
+    if (match) {
+      return { nonce: match[1], from: message.from, chat: message.chat.id, commit: false };
+    }
+  }
+  const query = update && update.callback_query;
+  const data = query ? String(query.data || '') : '';
+  if (query && query.from && data.startsWith('pv:')) {
+    const chat = query.message && query.message.chat;
+    const own = chat && chat.type === 'private' && String(chat.id) === String(query.from.id) && !query.inline_message_id;
+    return { nonce: data.slice(3), from: query.from, chat: own ? chat.id : null, message: query.message, query, commit: true };
+  }
+  return null;
+}
+
+async function handleVerify(env, request) {
+  if (request.commit && !request.chat) {
+    await telegram(env, 'answerCallbackQuery', { callback_query_id: request.query.id, text: VERIFY_TEXTS.invalid.split('\n')[0], show_alert: true });
+    return;
+  }
+  const result = await profileVerify(env, request.nonce, request.from, request.commit);
+  if (result.status === 'limited') {
+    if (request.commit) {
+      await telegram(env, 'answerCallbackQuery', { callback_query_id: request.query.id, text: VERIFY_TEXTS.limited.split('\n')[0], show_alert: true });
+    }
+    return;
+  }
+  const text = result.status === 'ready' ? VERIFY_TEXTS.ready(result.code) : VERIFY_TEXTS[result.status] || VERIFY_TEXTS.error;
+  if (!request.commit) {
+    const markup = result.status === 'ready' ? { inline_keyboard: [[{ text: VERIFY_BUTTON, callback_data: 'pv:' + request.nonce }]] } : undefined;
+    await telegram(env, 'sendMessage', { chat_id: request.chat, text, reply_markup: markup });
+    return;
+  }
+  if (request.message && request.message.message_id) {
+    await telegram(env, 'editMessageText', { chat_id: request.chat, message_id: request.message.message_id, text });
+  } else {
+    await telegram(env, 'sendMessage', { chat_id: request.chat, text });
+  }
+  await telegram(env, 'answerCallbackQuery', { callback_query_id: request.query.id, text: text.split('\n')[0], show_alert: result.status !== 'verified' });
+}
+
 export async function handleBot(request, env, ctx) {
   if (request.method !== 'POST' || !env.REPORT_BOT_TOKEN || !env.REPORT_CHAT_ID) {
     return new Response('not found\n', { status: 404 });
@@ -416,6 +485,16 @@ export async function handleBot(request, env, ctx) {
   try {
     update = await request.json();
   } catch {
+    return new Response('ok\n');
+  }
+  const verify = verifyRequest(update);
+  if (verify) {
+    const task = handleVerify(env, verify).catch((error) => console.log('bot verify failed: ' + error));
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      ctx.waitUntil(task);
+    } else {
+      await task;
+    }
     return new Response('ok\n');
   }
   const owner = String(env.REPORT_CHAT_ID);
@@ -442,6 +521,18 @@ export async function handleBot(request, env, ctx) {
           const revoke = command.startsWith('/unbadge');
           const done = await stats(env, (revoke ? '/badge-revoke/' : '/badge-grant-id/') + id, 'POST');
           await telegram(env, 'sendMessage', { chat_id: owner, text: done && done.ok ? (revoke ? '🚫 Бейдж забран: ID ' : '✅ Бейдж выдан: ID ') + id : 'Не получилось, попробуй ещё раз' });
+        }
+      } else if (/^\/(unprofile|reprofile|unbg)(\s|$|@)/.test(message.text)) {
+        const [command, raw] = message.text.trim().split(/\s+/);
+        const id = String(raw || '').replace(/^ID/i, '');
+        const name = command.replace(/@.*$/, '');
+        if (!/^[1-9][0-9]{0,15}$/.test(id)) {
+          await telegram(env, 'sendMessage', { chat_id: owner, text: 'Напиши числовой ID: ' + name + ' 123456789' });
+        } else {
+          const action = { '/unprofile': 'block', '/reprofile': 'unblock', '/unbg': 'background' }[name];
+          const done = await profileAdmin(env, id, action);
+          const texts = { block: '⛔ Профиль стёрт (фейк-NFT, юзернеймы, фон), менять его больше нельзя: ID ', unblock: '✅ Запрет на профиль снят: ID ', background: '🗑 Фон профиля удалён: ID ' };
+          await telegram(env, 'sendMessage', { chat_id: owner, text: done ? texts[action] + id : 'Не получилось, попробуй ещё раз' });
         }
       } else if (/^\/(un)?ban(\s|$)/.test(message.text)) {
         await banById(env, owner, message.text);

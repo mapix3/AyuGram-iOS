@@ -16,6 +16,10 @@ class_name = "Presence"
 name = "STATS"
 class_name = "Stats"
 
+[[durable_objects.bindings]]
+name = "PROFILES"
+class_name = "Profiles"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Presence"]
@@ -23,3 +27,7 @@ new_sqlite_classes = ["Presence"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["Stats"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["Profiles"]

@@ -2,13 +2,15 @@
 import assert from 'node:assert/strict';
 import { webcrypto as crypto, createHash } from 'node:crypto';
 import { accountHash } from './stats.js';
-import { checkBadgePayments } from './badges.js';
-import worker, { base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
+import { checkBadgePayments, lockOf } from './badges.js';
+import { cleanNfts, cleanUsernames, inspectMedia, network } from './profile.js';
+import worker, { Profiles, base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
 
 const cacheStore = new Map();
 globalThis.caches = { default: {
-  async match(request) { return cacheStore.has(request.url) ? new Response(cacheStore.get(request.url)) : undefined; },
-  async put(request, response) { cacheStore.set(request.url, await response.text()); },
+  async match(request) { const hit = cacheStore.get(request.url); return hit ? new Response(hit.body.slice(0), { headers: hit.headers }) : undefined; },
+  async put(request, response) { cacheStore.set(request.url, { body: await response.arrayBuffer(), headers: [...response.headers] }); },
+  async delete(request) { return cacheStore.delete(request.url); },
 } };
 const env = { NOTIFY_DELAY_MS: '0' };
 
@@ -889,3 +891,473 @@ async function testModerationSignature() {
   console.log('push relay: moderation responses are Ed25519-signed and verify with the raw public key');
 }
 
+await testProfiles();
+async function testProfiles() {
+  const memory = () => {
+    const data = new Map();
+    return {
+      data,
+      async get(k) { return Array.isArray(k) ? new Map(k.filter((key) => data.has(key)).map((key) => [key, data.get(key)])) : data.get(k); },
+      async put(k, v) { if (typeof k === 'object') { for (const [key, value] of Object.entries(k)) data.set(key, value); } else { data.set(k, v); } },
+      async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
+      async list({ prefix, startAfter, limit }) { const all = [...data].filter(([k]) => k.startsWith(prefix) && (!startAfter || k > startAfter)).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)); return new Map(limit ? all.slice(0, limit) : all); },
+    };
+  };
+  const statsObject = new Stats({ storage: memory() });
+  const STATS = { idFromName(name) { return name; }, get() { return { fetch: (url, init) => statsObject.fetch(new Request(url, init)) }; } };
+  const objects = new Map();
+  const PROFILES = { idFromName(name) { return name; }, get(name) { if (!objects.has(name)) objects.set(name, new Profiles({ storage: memory() })); const object = objects.get(name); return { fetch: (url, init) => object.fetch(new Request(url, init)) }; } };
+  const env = { STATS, PROFILES, STATS_TOKEN: 'admin-token', REPORT_BOT_TOKEN: '1:a', REPORT_CHAT_ID: '1272887902', REPORT_WEBHOOK_SECRET: 'h' };
+  const telegram = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = init && init.body;
+    const method = String(url).split('/').pop();
+    telegram.push({ method, form: body instanceof FormData ? body : null, json: typeof body === 'string' ? JSON.parse(body) : null });
+    if (method === 'getMe') {
+      return new Response(JSON.stringify({ ok: true, result: { id: 1, is_bot: true, username: 'AyuRelayBot' } }));
+    }
+    return new Response('{"ok":true}');
+  };
+  cacheStore.clear();
+  try {
+    const secret = 'p'.repeat(32);
+    const thief = 't'.repeat(32);
+    const auth = (id, key) => ({ 'x-ayugram-id': id, 'x-ayugram-secret': key || secret, 'cf-connecting-ip': '203.0.113.' + (Number(id) % 200) });
+    const call = (path, init, target) => worker.fetch(new Request('https://relay.example' + path, init), target || env);
+    const put = (id, body, key) => call('/profile', { method: 'PUT', headers: { ...auth(id, key), 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const read = (ids, headers) => call('/profile?ids=' + ids, { headers: headers || {} });
+    const upload = (id, bytes, type, extra) => call('/profile/background', { method: 'PUT', headers: { ...auth(id), 'content-type': type, 'content-length': String(bytes.length), ...(extra || {}) }, body: bytes });
+    const be32 = (n) => new Uint8Array([(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
+    const box = (type, ...parts) => { const payload = concat(...parts); return concat(be32(payload.length + 8), enc.encode(type), payload); };
+    const jpeg = (width, height, pad) => concat(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16]), enc.encode('JFIF\0'), new Uint8Array(9), new Uint8Array([0xff, 0xc0, 0, 17, 8, height >> 8, height & 255, width >> 8, width & 255, 3]), new Uint8Array(9), new Uint8Array(pad || 0), new Uint8Array([0xff, 0xd9]));
+    const png = (width, height) => concat(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), be32(13), enc.encode('IHDR'), be32(width), be32(height), new Uint8Array([8, 6, 0, 0, 0]), new Uint8Array(4));
+    const mp4 = (seconds, pad, brand) => {
+      const mvhd = box('mvhd', new Uint8Array(12), be32(1000), be32(Math.round(seconds * 1000)), new Uint8Array(80));
+      const matrix = concat(be32(0), be32(0x00010000), be32(0), be32(0xffff0000), be32(0), be32(0), be32(0), be32(0), be32(0x40000000));
+      const tkhd = box('tkhd', new Uint8Array([0, 0, 0, 3]), new Uint8Array(36), matrix, be32(1920 * 65536), be32(1080 * 65536));
+      return concat(box('ftyp', enc.encode(brand || 'isom'), be32(512), enc.encode('isomavc1')), box('moov', mvhd, box('trak', tkhd)), box('mdat', crypto.getRandomValues(new Uint8Array(Math.min(pad || 64, 65536))), new Uint8Array(Math.max((pad || 64) - 65536, 0))));
+    };
+
+    const hook = (update) => call('/tg/hook', { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': 'h' }, body: JSON.stringify(update) });
+    const startVerify = async (id, key) => {
+      const response = await call('/profile/verify/start', { method: 'POST', headers: auth(id, key) });
+      return { status: response.status, body: await response.json() };
+    };
+    const openLink = async (nonce, user, extra) => {
+      telegram.length = 0;
+      await hook({ update_id: 1, message: { message_id: 10, from: { id: Number(user), is_bot: false, first_name: 'U', ...(extra || {}) }, chat: { id: Number(user), type: 'private' }, text: '/start pv_' + nonce } });
+      return telegram.find((item) => item.method === 'sendMessage');
+    };
+    const confirmLink = async (nonce, user) => {
+      telegram.length = 0;
+      await hook({ update_id: 2, callback_query: { id: 'cq', from: { id: Number(user), is_bot: false }, data: 'pv:' + nonce, message: { message_id: 11, chat: { id: Number(user), type: 'private' } } } });
+      return telegram.find((item) => item.method === 'editMessageText');
+    };
+    const verifiedStatus = async (id, key) => (await (await call('/profile/verify/status', { headers: auth(id, key) })).json()).verified;
+    const verify = async (id, key, user) => {
+      const started = await startVerify(id, key);
+      assert.equal(started.status, 200, 'verify start for ' + id);
+      await openLink(started.body.nonce, user || id);
+      return confirmLink(started.body.nonce, user || id);
+    };
+
+    assert.equal((await call('/profile?ids=1', {}, { STATS })).status, 503, 'Without the PROFILES binding the feature answers unavailable');
+    assert.equal((await (await call('/profile?ids=1', {}, { STATS })).json()).error, 'unavailable');
+    assert.equal((await call('/profile', { method: 'PUT', body: '{}' })).status, 401, 'Writes need an id and a secret');
+    assert.equal((await put('500', { bubbles: true }, 'short')).status, 401, 'A short secret is refused');
+    assert.equal((await read('500')).status, 200);
+    assert.deepEqual((await (await read('500')).json()).items, [], 'Nobody has extras yet');
+
+    const early = await put('500', { bubbles: true });
+    assert.equal(early.status, 403, 'Writes need a verified owner');
+    assert.deepEqual(await early.json(), { error: 'unverified', verifyUrl: '/profile/verify/start' });
+    const earlyUpload = await call('/profile/background', { method: 'PUT', headers: { ...auth('500'), 'content-type': 'image/png' }, body: png(20, 20) });
+    assert.equal((await earlyUpload.json()).error, 'unverified', 'and so do uploads');
+    assert.equal((await call('/profile', { method: 'DELETE', headers: auth('500') })).status, 403, 'and deletes');
+    const fresh = await (await call('/profile/me', { headers: auth('500') })).json();
+    assert.equal(fresh.verified, false, '/profile/me tells the app it is not verified yet');
+    assert.equal(fresh.claimed, false);
+    assert.equal(await verifiedStatus('500'), false);
+    assert.equal((await call('/profile/verify/start', { method: 'GET', headers: auth('500') })).status, 405);
+    assert.equal((await call('/profile/verify/start', { method: 'POST' })).status, 401, 'Starting needs the auth headers');
+
+    const first = await startVerify('500');
+    assert.equal(first.status, 200);
+    assert.match(first.body.nonce, /^[0-9a-f]{32}$/);
+    assert.match(first.body.code, /^[A-Z2-9]{4}$/);
+    assert.equal(first.body.url, 'https://t.me/AyuRelayBot?start=pv_' + first.body.nonce, 'The link opens the relay bot with the nonce');
+    assert.ok(first.body.expiresAt > Date.now() + 590000 && first.body.expiresAt <= Date.now() + 600000, 'Links live ten minutes');
+    assert.equal(telegram.filter((item) => item.method === 'getMe').length, 1, 'The bot name comes from getMe');
+    await startVerify('501');
+    assert.equal(telegram.filter((item) => item.method === 'getMe').length, 1, 'and is cached');
+    const storedNonce = objects.get('global').state.storage.data.get('n:' + first.body.nonce);
+    assert.equal(storedNonce.lock, await lockOf(secret), 'The nonce is bound to the secret hash');
+    assert.equal(storedNonce.id, '500', 'and to the claimed id');
+
+    const other = await openLink(first.body.nonce, '501');
+    assert.match(other.json.text, /created for another Telegram account/, 'Another account gets a clear refusal');
+    assert.equal(other.json.text.includes('500'), false, 'without the claimed id');
+    assert.equal(other.json.reply_markup, undefined);
+    assert.equal(await verifiedStatus('500'), false);
+    const afterWrong = await openLink(first.body.nonce, '500');
+    assert.match(afterWrong.json.text, /expired or was already used/, 'A link used by the wrong account is gone');
+
+    const botTry = await startVerify('500');
+    assert.match((await openLink(botTry.body.nonce, '500', { is_bot: true })).json.text, /another Telegram account/, 'Bots never verify');
+
+    const stale = await startVerify('500');
+    objects.get('global').state.storage.data.get('n:' + stale.body.nonce).expires = Date.now() - 1;
+    assert.match((await openLink(stale.body.nonce, '500')).json.text, /expired/, 'Expired links are refused');
+    assert.equal(objects.get('global').state.storage.data.has('n:' + stale.body.nonce), false, 'and deleted');
+    assert.match((await openLink('f'.repeat(32), '500')).json.text, /expired/, 'Unknown links are refused');
+    assert.match((await openLink('../x', '500')).json.text, /expired/, 'Malformed links are refused');
+
+    const good = await startVerify('500');
+    const ready = await openLink(good.body.nonce, '500');
+    assert.ok(ready.json.text.includes(good.body.code), 'The bot shows the code from the app');
+    assert.equal(ready.json.reply_markup.inline_keyboard[0][0].callback_data, 'pv:' + good.body.nonce, 'and asks to confirm');
+    assert.equal(ready.json.chat_id, 500);
+    assert.equal(await verifiedStatus('500'), false, 'Opening the link alone does not verify');
+    const strangerTap = await confirmLink(good.body.nonce, '502');
+    assert.match(strangerTap.json.text, /another Telegram account/, 'Only the claimed account can confirm');
+    const good2 = await startVerify('500');
+    await openLink(good2.body.nonce, '500');
+    const done = await confirmLink(good2.body.nonce, '500');
+    assert.match(done.json.text, /Done/, 'The owner confirms');
+    assert.ok(telegram.some((item) => item.method === 'answerCallbackQuery'));
+    assert.equal(await verifiedStatus('500'), true, 'and is verified');
+    assert.equal(await verifiedStatus('500', thief), false, 'only for that secret');
+    assert.match((await openLink(good2.body.nonce, '500')).json.text, /already used/, 'A used link cannot be reused');
+    assert.match((await confirmLink(good2.body.nonce, '500')).json.text, /already used/, 'not even by tapping the old button');
+    assert.equal((await (await call('/profile/me', { headers: auth('500') })).json()).verified, true);
+
+    telegram.length = 0;
+    await hook({ message: { message_id: 5, from: { id: 501 }, chat: { id: 501, type: 'private' }, text: '/bans' } });
+    await hook({ message: { message_id: 6, from: { id: 501 }, chat: { id: 501, type: 'private' }, text: '/start' } });
+    assert.equal(telegram.length, 0, 'Other messages from strangers are still ignored');
+
+    let verifyLimited = 0;
+    for (let i = 0; i < 12; i += 1) {
+      verifyLimited += (await startVerify('520')).status === 429 ? 1 : 0;
+    }
+    assert.equal(verifyLimited, 2, 'Verification links are limited per account');
+    let ipLimited = 0;
+    for (let i = 0; i < 31; i += 1) {
+      const response = await call('/profile/verify/start', { method: 'POST', headers: { ...auth(String(2000 + i)), 'cf-connecting-ip': '198.51.100.7' } });
+      ipLimited += response.status === 429 ? 1 : 0;
+    }
+    assert.equal(ipLimited, 1, 'and per IP');
+
+    let squatterLimited = 0;
+    for (let i = 0; i < 11; i += 1) {
+      squatterLimited += (await startVerify('530', thief)).status === 429 ? 1 : 0;
+    }
+    assert.equal(squatterLimited, 1, 'Another install burns only its own verification budget');
+    assert.equal((await startVerify('530')).status, 200, 'so it cannot lock the real owner out of verifying');
+
+    assert.equal(network('2001:db8:1:2:aaaa::1'), '2001:db8:1:2::/64');
+    assert.equal(network('2001:0db8:0001:0002:ffff:0:0:9'), '2001:db8:1:2::/64', 'IPv6 addresses are grouped by /64');
+    assert.equal(network('::ffff:198.51.100.9'), '198.51.100.9', 'IPv4-mapped addresses keep the IPv4 address');
+    assert.equal(network('198.51.100.9'), '198.51.100.9');
+    let v6Limited = 0;
+    for (let i = 0; i < 31; i += 1) {
+      const response = await call('/profile/verify/start', { method: 'POST', headers: { ...auth(String(3000 + i)), 'cf-connecting-ip': '2001:db8:77:1:' + (i + 1).toString(16) + '::1' } });
+      v6Limited += response.status === 429 ? 1 : 0;
+    }
+    assert.equal(v6Limited, 1, 'Rotating addresses inside one IPv6 /64 does not escape the IP limit');
+
+    const globalStore = objects.get('global').state.storage.data;
+    const today = Math.floor(Date.now() / 86400000);
+    globalStore.set('lim:va:all:' + today, 20000);
+    assert.equal((await startVerify('540')).status, 429, 'A global daily cap bounds stored verification links');
+    globalStore.delete('lim:va:all:' + today);
+
+    const pendingSpam = await startVerify('550');
+    globalStore.set('lim:vu:550:' + today, 40);
+    assert.equal(await openLink(pendingSpam.body.nonce, '550'), undefined, 'A Telegram account over its daily attempt limit gets no replies');
+    telegram.length = 0;
+    await hook({ update_id: 3, callback_query: { id: 'cq', from: { id: 550, is_bot: false }, data: 'pv:' + pendingSpam.body.nonce, message: { message_id: 11, chat: { id: 550, type: 'private' } } } });
+    assert.match(telegram.find((item) => item.method === 'answerCallbackQuery').json.text, /Too many attempts/, 'and a tap is answered with a short alert');
+    assert.equal(telegram.some((item) => item.method === 'editMessageText'), false);
+    assert.equal(await verifiedStatus('550'), false, 'without verifying');
+    globalStore.delete('lim:vu:550:' + today);
+
+    const sideways = await startVerify('560');
+    telegram.length = 0;
+    await hook({ update_id: 4, message: { message_id: 12, from: { id: 560, is_bot: false }, chat: { id: 560, type: 'private' }, forward_origin: { type: 'user', sender_user: { id: 1 } }, forward_date: 1, text: '/start pv_' + sideways.body.nonce } });
+    await hook({ update_id: 5, message: { message_id: 13, from: { id: 560, is_bot: false }, chat: { id: -100123, type: 'private' }, text: '/start pv_' + sideways.body.nonce } });
+    await hook({ update_id: 6, message: { message_id: 14, from: { id: 560, is_bot: false }, chat: { id: -100123, type: 'supergroup' }, text: '/start@AyuRelayBot pv_' + sideways.body.nonce } });
+    assert.equal(telegram.length, 0, 'Forwarded links and links in groups are ignored');
+    await hook({ update_id: 7, callback_query: { id: 'cq', from: { id: 560, is_bot: false }, data: 'pv:' + sideways.body.nonce, message: { message_id: 15, chat: { id: -100123, type: 'supergroup' } } } });
+    await hook({ update_id: 8, callback_query: { id: 'cq', from: { id: 560, is_bot: false }, data: 'pv:' + sideways.body.nonce, inline_message_id: 'abc' } });
+    assert.equal(await verifiedStatus('560'), false, 'A confirm tap outside the private chat with the bot never verifies');
+    assert.ok(telegram.filter((item) => item.method === 'answerCallbackQuery').every((item) => /expired/.test(item.json.text)));
+    assert.equal(globalStore.has('n:' + sideways.body.nonce), true, 'and does not spend the link');
+    await openLink(sideways.body.nonce, '560');
+    assert.match((await confirmLink(sideways.body.nonce, '560')).json.text, /Done/, 'which still works from the private chat');
+
+    const racer = await startVerify('570');
+    const racer2 = await startVerify('570', thief);
+    await openLink(racer.body.nonce, '570');
+    await openLink(racer2.body.nonce, '570');
+    telegram.length = 0;
+    await Promise.all([
+      hook({ update_id: 9, callback_query: { id: 'a', from: { id: 570, is_bot: false }, data: 'pv:' + racer.body.nonce, message: { message_id: 16, chat: { id: 570, type: 'private' } } } }),
+      hook({ update_id: 10, callback_query: { id: 'b', from: { id: 570, is_bot: false }, data: 'pv:' + racer.body.nonce, message: { message_id: 16, chat: { id: 570, type: 'private' } } } }),
+    ]);
+    assert.equal(telegram.filter((item) => item.method === 'editMessageText' && /Done/.test(item.json.text)).length, 1, 'Two taps on the same link verify once');
+    assert.equal(await verifiedStatus('570'), true);
+    assert.equal(await verifiedStatus('570', thief), false, 'and an unconfirmed second link changes nothing');
+
+    for (let i = 0; i < 2100; i += 1) {
+      globalStore.set('lim:old:' + i + ':' + (today - 1), 1);
+    }
+    for (let i = 0; i < 300; i += 1) {
+      globalStore.set('n:' + i.toString(16).padStart(32, '0'), { id: '1', lock: 'x', code: 'AAAA', expires: Date.now() - 1, time: 0 });
+    }
+    const liveNonce = (await startVerify('580')).body.nonce;
+    globalStore.set('limday', today - 1);
+    await startVerify('581');
+    assert.ok([...globalStore.keys()].some((key) => key.startsWith('lim:old:')), 'The daily cleanup works in bounded steps');
+    assert.ok(globalStore.get('sweep'), 'and remembers where it stopped');
+    await startVerify('582');
+    await startVerify('583');
+    assert.equal([...globalStore.keys()].filter((key) => key.startsWith('lim:old:')).length, 0, 'Old counters are swept');
+    assert.equal([...globalStore.keys()].filter((key) => /^n:0{20}/.test(key)).length, 0, 'and expired links too');
+    assert.equal(globalStore.has('n:' + liveNonce), true, 'Live links survive the sweep');
+    assert.equal(globalStore.get('limday'), today);
+    assert.equal(globalStore.has('sweep'), false);
+
+    const nfts = [
+      { slug: 'PlushPepe-1', pinned: true },
+      { collection: ' Durov’s <Cap>‮ ', model: 'Gold\u0000', backdrop: 'Midnight Blue', pattern: 'Stars', number: 77, pinned: true, colors: { center: 'aabbcc', edge: '112233', text: 'zz' } },
+      { slug: 'plushpepe-1', pinned: false },
+      ...Array.from({ length: 6 }, (_, i) => ({ slug: 'SnoopDogg-' + (i + 1), pinned: true })),
+    ];
+    const saved = await put('500', { nfts, usernames: ['@Cool_Name', 'cool_name', 'abcd'], bubbles: true });
+    assert.equal(saved.status, 200);
+    const own = await saved.json();
+    assert.equal(own.fake, true);
+    assert.equal(own.claimed, true);
+    assert.equal(own.nfts.length, 8, 'Duplicate slugs are dropped');
+    assert.deepEqual(own.nfts[0], { slug: 'PlushPepe-1', pinned: true });
+    assert.deepEqual(own.nfts[1], { collection: 'Durov’s Cap', model: 'Gold', backdrop: 'Midnight Blue', pattern: 'Stars', number: 77, pinned: true, colors: { center: 'AABBCC', edge: '112233' } }, 'Labels are sanitized');
+    assert.equal(own.nfts.filter((nft) => nft.pinned).length, 6, 'At most six NFTs stay pinned');
+    assert.deepEqual(own.usernames, ['cool_name', 'abcd'], 'Usernames are stored lowercase without duplicates');
+    assert.equal(own.bubbles, true);
+    assert.equal(own.limits.nfts, 30);
+
+    const refusals = [
+      [{ usernames: ['abc'] }, 'bad_username'],
+      [{ usernames: ['bad-name'] }, 'bad_username'],
+      [{ usernames: ['real_telegram_team'] }, 'reserved_username'],
+      [{ usernames: ['Durov'] }, 'reserved_username'],
+      [{ usernames: Array.from({ length: 11 }, (_, i) => 'name_' + i) }, 'too_many_usernames'],
+      [{ nfts: Array.from({ length: 31 }, (_, i) => ({ slug: 'PlushPepe-' + (i + 1) })) }, 'too_many_nfts'],
+      [{ nfts: [{ slug: 'Plush Pepe-1' }] }, 'bad_nft'],
+      [{ nfts: [{ collection: 'Cap', number: 0 }] }, 'bad_nft'],
+      [{ bubbles: 'yes' }, 'bad_bubbles'],
+      [{ background: { url: 'https://evil.example/x.mp4' } }, 'bad_background'],
+      [{ other: 1 }, 'bad_request'],
+    ];
+    for (const [body, code] of refusals) {
+      const response = await put('500', body);
+      assert.equal(response.status, 400, code);
+      assert.equal((await response.json()).error, code);
+    }
+    const big = await call('/profile', { method: 'PUT', headers: auth('500'), body: JSON.stringify({ nfts: [], pad: 'x'.repeat(17000) }) });
+    assert.equal(big.status, 413, 'Large JSON bodies are refused');
+
+    const stolen = await put('500', { usernames: ['stolen_name'] }, thief);
+    assert.equal(stolen.status, 403, 'Another install cannot change a verified profile');
+    assert.equal((await stolen.json()).error, 'unverified');
+    const thiefMe = await (await call('/profile/me', { headers: auth('500', thief) })).json();
+    assert.deepEqual([thiefMe.claimed, thiefMe.verified, thiefMe.usernames], [false, false, []], 'and never sees the owner data');
+
+    const listed = await read('500,501,500');
+    assert.equal(listed.headers.get('cache-control'), 'public, max-age=60');
+    const items = (await listed.json()).items;
+    assert.equal(items.length, 1, 'Only people with extras are listed');
+    assert.equal(items[0].id, '500');
+    assert.equal(items[0].fake, true, 'Every public entry is marked fake');
+    assert.equal(items[0].lock, undefined, 'The lock never leaves the relay');
+    const etag = (await read('500,501')).headers.get('etag');
+    assert.equal((await read('500,501', { 'if-none-match': etag })).status, 304, 'Unchanged batches answer 304');
+    assert.equal((await put('500', { usernames: ['fresh_name'] })).status, 200);
+    assert.deepEqual((await (await read('500')).json()).items[0].usernames, ['fresh_name'], 'A write clears the cached entry');
+    assert.equal((await read(Array.from({ length: 51 }, (_, i) => String(i + 1)).join(','))).status, 400, 'At most 50 ids per request');
+    assert.equal((await (await read('0,abc')).json()).error, 'bad_ids');
+
+    const photo = jpeg(1170, 2532, 1000);
+    telegram.length = 0;
+    const uploaded = await upload('500', photo, 'image/jpeg');
+    assert.equal(uploaded.status, 200);
+    const withPhoto = await uploaded.json();
+    assert.equal(withPhoto.background.type, 'photo');
+    assert.equal(withPhoto.background.width, 1170, 'Photo size comes from the file');
+    assert.equal(withPhoto.background.height, 2532);
+    assert.equal(withPhoto.background.mime, 'image/jpeg');
+    assert.match(withPhoto.background.url, /^https:\/\/relay\.example\/profile\/media\/500\/[0-9a-f]{16}\.jpg$/);
+    assert.equal(telegram[0].method, 'sendPhoto', 'The owner sees every new background');
+    assert.ok(telegram[0].form.get('reply_markup').includes('P:500'), 'with a button to delete it');
+    const mediaPath = new URL(withPhoto.background.url).pathname;
+    const served = await call(mediaPath, {});
+    assert.equal(served.status, 200);
+    assert.equal(served.headers.get('content-type'), 'image/jpeg');
+    assert.equal(served.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+    assert.deepEqual(new Uint8Array(await served.arrayBuffer()), photo, 'The stored photo is served byte for byte');
+    const cached = await call(mediaPath, {});
+    assert.deepEqual(new Uint8Array(await cached.arrayBuffer()), photo, 'and again from the edge cache');
+    const part = await call(mediaPath, { headers: { range: 'bytes=0-1' } });
+    assert.equal(part.status, 206, 'Byte ranges work for players');
+    assert.equal(part.headers.get('content-range'), 'bytes 0-1/' + photo.length);
+    assert.deepEqual(new Uint8Array(await part.arrayBuffer()), photo.slice(0, 2));
+    assert.equal((await call(mediaPath, { headers: { range: 'bytes=99999-' } })).status, 416);
+    assert.equal((await call(mediaPath, { headers: { 'if-none-match': served.headers.get('etag') } })).status, 304);
+    assert.equal((await call(mediaPath, { method: 'HEAD' })).headers.get('content-length'), String(photo.length));
+    assert.equal((await (await read('500')).json()).items[0].background.url, withPhoto.background.url, 'Everyone sees the background');
+
+    assert.equal((await upload('500', photo, 'text/plain')).status, 415, 'Unknown types are refused');
+    assert.equal((await upload('500', photo, 'video/mp4')).status, 415, 'A photo cannot pose as a video');
+    assert.equal((await upload('500', enc.encode('<html><script>x</script></html>'), 'image/png')).status, 415, 'Content is sniffed, not trusted');
+    assert.equal((await upload('500', jpeg(10, 10, 1572864), 'image/jpeg')).status, 413, 'Photos stop at 1.5 MB');
+    assert.equal((await call('/profile/background', { method: 'PUT', headers: { ...auth('500'), 'content-type': 'video/mp4', 'content-length': String(9 * 1024 * 1024) }, body: new Uint8Array(16) })).status, 413, 'A declared oversize video is refused before reading');
+    const pngShot = await (await upload('500', png(640, 480), 'image/png')).json();
+    assert.equal(pngShot.background.width, 640);
+    assert.equal(pngShot.background.mime, 'image/png');
+    assert.equal((await call(mediaPath, {})).status, 404, 'A replaced background is gone');
+
+    const longClip = await upload('500', mp4(20, 256), 'video/mp4');
+    assert.equal(longClip.status, 422, 'Videos longer than 15 seconds are refused');
+    assert.equal((await longClip.json()).error, 'too_long');
+    const clip = mp4(10, 3 * 1024 * 1024 + 5);
+    const video = await (await upload('500', clip, 'video/mp4')).json();
+    assert.equal(video.background.type, 'video');
+    assert.equal(video.background.duration, 10);
+    assert.deepEqual([video.background.width, video.background.height], [1080, 1920], 'Rotated video size is reported upright');
+    const clipVersion = /\/([0-9a-f]{16})\.mp4$/.exec(video.background.url)[1];
+    assert.equal(objects.get('media-500').state.storage.data.get('m:' + clipVersion).chunks, 4, 'Large media is split into chunks');
+    assert.equal([...objects.get('media-500').state.storage.data.keys()].filter((key) => key.startsWith('m:')).length, 1, 'Replaced versions are deleted');
+    assert.equal(objects.get('global').state.storage.data.get('bytes'), clip.length, 'Stored media bytes are counted');
+    const clipServed = new Uint8Array(await (await call(new URL(video.background.url).pathname, {})).arrayBuffer());
+    assert.equal(createHash('sha256').update(clipServed).digest('hex'), createHash('sha256').update(clip).digest('hex'), 'The chunked video comes back intact');
+    const mov = await (await upload('500', mp4(5, 64, 'qt  '), 'video/quicktime')).json();
+    assert.match(mov.background.url, /\.mov$/);
+    assert.equal((await upload('500', mp4(5, 8 * 1024 * 1024), 'video/mp4')).status, 413, 'Videos stop at 8 MB');
+
+    const removed = await call('/profile/background', { method: 'DELETE', headers: auth('500') });
+    assert.equal((await removed.json()).background, null);
+    assert.equal((await call(new URL(mov.background.url).pathname, {})).status, 404, 'A deleted background is no longer served');
+    assert.equal(objects.get('media-500').state.storage.data.size, 0, 'and its bytes are deleted');
+    assert.equal(objects.get('global').state.storage.data.get('bytes'), 0, 'and uncounted');
+
+    const served2 = await call(new URL((await (await upload('500', png(32, 32), 'image/png')).json()).background.url).pathname, {});
+    assert.equal(served2.headers.get('x-content-type-options'), 'nosniff');
+    assert.match(served2.headers.get('content-security-policy'), /sandbox/, 'Media can never run as a page');
+    const fragmented = concat(mp4(5, 64), box('moof', new Uint8Array(8)));
+    assert.equal((await upload('500', fragmented, 'video/mp4')).status, 422, 'Fragmented videos cannot hide their length');
+    const hiddenLength = concat(box('ftyp', enc.encode('isom'), be32(512)), box('moov', box('mvhd', new Uint8Array(12), be32(1000), be32(5000), new Uint8Array(80)), box('trak', box('mdia', box('mdhd', new Uint8Array(12), be32(600), be32(600 * 60), new Uint8Array(4))))), box('mdat', new Uint8Array(64)));
+    assert.equal(inspectMedia(hiddenLength, 'video', {}).error, 'too_long', 'A track longer than the movie header is caught');
+    assert.equal(inspectMedia(concat(box('ftyp', enc.encode('isom'), be32(512)), box('mdat', new Uint8Array(64))), 'video', {}).error, 'bad_media', 'A video without a duration is refused');
+    const streamed = await call('/profile/background', { method: 'PUT', duplex: 'half', headers: { ...auth('500'), 'content-type': 'image/png' }, body: new ReadableStream({ start(controller) { for (let i = 0; i < 4; i += 1) controller.enqueue(new Uint8Array(512 * 1024)); controller.close(); } }) });
+    assert.equal(streamed.status, 413, 'A body without a length still stops at the limit');
+    const thiefUpload = await call('/profile/background', { method: 'PUT', headers: { ...auth('500', thief), 'content-type': 'image/png' }, body: png(20, 20) });
+    assert.equal((await thiefUpload.json()).error, 'unverified', 'Another install cannot upload a background');
+    const budgetBefore = objects.get('global').state.storage.data.get('bytes');
+    objects.get('global').state.storage.data.set('bytes', 3221225472);
+    const full = await upload('500', jpeg(24, 24, 4096), 'image/jpeg');
+    assert.equal(full.status, 507, 'Uploads stop when the media budget is spent');
+    assert.equal((await full.json()).error, 'storage_full');
+    objects.get('global').state.storage.data.set('bytes', budgetBefore);
+
+    let limited = 0;
+    for (let i = 0; i < 5; i += 1) {
+      limited += (await upload('500', png(10 + i, 10), 'image/png')).status === 429 ? 1 : 0;
+    }
+    assert.equal(limited, 2, 'Uploads are limited to eight per account per day');
+
+    const thiefLock = await lockOf(thief);
+    const second = 's'.repeat(32);
+    await statsObject.fetch(new Request('https://stats.ayugram.invalid/badge-grant-id/600', { method: 'POST' }));
+    await call('/badges/set', { method: 'POST', body: JSON.stringify({ id: '600', secret, badge: {} }) });
+    assert.equal((await put('600', { bubbles: true }, thief)).status, 403, 'A supporter id cannot be claimed by another install');
+    assert.equal((await put('600', { bubbles: true })).status, 403, 'The badge key alone is not ownership');
+    await verify('600', second);
+    assert.equal((await put('600', { bubbles: true }, second)).status, 200, 'The verified owner always wins over the badge lock');
+    assert.equal((await put('600', { bubbles: true })).status, 403);
+
+    const globalData = objects.get('global').state.storage.data;
+    globalData.set('p:700', { lock: thiefLock, nfts: [], usernames: ['squatter'], bubbles: true, background: null, updatedAt: 1, claimedAt: 1 });
+    assert.deepEqual((await (await read('700')).json()).items, [], 'Unverified leftovers are never shown');
+    assert.equal((await put('700', { usernames: ['squatter_two'] }, thief)).status, 403, 'and the squatter cannot touch them');
+    await verify('700');
+    assert.equal(globalData.get('p:700'), undefined, 'Verifying wipes a squatter');
+    const reclaimed = await (await put('700', { bubbles: true })).json();
+    assert.deepEqual(reclaimed.usernames, [], 'and the owner starts clean');
+    assert.equal((await put('700', { bubbles: false }, thief)).status, 403);
+
+    globalData.set('v:750', { lock: thiefLock, time: 1 });
+    const squat = await call('/profile/background', { method: 'PUT', headers: { ...auth('750', thief), 'content-type': 'image/png' }, body: png(50, 50) });
+    const squatUrl = (await squat.json()).background.url;
+    globalData.delete('v:750');
+    const bytesBeforeSquatWipe = globalData.get('bytes');
+    await verify('750');
+    assert.deepEqual((await (await read('750')).json()).items, [], 'The verified owner replaces a squatter with a background');
+    assert.equal((await call(new URL(squatUrl).pathname, {})).status, 404, 'and the squatter media is gone');
+    assert.equal(objects.get('media-750').state.storage.data.size, 0);
+    assert.equal(globalData.get('bytes'), bytesBeforeSquatWipe - png(50, 50).length, 'and uncounted');
+    assert.equal((await call('/profile/background', { method: 'DELETE', headers: auth('750') })).status, 200);
+
+    await verify('760');
+    await put('760', { usernames: ['moving_name'] });
+    await verify('760', second);
+    assert.deepEqual((await (await put('760', { bubbles: true }, second)).json()).usernames, ['moving_name'], 'Verifying a new install of the same account keeps the extras');
+    assert.equal((await put('760', { bubbles: false })).status, 403, 'and the old install loses write access');
+    assert.deepEqual((await (await read('760')).json()).items[0].usernames, ['moving_name']);
+    await call('/profile', { method: 'DELETE', headers: auth('760', second) });
+
+    await statsObject.fetch(new Request('https://stats.ayugram.invalid/ban-id/ban/800?reason=scam', { method: 'POST' }));
+    const banned = await put('800', { bubbles: true });
+    assert.equal(banned.status, 403);
+    assert.equal((await banned.json()).error, 'banned', 'Banned accounts cannot set extras');
+
+    assert.equal((await call('/profile/admin/500', { method: 'DELETE' })).status, 403, 'Admin calls need the token');
+    assert.equal((await put('500', { bubbles: true })).status, 200);
+    const wiped = await call('/profile/admin/500', { method: 'DELETE', headers: { authorization: 'Bearer admin-token' } });
+    assert.equal((await wiped.json()).existed, true);
+    assert.deepEqual((await (await read('500')).json()).items, [], 'The admin wipe removes the extras');
+    assert.equal((await put('500', { bubbles: true }, thief)).status, 403, 'A wipe does not free the id for others');
+    assert.equal((await put('500', { bubbles: true })).status, 200, 'The verified owner can start again');
+    await hook({ callback_query: { id: 'q', from: { id: 1272887902 }, data: 'J:500', message: { message_id: 3, chat: { id: 1272887902 } } } });
+    assert.deepEqual((await (await read('500')).json()).items, [], 'The bot button wipes the profile');
+    const blocked = await put('500', { bubbles: true }, thief);
+    assert.equal((await blocked.json()).error, 'blocked', 'and blocks new extras');
+    await hook({ message: { from: { id: 1272887902 }, chat: { id: 1272887902 }, text: '/reprofile 500' } });
+    assert.equal((await put('500', { bubbles: true })).status, 200, '/reprofile lifts the block');
+    await hook({ message: { from: { id: 1272887902 }, chat: { id: 1272887902 }, text: '/unprofile 500' } });
+    assert.equal((await put('500', { bubbles: true })).status, 403, '/unprofile blocks again');
+
+    assert.equal((await call('/profile', { method: 'DELETE', headers: auth('700') })).status, 200);
+    assert.deepEqual((await (await read('700')).json()).items, [], 'Owners can delete their own extras');
+    const me = await (await call('/profile/me', { headers: auth('700') })).json();
+    assert.equal(me.claimed, true, 'and keep the claim');
+
+    assert.equal(objects.get('global').state.storage.data.get('bytes'), 0, 'Every removal path returns its bytes to the budget');
+    const noStats = { PROFILES };
+    await verify('900');
+    await verify('910');
+    assert.equal((await call('/profile', { method: 'PUT', headers: auth('900'), body: JSON.stringify({ bubbles: true }) }, noStats)).status, 200, 'Profiles work without the stats object');
+    await Promise.all([upload('910', png(40, 40), 'image/png'), upload('910', jpeg(40, 40, 64), 'image/jpeg'), upload('910', png(41, 41), 'image/png')]);
+    const raced = (await (await read('910')).json()).items[0].background;
+    assert.equal((await call(new URL(raced.url).pathname, {})).status, 200, 'Concurrent uploads never leave a background pointing at deleted bytes');
+    assert.equal([...objects.get('media-910').state.storage.data.keys()].filter((key) => key.startsWith('m:')).length, 1, 'and keep only the winning version');
+    assert.equal(cleanNfts([{ slug: 'A-1' }]).error, 'bad_nft');
+    assert.equal(cleanUsernames(['ok_name']).value[0], 'ok_name');
+    assert.equal(inspectMedia(mp4(14.9), 'video', {}).duration, 14.9);
+    assert.equal(inspectMedia(jpeg(100, 200), 'photo', { width: '200', height: '100' }).width, 200, 'EXIF-rotated photos keep the size the app reports');
+    console.log('push relay: profile extras need Telegram-verified ownership, are validated, served to everyone and moderated');
+  } finally {
+    globalThis.fetch = real;
+  }
+}
