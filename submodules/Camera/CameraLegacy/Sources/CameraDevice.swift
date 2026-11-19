@@ -31,11 +31,13 @@ final class CameraDevice {
     
     private(set) var audioDevice: AVCaptureDevice? = nil
         
-    func configure(for session: CameraSession, position: Camera.Position, dual: Bool, switchAudio: Bool) {
+    func configure(for session: CameraSession, position: Camera.Position, dual: Bool, switchAudio: Bool, ultraWide: Bool = false) {
         self.position = position
         
         var selectedDevice: AVCaptureDevice?
-        if #available(iOS 13.0, *), position != .front && !dual {
+        if #available(iOS 13.0, *), position == .back && dual && ultraWide, let device = AVCaptureDevice.default(.builtInDualWideCamera, for: .video, position: position), device.isVirtualDevice, device.neutralZoomFactor > 1.0, legacyMultiCamSupportsUltraWide(device) {
+            selectedDevice = device
+        } else if #available(iOS 13.0, *), position != .front && !dual {
             if let device = AVCaptureDevice.default(.builtInTripleCamera, for: .video, position: position) {
                 selectedDevice = device
             } else if let device = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: position) {
@@ -65,6 +67,20 @@ final class CameraDevice {
     }
     
     private(set) var photoDimensions: CMVideoDimensions?
+    
+    var isVirtualDevice: Bool {
+        guard #available(iOS 13.0, *), let device = self.videoDevice else {
+            return false
+        }
+        return device.isVirtualDevice
+    }
+    
+    var activeFormatSupportsMultiCam: Bool {
+        guard #available(iOS 13.0, *), let device = self.videoDevice else {
+            return false
+        }
+        return device.activeFormat.isMultiCamSupported
+    }
     
     func configureDeviceFormat(maxDimensions: CMVideoDimensions, maxFramerate: Double, captureMode: CameraCaptureMode? = nil) {
         guard let device = self.videoDevice else {
@@ -318,6 +334,16 @@ final class CameraDevice {
         }
     }
     
+    func rampZoomRelative(_ zoomLevel: CGFloat, rate: CGFloat) {
+        guard let device = self.videoDevice else {
+            return
+        }
+        self.transaction(device) { device in
+            let target = self.clampedZoomFactor(zoomLevel * device.neutralZoomFactor, for: device)
+            device.ramp(toVideoZoomFactor: target, withRate: Float(rate))
+        }
+    }
+    
     func resetZoom(neutral: Bool = true) {
         guard let device = self.videoDevice else {
             return
@@ -333,6 +359,17 @@ final class CameraDevice {
         let maximum = max(minimum, device.maxAvailableVideoZoomFactor)
         return min(maximum, max(minimum, value))
     }
+}
+
+@available(iOS 13.0, *)
+private func legacyMultiCamSupportsUltraWide(_ device: AVCaptureDevice) -> Bool {
+    guard let frontDevice = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .builtInTelephotoCamera], mediaType: .video, position: .front).devices.first else {
+        return false
+    }
+    let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [device.deviceType, frontDevice.deviceType], mediaType: .video, position: .unspecified)
+    return discoverySession.supportedMultiCamDeviceSets.contains(where: { deviceSet in
+        return deviceSet.contains(where: { $0.uniqueID == device.uniqueID }) && deviceSet.contains(where: { $0.uniqueID == frontDevice.uniqueID })
+    })
 }
 
 private func cameraFormatDescriptor(_ format: AVCaptureDevice.Format, index: Int) -> CameraFormatDescriptor {

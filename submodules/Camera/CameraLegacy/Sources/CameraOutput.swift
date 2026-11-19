@@ -354,13 +354,19 @@ final class CameraOutput: NSObject {
             dimensions = videoMessageDimensions.cgSize
             orientation = .landscapeRight
             
-            let compressionProperties: [String: Any] = [
-                AVVideoAverageBitRateKey: 1000 * 1000,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
-                AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC
+            let ayuVideo = AyuGramSettings.shared.video
+            let usesHEVC = ayuVideo.roundHEVC && hasHEVCHardwareEncoder
+            var compressionProperties: [String: Any] = [
+                AVVideoAverageBitRateKey: ayuVideo.roundBitrateOverride ?? 1000 * 1000
             ]
+            if usesHEVC {
+                compressionProperties[AVVideoProfileLevelKey] = kVTProfileLevel_HEVC_Main_AutoLevel as String
+            } else {
+                compressionProperties[AVVideoProfileLevelKey] = AVVideoProfileLevelH264HighAutoLevel
+                compressionProperties[AVVideoH264EntropyModeKey] = AVVideoH264EntropyModeCABAC
+            }
             videoSettings = [
-                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoCodecKey: usesHEVC ? AVVideoCodecType.hevc : AVVideoCodecType.h264,
                 AVVideoCompressionPropertiesKey: compressionProperties,
                 AVVideoWidthKey: Int(dimensions.width),
                 AVVideoHeightKey: Int(dimensions.height)

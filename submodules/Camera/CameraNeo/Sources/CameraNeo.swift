@@ -10,6 +10,27 @@ import os.log
 
 private let cameraCaptureLog = OSLog(subsystem: "org.telegram.CameraNeo", category: "Capture")
 
+func roundVideoNeutralZoomFactor(device: AVCaptureDevice) -> CGFloat {
+    guard #available(iOS 13.0, *), device.isVirtualDevice else {
+        return 1.0
+    }
+    let switchOverFactors = device.virtualDeviceSwitchOverVideoZoomFactors
+    guard let index = device.constituentDevices.firstIndex(where: { $0.deviceType == .builtInWideAngleCamera }), index > 0, index - 1 < switchOverFactors.count else {
+        return 1.0
+    }
+    return max(1.0, CGFloat(switchOverFactors[index - 1].doubleValue))
+}
+
+@available(iOS 13.0, *)
+func roundVideoMultiCamSupports(devices: [AVCaptureDevice]) -> Bool {
+    let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: devices.map(\.deviceType), mediaType: .video, position: .unspecified)
+    return discoverySession.supportedMultiCamDeviceSets.contains(where: { deviceSet in
+        return devices.allSatisfy { device in
+            return deviceSet.contains(where: { $0.uniqueID == device.uniqueID })
+        }
+    })
+}
+
 public protocol RoundVideoCameraInitializationReporting: AnyObject {
     var roundVideoInitializationFailed: Signal<Bool, NoError> { get }
 }
@@ -42,6 +63,8 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
     private var wantsRunning = false
     private var isConfigured = false
     private var isInvalidated = false
+    private var allowsUltraWideBackDevice = true
+    private var multiCamCostsRequiredDowngrade = false
 
     private var backDevice: AVCaptureDevice?
     private var frontDevice: AVCaptureDevice?
@@ -370,14 +393,15 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
 
                     let recordingFrameRate = self.recordingFrameRate.with { $0 }
                     let allocationThreshold = AyuGramRoundVideoQuality.outputPoolAllocationThreshold(side: self.outputSide, frameRate: self.frameRateCandidates.first ?? recordingFrameRate)
+                    let maximumPendingRenders = AyuGramRoundVideoQuality.maximumPendingRenders(side: self.outputSide, frameRate: self.frameRateCandidates.first ?? recordingFrameRate)
                     let processor: RoundVideoFrameProcessor
                     if let current = self.frameProcessor {
                         processor = current
-                    } else if let decorationResources, let current = RoundVideoFrameProcessor(mediaQueue: self.mediaQueue, decorationResources: decorationResources, mode: self.roundVideoMode, outputSide: self.outputSide, allocationThreshold: allocationThreshold) {
+                    } else if let decorationResources, let current = RoundVideoFrameProcessor(mediaQueue: self.mediaQueue, decorationResources: decorationResources, mode: self.roundVideoMode, outputSide: self.outputSide, allocationThreshold: allocationThreshold, maximumPendingRenders: maximumPendingRenders) {
                         self.frameProcessor = current
                         processor = current
                     } else {
-                        guard let current = RoundVideoFrameProcessor(mediaQueue: self.mediaQueue, decorationResources: nil, mode: self.roundVideoMode, outputSide: self.outputSide, allocationThreshold: allocationThreshold) else {
+                        guard let current = RoundVideoFrameProcessor(mediaQueue: self.mediaQueue, decorationResources: nil, mode: self.roundVideoMode, outputSide: self.outputSide, allocationThreshold: allocationThreshold, maximumPendingRenders: maximumPendingRenders) else {
                             let _ = self.recordingActive.modify { _ in false }
                             let _ = self.recordingStopRequested.modify { _ in false }
                             if subscriberActive.swap(false) {
@@ -529,7 +553,7 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
 
     func setZoomLevel(_ zoomLevel: CGFloat) {
         self.updateZoom { device in
-            return 1.0 + zoomLevel
+            return roundVideoNeutralZoomFactor(device: device) * (1.0 + zoomLevel)
         }
     }
 
@@ -545,7 +569,7 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
                 return
             }
             self.withLockedDevice(device) { device in
-                device.ramp(toVideoZoomFactor: self.clampedZoom(zoomLevel, device: device), withRate: Float(rate))
+                device.ramp(toVideoZoomFactor: self.clampedZoom(zoomLevel * roundVideoNeutralZoomFactor(device: device), device: device), withRate: Float(rate))
             }
         }
     }
@@ -639,6 +663,13 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
         if videoConfigured && self.useMultiCam {
             videoConfigured = self.configureSupportedMultiCamCosts()
         }
+        let ultraWideMayHaveFailed = !videoConfigured || (self.useMultiCam && self.multiCamCostsRequiredDowngrade)
+        if ultraWideMayHaveFailed && self.allowsUltraWideBackDevice && self.ultraWideBackDevice() != nil {
+            self.allowsUltraWideBackDevice = false
+            self.tearDownSession()
+            self.configureSession()
+            return
+        }
         self.logCaptureState(reason: "configured")
 
         self.isConfigured = videoConfigured && audioConfigured
@@ -688,6 +719,7 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
         }
         self.session.addInput(videoInput)
         self.configureFrameRate(self.sessionFrameRate, device: device, input: videoInput)
+        self.applyNeutralZoom(device: device)
 
         if addOutput {
             guard let output = self.makeVideoOutput(), self.session.canAddOutput(output) else {
@@ -733,6 +765,7 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
         multiCamSession.addInputWithNoConnections(frontInput)
         self.configureFrameRate(self.sessionFrameRate, device: backDevice, input: backInput)
         self.configureFrameRate(self.sessionFrameRate, device: frontDevice, input: frontInput)
+        self.applyNeutralZoom(device: backDevice)
         multiCamSession.addOutputWithNoConnections(backOutput)
         multiCamSession.addOutputWithNoConnections(frontOutput)
 
@@ -767,7 +800,7 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
         previewView: CameraPreviewView?,
         mirrored: Bool
     ) -> Bool {
-        let videoPorts = input.ports.filter { $0.mediaType == .video }
+        let videoPorts = input.ports(for: .video, sourceDeviceType: input.device.deviceType, sourceDevicePosition: input.device.position)
         guard !videoPorts.isEmpty else {
             return false
         }
@@ -852,7 +885,41 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
         return output
     }
 
+    private func bestRoundVideoFrameRate(device: AVCaptureDevice) -> Double? {
+        return self.frameRateCandidates.first(where: { frameRate in
+            return roundVideoCaptureFormat(for: device, requiresMultiCam: self.useMultiCam, mode: self.roundVideoMode, frameRate: frameRate, outputSide: self.outputSide) != nil
+        })
+    }
+
+    private func ultraWideBackDevice() -> AVCaptureDevice? {
+        guard self.allowsUltraWideBackDevice, #available(iOS 13.0, *) else {
+            return nil
+        }
+        guard let wideDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back), let wideFrameRate = self.bestRoundVideoFrameRate(device: wideDevice) else {
+            return nil
+        }
+        let frontDevice = self.useMultiCam ? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) : nil
+        if self.useMultiCam && frontDevice == nil {
+            return nil
+        }
+        for deviceType in [AVCaptureDevice.DeviceType.builtInDualWideCamera, AVCaptureDevice.DeviceType.builtInTripleCamera] {
+            guard let device = AVCaptureDevice.default(deviceType, for: .video, position: .back), device.isVirtualDevice, roundVideoNeutralZoomFactor(device: device) > 1.0 else {
+                continue
+            }
+            if let frontDevice, !roundVideoMultiCamSupports(devices: [device, frontDevice]) {
+                continue
+            }
+            if let frameRate = self.bestRoundVideoFrameRate(device: device), frameRate >= wideFrameRate {
+                return device
+            }
+        }
+        return nil
+    }
+
     private func makeVideoDevice(position: Camera.Position) -> AVCaptureDevice? {
+        if position == .back, let device = self.ultraWideBackDevice() {
+            return device
+        }
         if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position) {
             return device
         }
@@ -868,7 +935,8 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
         guard self.frameRateCandidates.count > 1 else {
             return self.frameRateCandidates.first ?? standardFrameRate
         }
-        let devices: [AVCaptureDevice] = [Camera.Position.back, Camera.Position.front].compactMap { position in
+        let positions: [Camera.Position] = self.useMultiCam ? [.back, .front] : [self.positionValue.with { $0 }]
+        let devices: [AVCaptureDevice] = positions.compactMap { position in
             return self.makeVideoDevice(position: position)
         }
         return roundVideoNegotiatedFrameRate(
@@ -881,11 +949,12 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
     }
 
     private func configureCaptureFormat(device: AVCaptureDevice) -> Bool {
-        for frameRate in self.frameRateCandidates where frameRate <= self.sessionFrameRate {
+        let maximumFrameRate = self.useMultiCam ? self.sessionFrameRate : (self.frameRateCandidates.first ?? self.sessionFrameRate)
+        for frameRate in self.frameRateCandidates where frameRate <= maximumFrameRate {
             guard let selectedFormat = roundVideoCaptureFormat(for: device, requiresMultiCam: self.useMultiCam, mode: self.roundVideoMode, frameRate: frameRate, outputSide: self.outputSide) else {
                 continue
             }
-            guard self.applyCaptureFormat(selectedFormat, device: device) else {
+            guard self.applyCaptureFormat(selectedFormat, device: device, frameRate: frameRate) else {
                 return false
             }
             if frameRate != self.sessionFrameRate {
@@ -897,20 +966,34 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
         return false
     }
 
-    private func applyCaptureFormat(_ format: AVCaptureDevice.Format, device: AVCaptureDevice) -> Bool {
+    private func applyCaptureFormat(_ format: AVCaptureDevice.Format, device: AVCaptureDevice, frameRate: Double) -> Bool {
         do {
             try device.lockForConfiguration()
             defer { device.unlockForConfiguration() }
             device.activeFormat = format
             if device.isLowLightBoostSupported {
-                device.automaticallyEnablesLowLightBoostWhenAvailable = true
+                device.automaticallyEnablesLowLightBoostWhenAvailable = frameRate <= AyuGramRoundVideoQuality.standardFrameRate
             }
             if device.isExposureModeSupported(.continuousAutoExposure) {
                 device.exposureMode = .continuousAutoExposure
             }
+            let neutralZoomFactor = roundVideoNeutralZoomFactor(device: device)
+            if neutralZoomFactor > 1.0 {
+                device.videoZoomFactor = self.clampedZoom(neutralZoomFactor, device: device)
+            }
             return true
         } catch {
             return false
+        }
+    }
+
+    private func applyNeutralZoom(device: AVCaptureDevice) {
+        let neutralZoomFactor = roundVideoNeutralZoomFactor(device: device)
+        guard neutralZoomFactor > 1.0 else {
+            return
+        }
+        self.withLockedDevice(device) { device in
+            device.videoZoomFactor = self.clampedZoom(neutralZoomFactor, device: device)
         }
     }
 
@@ -924,6 +1007,7 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
 
         let initialProfile: RoundVideoCaptureProfile = self.roundVideoMode == .vga ? .vga : .high
         let initialFrameRate = self.sessionFrameRate
+        self.multiCamCostsRequiredDowngrade = false
         for frameRate in self.frameRateCandidates where frameRate <= initialFrameRate {
             for maximumProfile in RoundVideoCaptureProfile.allCases where maximumProfile.rawValue >= initialProfile.rawValue {
                 if maximumProfile != initialProfile || frameRate != initialFrameRate {
@@ -932,8 +1016,8 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
                         continue
                     }
                     session.beginConfiguration()
-                    let backConfigured = self.applyCaptureFormat(backFormat, device: backDevice)
-                    let frontConfigured = self.applyCaptureFormat(frontFormat, device: frontDevice)
+                    let backConfigured = self.applyCaptureFormat(backFormat, device: backDevice, frameRate: frameRate)
+                    let frontConfigured = self.applyCaptureFormat(frontFormat, device: frontDevice, frameRate: frameRate)
                     self.configureFrameRate(frameRate, device: backDevice, input: backInput)
                     self.configureFrameRate(frameRate, device: frontDevice, input: frontInput)
                     session.commitConfiguration()
@@ -945,6 +1029,7 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
                 }
                 self.logCaptureState(reason: "MultiCam budget")
                 if roundVideoCaptureCostsAreSupported(hardwareCost: session.hardwareCost, systemPressureCost: session.systemPressureCost) {
+                    self.multiCamCostsRequiredDowngrade = maximumProfile != initialProfile || frameRate != initialFrameRate
                     return true
                 }
             }
@@ -1024,7 +1109,11 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
             self.session.removeInput(singleVideoInput)
         }
         self.singleVideoInput = nil
-        let configured = self.configureSingleCameraVideo(position: position, addOutput: false)
+        var configured = self.configureSingleCameraVideo(position: position, addOutput: false)
+        if !configured && position == .back && self.ultraWideBackDevice() != nil {
+            self.allowsUltraWideBackDevice = false
+            configured = self.configureSingleCameraVideo(position: position, addOutput: false)
+        }
         self.session.commitConfiguration()
         self.configureVideoStabilization()
         self.logCaptureState(reason: "camera switched")
@@ -1081,7 +1170,7 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
     }
 
     private func clampedZoom(_ value: CGFloat, device: AVCaptureDevice) -> CGFloat {
-        let minimum = max(1.0, device.minAvailableVideoZoomFactor)
+        let minimum = max(1.0, device.minAvailableVideoZoomFactor, roundVideoNeutralZoomFactor(device: device) * 0.5)
         let maximum = max(minimum, device.maxAvailableVideoZoomFactor)
         return min(maximum, max(minimum, value))
     }

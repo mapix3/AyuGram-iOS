@@ -631,29 +631,19 @@ final class VideoRecorder {
 
         let outputWidth = self.processor.outputWidth
         let outputHeight = self.processor.outputHeight
-        var compressionProperties: [String: Any] = [
-            AVVideoAverageBitRateKey: AyuGramRoundVideoQuality.bitrate(side: max(outputWidth, outputHeight), frameRate: self.frameRate),
-            AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
-            AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC
-        ]
-        if !AyuGramRoundVideoQuality.isStandard(side: max(outputWidth, outputHeight), frameRate: self.frameRate) {
-            compressionProperties[AVVideoExpectedSourceFrameRateKey] = Int(self.frameRate.rounded())
-            compressionProperties[AVVideoMaxKeyFrameIntervalKey] = Int((self.frameRate * 2.0).rounded())
-        }
+        let side = max(outputWidth, outputHeight)
+        let bitrate = AyuGramRoundVideoQuality.bitrate(side: side, frameRate: self.frameRate)
+        let includesFrameRateHints = !AyuGramRoundVideoQuality.isStandard(side: side, frameRate: self.frameRate)
         let colorProperties = RoundVideoFrameProcessor.videoColorProperties(from: firstVideoFrame.source)
-        var videoSettings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: outputWidth,
-            AVVideoHeightKey: outputHeight,
-            AVVideoCompressionPropertiesKey: compressionProperties,
-            AVVideoColorPropertiesKey: colorProperties
-        ]
-        if !assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) {
-            compressionProperties.removeValue(forKey: AVVideoExpectedSourceFrameRateKey)
-            compressionProperties.removeValue(forKey: AVVideoMaxKeyFrameIntervalKey)
-            videoSettings[AVVideoCompressionPropertiesKey] = compressionProperties
+        let codecs: [AVVideoCodecType] = AyuGramRoundVideoQuality.usesHEVC ? [.hevc, .h264] : [.h264]
+        var candidates: [[String: Any]] = []
+        for codec in codecs {
+            if includesFrameRateHints {
+                candidates.append(VideoRecorder.videoSettings(codec: codec, width: outputWidth, height: outputHeight, bitrate: bitrate, frameRate: self.frameRate, colorProperties: colorProperties))
+            }
+            candidates.append(VideoRecorder.videoSettings(codec: codec, width: outputWidth, height: outputHeight, bitrate: bitrate, frameRate: nil, colorProperties: colorProperties))
         }
-        guard assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) else {
+        guard let videoSettings = candidates.first(where: { assetWriter.canApply(outputSettings: $0, forMediaType: .video) }) else {
             self.fail()
             return
         }
@@ -684,6 +674,29 @@ final class VideoRecorder {
         if let audioFormatDescription = self.audioFormatDescription {
             self.addAudioInputIfPossible(formatDescription: audioFormatDescription)
         }
+    }
+
+    private static func videoSettings(codec: AVVideoCodecType, width: Int, height: Int, bitrate: Int, frameRate: Double?, colorProperties: [String: Any]) -> [String: Any] {
+        var compressionProperties: [String: Any] = [
+            AVVideoAverageBitRateKey: bitrate
+        ]
+        if codec == .hevc {
+            compressionProperties[AVVideoProfileLevelKey] = kVTProfileLevel_HEVC_Main_AutoLevel as String
+        } else {
+            compressionProperties[AVVideoProfileLevelKey] = AVVideoProfileLevelH264HighAutoLevel
+            compressionProperties[AVVideoH264EntropyModeKey] = AVVideoH264EntropyModeCABAC
+        }
+        if let frameRate {
+            compressionProperties[AVVideoExpectedSourceFrameRateKey] = Int(frameRate.rounded())
+            compressionProperties[AVVideoMaxKeyFrameIntervalKey] = Int((frameRate * 2.0).rounded())
+        }
+        return [
+            AVVideoCodecKey: codec,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoCompressionPropertiesKey: compressionProperties,
+            AVVideoColorPropertiesKey: colorProperties
+        ]
     }
 
     private func addAudioInputIfPossible(formatDescription: CMFormatDescription) {
@@ -793,6 +806,9 @@ final class VideoRecorder {
         guard self.state == .writing || self.state == .stopping,
               let videoInput = self.videoInput,
               let videoAdaptor = self.videoAdaptor else {
+            return
+        }
+        if let lastVideoTime = self.lastVideoTime, frame.presentationTime <= lastVideoTime {
             return
         }
         guard videoInput.isReadyForMoreMediaData else {
