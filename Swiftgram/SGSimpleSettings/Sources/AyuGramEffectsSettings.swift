@@ -52,6 +52,8 @@ public struct AyuGramEffectsSettings: Codable, Equatable {
     public var avatarRings = false
     public var avatarRingColor: RingColor = .accent
 
+    public var profileBubbles = true
+
     public init() {}
 
     public init(from decoder: Decoder) throws {
@@ -69,6 +71,7 @@ public struct AyuGramEffectsSettings: Codable, Equatable {
         self.incomingTextReveal = try container.decodeIfPresent(Bool.self, forKey: .incomingTextReveal) ?? defaults.incomingTextReveal
         self.avatarRings = try container.decodeIfPresent(Bool.self, forKey: .avatarRings) ?? defaults.avatarRings
         self.avatarRingColor = (try? container.decodeIfPresent(RingColor.self, forKey: .avatarRingColor)) ?? defaults.avatarRingColor
+        self.profileBubbles = try container.decodeIfPresent(Bool.self, forKey: .profileBubbles) ?? defaults.profileBubbles
     }
 
     public var activeAuroraGradient: Bool { enabled && auroraGradient }
@@ -81,6 +84,7 @@ public struct AyuGramEffectsSettings: Codable, Equatable {
     public var activeSendStyle: SendStyle { enabled ? sendStyle : .standard }
     public var activeIncomingTextReveal: Bool { enabled && incomingTextReveal }
     public var activeAvatarRings: Bool { enabled && avatarRings }
+    public var activeProfileBubbles: Bool { enabled && profileBubbles }
 }
 
 public extension AyuGramSettings {

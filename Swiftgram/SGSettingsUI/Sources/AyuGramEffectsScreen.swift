@@ -15,11 +15,11 @@ private enum AyuEffectsSection: Int32 {
 }
 
 private enum AyuEffectsToggle: Equatable {
-    case enabled, aurora, parallax, ripple, glow, glass, textReveal, avatarRings
+    case enabled, aurora, parallax, ripple, glow, glass, textReveal, avatarRings, profileBubbles
 }
 
 private enum AyuEffectsPicker: Equatable {
-    case deleteStyle, sendStyle, ringColor
+    case deleteStyle, sendStyle, ringColor, profileExtras
 }
 
 private enum AyuEffectsSlider: Equatable {
@@ -198,6 +198,8 @@ private func ayuEffectsEntries(data: PresentationData, effects: AyuGramEffectsSe
     entries.append(.header(id: 700, section: .interface, text: s("Ayu.Effects.InterfaceSection")))
     entries.append(.toggle(id: 710, section: .interface, key: .avatarRings, symbol: "circle.dashed", tint: .purple, title: s("Ayu.Effects.AvatarRings"), subtitle: s("Ayu.Effects.AvatarRingsInfo"), value: effects.avatarRings, enabled: on))
     entries.append(.picker(id: 715, section: .interface, key: .ringColor, symbol: "paintpalette.fill", tint: .pink, title: s("Ayu.Effects.RingColor"), label: s(ayuEffectsRingColorKey(effects.avatarRingColor)), enabled: on && effects.avatarRings))
+    entries.append(.toggle(id: 717, section: .interface, key: .profileBubbles, symbol: "bubbles.and.sparkles.fill", tint: .blue, title: s("Ayu.Effects.ProfileBubbles"), subtitle: s("Ayu.Effects.ProfileBubblesInfo"), value: effects.profileBubbles, enabled: on))
+    entries.append(.picker(id: 718, section: .interface, key: .profileExtras, symbol: "person.crop.circle.badge.plus", tint: .blue, title: s("Ayu.ProfileExtras.Title"), label: "", enabled: true))
     entries.append(.footer(id: 720, section: .interface, text: s("Ayu.Effects.InterfaceFooter")))
     return entries
 }
@@ -221,6 +223,7 @@ private func ayuEffectsPresentChoice<T: Equatable>(context: AccountContext, pres
 
 public func ayuGramEffectsController(context: AccountContext) -> ViewController {
     var presentController: ((ViewController) -> Void)?
+    var pushController: ((ViewController) -> Void)?
     let changes = Signal<Int, NoError> { subscriber in
         subscriber.putNext(0)
         let observer = NotificationCenter.default.addObserver(forName: AyuGramSettings.effectsDidChange, object: nil, queue: .main) { _ in
@@ -241,6 +244,7 @@ public func ayuGramEffectsController(context: AccountContext) -> ViewController 
             case .glass: effects.glassBubbles = value
             case .textReveal: effects.incomingTextReveal = value
             case .avatarRings: effects.avatarRings = value
+            case .profileBubbles: effects.profileBubbles = value
             }
         }
     }, pick: { key in
@@ -259,6 +263,8 @@ public func ayuGramEffectsController(context: AccountContext) -> ViewController 
             ayuEffectsPresentChoice(context: context, present: presentController, options: AyuGramEffectsSettings.RingColor.allCases, current: effects.avatarRingColor, title: { i18n(ayuEffectsRingColorKey($0), locale) }, select: { value in
                 AyuGramSettings.shared.updateEffects { $0.avatarRingColor = value }
             })
+        case .profileExtras:
+            pushController?(ayuGramProfileExtrasController(context: context))
         }
     }, slide: { key, value in
         let fraction = Double(max(0, min(100, value))) / 100.0
@@ -281,6 +287,9 @@ public func ayuGramEffectsController(context: AccountContext) -> ViewController 
     let controller = ItemListController(context: context, state: signal)
     presentController = { [weak controller] next in
         controller?.present(next, in: .window(.root))
+    }
+    pushController = { [weak controller] next in
+        (controller?.navigationController as? NavigationController)?.pushViewController(next)
     }
     return controller
 }

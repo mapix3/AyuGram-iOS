@@ -109,6 +109,21 @@ public final class AyuGramClientBadges {
         }
     }
 
+    public func touch(rawPeerIds: [Int64]) {
+        let ids = Array(Set(rawPeerIds.filter { Self.valid($0) }))
+        guard !ids.isEmpty else {
+            return
+        }
+        lock.lock()
+        for id in ids {
+            generations[id, default: 0] += 1
+        }
+        lock.unlock()
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.didChange, object: self, userInfo: ["peerIds": ids])
+        }
+    }
+
     private func apply(_ updated: [Int64: AyuGramCustomBadge]) {
         lock.lock()
         var changed: [Int64] = []

@@ -73,7 +73,7 @@ public final class AyuGramBadgeSync {
         }).resume()
     }
 
-    private var secret: String {
+    var secret: String {
         if let value = UserDefaults.standard.string(forKey: self.secretKey), value.count >= 24 {
             return value
         }

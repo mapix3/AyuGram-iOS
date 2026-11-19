@@ -46,6 +46,8 @@ swift_library(
         "//third-party/ZipArchive:ZipArchive",
         "//submodules/ManagedFile:ManagedFile",
         "//submodules/TelegramUI/Components/SaveProgressScreen:SaveProgressScreen",
+        "//submodules/TelegramUI/Components/Gifts/GiftViewScreen:GiftViewScreen",
+        "//Swiftgram/AyuGramProfileExtras:AyuGramProfileExtras",
     ],
     visibility = [
         "//visibility:public",

@@ -62,6 +62,7 @@ swift_library(
         "//submodules/TelegramUI/Components/EdgeEffect",
         "//submodules/TelegramUI/Components/DustEffect",
         "//submodules/TelegramUI/Components/MediaGrid",
+        "//Swiftgram/AyuGramProfileExtras:AyuGramProfileExtras",
     ],
     visibility = [
         "//visibility:public",

@@ -631,7 +631,12 @@ public final class AccountContextImpl: AccountContext {
             (self.animationRenderer as? DCTMultiAnimationRendererImpl)?.useYuvA = settings.compressedEmojiCache
         })
         self.ayuProfileForegroundDisposable = (sharedContext.applicationBindings.applicationInForeground
-        |> deliverOnMainQueue).start(next: { active in AyuGramClientBadges.shared.setForeground(active) })
+        |> deliverOnMainQueue).start(next: { active in
+            AyuGramClientBadges.shared.setForeground(active)
+            if active {
+                AyuGramProfileRelay.shared.refreshVisible()
+            }
+        })
         self.ayuProfileObserver = NotificationCenter.default.addObserver(forName: AyuGramClientBadges.didChange, object: nil, queue: .main) { [weak self] notification in
             guard let self, let ids = notification.userInfo?["peerIds"] as? [Int64], !ids.isEmpty else { return }
             let _ = self.account.postbox.transaction { transaction -> Void in

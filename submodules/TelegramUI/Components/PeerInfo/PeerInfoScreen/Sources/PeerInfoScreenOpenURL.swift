@@ -9,6 +9,9 @@ import PresentationDataUtils
 import OverlayStatusController
 import HashtagSearchUI
 import UndoUI
+import SGStrings
+import SGSimpleSettings
+import AyuGramProfileExtras
 
 extension PeerInfoScreenNode {
     func openResolved(_ result: ResolvedUrl) {
@@ -209,7 +212,39 @@ extension PeerInfoScreenNode {
         }))
     }
 
+    func ayuFakeUsernameIfAny(_ value: String) -> String? {
+        guard let entry = ayuGramProfileEntry(peerId: self.data?.peer?.id ?? self.peerId, refresh: false), let name = AyuGramProfileEntry.normalizeUsername(value), entry.usernames.contains(name) else {
+            return nil
+        }
+        if let peer = self.data?.peer, peer.usernames.contains(where: { $0.username.lowercased() == name }) {
+            return nil
+        }
+        return name
+    }
+    
+    func ayuShowFakeUsername(_ name: String) {
+        let presentationData = self.presentationData
+        let languageCode = presentationData.strings.baseLanguageCode
+        let actionSheet = ActionSheetController(presentationData: presentationData)
+        actionSheet.setItemGroups([
+            ActionSheetItemGroup(items: [
+                ActionSheetTextItem(title: "⚠️ " + i18n("Ayu.FakeUsername.Title", languageCode), font: .large, parseMarkdown: false),
+                ActionSheetTextItem(title: i18n("Ayu.FakeUsername.Text", languageCode, "@" + name), parseMarkdown: false)
+            ]),
+            ActionSheetItemGroup(items: [
+                ActionSheetButtonItem(title: presentationData.strings.Common_Close, color: .accent, action: { [weak actionSheet] in
+                    actionSheet?.dismissAnimated()
+                })
+            ])
+        ])
+        self.controller?.present(actionSheet, in: .window(.root))
+    }
+
     func openUsername(value: String, isMainUsername: Bool, progress: Promise<Bool>?) {
+        if let fakeName = self.ayuFakeUsernameIfAny(value) {
+            self.ayuShowFakeUsername(fakeName)
+            return
+        }
         let url: String
         if value.hasPrefix("https://") {
             url = value

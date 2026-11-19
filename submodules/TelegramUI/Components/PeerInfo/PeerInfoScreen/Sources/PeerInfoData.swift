@@ -1,5 +1,6 @@
 import SGRegDateScheme
 import SGRegDate
+import AyuGramProfileExtras
 import Foundation
 import UIKit
 import TelegramCore
@@ -1624,6 +1625,7 @@ func peerInfoScreenData(
             }
 
             let forcedLinkedCommunityId = Atomic<EnginePeer.Id?>(value: nil)
+            let _ = ayuGramProfileEntry(peerId: userPeerId)
             
             return combineLatest(
                 Signal<RegDate?, NoError>.single(nil) |> then (getRegDate(context: context, peerId: peerId.id._internalGetInt64Value())),
@@ -1653,10 +1655,11 @@ func peerInfoScreenData(
             |> mapToSignal { regDate, peerView, availablePanes, globalNotificationSettings, encryptionKeyFingerprint, status, hasStories, hasStoryArchive, recommendedBots, accountIsPremium, savedMessagesPeer, hasSavedMessagesChats, hasSavedMessages, hasSavedMessageTags, hasBotPreviewItems, personalChannel, privacySettings, starsRevenueContextAndState, revenueContextAndState, premiumGiftOptions, webAppPermissions, savedMusicState, businessConnectedBotAndWalletBalanceAndAgentState -> Signal<PeerInfoScreenData, NoError> in
                 let (businessConnectedBot, walletBalance, agentState) = businessConnectedBotAndWalletBalanceAndAgentState
                 var availablePanes = availablePanes
+                let ayuHasFakeNfts = ayuGramProfileEntry(peerId: userPeerId, refresh: false)?.nfts.isEmpty == false
                 if isMyProfile {
                     availablePanes?.insert(.stories, at: 0)
                     if availablePanes != nil, profileGiftsContext != nil, let cachedData = peerView.cachedData as? CachedUserData {
-                        if let starGiftsCount = cachedData.starGiftsCount, starGiftsCount > 0 {
+                        if (cachedData.starGiftsCount ?? 0) > 0 || ayuHasFakeNfts {
                             availablePanes?.insert(.gifts, at: 1)
                         }
                     }
@@ -1669,7 +1672,7 @@ func peerInfoScreenData(
                     }
                     
                     if availablePanes != nil, profileGiftsContext != nil, let cachedData = peerView.cachedData as? CachedUserData, peerView.peerId != context.account.peerId {
-                        if let starGiftsCount = cachedData.starGiftsCount, starGiftsCount > 0 {
+                        if (cachedData.starGiftsCount ?? 0) > 0 || ayuHasFakeNfts {
                             availablePanes?.insert(.gifts, at: hasStories ? 1 : 0)
                         }
                     }

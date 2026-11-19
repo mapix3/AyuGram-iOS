@@ -26,7 +26,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, effects, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, supporter, video
+    case history, appearance, effects, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, supporter, video, profileExtras
 }
 
 private enum AyuScreenTint: Equatable {
@@ -195,6 +195,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 605, section: .client, link: .supporter, symbol: "heart.circle.fill", tint: .red, title: s("Ayu.SupporterBadge"), label: ""))
     entries.append(.toggle(id: 610, section: .client, key: .premium, symbol: "star.fill", tint: .purple, title: s("Ayu.LocalPremium"), subtitle: s("Ayu.LocalPremiumInfo"), value: client.localPremium, enabled: true))
     entries.append(.link(id: 615, section: .client, link: .effects, symbol: "sparkles", tint: .purple, title: s("Ayu.Effects.Title"), label: ""))
+    entries.append(.link(id: 617, section: .client, link: .profileExtras, symbol: "person.crop.circle.badge.plus", tint: .blue, title: s("Ayu.ProfileExtras.Title"), label: ""))
     if hasAppearance {
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
         entries.append(.toggle(id: 630, section: .client, key: .disableLiquidGlass, symbol: "drop.fill", tint: .teal, title: s("Ayu.DisableLiquidGlass"), subtitle: s("Ayu.DisableLiquidGlassInfo") + (extra.disableLiquidGlass != AyuLegacyUI.isEnabled ? "\n" + s("Ayu.RestartPending") : ""), value: extra.disableLiquidGlass, enabled: true))
@@ -294,6 +295,8 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             }
         case .effects:
             pushController?(ayuGramEffectsController(context: context))
+        case .profileExtras:
+            pushController?(ayuGramProfileExtrasController(context: context))
         case .update:
             if let info = AyuGramUpdates.shared.availableUpdate {
                 presentController?(ayuGramUpdateAlert(context: context, info: info))

@@ -2509,6 +2509,13 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
             }
         }
         
+        self.headerNode.ayuOpenFakeGift = { [weak self] gift in
+            guard let self else {
+                return
+            }
+            self.controller?.push(ayuGramFakeNftViewScreen(context: self.context, gift: gift))
+        }
+        
         self.headerNode.openUniqueGift = { [weak self] _, slug in
             guard let self, let profileGifts = self.data?.profileGiftsContext else {
                 return
