@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 import TelegramCore
 import SwiftSignalKit
+import SGSimpleSettings
 
 private extension UIColor {
     convenience init(rgb: UInt32) {
@@ -416,7 +417,7 @@ public enum PresentationThemeBaseColor: Int32, CaseIterable {
         let value: UInt32
         switch self {
             case .blue:
-                value = 0x0088ff
+                value = AyuLegacyUILaunch.isEnabled ? 0x007aff : 0x0088ff
             case .cyan:
                 value = 0x00c2ed
             case .green:

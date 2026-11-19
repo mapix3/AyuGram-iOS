@@ -16,6 +16,7 @@ swift_library(
     ],
     deps = [
         "//submodules/AppBundle",
+        "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
     ],
     visibility = [
         "//visibility:public",

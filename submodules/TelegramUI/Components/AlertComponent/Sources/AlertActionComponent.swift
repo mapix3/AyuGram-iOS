@@ -35,19 +35,22 @@ final class AlertActionComponent: Component {
     let isHighlighted: Bool
     let isEnabled: Signal<Bool, NoError>
     let progress: Signal<Bool, NoError>
+    let isLegacy: Bool
     
     init(
         theme: Theme,
         title: String,
         isHighlighted: Bool,
         isEnabled: Signal<Bool, NoError>,
-        progress: Signal<Bool, NoError>
+        progress: Signal<Bool, NoError>,
+        isLegacy: Bool = false
     ) {
         self.theme = theme
         self.title = title
         self.isHighlighted = isHighlighted
         self.isEnabled = isEnabled
         self.progress = progress
+        self.isLegacy = isLegacy
     }
     
     static func ==(lhs: AlertActionComponent, rhs: AlertActionComponent) -> Bool {
@@ -58,6 +61,9 @@ final class AlertActionComponent: Component {
             return false
         }
         if lhs.isHighlighted != rhs.isHighlighted {
+            return false
+        }
+        if lhs.isLegacy != rhs.isLegacy {
             return false
         }
         return true
@@ -137,7 +143,7 @@ final class AlertActionComponent: Component {
             self.component = component
             self.state = state
             
-            let attributedString = NSMutableAttributedString(string: component.title, font: component.theme.font == .bold ? boldTitleFont : titleFont, textColor: .white, paragraphAlignment: .center)
+            let attributedString = NSMutableAttributedString(string: component.title, font: component.isLegacy ? (component.theme.font == .bold ? Font.bold(17.0) : Font.regular(17.0)) : (component.theme.font == .bold ? boldTitleFont : titleFont), textColor: .white, paragraphAlignment: .center)
             if let range = attributedString.string.range(of: "$") {
                 attributedString.addAttribute(.attachment, value: UIImage(bundleImageName: "Item List/PremiumIcon")!, range: NSRange(range, in: attributedString.string))
                 attributedString.addAttribute(.foregroundColor, value: UIColor.white, range: NSRange(range, in: attributedString.string))
@@ -166,7 +172,11 @@ final class AlertActionComponent: Component {
                     self.addSubview(titleView)
                 }
                 titleView.bounds = CGRect(origin: .zero, size: titleSize)
-                transition.setAlpha(view: titleView, alpha: self.hasProgress ? 0.0 : 1.0)
+                if component.isLegacy {
+                    transition.setAlpha(view: titleView, alpha: self.hasProgress ? 0.0 : (self.isEnabled ? 1.0 : 0.4))
+                } else {
+                    transition.setAlpha(view: titleView, alpha: self.hasProgress ? 0.0 : 1.0)
+                }
             }
             
             if self.hasProgress {
@@ -196,16 +206,22 @@ final class AlertActionComponent: Component {
                 }
             }
             
-            let buttonAlpha: CGFloat
-            if self.isEnabled {
-                buttonAlpha = component.isHighlighted ? 0.35 : 1.0
+            if component.isLegacy {
+                transition.setBackgroundColor(view: self.backgroundView, color: (component.isHighlighted && self.isEnabled) ? UIColor(white: 0.5, alpha: 0.2) : .clear)
+                transition.setAlpha(view: self.backgroundView, alpha: 1.0)
+                self.backgroundView.layer.cornerRadius = 0.0
             } else {
-                buttonAlpha = 0.2
+                let buttonAlpha: CGFloat
+                if self.isEnabled {
+                    buttonAlpha = component.isHighlighted ? 0.35 : 1.0
+                } else {
+                    buttonAlpha = 0.2
+                }
+                
+                transition.setBackgroundColor(view: self.backgroundView, color: component.theme.background)
+                transition.setAlpha(view: self.backgroundView, alpha: buttonAlpha)
+                self.backgroundView.layer.cornerRadius = availableSize.height * 0.5
             }
-            
-            transition.setBackgroundColor(view: self.backgroundView, color: component.theme.background)
-            transition.setAlpha(view: self.backgroundView, alpha: buttonAlpha)
-            self.backgroundView.layer.cornerRadius = availableSize.height * 0.5
             
             return CGSize(width: titleSize.width + titlePadding * 2.0, height: availableSize.height)
         }

@@ -1265,7 +1265,7 @@ final class ChatSendMessageContextScreenComponent: Component {
             }
             var readySendButtonFrame = CGRect(origin: CGPoint(x: sourceSendButtonFrame.maxX - sendButtonSize.width, y: sourceSendButtonFrame.minY), size: sendButtonSize)
             
-            var sourceActionsStackFrame = CGRect(origin: CGPoint(x: readySendButtonFrame.minX + 1.0 - 8.0 - actionsStackSize.width, y: sourceMessageItemFrame.maxY + messageActionsSpacing), size: actionsStackSize)
+            var sourceActionsStackFrame = CGRect(origin: CGPoint(x: AyuLegacyUI.isEnabled ? (readySendButtonFrame.minX + 1.0 - actionsStackSize.width) : (readySendButtonFrame.minX + 1.0 - 8.0 - actionsStackSize.width), y: sourceMessageItemFrame.maxY + messageActionsSpacing), size: actionsStackSize)
             if !isMessageVisible {
                 sourceActionsStackFrame.origin.y = sourceSendButtonFrame.maxY - sourceActionsStackFrame.height - 5.0
             }
@@ -1284,13 +1284,13 @@ final class ChatSendMessageContextScreenComponent: Component {
             }
             
             var readyActionsStackFrame: CGRect
-            if component.sourceSendButton is ContextExtractedContentContainingView {
+            if component.sourceSendButton is ContextExtractedContentContainingView, !AyuLegacyUI.isEnabled {
                 readyActionsStackFrame = CGRect(origin: CGPoint(x: readySendButtonFrame.minX + 1.0 - 8.0 - actionsStackSize.width, y: readyMessageItemFrame.maxY + messageActionsSpacing + 4.0), size: actionsStackSize)
             } else {
                 readyActionsStackFrame = CGRect(origin: CGPoint(x: readySendButtonFrame.minX + 1.0 - actionsStackSize.width, y: readyMessageItemFrame.maxY + messageActionsSpacing), size: actionsStackSize)
             }
             if !isMessageVisible {
-                if component.sourceSendButton is ContextExtractedContentContainingView {
+                if component.sourceSendButton is ContextExtractedContentContainingView, !AyuLegacyUI.isEnabled {
                     readyActionsStackFrame.origin.y = readySendButtonFrame.maxY - readyActionsStackFrame.height
                 } else {
                     readyActionsStackFrame.origin.y = readySendButtonFrame.maxY - readyActionsStackFrame.height - 5.0

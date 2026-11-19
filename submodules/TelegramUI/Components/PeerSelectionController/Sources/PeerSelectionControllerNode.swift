@@ -71,6 +71,8 @@ final class PeerSelectionControllerNode: ASDisplayNode {
 
     private var textInputPanelNode: AttachmentTextInputPanelNode?
     private var textInputBackgroundView: GlassBackgroundView?
+    private var legacyTextInputBackgroundNode: ASDisplayNode?
+    private var legacyTextInputSeparatorNode: ASDisplayNode?
     private var textInputEdgeEffectView: EdgeEffectView?
     private var forwardAccessoryPanelNode: ForwardAccessoryPanelNode?
 
@@ -1002,9 +1004,20 @@ final class PeerSelectionControllerNode: ASDisplayNode {
                 self.addSubnode(forwardAccessoryPanelNode)
                 self.forwardAccessoryPanelNode = forwardAccessoryPanelNode
 
-                let textInputBackgroundView = GlassBackgroundView()
-                self.view.insertSubview(textInputBackgroundView, belowSubview: forwardAccessoryPanelNode.view)
-                self.textInputBackgroundView = textInputBackgroundView
+                if AyuLegacyUI.isEnabled {
+                    let legacyTextInputBackgroundNode = ASDisplayNode()
+                    legacyTextInputBackgroundNode.backgroundColor = self.presentationData.theme.chat.inputPanel.panelBackgroundColorNoWallpaper
+                    let legacyTextInputSeparatorNode = ASDisplayNode()
+                    legacyTextInputSeparatorNode.backgroundColor = self.presentationData.theme.chat.inputPanel.panelSeparatorColor
+                    legacyTextInputBackgroundNode.addSubnode(legacyTextInputSeparatorNode)
+                    self.insertSubnode(legacyTextInputBackgroundNode, belowSubnode: forwardAccessoryPanelNode)
+                    self.legacyTextInputBackgroundNode = legacyTextInputBackgroundNode
+                    self.legacyTextInputSeparatorNode = legacyTextInputSeparatorNode
+                } else {
+                    let textInputBackgroundView = GlassBackgroundView()
+                    self.view.insertSubview(textInputBackgroundView, belowSubview: forwardAccessoryPanelNode.view)
+                    self.textInputBackgroundView = textInputBackgroundView
+                }
 
                 let textInputPanelNode = AttachmentTextInputPanelNode(
                     context: self.context,
@@ -1161,6 +1174,14 @@ final class PeerSelectionControllerNode: ASDisplayNode {
                 }
                 textInputBackgroundView.update(size: backgroundSize, cornerRadius: min(20.0, backgroundSize.height * 0.5), isDark: self.presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isInteractive: true, transition: backgroundTransition)
                 transition.updateFrame(view: textInputBackgroundView, frame: backgroundFrame)
+            }
+            if let legacyTextInputBackgroundNode = self.legacyTextInputBackgroundNode, let legacyTextInputSeparatorNode = self.legacyTextInputSeparatorNode {
+                let legacyBackgroundFrame = CGRect(x: 0.0, y: panelFrame.minY - accessoryHeight, width: layout.size.width, height: max(0.0, layout.size.height - panelFrame.minY + accessoryHeight))
+                if legacyTextInputBackgroundNode.frame.width.isZero {
+                    legacyTextInputBackgroundNode.frame = CGRect(origin: CGPoint(x: 0.0, y: layout.size.height), size: legacyBackgroundFrame.size)
+                }
+                transition.updateFrame(node: legacyTextInputBackgroundNode, frame: legacyBackgroundFrame)
+                transition.updateFrame(node: legacyTextInputSeparatorNode, frame: CGRect(x: 0.0, y: 0.0, width: legacyBackgroundFrame.width, height: UIScreenPixel))
             }
         }
 
