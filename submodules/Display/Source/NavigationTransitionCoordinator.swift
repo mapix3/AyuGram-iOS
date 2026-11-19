@@ -72,6 +72,7 @@ final class NavigationTransitionCoordinator {
     private var bottomNodeInitialParameters: (clipsToBounds: Bool, cornerRadius: CGFloat, usesCornerRadii: Bool)?
     
     private let inlineNavigationBarTransition: Bool
+    private var inlineParticipants: (top: NavigationBarInlineTransitionParticipant, bottom: NavigationBarInlineTransitionParticipant)?
     
     private(set) var animatingCompletion = false
     private var currentCompletion: (() -> Void)?
@@ -175,6 +176,9 @@ final class NavigationTransitionCoordinator {
             }
         } else {
             self.inlineNavigationBarTransition = false
+        }
+        if AyuLegacyUI.isEnabled, self.inlineNavigationBarTransition, let topParticipant = topNavigationBar as? NavigationBarInlineTransitionParticipant, let bottomParticipant = bottomNavigationBar as? NavigationBarInlineTransitionParticipant {
+            self.inlineParticipants = (topParticipant, bottomParticipant)
         }
         
         switch transition {
@@ -386,6 +390,10 @@ final class NavigationTransitionCoordinator {
             self.expansion?.update(time: self.expansionTime(progress: self.progress), isOpening: self.expansionIsOpening, pose: self.expansionPose)
             self.navigationBarTransitionLayer?.update(fraction: layout.fraction, transition: transition)
             self.didUpdateProgress?(self.progress, transition, layout.topFrame, layout.bottomFrame)
+            if self.expansion == nil, let inlineParticipants = self.inlineParticipants, let topNavigationBar = self.topNavigationBar, let bottomNavigationBar = self.bottomNavigationBar {
+                inlineParticipants.top.updateInlineTransition(counterpart: bottomNavigationBar, role: .top, progress: 1.0 - layout.fraction)
+                inlineParticipants.bottom.updateInlineTransition(counterpart: topNavigationBar, role: .bottom, progress: 1.0 - layout.fraction)
+            }
         }
         
         if hadEarlyCompletion {
@@ -425,6 +433,11 @@ final class NavigationTransitionCoordinator {
     /// outlive the screens' transition.
     func endNavigationBarTransition(lingering: Bool = true) {
         self.backHoleView?.removeFromSuperview()
+        if let inlineParticipants = self.inlineParticipants {
+            self.inlineParticipants = nil
+            inlineParticipants.top.endInlineTransition()
+            inlineParticipants.bottom.endInlineTransition()
+        }
         if let layer = self.navigationBarTransitionLayer {
             self.navigationBarTransitionLayer = nil
             if layer.putBack(lingering: lingering) {
@@ -664,6 +677,11 @@ final class NavigationTransitionCoordinator {
         add(self.dimNode.layer, "position", layouts.map { center($0.dimFrame) })
         add(self.dimNode.layer, "bounds", layouts.map { NSValue(cgRect: CGRect(origin: CGPoint(), size: $0.dimFrame.size)) })
         add(self.dimNode.layer, "opacity", layouts.map { NSNumber(value: Float($0.dimAlpha)) })
+        if self.expansion == nil, let inlineParticipants = self.inlineParticipants, let topNavigationBar = self.topNavigationBar, let bottomNavigationBar = self.bottomNavigationBar {
+            let inlineProgresses = layouts.map { 1.0 - $0.fraction }
+            inlineParticipants.top.animateInlineTransition(counterpart: bottomNavigationBar, role: .top, progresses: inlineProgresses, timing: timing)
+            inlineParticipants.bottom.animateInlineTransition(counterpart: topNavigationBar, role: .bottom, progresses: inlineProgresses, timing: timing)
+        }
         let clock = self.clock
         let timeline = NavigationTransitionTimeline(
             timing: timing,

@@ -98,12 +98,32 @@ private final class InnerActionsContainerNode: ASDisplayNode {
                 itemNodes.append(.action(ContextActionNode(presentationData: presentationData, action: action, getController: getController, actionSelected: actionSelected, requestLayout: requestLayout, requestUpdateAction: { id, action in
                     requestUpdateAction?(id, action)
                 })))
+                if AyuLegacyUI.isEnabled && i != items.count - 1 {
+                    switch items[i + 1] {
+                    case .action, .custom:
+                        let separatorNode = ASDisplayNode()
+                        separatorNode.backgroundColor = presentationData.theme.contextMenu.itemSeparatorColor
+                        itemNodes.append(.itemSeparator(separatorNode))
+                    default:
+                        break
+                    }
+                }
             case let .custom(item, _):
                 let itemNode = item.node(presentationData: presentationData, getController: getController, actionSelected: actionSelected)
                 itemNodes.append(.custom(itemNode))
+                if AyuLegacyUI.isEnabled && i != items.count - 1 && itemNode.needsSeparator {
+                    switch items[i + 1] {
+                    case .action, .custom:
+                        let separatorNode = ASDisplayNode()
+                        separatorNode.backgroundColor = presentationData.theme.contextMenu.itemSeparatorColor
+                        itemNodes.append(.itemSeparator(separatorNode))
+                    default:
+                        break
+                    }
+                }
             case .separator:
                 let separatorNode = ASDisplayNode()
-                separatorNode.backgroundColor = presentationData.theme.contextMenu.itemSeparatorColor
+                separatorNode.backgroundColor = AyuLegacyUI.isEnabled ? presentationData.theme.contextMenu.sectionSeparatorColor : presentationData.theme.contextMenu.itemSeparatorColor
                 itemNodes.append(.separator(separatorNode))
             }
         }
@@ -275,7 +295,11 @@ private final class InnerActionsContainerNode: ASDisplayNode {
                 transition.updateFrame(node: separatorNode, frame: CGRect(origin: CGPoint(x: 0.0, y: verticalOffset), size: CGSize(width: maxWidth, height: UIScreenPixel)))
                 verticalOffset += UIScreenPixel
             case let .separator(separatorNode):
-                transition.updateFrame(node: separatorNode, frame: CGRect(origin: CGPoint(x: 0.0, y: verticalOffset + floorToScreenPixels((separatorHeight - UIScreenPixel) * 0.5)), size: CGSize(width: maxWidth, height: UIScreenPixel)))
+                if AyuLegacyUI.isEnabled {
+                    transition.updateFrame(node: separatorNode, frame: CGRect(origin: CGPoint(x: 0.0, y: verticalOffset), size: CGSize(width: maxWidth, height: separatorHeight)))
+                } else {
+                    transition.updateFrame(node: separatorNode, frame: CGRect(origin: CGPoint(x: 0.0, y: verticalOffset + floorToScreenPixels((separatorHeight - UIScreenPixel) * 0.5)), size: CGSize(width: maxWidth, height: UIScreenPixel)))
+                }
                 verticalOffset += separatorHeight
             }
         }
@@ -329,6 +353,7 @@ private final class InnerActionsContainerNode: ASDisplayNode {
 final class InnerTextSelectionTipContainerNode: ASDisplayNode {
     private let presentationData: PresentationData
     private var background: (container: GlassBackgroundContainerView, background: GlassBackgroundView)?
+    private let legacyBackgroundNode: NavigationBackgroundNode?
     private let textNode: TextNodeWithEntities
     private var textSelectionNode: TextSelectionNode?
     private let iconNode: ASImageNode
@@ -354,6 +379,11 @@ final class InnerTextSelectionTipContainerNode: ASDisplayNode {
             self.background = (GlassBackgroundContainerView(), GlassBackgroundView())
         } else {
             self.background = nil
+        }
+        if !isInline && AyuLegacyUI.isEnabled {
+            self.legacyBackgroundNode = NavigationBackgroundNode(color: presentationData.theme.contextMenu.backgroundColor, enableBlur: true)
+        } else {
+            self.legacyBackgroundNode = nil
         }
         
         self.textNode = TextNodeWithEntities()
@@ -453,6 +483,9 @@ final class InnerTextSelectionTipContainerNode: ASDisplayNode {
         self.textSelectionNode = textSelectionNode
         
         let parentView: UIView
+        if let legacyBackgroundNode = self.legacyBackgroundNode {
+            self.view.insertSubview(legacyBackgroundNode.view, at: 0)
+        }
         if let background = self.background {
             self.view.addSubview(background.container)
             background.container.contentView.addSubview(background.background)
@@ -600,13 +633,21 @@ final class InnerTextSelectionTipContainerNode: ASDisplayNode {
     }
     
     func setActualSize(size: CGSize, transition: ContainedViewLayoutTransition) {
+        if let legacyBackgroundNode = self.legacyBackgroundNode {
+            transition.updateFrame(node: legacyBackgroundNode, frame: CGRect(origin: CGPoint(), size: size))
+            legacyBackgroundNode.update(size: size, cornerRadius: 14.0, transition: transition)
+        }
         let transition = ComponentTransition(transition)
         
         if let background = self.background {
             background.container.update(size: size, isDark: self.presentationData.theme.overallDarkAppearance, transition: transition)
             transition.setFrame(view: background.container, frame: CGRect(origin: CGPoint(), size: size))
             
-            background.background.update(size: size, cornerRadius: min(30.0, size.height * 0.5), isDark: self.presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), transition: transition)
+            if self.legacyBackgroundNode != nil {
+                background.background.update(size: size, cornerRadius: 14.0, isDark: self.presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isVisible: false, transition: transition)
+            } else {
+                background.background.update(size: size, cornerRadius: min(30.0, size.height * 0.5), isDark: self.presentationData.theme.overallDarkAppearance, tintColor: .init(kind: .panel), transition: transition)
+            }
             transition.setFrame(view: background.background, frame: CGRect(origin: CGPoint(), size: size))
         }
     }

@@ -79,6 +79,7 @@ final class NotificationItemContainerNode: ASDisplayNode {
 
     private let animationContainerNode = ASDisplayNode()
     private let backgroundView = GlassBackgroundView()
+    private let legacyBackgroundNode: ASImageNode?
     private var bannerFrame: CGRect = .zero
     private var motion: Motion?
     private var motionGeneration = 0
@@ -127,6 +128,15 @@ final class NotificationItemContainerNode: ASDisplayNode {
     init(theme: PresentationTheme, contentNode: NotificationItemNode?) {
         self.contentNode = contentNode
         self.theme = theme
+        if AyuLegacyUI.isEnabled {
+            let legacyBackgroundNode = ASImageNode()
+            legacyBackgroundNode.displayWithoutProcessing = true
+            legacyBackgroundNode.displaysAsynchronously = false
+            legacyBackgroundNode.image = PresentationResourcesRootController.inAppNotificationBackground(theme)
+            self.legacyBackgroundNode = legacyBackgroundNode
+        } else {
+            self.legacyBackgroundNode = nil
+        }
                 
         super.init()
 
@@ -140,7 +150,11 @@ final class NotificationItemContainerNode: ASDisplayNode {
     override func didLoad() {
         super.didLoad()
         
-        self.animationContainerNode.view.insertSubview(self.backgroundView, at: 0)
+        if let legacyBackgroundNode = self.legacyBackgroundNode {
+            self.animationContainerNode.view.insertSubview(legacyBackgroundNode.view, at: 0)
+        } else {
+            self.animationContainerNode.view.insertSubview(self.backgroundView, at: 0)
+        }
         
         if let contentNode = self.contentNode, !contentNode.acceptsTouches {
             self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.tapGesture(_:))))
@@ -352,8 +366,12 @@ final class NotificationItemContainerNode: ASDisplayNode {
             let containerTransition: ContainedViewLayoutTransition = self.motion != nil ? .immediate : transition
             containerTransition.updateBounds(node: self.animationContainerNode, bounds: CGRect(origin: .zero, size: backgroundSize))
             containerTransition.updatePosition(node: self.animationContainerNode, position: CGPoint(x: bannerFrame.midX, y: bannerFrame.midY))
-            self.backgroundView.update(size: backgroundSize, cornerRadius: 24.0, isDark: self.theme.overallDarkAppearance, tintColor: .init(kind: .panel), transition: ComponentTransition(transition))
-            transition.updateFrame(view: self.backgroundView, frame: CGRect(origin: .zero, size: backgroundSize))
+            if let legacyBackgroundNode = self.legacyBackgroundNode {
+                transition.updateFrame(node: legacyBackgroundNode, frame: CGRect(origin: CGPoint(x: -16.0, y: -16.0), size: CGSize(width: backgroundSize.width + 32.0, height: backgroundSize.height + 36.0)))
+            } else {
+                self.backgroundView.update(size: backgroundSize, cornerRadius: 24.0, isDark: self.theme.overallDarkAppearance, tintColor: .init(kind: .panel), transition: ComponentTransition(transition))
+                transition.updateFrame(view: self.backgroundView, frame: CGRect(origin: .zero, size: backgroundSize))
+            }
             
             transition.updateFrame(node: contentNode, frame: CGRect(origin: CGPoint(x: floor(containerCenterX - contentWidth / 2.0) - bannerFrame.minX, y: 0.0), size: CGSize(width: contentWidth, height: contentHeight)))
             if let snapshot {

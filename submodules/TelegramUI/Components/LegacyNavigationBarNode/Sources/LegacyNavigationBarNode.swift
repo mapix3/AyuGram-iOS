@@ -4,7 +4,7 @@ import AsyncDisplayKit
 import Display
 
 public final class LegacyNavigationBarNode: ASDisplayNode, NavigationBar {
-    private struct Layout {
+    struct Layout {
         var size: CGSize
         var defaultHeight: CGFloat
         var additionalTopHeight: CGFloat
@@ -19,9 +19,9 @@ public final class LegacyNavigationBarNode: ASDisplayNode, NavigationBar {
     public static let titleFont = Font.with(size: 17.0, design: .regular, weight: .semibold, traits: [.monospacedNumbers])
     public static let defaultSecondaryContentHeight: CGFloat = 38.0
 
-    private var presentationData: NavigationBarPresentationData
+    private(set) var presentationData: NavigationBarPresentationData
 
-    private var validLayout: Layout?
+    private(set) var validLayout: Layout?
     private var requestedLayout: Bool = false
     public var requestContainerLayout: ((ContainedViewLayoutTransition) -> Void)?
 
@@ -31,7 +31,7 @@ public final class LegacyNavigationBarNode: ASDisplayNode, NavigationBar {
 
     public let stripeNode: ASDisplayNode
     public let clippingNode: SparseNode
-    private let buttonsContainerNode: ASDisplayNode
+    let buttonsContainerNode: ASDisplayNode
     public let customOverBackgroundContentView: UIView
 
     public private(set) var contentNode: NavigationBarContentNode?
@@ -151,7 +151,7 @@ public final class LegacyNavigationBarNode: ASDisplayNode, NavigationBar {
         }
     }
 
-    private var title: String? {
+    private(set) var title: String? {
         didSet {
             if let title = self.title {
                 self.titleNode.attributedText = NSAttributedString(string: title, font: LegacyNavigationBarNode.titleFont, textColor: self.presentationData.theme.primaryTextColor)
@@ -201,7 +201,13 @@ public final class LegacyNavigationBarNode: ASDisplayNode, NavigationBar {
         self.requestLayout()
     }
 
-    private let titleNode: ImmediateTextNode
+    let titleNode: ImmediateTextNode
+
+    var inlineTransitionState: LegacyNavigationBarInlineTransitionState?
+    var inlineTransitionTitleNode: ASDisplayNode?
+    var inlineTransitionBackButtonNode: LegacyNavigationButtonNode?
+    var inlineTransitionBackArrowNode: ASDisplayNode?
+    var inlineTransitionBadgeNode: ASDisplayNode?
 
     private var previousItemListenerKey: Int?
     private var previousItemBackListenerKey: Int?
@@ -731,7 +737,7 @@ public final class LegacyNavigationBarNode: ASDisplayNode, NavigationBar {
         }
     }
 
-    private func requestLayout() {
+    func requestLayout() {
         self.requestedLayout = true
         self.setNeedsLayout()
     }
@@ -893,6 +899,8 @@ public final class LegacyNavigationBarNode: ASDisplayNode, NavigationBar {
             titleView.alpha = 1.0
             titleViewTransition.updateFrame(view: titleView, frame: titleFrame)
         }
+
+        self.applyInlineTransitionLayout()
 
         self.transitionContentFrameUpdated?(CGRect(origin: CGPoint(), size: size))
     }

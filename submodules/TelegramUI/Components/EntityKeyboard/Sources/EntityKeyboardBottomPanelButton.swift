@@ -61,6 +61,7 @@ final class EntityKeyboardBottomPanelButton: Component {
         
         override init(frame: CGRect) {
             self.backgroundView = GlassBackgroundView()
+            self.backgroundView.hidesBackgroundInLegacyUI = true
             
             self.buttonView = HighlightTrackingButton()
             
