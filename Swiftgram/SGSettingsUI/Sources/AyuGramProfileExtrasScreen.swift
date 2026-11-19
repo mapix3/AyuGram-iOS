@@ -300,7 +300,7 @@ private final class AyuProfileVideoExporter {
     private let progress: (Double) -> Void
     private let completion: (AyuPreparedProfileMedia?) -> Void
     private var session: AVAssetExportSession?
-    private var timer: Timer?
+    private var timer: Foundation.Timer?
     private var finished = false
     private var keepAlive: AyuProfileVideoExporter?
 
@@ -375,7 +375,7 @@ private final class AyuProfileVideoExporter {
         self.timer?.invalidate()
         let base = Double(index) / Double(presets.count)
         let span = 1.0 / Double(presets.count)
-        self.timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true, block: { [weak self, weak session] _ in
+        self.timer = Foundation.Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true, block: { [weak self, weak session] _ in
             guard let self, let session else {
                 return
             }
