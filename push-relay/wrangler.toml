@@ -1,12 +1,18 @@
 name = "ayugram-push"
 main = "worker.js"
 compatibility_date = "2026-01-01"
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "relay.mapixdev.com", custom_domain = true }
+]
 
 [triggers]
 crons = ["*/2 * * * *"]
 
 [observability]
-enabled = false
+enabled = true
+head_sampling_rate = 0.05
 
 [[durable_objects.bindings]]
 name = "PRESENCE"

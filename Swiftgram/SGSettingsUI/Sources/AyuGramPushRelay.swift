@@ -17,7 +17,7 @@ import SGStrings
 /// AyuGram push relay (`push-relay/worker.js`). The endpoint carries this device's subscription
 /// keys and the Bark key; the relay decrypts each push and hands it to the Bark app.
 enum AyuGramPushRelay {
-    static let baseURL = "https://ayugram-push.ayugram-status.workers.dev"
+    static let baseURL = "https://relay.mapixdev.com"
 
     static let barkAppStoreURL = URL(string: "https://apps.apple.com/app/id1403753865")!
 

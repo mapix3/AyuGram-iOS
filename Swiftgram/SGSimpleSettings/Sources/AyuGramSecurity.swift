@@ -137,7 +137,7 @@ public struct AyuGramOrigin: Equatable {
 public final class AyuGramSecurity {
     public static let shared = AyuGramSecurity()
     public static let didChange = Notification.Name("AyuGram.Security.didChange")
-    public static let relayURL = "https://ayugram-push.ayugram-status.workers.dev"
+    public static let relayURL = "https://relay.mapixdev.com"
     public static let releaseURL = "https://github.com/mapix3/AyuGram-iOS/releases/download/build-"
 
     public static let officialRepository = "mapix3/AyuGram-iOS"
