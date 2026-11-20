@@ -6,7 +6,8 @@ compatibility_date = "2026-01-01"
 crons = ["*/2 * * * *"]
 
 [observability]
-enabled = false
+enabled = true
+head_sampling_rate = 0.05
 
 [[durable_objects.bindings]]
 name = "PRESENCE"
