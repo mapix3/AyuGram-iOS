@@ -76,7 +76,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           OWNER_ID: '1272887902'
-          HOOK_URL: https://ayugram-push.ayugram-status.workers.dev/tg/hook
+          HOOK_URL: https://relay.mapixdev.com/tg/hook
         run: |
           set -euo pipefail
           if [ -z "$BOT_TOKEN" ]; then
@@ -103,7 +103,7 @@ jobs:
           STATS_TOKEN="$(printf 'ayugram-stats\n%s' "$CLOUDFLARE_API_TOKEN" | sha256sum | cut -d' ' -f1)"
           echo "::add-mask::$STATS_TOKEN"
           for attempt in 1 2 3 4 5 6; do
-            RESULT="$(curl -sS -m 40 -H "Authorization: Bearer $STATS_TOKEN" https://ayugram-push.ayugram-status.workers.dev/badges/health || true)"
+            RESULT="$(curl -sS -m 40 -H "Authorization: Bearer $STATS_TOKEN" https://relay.mapixdev.com/badges/health || true)"
             if printf '%s' "$RESULT" | python3 -c 'import json,sys; json.load(sys.stdin)["cryptobot"]' >/dev/null 2>&1; then
               break
             fi

@@ -28,7 +28,7 @@ jobs:
           [ -n "$BOT_TOKEN" ] || { echo "::error::TELEGRAM_BOT_TOKEN is not set"; exit 1; }
           TOKEN="$(printf 'ayugram-stats\n%s' "$CLOUDFLARE_API_TOKEN" | sha256sum | cut -d' ' -f1)"
           echo "::add-mask::$TOKEN"
-          curl -sSf -H "Authorization: Bearer $TOKEN" https://ayugram-push.ayugram-status.workers.dev/stats/summary -o summary.json
+          curl -sSf -H "Authorization: Bearer $TOKEN" https://relay.mapixdev.com/stats/summary -o summary.json
           python3 ci/ayugram_scam_report.py summary.json > scam-report.md
           RESULT="$(curl -sS "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" -F "chat_id=$OWNER_ID" -F "caption=AyuGram: scam report" -F "document=@scam-report.md")"
           rm -f summary.json scam-report.md
