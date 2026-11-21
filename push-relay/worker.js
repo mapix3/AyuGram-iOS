@@ -1055,6 +1055,10 @@ async function handleTranscription(request, env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname === '/__cron' && request.method === 'POST' && env.STATS_TOKEN && request.headers.get('x-cron') === env.STATS_TOKEN && !request.headers.get('cf-connecting-ip')) {
+      await checkBadgePayments(env).catch((error) => console.log('badge payments not checked: ' + error));
+      return new Response('ok');
+    }
     if (request.method === 'POST' && url.pathname === '/ai') {
       try {
         return await handleAssistant(request, env);
