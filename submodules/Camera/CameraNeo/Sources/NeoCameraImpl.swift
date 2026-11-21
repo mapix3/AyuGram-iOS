@@ -10,8 +10,7 @@ import Camera
 public enum AyuGramRoundVideoQuality {
     public static let standardSide: Int = 480
     public static let standardFrameRate: Double = 30.0
-    public static let maximumSide: Int = 1072
-    public static let maximumStandardSide: Int = 640
+    public static let maximumSide: Int = 640
 
     public static var side: Int = 480 {
         didSet {
@@ -189,12 +188,8 @@ func roundVideoCaptureFormat(
         } else {
             supportsMultiCam = false
         }
-        var profile = RoundVideoCaptureProfile(width: dimensions.width, height: dimensions.height, position: device.position, allowsWideFront: frameRate > AyuGramRoundVideoQuality.standardFrameRate)
-        if outputSide > AyuGramRoundVideoQuality.maximumStandardSide && Int(min(dimensions.width, dimensions.height)) < outputSide {
-            profile = nil
-        }
         return RoundVideoCaptureFormatCandidate(
-            profile: profile,
+            profile: RoundVideoCaptureProfile(width: dimensions.width, height: dimensions.height, position: device.position, allowsWideFront: frameRate > AyuGramRoundVideoQuality.standardFrameRate),
             isNV12: subtype == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || subtype == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
             frameRateRanges: format.videoSupportedFrameRateRanges.map { $0.minFrameRate ... $0.maxFrameRate },
             supportsMultiCam: supportsMultiCam,

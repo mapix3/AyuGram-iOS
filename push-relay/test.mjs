@@ -1,9 +1,9 @@
 // node push-relay/test.mjs — encrypts Web Push payloads like a push service and checks the relay.
 import assert from 'node:assert/strict';
 import { webcrypto as crypto, createHash } from 'node:crypto';
-import { accountHash } from './stats.js';
+import { accountHash, ipTag } from './stats.js';
 import { checkBadgePayments, lockOf } from './badges.js';
-import { cleanNfts, cleanUsernames, inspectMedia, network } from './profile.js';
+import { cleanBrightness, cleanNfts, cleanNumber, cleanPatch, cleanUsernames, inspectMedia, network } from './profile.js';
 import worker, { Profiles, base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
 
 const cacheStore = new Map();
@@ -1357,6 +1357,268 @@ async function testProfiles() {
     assert.equal(inspectMedia(mp4(14.9), 'video', {}).duration, 14.9);
     assert.equal(inspectMedia(jpeg(100, 200), 'photo', { width: '200', height: '100' }).width, 200, 'EXIF-rotated photos keep the size the app reports');
     console.log('push relay: profile extras need Telegram-verified ownership, are validated, served to everyone and moderated');
+
+    const ix = (prefix) => [...globalStore.keys()].filter((key) => key.startsWith(prefix));
+    const numberKeysOf = (id) => [...globalStore].filter(([key, value]) => key.startsWith('an:') && value === id).map(([key]) => key);
+    const holders = (slug, headers) => call('/profile/holders?slug=' + encodeURIComponent(slug), { headers: headers || {} });
+    const holderItems = async (slug) => (await (await holders(slug)).json()).items;
+    const byNumber = (n, headers) => call('/profile/number?n=' + encodeURIComponent(n), { headers: headers || {} });
+    const numberOwner = async (n) => { const response = await byNumber(n); return response.status === 200 ? (await response.json()).id : response.status; };
+    const meOf = async (id, key) => (await call('/profile/me', { headers: auth(id, key) })).json();
+    const ownerLock = await lockOf(secret);
+    for (const id of ['1201', '1202', '1203', '1204', '1205', '1206', '1207', '1208', '1209', '1213']) {
+      await verify(id);
+    }
+
+    const extrasRefusals = [
+      [{ number: '+88812' }, 'bad_number'],
+      [{ number: '+79991234567' }, 'bad_number'],
+      [{ number: '+888123456789' }, 'bad_number'],
+      [{ number: 88812345678 }, 'bad_number'],
+      [{ number: '+88812345678<script>' }, 'bad_number'],
+      [{ number: '+８８８12345678' }, 'bad_number'],
+      [{ number: ['+88812345678'] }, 'bad_number'],
+      [{ number: '+888' + ' '.repeat(40) + '12345678' }, 'bad_number'],
+      [{ status: 'PlushPepe-1' }, 'bad_status'],
+      [{ status: { slug: 'Plush Pepe-1' } }, 'bad_status'],
+      [{ status: { slug: 'PlushPepe-1', url: 'https://evil.example' } }, 'bad_status'],
+      [{ status: { collection: 'Cap', number: 1 } }, 'bad_status'],
+      [{ hideReal: 'x' }, 'bad_hide_real'],
+      [{ hideReal: 1 }, 'bad_hide_real'],
+      [{ background: { brightness: 2 } }, 'bad_brightness'],
+      [{ background: { brightness: -1.01 } }, 'bad_brightness'],
+      [{ background: { brightness: '0.5' } }, 'bad_brightness'],
+      [{ background: { brightness: null } }, 'bad_brightness'],
+      [{ background: { brightness: 0.5, url: 'https://evil.example/x.mp4' } }, 'bad_background'],
+      [{ background: {} }, 'bad_background'],
+      [{ background: [] }, 'bad_background'],
+    ];
+    for (const [body, code] of extrasRefusals) {
+      const response = await put('1201', body);
+      assert.equal(response.status, 400, code + ' ' + JSON.stringify(body));
+      assert.equal((await response.json()).error, code);
+    }
+    const notOwned = await put('1201', { status: { slug: 'PlushPepe-9' } });
+    assert.equal(notOwned.status, 400, 'A status must be one of the own fake NFTs');
+    assert.equal((await notOwned.json()).error, 'status_not_owned');
+    assert.equal(globalStore.has('p:1201'), false, 'and a refused first write stores nothing');
+
+    const extras = await put('1201', { nfts: [{ slug: 'PlushPepe-1', pinned: true }, { slug: 'SnoopDogg-9' }, { collection: 'Cap', number: 5 }], status: { slug: 'plushpepe-1' }, hideReal: true, number: '+888 1234-5678', background: { brightness: -0.333 } });
+    assert.equal(extras.status, 200);
+    const extrasOwn = await extras.json();
+    assert.deepEqual(extrasOwn.status, { slug: 'PlushPepe-1' }, 'The status keeps the NFT spelling');
+    assert.equal(extrasOwn.number, '+88812345678', 'Numbers are normalized');
+    assert.equal(extrasOwn.hideReal, true);
+    assert.equal(extrasOwn.brightness, -0.33, 'Brightness is rounded and kept without a background');
+    assert.equal(extrasOwn.background, null);
+    assert.equal(extrasOwn.limits.numbers, 1);
+    assert.equal(globalStore.get('an:88812345678'), '1201', 'The number index points at the holder');
+    assert.deepEqual(ix('hs:plushpepe-1:'), ['hs:plushpepe-1:1201'], 'Slug NFTs are indexed');
+    assert.deepEqual(ix('hs:snoopdogg-9:'), ['hs:snoopdogg-9:1201']);
+    assert.equal(ix('hs:').some((key) => key.includes('cap')), false, 'Custom NFTs are not');
+    const extrasPublic = (await (await read('1201')).json()).items[0];
+    assert.deepEqual([extrasPublic.number, extrasPublic.status, extrasPublic.hideReal, extrasPublic.fake, extrasPublic.lock], ['+88812345678', { slug: 'PlushPepe-1' }, true, true, undefined], 'Everyone sees the new fields');
+    globalStore.set('p:1299', { lock: ownerLock, nfts: [], usernames: [], bubbles: false, background: null, hideReal: true, status: null, number: null, brightness: 0, updatedAt: 1, claimedAt: 1 });
+    globalStore.set('v:1299', { lock: ownerLock, time: 1 });
+    assert.equal((await (await read('1299')).json()).items[0].hideReal, true, 'hideReal alone makes an entry visible');
+    globalStore.delete('p:1299');
+    globalStore.delete('v:1299');
+
+    const looked = await byNumber('+88812345678');
+    assert.equal(looked.status, 200);
+    assert.deepEqual(await looked.json(), { id: '1201' }, 'A number finds its holder without auth');
+    assert.equal(looked.headers.get('cache-control'), 'public, max-age=60');
+    assert.equal((await byNumber('+88812345678', { 'if-none-match': looked.headers.get('etag') })).status, 304);
+    assert.equal((await (await call('/profile/number?n=+88812345678', {})).json()).id, '1201', 'A plus decoded as a space still matches');
+    assert.equal(await numberOwner('88812345678'), '1201');
+    assert.equal(await numberOwner('+88899999999'), 404, 'Free numbers answer 404');
+    assert.equal(await numberOwner('+7999'), 400);
+    assert.equal(await numberOwner('../1'), 400);
+    assert.equal((await call('/profile/number?n=+88812345678', { method: 'POST' })).status, 405);
+    assert.deepEqual(await holderItems('PlushPepe-1'), [{ id: '1201', pinned: true }], 'An NFT link lists AyuGram holders');
+    assert.deepEqual(await holderItems('plushpepe-1'), [{ id: '1201', pinned: true }]);
+    const holdersHit = await holders('PlushPepe-1');
+    assert.equal((await holders('PlushPepe-1', { 'if-none-match': holdersHit.headers.get('etag') })).status, 304);
+    assert.equal((await holders('Plush Pepe-1')).status, 400);
+    assert.equal((await (await holders('../x')).json()).error, 'bad_slug');
+    assert.equal((await call('/profile/holders', {})).status, 400);
+    assert.equal((await call('/profile/holders?slug=PlushPepe-1&slug=Evil-1', {})).status, 200);
+    assert.equal((await call('/profile/holders?slug=PlushPepe-1', { method: 'DELETE' })).status, 405);
+    assert.ok([...cacheStore.keys()].filter((key) => key.startsWith('https://profile.ayugram.invalid/')).every((key) => /\/v1\/([1-9][0-9]*|slug\/[a-z][a-z0-9]*-[0-9]+|num\/888[0-9]{8})$/.test(key)), 'Lookups are cached only under canonical keys');
+
+    const taken = await put('1202', { number: '+88812345678' });
+    assert.equal(taken.status, 409, 'A taken number cannot be claimed');
+    assert.equal((await taken.json()).error, 'number_taken');
+    assert.equal((await meOf('1202')).number, null);
+    assert.equal((await put('1202', { number: '+88812345678' }, thief)).status, 403, 'nor stolen by another install');
+    assert.equal(globalStore.get('an:88812345678'), '1201');
+    assert.equal((await put('1201', { number: '+88812345679' })).status, 200, 'Switching numbers is allowed');
+    assert.equal(globalStore.has('an:88812345678'), false, 'and frees the old one');
+    assert.deepEqual(numberKeysOf('1201'), ['an:88812345679'], 'An account holds exactly one number');
+    assert.equal(await numberOwner('+88812345678'), 404, 'The freed number is not served from the cache');
+    assert.equal((await put('1202', { number: '+88812345678' })).status, 200, 'and can be claimed by someone else');
+    assert.equal(await numberOwner('+88812345678'), '1202');
+    assert.equal((await put('1201', { number: null })).status, 200);
+    assert.deepEqual(numberKeysOf('1201'), [], 'null releases the number');
+    assert.equal(await numberOwner('+88812345679'), 404);
+    assert.equal((await put('1202', { number: '+888-1234-5678' })).status, 200, 'Saving the own number again is fine');
+    assert.deepEqual(numberKeysOf('1202'), ['an:88812345678']);
+
+    const race = await Promise.all([put('1203', { number: '+88800000001' }), put('1204', { number: '+88800000001' })]);
+    assert.deepEqual(race.map((response) => response.status).sort(), [200, 409], 'Two accounts racing for a number: one wins');
+    const winner = globalStore.get('an:88800000001');
+    const loser = winner === '1203' ? '1204' : '1203';
+    assert.equal((await meOf(winner)).number, '+88800000001');
+    assert.equal((await meOf(loser)).number, null, 'and the loser keeps none');
+    await Promise.all([put('1205', { number: '+88800000002' }), put('1205', { number: '+88800000003' }), put('1205', { number: '+88800000004' })]);
+    const raced1205 = (await meOf('1205')).number;
+    assert.deepEqual(numberKeysOf('1205'), ['an:' + raced1205.slice(1)], 'Concurrent switches leave exactly one number index entry');
+    let claimLimited = 0;
+    for (let i = 0; i < 11; i += 1) {
+      claimLimited += (await put('1206', { number: '+888100000' + String(i).padStart(2, '0') })).status === 429 ? 1 : 0;
+    }
+    assert.equal(claimLimited, 1, 'Number claims are limited per account, so taken numbers cannot be probed in bulk');
+
+    globalStore.set('an:88855555555', '1290');
+    assert.equal((await put(loser, { number: '+88855555555' })).status, 200, 'A stale index entry does not block a claim');
+    assert.equal(globalStore.get('an:88855555555'), loser);
+    globalStore.set('p:1298', { lock: thiefLock, nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, status: null, number: '+88844444444', brightness: 0, updatedAt: 1, claimedAt: 1 });
+    globalStore.set('an:88844444444', '1298');
+    assert.equal(await numberOwner('+88844444444'), 404, 'An unverified holder is never served');
+    assert.equal((await put(winner, { number: '+88844444444' })).status, 200, 'and does not block a verified claim');
+    assert.equal(await numberOwner('+88844444444'), winner);
+    globalStore.delete('p:1298');
+    globalStore.set('an:88866666666', '1297');
+    assert.equal(await numberOwner('+88866666666'), 404);
+    assert.equal(globalStore.has('an:88866666666'), false, 'Lookups drop stale number entries');
+
+    assert.deepEqual(await holderItems('SnoopDogg-9'), [{ id: '1201', pinned: false }]);
+    assert.equal((await put('1201', { nfts: [{ slug: 'SnoopDogg-9', pinned: true }] })).status, 200);
+    assert.deepEqual(await holderItems('SnoopDogg-9'), [{ id: '1201', pinned: true }], 'Pin changes reach the cached holder list at once');
+    assert.equal((await meOf('1201')).status, null, 'Removing the worn NFT clears the status');
+    assert.deepEqual(ix('hs:plushpepe-1:'), [], 'and its index entry');
+    assert.deepEqual(await holderItems('PlushPepe-1'), [], 'and the cached holder list');
+    assert.equal((await (await put('1201', { status: { slug: 'PlushPepe-1' } })).json()).error, 'status_not_owned');
+    const worn = await (await put('1201', { nfts: [{ slug: 'SnoopDogg-9', pinned: true }, { slug: 'PlushPepe-1' }], status: { slug: 'SnoopDogg-9' } })).json();
+    assert.deepEqual(worn.status, { slug: 'SnoopDogg-9' });
+    assert.deepEqual((await (await put('1201', { nfts: [{ slug: 'PlushPepe-1' }, { slug: 'SnoopDogg-9', pinned: true }] })).json()).status, { slug: 'SnoopDogg-9' }, 'Reordering keeps the status');
+    assert.equal((await (await put('1201', { status: null })).json()).status, null);
+
+    globalStore.set('p:1290', { lock: thiefLock, nfts: [{ slug: 'SnoopDogg-9', pinned: false }], usernames: [], bubbles: false, background: null, updatedAt: 1, claimedAt: 1 });
+    globalStore.set('hs:snoopdogg-9:1290', 1);
+    globalStore.set('hs:snoopdogg-9:1291', 1);
+    globalStore.set('hs:snoopdogg-9:abc', 1);
+    cacheStore.delete('https://profile.ayugram.invalid/v1/slug/snoopdogg-9');
+    assert.deepEqual((await holderItems('SnoopDogg-9')).map((item) => item.id), ['1201'], 'Only verified owners are listed');
+    assert.equal(globalStore.has('hs:snoopdogg-9:1291'), false, 'Entries without a record are dropped');
+    globalStore.delete('p:1290');
+    globalStore.delete('hs:snoopdogg-9:1290');
+    globalStore.delete('hs:snoopdogg-9:abc');
+    for (let i = 0; i < 120; i += 1) {
+      const id = String(5000 + i);
+      globalStore.set('p:' + id, { lock: 'L' + i, nfts: [{ slug: 'Cap-7', pinned: i === 119 }], usernames: [], bubbles: false, background: null, updatedAt: 1, claimedAt: 1 });
+      globalStore.set('v:' + id, { lock: 'L' + i, time: 1 });
+      globalStore.set('hs:cap-7:' + id, 1);
+    }
+    const crowd = await holderItems('Cap-7');
+    assert.equal(crowd.length, 100, 'At most 100 holders are returned');
+    assert.deepEqual(crowd[0], { id: '5119', pinned: true }, 'pinned holders first');
+    for (let i = 0; i < 120; i += 1) {
+      globalStore.delete('p:' + (5000 + i));
+      globalStore.delete('v:' + (5000 + i));
+      globalStore.delete('hs:cap-7:' + (5000 + i));
+    }
+
+    globalStore.delete('ixdone');
+    globalStore.set('p:1295', { lock: ownerLock, nfts: [{ slug: 'Backfill-3', pinned: false }], usernames: [], bubbles: false, background: null, updatedAt: 1, claimedAt: 1 });
+    globalStore.set('v:1295', { lock: ownerLock, time: 1 });
+    assert.deepEqual((await holderItems('Backfill-3')).map((item) => item.id), ['1295'], 'Records saved before the index are backfilled');
+    assert.equal(globalStore.get('ixdone'), true);
+    globalStore.delete('p:1295');
+    globalStore.delete('v:1295');
+    cacheStore.delete('https://profile.ayugram.invalid/v1/slug/backfill-3');
+    assert.deepEqual(await holderItems('Backfill-3'), [], 'and dropped again once the record is gone');
+    assert.deepEqual(ix('hs:backfill-3:'), []);
+
+    let lookupLimited = 0;
+    for (let i = 0; i < 121; i += 1) {
+      lookupLimited += (await byNumber('+888' + String(70000000 + i), { 'cf-connecting-ip': '192.0.2.77' })).status === 429 ? 1 : 0;
+    }
+    assert.equal(lookupLimited, 1, 'Number lookups are limited per IP against enumeration');
+    assert.equal(cacheStore.has('https://profile.ayugram.invalid/v1/num/88870000120'), false, 'and a refusal is never cached');
+    assert.equal((await byNumber('+88870000001', { 'cf-connecting-ip': '192.0.2.77' })).status, 404, 'Cached answers stay available');
+    assert.equal((await byNumber('+88870000120', { 'cf-connecting-ip': '192.0.2.78' })).status, 404, 'Other addresses are unaffected');
+    globalStore.set('lim:lh:' + (await ipTag('192.0.2.79')) + ':' + today, 600);
+    assert.equal((await holders('Fresh-1', { 'cf-connecting-ip': '192.0.2.79' })).status, 429, 'Holder lookups are limited per IP too');
+
+    const indexed = async (id) => {
+      assert.equal((await put(id, { nfts: [{ slug: 'Clean-' + id }], number: '+888770' + id + '0' })).status, 200);
+      assert.deepEqual((await holderItems('Clean-' + id)).map((item) => item.id), [id]);
+      assert.equal(await numberOwner('+888770' + id + '0'), id);
+    };
+    const gone = async (id, what) => {
+      assert.deepEqual(ix('hs:clean-' + id + ':'), [], what + ' removes the slug index');
+      assert.deepEqual(numberKeysOf(id), [], what + ' removes the number index');
+      assert.deepEqual(await holderItems('Clean-' + id), [], what + ' purges the holder lookup');
+      assert.equal(await numberOwner('+888770' + id + '0'), 404, what + ' purges the number lookup');
+    };
+    await indexed('1207');
+    assert.equal((await call('/profile', { method: 'DELETE', headers: auth('1207') })).status, 200);
+    await gone('1207', 'Deleting own extras');
+    assert.equal((await meOf('1207')).claimed, true);
+    await indexed('1208');
+    assert.equal((await call('/profile/admin/1208', { method: 'DELETE', headers: { authorization: 'Bearer admin-token' } })).status, 200);
+    await gone('1208', 'The admin wipe');
+    await indexed('1209');
+    await hook({ callback_query: { id: 'q', from: { id: 1272887902 }, data: 'J:1209', message: { message_id: 3, chat: { id: 1272887902 } } } });
+    await gone('1209', 'The bot block');
+    assert.equal((await put('1210', { nfts: [{ slug: 'Clean-1210' }], number: '+88877012100' }, thief)).status, 403, 'An unverified install cannot claim');
+    globalStore.set('v:1210', { lock: thiefLock, time: 1 });
+    assert.equal((await put('1210', { nfts: [{ slug: 'Clean-1210' }], number: '+88877012100' }, thief)).status, 200);
+    assert.deepEqual((await holderItems('Clean-1210')).map((item) => item.id), ['1210']);
+    assert.equal(await numberOwner('+88877012100'), '1210');
+    globalStore.delete('v:1210');
+    await verify('1210');
+    await gone('1210', 'Verifying over a squatter');
+    for (const [id, how] of [['1211', 'write'], ['1212', 'upload']]) {
+      globalStore.set('v:' + id, { lock: thiefLock, time: 1 });
+      assert.equal((await put(id, { nfts: [{ slug: 'Clean-' + id }], number: '+888770' + id + '0' }, thief)).status, 200);
+      assert.equal(await numberOwner('+888770' + id + '0'), id);
+      globalStore.set('v:' + id, { lock: ownerLock, time: 1 });
+      if (how === 'write') {
+        assert.equal((await put(id, { usernames: ['owner_name'] })).status, 200);
+      } else {
+        assert.equal((await upload(id, png(30, 30), 'image/png')).status, 200);
+      }
+      await gone(id, 'Evicting a squatter on ' + how);
+    }
+    await indexed('1213');
+    await verify('1213', second);
+    assert.equal(await numberOwner('+88877012130'), '1213', 'Moving to a new install keeps the number');
+    assert.deepEqual((await holderItems('Clean-1213')).map((item) => item.id), ['1213'], 'and the holder entry');
+    assert.equal((await put('1213', { number: '+88877012131' }, second)).status, 200, 'and the new install can change it');
+    assert.equal((await put('1213', { number: '+88877012132' })).status, 403, 'the old one cannot');
+
+    assert.equal((await put('1201', { background: { brightness: 0.5 } })).status, 200);
+    const lit = await (await upload('1201', png(60, 60), 'image/png')).json();
+    assert.equal(lit.background.brightness, 0.5, 'Brightness survives an upload');
+    const dimmer = await (await put('1201', { background: { brightness: -0.25 } })).json();
+    assert.equal(dimmer.background.url, lit.background.url, 'and changes without a new upload');
+    assert.equal(dimmer.background.brightness, -0.25);
+    assert.equal((await (await read('1201')).json()).items[0].background.brightness, -0.25, 'Everyone sees the new brightness at once');
+    const unlit = await (await call('/profile/background', { method: 'DELETE', headers: auth('1201') })).json();
+    assert.deepEqual([unlit.background, unlit.brightness], [null, -0.25], 'and it survives removing the background');
+    assert.equal((await (await call('/profile', { method: 'DELETE', headers: auth('1201') })).json()).brightness, 0, 'Deleting all extras resets it');
+
+    assert.equal(cleanNumber('+888 1234 5678'), '+88812345678');
+    assert.equal(cleanNumber('+88812345678\n'), '+88812345678');
+    assert.equal(cleanNumber('+999 1234 5678'), '');
+    assert.equal(Object.is(cleanBrightness(-0), 0), true);
+    assert.equal(cleanBrightness(Number.NaN), null);
+    assert.deepEqual(cleanPatch({ hideReal: false, status: null, number: null, background: { brightness: 1 } }).value, { hideReal: false, status: null, number: null, brightness: 1 });
+    assert.equal(cleanPatch({ __proto__: { hideReal: true } }).error, 'bad_request');
+    assert.equal(globalStore.get('bytes'), [...objects.keys()].filter((name) => name.startsWith('media-')).reduce((sum, name) => sum + [...objects.get(name).state.storage.data].filter(([key]) => key.startsWith('m:')).reduce((part, [, meta]) => part + meta.size, 0), 0), 'The media budget still matches the stored bytes');
+    console.log('push relay: fake statuses, hidden real gifts, one unique +888 number and NFT holder lookups stay consistent on every path');
   } finally {
     globalThis.fetch = real;
   }

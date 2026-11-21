@@ -79,6 +79,9 @@ swift_library(
         "//submodules/Speak",
         "//submodules/TextSelectionNode",
         "//submodules/TranslateUI",
+        "//Swiftgram/SGStrings:SGStrings",
+        "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+        "//Swiftgram/AyuGramProfileExtras:AyuGramProfileExtras",
     ],
     visibility = [
         "//visibility:public",

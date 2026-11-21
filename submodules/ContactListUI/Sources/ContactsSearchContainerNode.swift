@@ -18,11 +18,13 @@ import AnimatedStickerNode
 import TelegramAnimatedStickerNode
 import ComponentFlow
 import SearchInputPanelComponent
+import AyuGramProfileExtras
 
-private enum ContactListSearchGroup {
+private enum ContactListSearchGroup: Equatable {
     case contacts
     case global
     case deviceContacts
+    case ayuFake(String)
 }
 
 private enum ContactListSearchEntryId: Hashable {
@@ -156,6 +158,9 @@ private enum ContactListSearchEntry: Comparable, Identifiable {
                     case .deviceContacts:
                         header = ChatListSearchItemHeader(type: .deviceContacts, theme: theme, strings: strings, actionTitle: nil, action: nil)
                         status = .none
+                    case let .ayuFake(text):
+                        header = ChatListSearchItemHeader(type: .globalPeers, theme: theme, strings: strings, actionTitle: nil, action: nil)
+                        status = .custom(string: NSAttributedString(string: text, font: Font.regular(13.0), textColor: theme.list.itemDestructiveColor), multiline: false, isActive: false, icon: nil)
                 }
                 var nativePeer: EnginePeer?
                 let peerItem: ContactsPeerItemPeer
@@ -359,7 +364,15 @@ public final class ContactsSearchContainerNode: SearchDisplayControllerContentNo
                     foundRemoteContacts = .single(previousFoundRemoteContacts.with({ $0 }))
                     |> then(
                         context.engine.contacts.searchRemotePeers(query: query)
-                        |> map { ($0.0, $0.1) }
+                        |> mapToSignal { result -> Signal<([FoundPeer], [FoundPeer])?, NoError> in
+                            return ayuGramFakeNumberHolderPeer(engine: context.engine, query: query)
+                            |> map { fakeHolder -> ([FoundPeer], [FoundPeer])? in
+                                guard let fakeHolder, !result.0.contains(where: { $0.peer.id == fakeHolder.id }), !result.1.contains(where: { $0.peer.id == fakeHolder.id }) else {
+                                    return (result.0, result.1)
+                                }
+                                return (result.0, result.1 + [FoundPeer(peer: fakeHolder, subscribers: nil)])
+                            }
+                        }
                         |> delay(0.2, queue: Queue.concurrentDefaultQueue())
                     )
                 } else {
@@ -566,7 +579,8 @@ public final class ContactsSearchContainerNode: SearchDisplayControllerContentNo
                                     }
                                 }
 
-                                entries.append(.peer(index: index, theme: themeAndStrings.0, strings: themeAndStrings.1, peer: .peer(peer: peer.peer, isGlobal: true, participantCount: peer.subscribers), presence: nil, group: .global, enabled: enabled, requiresPremiumForMessaging: requiresPremiumForMessaging, displayCallIcons: displayCallIcons))
+                                let group: ContactListSearchGroup = ayuGramFakeNumberHolderText(peer: peer.peer, query: query, locale: themeAndStrings.1.baseLanguageCode).map { .ayuFake($0) } ?? .global
+                                entries.append(.peer(index: index, theme: themeAndStrings.0, strings: themeAndStrings.1, peer: .peer(peer: peer.peer, isGlobal: true, participantCount: peer.subscribers), presence: nil, group: group, enabled: enabled, requiresPremiumForMessaging: requiresPremiumForMessaging, displayCallIcons: displayCallIcons))
                                 if searchDeviceContacts, case let .user(user) = peer.peer, let phone = user.phone {
                                     existingNormalizedPhoneNumbers.insert(DeviceContactNormalizedPhoneNumber(rawValue: formatPhoneNumber(phone)))
                                 }

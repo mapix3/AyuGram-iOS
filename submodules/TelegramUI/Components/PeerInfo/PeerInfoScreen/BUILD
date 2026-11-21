@@ -4,6 +4,7 @@ sgdeps = [
     "//Swiftgram/SGSettingsUI:SGSettingsUI",
     "//Swiftgram/SGStrings:SGStrings",
     "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+    "//Swiftgram/AyuGramProfileExtras:AyuGramProfileExtras",
 
     "//Swiftgram/SGRegDate:SGRegDate",
     "//Swiftgram/SGRegDateScheme:SGRegDateScheme",

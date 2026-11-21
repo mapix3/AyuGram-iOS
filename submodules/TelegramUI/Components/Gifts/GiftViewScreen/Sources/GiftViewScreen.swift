@@ -53,6 +53,9 @@ import Speak
 import TranslateUI
 import TelegramUIPreferences
 import WalletContext
+import SGStrings
+import SGSimpleSettings
+import AyuGramProfileExtras
 
 private let giftViewTopOverscrollBackgroundHeight: CGFloat = 250.0
 
@@ -425,6 +428,8 @@ private final class GiftViewSheetContent: CombinedComponent {
         
         var peerMap: [EnginePeer.Id: EnginePeer] = [:]
         var starGiftsMap: [Int64: StarGift.Gift] = [:]
+        var ayuFakeHolderIds: [EnginePeer.Id] = []
+        private var ayuHoldersDisposable: Disposable?
         
         var cachedStarImage: (UIImage, PresentationTheme)?
         var cachedSmallStarImage: (UIImage, PresentationTheme)?
@@ -526,6 +531,42 @@ private final class GiftViewSheetContent: CombinedComponent {
                     if let peerId = gift.hostPeerId {
                         peerIds.append(peerId)
                     }
+                    var ayuRealOwnerIds = Set<EnginePeer.Id>()
+                    if case let .peerId(peerId) = gift.owner {
+                        ayuRealOwnerIds.insert(peerId)
+                    }
+                    if let peerId = gift.hostPeerId {
+                        ayuRealOwnerIds.insert(peerId)
+                    }
+                    self.ayuHoldersDisposable = (ayuGramNftHoldersSignal(slug: gift.slug)
+                    |> mapToSignal { holders -> Signal<[EnginePeer], NoError> in
+                        let ids = holders.map { ayuGramPeerId(rawId: $0.id) }.filter { !ayuRealOwnerIds.contains($0) }
+                        if ids.isEmpty {
+                            return .single([])
+                        }
+                        return context.engine.data.get(EngineDataMap(ids.map(TelegramEngine.EngineData.Item.Peer.Peer.init(id:))))
+                        |> map { peers -> [EnginePeer] in
+                            return ids.compactMap { id -> EnginePeer? in
+                                if let peer = peers[id], let peer {
+                                    return peer
+                                }
+                                return nil
+                            }
+                        }
+                    }
+                    |> deliverOnMainQueue).start(next: { [weak self] peers in
+                        guard let self else {
+                            return
+                        }
+                        for peer in peers {
+                            self.peerMap[peer.id] = peer
+                        }
+                        let ids = peers.map { $0.id }
+                        if ids != self.ayuFakeHolderIds {
+                            self.ayuFakeHolderIds = ids
+                            self.updated(transition: .easeInOut(duration: 0.2))
+                        }
+                    })
                     for attribute in gift.attributes {
                         if case let .originalInfo(senderPeerId, recipientPeerId, _, _, _) = attribute {
                             if let senderPeerId {
@@ -704,6 +745,7 @@ private final class GiftViewSheetContent: CombinedComponent {
         
         deinit {
             self.disposable?.dispose()
+            self.ayuHoldersDisposable?.dispose()
             self.upgradePreviewDisposable.dispose()
             self.upgradePreviewTimer?.invalidate()
             self.upgradeFormDisposable?.dispose()
@@ -3181,6 +3223,7 @@ private final class GiftViewSheetContent: CombinedComponent {
         
         let priceButtonMeasure = Child(MultilineTextWithEntitiesComponent.self)
         let priceButton = Child(GlassBarButtonComponent.self)
+        let ayuFakeBadge = Child(GlassBarButtonComponent.self)
     
         let spaceRegex = try? NSRegularExpression(pattern: "\\[(.*?)\\]", options: [])
         
@@ -3195,6 +3238,7 @@ private final class GiftViewSheetContent: CombinedComponent {
             let dateTimeFormat = environment.dateTimeFormat
             let nameDisplayOrder = component.context.sharedContext.currentPresentationData.with { $0 }.nameDisplayOrder
             let controller = environment.controller
+            let isAyuFakeNft = (controller() as? GiftViewScreen)?.ayuFakeNft == true
             
             let state = context.state
             let subject = state.subject
@@ -3455,7 +3499,7 @@ private final class GiftViewSheetContent: CombinedComponent {
             }
                                     
             var originY: CGFloat = 0.0
-            let displaysHeaderButtons = isMyOwnedUniqueGift || isMyHostedUniqueGift || isMyWalletGift || isChannelGift
+            let displaysHeaderButtons = (isMyOwnedUniqueGift || isMyHostedUniqueGift || isMyWalletGift || isChannelGift) && !isAyuFakeNft
             let headerButtonHeight: CGFloat = 58.0
             let headerButtonsBottomInset: CGFloat = 16.0
                         
@@ -3605,7 +3649,7 @@ private final class GiftViewSheetContent: CombinedComponent {
             
             var resellAmount: CurrencyAmount?
             var selling = false
-            if let uniqueGift {
+            if let uniqueGift, !isAyuFakeNft {
                 if uniqueGift.resellForTonOnly {
                     resellAmount = uniqueGift.resellAmounts?.first(where: { $0.currency == .ton })
                 } else {
@@ -4276,6 +4320,42 @@ private final class GiftViewSheetContent: CombinedComponent {
                     }
                 }
                 
+                if isAyuFakeNft, uniqueGift != nil {
+                    let languageCode = strings.baseLanguageCode
+                    let badgeString = NSAttributedString(string: i18n("Ayu.FakeNft.Badge", languageCode), font: Font.semibold(13.0), textColor: UIColor.white)
+                    let badgeTextSize = badgeString.boundingRect(with: CGSize(width: context.availableSize.width - sideInset * 2.0 - 40.0, height: 100.0), options: .usesLineFragmentOrigin, context: nil).size
+                    let badgeSize = CGSize(width: ceil(badgeTextSize.width) + 22.0, height: 24.0)
+                    let ayuFakeBadge = ayuFakeBadge.update(
+                        component: GlassBarButtonComponent(
+                            size: badgeSize,
+                            backgroundColor: UIColor(rgb: 0xff3b30),
+                            isDark: true,
+                            state: .tintedGlass,
+                            component: AnyComponentWithIdentity(id: "label", component: AnyComponent(
+                                MultilineTextComponent(text: .plain(badgeString), horizontalAlignment: .center, maximumNumberOfLines: 1)
+                            )),
+                            action: { _ in
+                                guard let controller = controller() else {
+                                    return
+                                }
+                                let presentationData = component.context.sharedContext.currentPresentationData.with { $0 }
+                                controller.present(UndoOverlayController(presentationData: presentationData, content: .info(title: i18n("Ayu.FakeNft.Title", languageCode), text: i18n("Ayu.FakeNft.Info", languageCode), timeout: nil, customUndoText: nil), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
+                            }
+                        ),
+                        availableSize: badgeSize,
+                        transition: context.transition
+                    )
+                    headerComponents.append({
+                        context.add(ayuFakeBadge
+                            .position(CGPoint(x: context.availableSize.width / 2.0, y: 207.0 + descriptionOffset + ayuFakeBadge.size.height / 2.0))
+                            .appear(.default(scale: true, alpha: true))
+                            .disappear(.default(scale: true, alpha: true))
+                        )
+                    })
+                    descriptionText = ""
+                    originY += 7.0
+                }
+                
                 var useDescriptionTint = false
                 if !descriptionText.isEmpty {
                     var linkColor = theme.actionSheet.controlAccentColor
@@ -4765,6 +4845,45 @@ private final class GiftViewSheetContent: CombinedComponent {
                                     }
                                 ))
                             ))
+                        }
+                        
+                        if !isAyuFakeNft {
+                            let ayuLocale = strings.baseLanguageCode
+                            for holderId in state.ayuFakeHolderIds {
+                                guard let holderPeer = state.peerMap[holderId] else {
+                                    continue
+                                }
+                                tableItems.append(.init(
+                                    id: "ayu_fake_holder_\(holderId.toInt64())",
+                                    title: i18n("Ayu.FakeNft.ShownBy", ayuLocale),
+                                    component: AnyComponent(
+                                        HStack([
+                                            AnyComponentWithIdentity(
+                                                id: AnyHashable(0),
+                                                component: AnyComponent(Button(
+                                                    content: AnyComponent(
+                                                        PeerTableCellComponent(
+                                                            context: component.context,
+                                                            theme: theme,
+                                                            strings: strings,
+                                                            peer: holderPeer
+                                                        )
+                                                    ),
+                                                    action: { [weak state] in
+                                                        state?.openPeer(holderPeer, profile: true)
+                                                    }
+                                                ))
+                                            ),
+                                            AnyComponentWithIdentity(
+                                                id: AnyHashable(1),
+                                                component: AnyComponent(
+                                                    MultilineTextComponent(text: .plain(NSAttributedString(string: "⚠️ " + i18n("Ayu.FakeNumber.Plaque", ayuLocale), font: Font.semibold(13.0), textColor: theme.list.itemDestructiveColor)), maximumNumberOfLines: 1)
+                                                )
+                                            )
+                                        ], spacing: 6.0)
+                                    )
+                                ))
+                            }
                         }
                         
                     } else if let peerId = subject.arguments?.fromPeerId, var peer = state.peerMap[peerId] {
@@ -6195,7 +6314,7 @@ private final class GiftViewSheetContent: CombinedComponent {
             ))
             
             var rightControlItems: [GlassControlGroupComponent.Item] = []
-            if uniqueGift != nil && !showWearPreview && !isDismantled {
+            if uniqueGift != nil && !showWearPreview && !isDismantled && !isAyuFakeNft {
                 if let _ = component.subject.arguments?.canCraftDate {
                     rightControlItems.append(GlassControlGroupComponent.Item(
                         id: AnyHashable("craft"),
@@ -7003,6 +7122,7 @@ public class GiftViewScreen: ViewControllerComponentContainer {
     fileprivate let shareStory: ((StarGift.UniqueGift) -> Void)?
     fileprivate let openChatTheme: (() -> Void)?
     fileprivate let customAction: CustomAction?
+    fileprivate let ayuFakeNft: Bool
     
     public var disposed: () -> Void = {}
     
@@ -7024,10 +7144,12 @@ public class GiftViewScreen: ViewControllerComponentContainer {
         togglePinnedToTop: ((StarGiftReference, Bool) -> Bool)? = nil,
         shareStory: ((StarGift.UniqueGift) -> Void)? = nil,
         openChatTheme: (() -> Void)? = nil,
-        customAction: CustomAction? = nil
+        customAction: CustomAction? = nil,
+        ayuFakeNft: Bool = false
     ) {
         self.context = context
         self.subject = subject
+        self.ayuFakeNft = ayuFakeNft
         
         self.profileGiftsContext = profileGiftsContext
         self.updateSavedToProfile = updateSavedToProfile

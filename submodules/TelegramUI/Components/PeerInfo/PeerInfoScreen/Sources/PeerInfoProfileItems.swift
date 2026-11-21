@@ -21,6 +21,7 @@ import WebUI
 import AvatarNode
 import PeerNameColorItem
 import BoostLevelIconComponent
+import AyuGramProfileExtras
 
 private let enabledPublicBioEntities: EnabledEntityTypes = [.allUrl, .mention, .hashtag]
 private let enabledPrivateBioEntities: EnabledEntityTypes = [.allUrl, .mention, .hashtag] // MARK: Swiftgram
@@ -120,6 +121,7 @@ func infoItems(
         let ItemAbout = 3003
         let ItemNote = 3004
         let ItemAppFooter = 3005
+        let ItemAyuFakeNumber = 3006
         let ItemAffiliate = 4000
         let ItemAffiliateInfo = 4001
         let ItemBusinessHours = 5000
@@ -210,11 +212,24 @@ func infoItems(
                 interaction.requestLayout(animated)
             }))
         }
+        if let ayuNumber = ayuGramProfileEntry(peerId: user.id)?.number, ayuNumber != user.phone.flatMap({ AyuGramProfileEntry.normalizeNumber($0) }) {
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemAyuFakeNumber, label: i18n("Ayu.FakeNumber.Label", presentationData.strings.baseLanguageCode), text: AyuGramProfileEntry.formatNumber(ayuNumber), textColor: .accent, action: { node, progress in
+                interaction.openPhone(ayuNumber, node, nil, progress)
+            }, longTapAction: nil, contextAction: { node, gesture, _ in
+                interaction.openPhone(ayuNumber, node, gesture, nil)
+            }, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+        }
+        let ayuFakeUsernames: [String] = (ayuGramProfileEntry(peerId: user.id)?.usernames ?? []).filter { name in
+            return !user.usernames.contains(where: { $0.username.lowercased() == name })
+        }
         if let mainUsername = user.addressName {
             var additionalUsernames: String?
             let usernames = user.usernames.filter { $0.isActive && $0.username != mainUsername }
-            if !usernames.isEmpty {
-                additionalUsernames = presentationData.strings.Profile_AdditionalUsernames(String(usernames.map { "@\($0.username)" }.joined(separator: ", "))).string
+            let shownUsernames = usernames.map { "@\($0.username)" } + ayuFakeUsernames.map { "@\($0)" }
+            if !shownUsernames.isEmpty {
+                additionalUsernames = presentationData.strings.Profile_AdditionalUsernames(String(shownUsernames.joined(separator: ", "))).string
             }
             
             items[currentPeerInfoSection]!.append(
@@ -237,6 +252,28 @@ func infoItems(
                         interaction.openQrCode()
                     }, contextAction: { node, gesture, _ in
                         interaction.openUsernameContextMenu(node, gesture)
+                    }, requestLayout: { animated in
+                        interaction.requestLayout(animated)
+                    }
+                )
+            )
+        } else if let firstFakeUsername = ayuFakeUsernames.first {
+            let otherFakeUsernames = ayuFakeUsernames.dropFirst().map { "@\($0)" }
+            items[currentPeerInfoSection]!.append(
+                PeerInfoScreenLabeledValueItem(
+                    id: ItemUsername,
+                    label: presentationData.strings.Profile_Username,
+                    text: "@\(firstFakeUsername)",
+                    additionalText: otherFakeUsernames.isEmpty ? nil : presentationData.strings.Profile_AdditionalUsernames(String(otherFakeUsernames.joined(separator: ", "))).string,
+                    textColor: .accent,
+                    action: { _, progress in
+                        interaction.openUsername(firstFakeUsername, true, progress)
+                    }, linkItemAction: { type, item, _, _, progress in
+                        if case .tap = type {
+                            if case let .mention(username) = item {
+                                interaction.openUsername(String(username[username.index(username.startIndex, offsetBy: 1)...]), false, progress)
+                            }
+                        }
                     }, requestLayout: { animated in
                         interaction.requestLayout(animated)
                     }

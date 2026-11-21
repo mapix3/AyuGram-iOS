@@ -1,7 +1,7 @@
 import { accountId, lockOf } from './badges.js';
 import { ipTag, sameToken, statsStub } from './stats.js';
 
-export const PROFILE_LIMITS = { nfts: 30, pinned: 6, usernames: 10, body: 16384, photo: 1572864, video: 8388608, seconds: 15, ids: 50 };
+export const PROFILE_LIMITS = { nfts: 30, pinned: 6, usernames: 10, numbers: 1, holders: 100, body: 16384, photo: 1572864, video: 8388608, seconds: 15, ids: 50 };
 
 const CHUNK = 1048576;
 const SECONDS_SLACK = 0.25;
@@ -21,6 +21,13 @@ const VERIFY_TOTAL = 20000;
 const VERIFY_USES_PER_USER = 40;
 const SWEEP_BATCH = 128;
 const SWEEP_ROUNDS = 16;
+const NUMBER_CLAIMS_PER_ID = 10;
+const NUMBER_CLAIMS_PER_IP = 20;
+const NUMBER_LOOKUPS_PER_IP = 120;
+const HOLDER_LOOKUPS_PER_IP = 600;
+const HOLDERS_SCAN = 256;
+const NUMBER_PREFIX = '+888';
+const NUMBER_DIGITS = /^888[0-9]{8}$/;
 const VERIFY_PATH = '/profile/verify/start';
 const NONCE = /^[0-9a-f]{32}$/;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -46,6 +53,7 @@ const MOV_FIRST = new Set(['moov', 'mdat', 'wide', 'free', 'skip', 'pnot']);
 const RESERVED_USERNAMES = new Set(['botfather', 'spambot', 'premium', 'stars', 'gift', 'gifts', 'wallet', 'notoscam', 'verify', 'username', 'usernames', 'jobs', 'news', 'team', 'durov', 'pavel', 'nikolai']);
 const RESERVED_PARTS = ['telegram', 'ayugram', 'official', 'support', 'admin', 'fragment', 'security', 'moderator'];
 const SLUG = /^[A-Za-z][A-Za-z0-9]{1,47}-[1-9][0-9]{0,6}$/;
+const SLUG_LOWER = /^[a-z][a-z0-9]{1,47}-[1-9][0-9]{0,6}$/;
 const HEX = /^[0-9a-fA-F]{6}$/;
 
 function fail(error, status, extra) {
@@ -155,36 +163,91 @@ export function cleanUsernames(value) {
   return { value: list };
 }
 
+export function cleanNumber(value) {
+  if (typeof value !== 'string' || value.length > 32) {
+    return '';
+  }
+  const text = value.replace(/[\s()-]/g, '');
+  const digits = text.startsWith('+') ? text.slice(1) : text;
+  return NUMBER_DIGITS.test(digits) ? '+' + digits : '';
+}
+
+export function cleanBrightness(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < -1 || value > 1) {
+    return null;
+  }
+  return Math.round(value * 100) / 100 || 0;
+}
+
+function numberKey(number) {
+  return 'an:' + number.slice(1);
+}
+
 export function cleanPatch(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return { error: 'bad_request' };
   }
   const patch = {};
-  if ('nfts' in input) {
+  if (Object.hasOwn(input, 'nfts')) {
     const nfts = cleanNfts(input.nfts);
     if (nfts.error) {
       return nfts;
     }
     patch.nfts = nfts.value;
   }
-  if ('usernames' in input) {
+  if (Object.hasOwn(input, 'usernames')) {
     const usernames = cleanUsernames(input.usernames);
     if (usernames.error) {
       return usernames;
     }
     patch.usernames = usernames.value;
   }
-  if ('bubbles' in input) {
+  if (Object.hasOwn(input, 'bubbles')) {
     if (typeof input.bubbles !== 'boolean') {
       return { error: 'bad_bubbles' };
     }
     patch.bubbles = input.bubbles;
   }
-  if ('background' in input) {
-    if (input.background !== null) {
+  if (Object.hasOwn(input, 'hideReal')) {
+    if (typeof input.hideReal !== 'boolean') {
+      return { error: 'bad_hide_real' };
+    }
+    patch.hideReal = input.hideReal;
+  }
+  if (Object.hasOwn(input, 'status')) {
+    const status = input.status;
+    if (status === null) {
+      patch.status = null;
+    } else if (status && typeof status === 'object' && !Array.isArray(status) && Object.keys(status).length === 1 && typeof status.slug === 'string' && SLUG.test(status.slug)) {
+      patch.status = status.slug;
+    } else {
+      return { error: 'bad_status' };
+    }
+  }
+  if (Object.hasOwn(input, 'number')) {
+    if (input.number === null) {
+      patch.number = null;
+    } else {
+      const number = cleanNumber(input.number);
+      if (!number) {
+        return { error: 'bad_number' };
+      }
+      patch.number = number;
+    }
+  }
+  if (Object.hasOwn(input, 'background')) {
+    const background = input.background;
+    if (background === null) {
+      patch.background = null;
+    } else if (background && typeof background === 'object' && !Array.isArray(background) && Object.keys(background).length === 1 && Object.hasOwn(background, 'brightness')) {
+      const brightness = cleanBrightness(background.brightness);
+      if (brightness === null) {
+        return { error: 'bad_brightness' };
+      }
+      patch.brightness = brightness;
+    } else {
       return { error: 'bad_background' };
     }
-    patch.background = null;
   }
   return Object.keys(patch).length ? { value: patch } : { error: 'bad_request' };
 }
@@ -402,18 +465,44 @@ function unverified() {
 }
 
 function emptyRecord(lock, now) {
-  return { lock, nfts: [], usernames: [], bubbles: false, background: null, updatedAt: now, claimedAt: now };
+  return { lock, nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, status: null, number: null, brightness: 0, updatedAt: now, claimedAt: now };
+}
+
+function dataOf(record) {
+  const source = record || {};
+  return {
+    nfts: source.nfts || [],
+    usernames: source.usernames || [],
+    bubbles: source.bubbles === true,
+    background: source.background || null,
+    hideReal: source.hideReal === true,
+    status: typeof source.status === 'string' && SLUG.test(source.status) ? source.status : null,
+    number: typeof source.number === 'string' && cleanNumber(source.number) === source.number ? source.number : null,
+    brightness: cleanBrightness(source.brightness) || 0,
+    updatedAt: source.updatedAt || 0,
+  };
 }
 
 function publicData(record) {
   if (!record) {
     return null;
   }
-  const data = { nfts: record.nfts || [], usernames: record.usernames || [], bubbles: record.bubbles === true, background: record.background || null, updatedAt: record.updatedAt || 0 };
-  return data.nfts.length || data.usernames.length || data.bubbles || data.background ? data : null;
+  const data = dataOf(record);
+  return data.nfts.length || data.usernames.length || data.bubbles || data.background || data.hideReal || data.number ? data : null;
 }
 
-function presentBackground(id, background, origin) {
+function slugPins(record) {
+  const pins = new Map();
+  for (const nft of (record && record.nfts) || []) {
+    if (nft && typeof nft.slug === 'string') {
+      const slug = nft.slug.toLowerCase();
+      pins.set(slug, pins.get(slug) === true || nft.pinned === true);
+    }
+  }
+  return pins;
+}
+
+function presentBackground(id, background, origin, brightness) {
   if (!background) {
     return null;
   }
@@ -425,6 +514,7 @@ function presentBackground(id, background, origin) {
     mime: background.mime,
     size: background.size || 0,
     duration: background.duration === undefined ? null : background.duration,
+    brightness: brightness || 0,
     updatedAt: background.updatedAt || 0,
   };
 }
@@ -433,18 +523,184 @@ function presentEntry(id, data, origin) {
   if (!data) {
     return null;
   }
-  return { id, fake: true, nfts: data.nfts, usernames: data.usernames, background: presentBackground(id, data.background, origin), bubbles: data.bubbles, updatedAt: data.updatedAt };
+  return {
+    id,
+    fake: true,
+    nfts: data.nfts,
+    usernames: data.usernames,
+    background: presentBackground(id, data.background, origin, data.brightness),
+    bubbles: data.bubbles,
+    hideReal: data.hideReal === true,
+    status: data.status ? { slug: data.status } : null,
+    number: data.number || null,
+    updatedAt: data.updatedAt,
+  };
 }
 
 function presentOwn(id, record, origin, verified) {
-  const data = record ? { nfts: record.nfts || [], usernames: record.usernames || [], bubbles: record.bubbles === true, background: record.background || null, updatedAt: record.updatedAt || 0 } : { nfts: [], usernames: [], bubbles: false, background: null, updatedAt: 0 };
-  return { ...presentEntry(id, data, origin), claimed: Boolean(record), verified: verified !== false, limits: PROFILE_LIMITS };
+  const data = dataOf(record);
+  return { ...presentEntry(id, data, origin), brightness: data.brightness, claimed: Boolean(record), verified: verified !== false, limits: PROFILE_LIMITS };
 }
 
 export class Profiles {
   constructor(state) {
     this.state = state;
-    this.verifying = Promise.resolve();
+    this.queue = Promise.resolve();
+    this.touched = { slugs: new Set(), numbers: new Set() };
+  }
+
+  serial(work) {
+    const run = this.queue.then(() => {
+      this.touched = { slugs: new Set(), numbers: new Set() };
+      return work();
+    });
+    this.queue = run.catch(() => null);
+    return run;
+  }
+
+  drain() {
+    const touched = { slugs: [...this.touched.slugs], numbers: [...this.touched.numbers] };
+    this.touched = { slugs: new Set(), numbers: new Set() };
+    return touched.slugs.length || touched.numbers.length ? touched : undefined;
+  }
+
+  reply(value) {
+    return Response.json({ ...value, touched: this.drain() });
+  }
+
+  refuse(error, status, extra) {
+    return fail(error, status, { ...(extra || {}), touched: this.drain() });
+  }
+
+  async reindex(id, before, after) {
+    const storage = this.state.storage;
+    const old = slugPins(before);
+    const next = slugPins(after);
+    const removed = [...old.keys()].filter((slug) => !next.has(slug));
+    if (removed.length) {
+      await storage.delete(removed.map((slug) => 'hs:' + slug + ':' + id));
+    }
+    if (next.size) {
+      await storage.put(Object.fromEntries([...next.keys()].map((slug) => ['hs:' + slug + ':' + id, 1])));
+    }
+    for (const slug of new Set([...old.keys(), ...next.keys()])) {
+      if (old.get(slug) !== next.get(slug)) {
+        this.touched.slugs.add(slug);
+      }
+    }
+    const was = dataOf(before).number;
+    const now = dataOf(after).number;
+    if (was !== now) {
+      if (was) {
+        if ((await storage.get(numberKey(was))) === id) {
+          await storage.delete(numberKey(was));
+        }
+        this.touched.numbers.add(was.slice(1));
+      }
+      if (now) {
+        await storage.put(numberKey(now), id);
+        this.touched.numbers.add(now.slice(1));
+      }
+    }
+  }
+
+  async liveRecord(id) {
+    const found = await this.state.storage.get(['p:' + id, 'v:' + id, 'blk:' + id]);
+    const record = found.get('p:' + id);
+    const owner = found.get('v:' + id);
+    return record && owner && owner.lock === record.lock && !found.get('blk:' + id) ? record : null;
+  }
+
+  async numberHolder(number) {
+    const storage = this.state.storage;
+    const key = numberKey(number);
+    const holder = await storage.get(key);
+    if (!holder) {
+      return '';
+    }
+    const record = accountId(holder) ? await this.liveRecord(holder) : null;
+    if (record && dataOf(record).number === number) {
+      return holder;
+    }
+    await storage.delete(key);
+    this.touched.numbers.add(number.slice(1));
+    return '';
+  }
+
+  async backfill() {
+    const storage = this.state.storage;
+    if (await storage.get('ixdone')) {
+      return;
+    }
+    let after = (await storage.get('ixfill')) || '';
+    for (let round = 0; round < SWEEP_ROUNDS; round += 1) {
+      const page = [...(await storage.list(after ? { prefix: 'p:', startAfter: after, limit: SWEEP_BATCH } : { prefix: 'p:', limit: SWEEP_BATCH }))];
+      for (const [key, record] of page) {
+        const id = key.slice(2);
+        const slugs = [...slugPins(record).keys()];
+        if (slugs.length) {
+          await storage.put(Object.fromEntries(slugs.map((slug) => ['hs:' + slug + ':' + id, 1])));
+        }
+        const number = dataOf(record).number;
+        if (number && !(await storage.get(numberKey(number)))) {
+          await storage.put(numberKey(number), id);
+        }
+      }
+      if (page.length < SWEEP_BATCH) {
+        await storage.delete('ixfill');
+        await storage.put('ixdone', true);
+        return;
+      }
+      after = page[page.length - 1][0];
+    }
+    await storage.put('ixfill', after);
+  }
+
+  async holders(input, now) {
+    const storage = this.state.storage;
+    const slug = typeof input.slug === 'string' && SLUG_LOWER.test(input.slug) ? input.slug : '';
+    if (!slug) {
+      return fail('bad_slug', 400);
+    }
+    if (!(await this.allow([['lh', input.ip || 'none', HOLDER_LOOKUPS_PER_IP]], now))) {
+      return fail('rate_limited', 429);
+    }
+    await this.backfill();
+    const prefix = 'hs:' + slug + ':';
+    const ids = [...(await storage.list({ prefix, limit: HOLDERS_SCAN })).keys()].map((key) => key.slice(prefix.length)).filter((id) => accountId(id) === id);
+    const pinned = [];
+    const rest = [];
+    const stale = [];
+    for (let index = 0; index < ids.length; index += 40) {
+      const part = ids.slice(index, index + 40);
+      const found = await storage.get(part.flatMap((id) => ['p:' + id, 'v:' + id]));
+      for (const id of part) {
+        const record = found.get('p:' + id);
+        const owner = found.get('v:' + id);
+        const pin = slugPins(record).get(slug);
+        if (pin === undefined) {
+          stale.push(prefix + id);
+        } else if (owner && owner.lock === record.lock) {
+          (pin ? pinned : rest).push({ id, pinned: pin });
+        }
+      }
+    }
+    if (stale.length) {
+      await storage.delete(stale);
+    }
+    return Response.json({ r: [...pinned, ...rest].slice(0, PROFILE_LIMITS.holders) });
+  }
+
+  async numberLookup(input, now) {
+    const digits = typeof input.number === 'string' && NUMBER_DIGITS.test(input.number) ? input.number : '';
+    if (!digits) {
+      return fail('bad_number', 400);
+    }
+    if (!(await this.allow([['ln', input.ip || 'none', NUMBER_LOOKUPS_PER_IP]], now))) {
+      return fail('rate_limited', 429);
+    }
+    const holder = await this.numberHolder('+' + digits);
+    return Response.json({ r: holder || null });
   }
 
   async sweep(now, day) {
@@ -507,6 +763,7 @@ export class Profiles {
   async evict(key, stored) {
     const background = stored && stored.background;
     await this.state.storage.delete(key);
+    await this.reindex(key.slice(2), stored, null);
     if (background) {
       await this.addBytes(-(background.size || 0));
     }
@@ -541,13 +798,15 @@ export class Profiles {
     const stored = await storage.get('p:' + input.id);
     const taken = stored && stored.lock !== input.lock ? stored : null;
     let record = taken ? null : stored || null;
+    let created = false;
     if (!record && claim) {
       if (!(await this.allow([['c', input.ip, CLAIMS_PER_IP]], now))) {
         return { error: fail('rate_limited', 429) };
       }
       record = emptyRecord(input.lock, now);
+      created = true;
     }
-    return { record, taken };
+    return { record, taken, created };
   }
 
   async verifyUse(input, now) {
@@ -590,7 +849,7 @@ export class Profiles {
       }
     }
     await storage.put('v:' + pending.id, { lock: pending.lock, time: now });
-    return Response.json({ status: 'verified', id: pending.id, wiped, previous });
+    return this.reply({ status: 'verified', id: pending.id, wiped, previous });
   }
 
   async fetch(request) {
@@ -615,11 +874,23 @@ export class Profiles {
       }
       return Response.json({ items });
     }
+    if (['/me', '/verify-status', '/upload-check'].includes(url.pathname)) {
+      return this.handle(request, url, now);
+    }
+    const body = await request.text();
+    return this.serial(() => this.handle(new Request(url.href, { method: 'POST', body }), url, Date.now()));
+  }
+
+  async handle(request, url, now) {
+    const storage = this.state.storage;
     if (url.pathname === '/verify-use') {
-      const input = await request.json();
-      const run = this.verifying.then(() => this.verifyUse(input, Date.now()));
-      this.verifying = run.catch(() => null);
-      return run;
+      return this.verifyUse(await request.json(), now);
+    }
+    if (url.pathname === '/holders') {
+      return this.holders(await request.json(), now);
+    }
+    if (url.pathname === '/number') {
+      return this.numberLookup(await request.json(), now);
     }
     const admin = /^\/admin\/(wipe|background|block|unblock)\/([1-9][0-9]{0,15})$/.exec(url.pathname);
     if (admin) {
@@ -639,7 +910,7 @@ export class Profiles {
         await storage.put('blk:' + id, { time: now });
       }
       const previous = record ? await this.evict(key, record) : '';
-      return Response.json({ ok: true, existed: Boolean(record), previous });
+      return this.reply({ ok: true, existed: Boolean(record), previous });
     }
     const input = await request.json();
     if (!accountId(input.id) || typeof input.lock !== 'string' || !input.lock) {
@@ -672,7 +943,7 @@ export class Profiles {
     }
     if (url.pathname === '/write' || url.pathname === '/clear') {
       const clearing = url.pathname === '/clear';
-      const patch = clearing ? { nfts: [], usernames: [], bubbles: false, background: null } : input.patch && typeof input.patch === 'object' ? input.patch : {};
+      const patch = clearing ? { nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, status: null, number: null, brightness: 0 } : input.patch && typeof input.patch === 'object' ? input.patch : {};
       const keys = Object.keys(patch);
       const removing = keys.length === 1 && keys[0] === 'background';
       const auth = await this.authorize(input, now, !clearing && !removing);
@@ -682,20 +953,52 @@ export class Profiles {
       if (auth.record && !(await this.allow([['w', input.id, WRITES_PER_ID], ['wi', input.ip, WRITES_PER_IP]], now))) {
         return fail('rate_limited', 429);
       }
-      const evicted = auth.taken ? await this.evict(key, auth.taken) : '';
       if (!auth.record) {
-        return Response.json({ record: null, previous: evicted });
+        const evicted = auth.taken ? await this.evict(key, auth.taken) : '';
+        return this.reply({ record: null, previous: evicted });
       }
-      const record = auth.record;
-      for (const field of ['nfts', 'usernames', 'bubbles']) {
+      const before = auth.created ? null : auth.record;
+      const record = { ...auth.record };
+      for (const field of ['nfts', 'usernames', 'bubbles', 'hideReal', 'brightness']) {
         if (field in patch) {
           record[field] = patch[field];
         }
       }
+      const owned = (slug) => (record.nfts || []).find((nft) => typeof nft.slug === 'string' && nft.slug.toLowerCase() === slug.toLowerCase());
+      if ('status' in patch && patch.status !== null) {
+        const nft = owned(String(patch.status));
+        if (!nft) {
+          return this.refuse('status_not_owned', 400);
+        }
+        record.status = nft.slug;
+      } else if ('status' in patch) {
+        record.status = null;
+      } else if (record.status) {
+        const nft = owned(String(record.status));
+        record.status = nft ? nft.slug : null;
+      }
+      if ('number' in patch) {
+        const number = patch.number === null ? null : cleanNumber(patch.number);
+        if (patch.number !== null && !number) {
+          return this.refuse('bad_number', 400);
+        }
+        if (number && number !== dataOf(before).number) {
+          if (!(await this.allow([['an', input.id, NUMBER_CLAIMS_PER_ID], ['ani', input.ip, NUMBER_CLAIMS_PER_IP]], now))) {
+            return this.refuse('rate_limited', 429);
+          }
+          const holder = await this.numberHolder(number);
+          if (holder && holder !== input.id) {
+            return this.refuse('number_taken', 409);
+          }
+        }
+        record.number = number;
+      }
+      const evicted = auth.taken ? await this.evict(key, auth.taken) : '';
       const dropped = 'background' in patch ? await this.dropBackground(key, record, now) : '';
       record.updatedAt = now;
       await storage.put(key, record);
-      return Response.json({ record, previous: dropped || evicted });
+      await this.reindex(input.id, before, record);
+      return this.reply({ record, previous: dropped || evicted });
     }
     if (url.pathname === '/upload-check') {
       const auth = await this.authorize(input, now, false);
@@ -720,7 +1023,7 @@ export class Profiles {
       }
       const evicted = auth.taken ? await this.evict(key, auth.taken) : '';
       await storage.put(key, auth.record);
-      return Response.json({ ok: true, previous: evicted });
+      return this.reply({ ok: true, previous: evicted });
     }
     if (url.pathname === '/background-set') {
       const background = input.background;
@@ -735,7 +1038,7 @@ export class Profiles {
         await this.evict(key, auth.taken);
       }
       if (!auth.record) {
-        return fail('conflict', 409);
+        return this.refuse('conflict', 409);
       }
       const old = auth.record.background;
       auth.record.background = background;
@@ -743,7 +1046,7 @@ export class Profiles {
       await storage.put(key, auth.record);
       await this.addBytes(background.size - (old ? old.size || 0 : 0));
       const previous = old && old.version !== background.version ? old.version : '';
-      return Response.json({ record: auth.record, previous });
+      return this.reply({ record: auth.record, previous });
     }
     return fail('not_found', 404);
   }
@@ -832,6 +1135,22 @@ function call(stub, path, body) {
   return stub.fetch(INTERNAL + path, { method: 'POST', body: JSON.stringify(body || {}) });
 }
 
+async function invoke(stub, path, body) {
+  const response = await call(stub, path, body);
+  const text = await response.text();
+  let data = null;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = null;
+  }
+  if (data && typeof data === 'object' && 'touched' in data) {
+    await purgeTouched(data.touched);
+    delete data.touched;
+  }
+  return new Response(data ? JSON.stringify(data) : text, { status: response.status, headers: response.headers });
+}
+
 function edgeCache() {
   return typeof caches !== 'undefined' && caches.default ? caches.default : null;
 }
@@ -850,6 +1169,16 @@ async function purge(id) {
   if (cache && typeof cache.delete === 'function') {
     await cache.delete(new Request(READ_CACHE + id)).catch(() => false);
   }
+}
+
+async function purgeTouched(touched) {
+  const cache = edgeCache();
+  if (!cache || typeof cache.delete !== 'function' || !touched || typeof touched !== 'object') {
+    return;
+  }
+  const slugs = (Array.isArray(touched.slugs) ? touched.slugs : []).filter((slug) => typeof slug === 'string' && SLUG_LOWER.test(slug));
+  const numbers = (Array.isArray(touched.numbers) ? touched.numbers : []).filter((number) => typeof number === 'string' && NUMBER_DIGITS.test(number));
+  await Promise.all([...slugs.map((slug) => READ_CACHE + 'slug/' + slug), ...numbers.map((number) => READ_CACHE + 'num/' + number)].map((key) => cache.delete(new Request(key)).catch(() => false)));
 }
 
 async function purgeMedia(id, version) {
@@ -1012,7 +1341,7 @@ export async function profileVerify(env, nonce, user, commit) {
   if (!stub || typeof nonce !== 'string' || !NONCE.test(nonce) || !user || !accountId(user.id)) {
     return { status: stub ? 'invalid' : 'error' };
   }
-  const response = await call(stub, '/verify-use', { nonce, user: accountId(user.id), bot: user.is_bot === true, commit: commit === true }).catch(() => null);
+  const response = await invoke(stub, '/verify-use', { nonce, user: accountId(user.id), bot: user.is_bot === true, commit: commit === true }).catch(() => null);
   if (!response || !response.ok) {
     return { status: 'error' };
   }
@@ -1032,7 +1361,7 @@ export async function profileAdmin(env, id, action) {
   if (!stub || !accountId(id) || !['wipe', 'background', 'block', 'unblock'].includes(action)) {
     return null;
   }
-  const response = await call(stub, '/admin/' + action + '/' + id);
+  const response = await invoke(stub, '/admin/' + action + '/' + id);
   if (!response.ok) {
     return null;
   }
@@ -1090,6 +1419,67 @@ async function publicRead(request, env, url, ctx, stub) {
     return new Response(null, { status: 304, headers });
   }
   return new Response(body, { headers });
+}
+
+async function cachedLookup(request, ctx, stub, name, path, input) {
+  const cache = edgeCache();
+  const key = new Request(READ_CACHE + name);
+  const hit = cache ? await cache.match(key).catch(() => null) : null;
+  const parsed = hit ? await hit.json().catch(() => undefined) : undefined;
+  if (parsed && typeof parsed === 'object' && 'r' in parsed) {
+    return { value: parsed.r };
+  }
+  const ip = network(request.headers.get('cf-connecting-ip') || '');
+  const response = await call(stub, path, { ...input, ip: ip ? await ipTag(ip) : '' });
+  if (!response.ok) {
+    return { error: await passError(response) };
+  }
+  const value = (await response.json()).r;
+  if (cache) {
+    await later(ctx, cache.put(key, new Response(JSON.stringify({ r: value }), { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=' + READ_TTL } })));
+  }
+  return { value };
+}
+
+async function publicJson(request, value) {
+  const body = JSON.stringify(value);
+  const etag = 'W/"' + (await hex(new TextEncoder().encode(body))).slice(0, 20) + '"';
+  const headers = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=' + READ_TTL, etag };
+  if (request.headers.get('if-none-match') === etag) {
+    return new Response(null, { status: 304, headers });
+  }
+  return new Response(body, { headers });
+}
+
+async function holdersRead(request, url, ctx, stub) {
+  const raw = url.searchParams.get('slug') || '';
+  if (raw.length > 64 || !SLUG.test(raw)) {
+    return fail('bad_slug', 400);
+  }
+  const slug = raw.toLowerCase();
+  const found = await cachedLookup(request, ctx, stub, 'slug/' + slug, '/holders', { slug });
+  if (found.error) {
+    return found.error;
+  }
+  const items = (Array.isArray(found.value) ? found.value : []).filter((item) => item && accountId(item.id) === item.id).slice(0, PROFILE_LIMITS.holders).map((item) => ({ id: item.id, pinned: item.pinned === true }));
+  return publicJson(request, { items });
+}
+
+async function numberRead(request, url, ctx, stub) {
+  const number = cleanNumber(url.searchParams.get('n') || '');
+  if (!number) {
+    return fail('bad_number', 400);
+  }
+  const digits = number.slice(1);
+  const found = await cachedLookup(request, ctx, stub, 'num/' + digits, '/number', { number: digits });
+  if (found.error) {
+    return found.error;
+  }
+  const id = accountId(found.value);
+  if (!id) {
+    return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=' + READ_TTL } });
+  }
+  return publicJson(request, { id });
 }
 
 function byteRange(header, size) {
@@ -1181,7 +1571,7 @@ async function upload(request, env, url, ctx, stub, who) {
   if (media.error) {
     return fail(media.error, media.status, media.extra);
   }
-  const begun = await call(stub, '/upload-begin', { ...who.base, size: bytes.length });
+  const begun = await invoke(stub, '/upload-begin', { ...who.base, size: bytes.length });
   if (!begun.ok) {
     return passError(begun);
   }
@@ -1197,7 +1587,7 @@ async function upload(request, env, url, ctx, stub, who) {
   }
   const now = Date.now();
   const background = { type: media.type, version, ext: media.ext, mime: media.mime, width: media.width, height: media.height, size: bytes.length, duration: media.duration, updatedAt: now };
-  const set = await call(stub, '/background-set', { ...who.base, background });
+  const set = await invoke(stub, '/background-set', { ...who.base, background });
   if (!set.ok) {
     await dropMedia(env, who.id, set.status === 409 ? null : version);
     return passError(set);
@@ -1238,6 +1628,12 @@ export async function handleProfile(request, env, url, ctx) {
   }
   if (path === '/profile' && method === 'GET') {
     return publicRead(request, env, url, ctx, stub);
+  }
+  if (path === '/profile/holders' || path === '/profile/number') {
+    if (method !== 'GET' && method !== 'HEAD') {
+      return fail('method_not_allowed', 405);
+    }
+    return path === '/profile/holders' ? holdersRead(request, url, ctx, stub) : numberRead(request, url, ctx, stub);
   }
   const routes = { '/profile': ['PUT', 'POST', 'DELETE'], '/profile/me': ['GET'], '/profile/background': ['PUT', 'POST', 'DELETE'], '/profile/verify/start': ['POST'], '/profile/verify/status': ['GET'] };
   if (!routes[path]) {
@@ -1282,9 +1678,9 @@ export async function handleProfile(request, env, url, ctx) {
   }
   let response;
   if (path === '/profile' && method === 'DELETE') {
-    response = await call(stub, '/clear', who.base);
+    response = await invoke(stub, '/clear', who.base);
   } else if (path === '/profile/background') {
-    response = await call(stub, '/write', { ...who.base, patch: { background: null } });
+    response = await invoke(stub, '/write', { ...who.base, patch: { background: null } });
   } else {
     const input = await readJson(request, PROFILE_LIMITS.body);
     if (input.error) {
@@ -1294,7 +1690,7 @@ export async function handleProfile(request, env, url, ctx) {
     if (patch.error) {
       return fail(patch.error, 400, patch.extra);
     }
-    response = await call(stub, '/write', { ...who.base, patch: patch.value });
+    response = await invoke(stub, '/write', { ...who.base, patch: patch.value });
   }
   if (!response.ok) {
     return passError(response);

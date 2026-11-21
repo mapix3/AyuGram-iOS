@@ -8,7 +8,6 @@ public struct AyuGramVideoSettings: Codable, Equatable {
     public var videoHighBitrate = false
     public var roundHEVC = false
     public var roundBitrateMbps: Int32 = 0
-    public var roundLargeAs640 = false
 
     public init() {}
 
@@ -22,21 +21,14 @@ public struct AyuGramVideoSettings: Codable, Equatable {
         self.videoHighBitrate = try container.decodeIfPresent(Bool.self, forKey: .videoHighBitrate) ?? defaults.videoHighBitrate
         self.roundHEVC = try container.decodeIfPresent(Bool.self, forKey: .roundHEVC) ?? defaults.roundHEVC
         self.roundBitrateMbps = try container.decodeIfPresent(Int32.self, forKey: .roundBitrateMbps) ?? defaults.roundBitrateMbps
-        self.roundLargeAs640 = try container.decodeIfPresent(Bool.self, forKey: .roundLargeAs640) ?? defaults.roundLargeAs640
     }
 
-    public static let roundSides: [Int] = [480, 640, 720, 1072]
-    public static let roundStandardSideCount: Int = 2
+    public static let roundSides: [Int] = [480, 640]
     public static let roundFrameRates: [Int32] = [30, 60, 120]
     public static let roundBitrateChoices: [Int32] = [0, 2, 4, 6, 8, 10]
-    public static let roundDeclaredMaximumSide: Int = 640
-
-    public var roundAvailableQualityCount: Int {
-        return self.roundLargeAs640 ? AyuGramVideoSettings.roundSides.count : AyuGramVideoSettings.roundStandardSideCount
-    }
 
     public var roundQualityIndex: Int32 {
-        return max(0, min(Int32(self.roundAvailableQualityCount - 1), self.roundQuality))
+        return max(0, min(Int32(AyuGramVideoSettings.roundSides.count - 1), self.roundQuality))
     }
 
     public var roundSide: Int {
@@ -48,17 +40,6 @@ public struct AyuGramVideoSettings: Codable, Equatable {
             return nil
         }
         return Int(self.roundBitrateMbps) * 1_000_000
-    }
-
-    public static func roundDeclaredSize(width: Int, height: Int) -> (width: Int, height: Int) {
-        let side = max(width, height)
-        guard side > roundDeclaredMaximumSide, width > 0, height > 0 else {
-            return (width, height)
-        }
-        let scale = Double(roundDeclaredMaximumSide) / Double(side)
-        let declaredWidth = min(roundDeclaredMaximumSide, max(1, Int((Double(width) * scale).rounded())))
-        let declaredHeight = min(roundDeclaredMaximumSide, max(1, Int((Double(height) * scale).rounded())))
-        return (declaredWidth, declaredHeight)
     }
 
     public var roundFps: Double {

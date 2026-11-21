@@ -46,6 +46,7 @@ import PlainButtonComponent
 import BundleIconComponent
 import MarqueeComponent
 import EdgeEffect
+import AyuGramProfileExtras
 
 final class PeerInfoHeaderRegularContentNode: SparseNode {
     /// VoiceOver: the action buttons' container spans the header from its top, so the frame sort would read the buttons
@@ -141,6 +142,112 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     private let ayuExpandedOwnerBadge = UIImageView(image: ayuGramOwnerBadgeImage())
     private var ayuBadgeKind: String?
     private var ayuBadgeName = ""
+    private var ayuBubblesView: AyuGramProfileBubblesView?
+    private var ayuBubblesHaloView: AyuGramProfileBubblesHaloView?
+    private var ayuMediaView: AyuGramProfileMediaView?
+    private var ayuSpinRecognizer: AyuGramOrbitPanGestureRecognizer?
+    private let ayuExtrasDisposable = MetaDisposable()
+    private var ayuExtrasPeerId: EnginePeer.Id?
+    private var ayuExtrasGiftsContextId: ObjectIdentifier?
+    private var ayuRealPinnedGifts: [ProfileGiftsContext.State.StarGift] = []
+    private var ayuFakeItems: [AyuGramFakeNftItem] = []
+    private var ayuFakeSlugs = Set<String>()
+    private var ayuFakeGiftIds = Set<Int64>()
+    private var ayuViewerObserver: NSObjectProtocol?
+    private var ayuRelayObserver: NSObjectProtocol?
+    var ayuOpenFakeGift: ((StarGift.UniqueGift) -> Void)?
+    private var ayuFakeStatusGift: StarGift.UniqueGift?
+
+    private func ayuApplyFakeStatus(peer: EnginePeer?) -> EnginePeer? {
+        self.ayuFakeStatusGift = nil
+        guard case let .user(user) = peer, !self.isSettings, ayuGramProfileExtrasSupported(user.id), let entry = ayuGramProfileEntry(peerId: user.id, refresh: false) else {
+            return peer
+        }
+        let hidesReal = ayuGramProfileHidesRealGifts(entry: entry, peerId: user.id, accountPeerId: self.context.account.peerId)
+        if let slug = entry.statusSlug?.lowercased(), user.emojiStatus == nil || hidesReal, let gift = self.ayuFakeItems.first(where: { $0.nft.slug?.lowercased() == slug })?.displayGift, let status = ayuGramFakeEmojiStatus(gift: gift) {
+            self.ayuFakeStatusGift = gift
+            return .user(user.withUpdatedEmojiStatus(status))
+        }
+        if hidesReal, let status = user.emojiStatus, case .starGift = status.content {
+            return .user(user.withUpdatedEmojiStatus(nil))
+        }
+        return peer
+    }
+
+    private func ayuFakeStatusMatch(slug: String) -> StarGift.UniqueGift? {
+        guard let gift = self.ayuFakeStatusGift, gift.slug.lowercased() == slug.lowercased() else {
+            return nil
+        }
+        return gift
+    }
+
+    private func ayuUpdateExtrasSubscription(peer: EnginePeer?, profileGiftsContext: ProfileGiftsContext?) {
+        guard let peer, ayuGramProfileExtrasSupported(peer.id), !self.isSettings else {
+            if self.ayuExtrasPeerId != nil {
+                self.ayuExtrasPeerId = nil
+                self.ayuExtrasGiftsContextId = nil
+                if let ayuRelayObserver = self.ayuRelayObserver {
+                    NotificationCenter.default.removeObserver(ayuRelayObserver)
+                    self.ayuRelayObserver = nil
+                }
+                self.ayuExtrasDisposable.set(nil)
+                self.ayuRealPinnedGifts = []
+                self.ayuFakeItems = []
+                self.ayuFakeSlugs = Set()
+                self.ayuFakeGiftIds = Set()
+            }
+            return
+        }
+        let giftsContextId = profileGiftsContext.map { ObjectIdentifier($0) }
+        if self.ayuExtrasPeerId == peer.id && self.ayuExtrasGiftsContextId == giftsContextId {
+            return
+        }
+        if self.ayuExtrasPeerId != peer.id {
+            if let ayuRelayObserver = self.ayuRelayObserver {
+                NotificationCenter.default.removeObserver(ayuRelayObserver)
+            }
+            let rawId = ayuGramRawPeerId(peer.id)
+            self.ayuRelayObserver = NotificationCenter.default.addObserver(forName: AyuGramProfileRelay.didChange, object: nil, queue: .main, using: { [weak self] notification in
+                guard let ids = notification.userInfo?["peerIds"] as? [Int64], ids.contains(rawId) else {
+                    return
+                }
+                self?.requestUpdateLayout?(false)
+            })
+        }
+        self.ayuExtrasPeerId = peer.id
+        self.ayuExtrasGiftsContextId = giftsContextId
+        let realGifts: Signal<[ProfileGiftsContext.State.StarGift], NoError>
+        if let profileGiftsContext {
+            realGifts = profileGiftsContext.state
+            |> map { state -> [ProfileGiftsContext.State.StarGift] in
+                return state.gifts.filter { gift in
+                    if gift.pinnedToTop, case .unique = gift.gift {
+                        return true
+                    }
+                    return false
+                }
+            }
+            |> distinctUntilChanged
+        } else {
+            realGifts = .single([])
+        }
+        self.ayuExtrasDisposable.set((combineLatest(realGifts, ayuGramFakeNftItems(engine: self.context.engine, peerId: peer.id))
+        |> deliverOnMainQueue).start(next: { [weak self] realGifts, fakeItems in
+            guard let self else {
+                return
+            }
+            let changed = self.ayuRealPinnedGifts != realGifts || self.ayuFakeItems != fakeItems
+            self.ayuRealPinnedGifts = realGifts
+            self.ayuFakeItems = fakeItems
+            self.ayuFakeSlugs = Set(fakeItems.compactMap { $0.nft.slug?.lowercased() } + fakeItems.compactMap { $0.gift?.slug.lowercased() })
+            self.ayuFakeGiftIds = Set(fakeItems.compactMap { $0.gift?.id })
+            if changed {
+                DispatchQueue.main.async { [weak self] in
+                    self?.requestUpdateLayout?(false)
+                }
+            }
+        }))
+    }
 
     @objc private func ayuBadgeTapped() {
         let locale = self.presentationData?.strings.baseLanguageCode ?? "en"
@@ -513,6 +620,10 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             strongSelf.editingContentNode.avatarNode.update(peer: peer, threadData: strongSelf.threadData, chatLocation: chatLocation, item: strongSelf.avatarListNode.item, updatingAvatar: state.updatingAvatar, uploadProgress: state.avatarUploadProgress, theme: presentationData.theme, avatarSize: avatarSize, isEditing: state.isEditing)
         }
 
+        self.ayuViewerObserver = NotificationCenter.default.addObserver(forName: AyuGramProfileRelay.viewerDidChange, object: nil, queue: .main, using: { [weak self] _ in
+            self?.requestUpdateLayout?(false)
+        })
+
         self.avatarListNode.animateOverlaysFadeIn = { [weak self] in
             guard let strongSelf = self else {
                 return
@@ -534,6 +645,13 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         self.emojiStatusPackDisposable.dispose()
         self.ayuPresenceDisposable.dispose()
         self.ayuPresenceTimer?.invalidate()
+        self.ayuExtrasDisposable.dispose()
+        if let ayuViewerObserver = self.ayuViewerObserver {
+            NotificationCenter.default.removeObserver(ayuViewerObserver)
+        }
+        if let ayuRelayObserver = self.ayuRelayObserver {
+            NotificationCenter.default.removeObserver(ayuRelayObserver)
+        }
     }
     
     private func refreshAyuPresence() {
@@ -608,7 +726,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     }
     
     func invokeDisplayGiftInfo() {
-        guard case let .emojiStatus(status) = self.currentStatusIcon, case let .starGift(_, _, title, _, _, _, _, _, _) = status.content else {
+        guard case let .emojiStatus(status) = self.currentStatusIcon, case let .starGift(_, _, title, slug, _, _, _, _, _) = status.content, self.ayuFakeStatusMatch(slug: slug) == nil else {
             return
         }
         self.displayUniqueGiftInfo?(self.isAvatarExpanded ? self.titleExpandedStatusIconView : self.titleStatusIconView, title)
@@ -727,6 +845,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         if case let .user(user) = peer, user.emojiStatus != nil, (cachedData as? CachedUserData)?.isSuspiciousPeer == true {
             peer = .user(user.withUpdatedEmojiStatus(nil))
         }
+        peer = self.ayuApplyFakeStatus(peer: peer)
         
         self.state = state
         self.peer = peer
@@ -785,6 +904,20 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         } else {
             backgroundCoverSubject = nil
+        }
+        
+        self.ayuUpdateExtrasSubscription(peer: peer, profileGiftsContext: profileGiftsContext)
+        let ayuEntry: AyuGramProfileEntry? = (peer != nil && !isMediaOnly) ? peer.flatMap { ayuGramProfileEntry(peerId: $0.id) } : nil
+        let ayuBackgroundMedia: AyuGramProfileLocalMedia? = (peer != nil && !isMediaOnly) ? peer.flatMap { peer -> AyuGramProfileLocalMedia? in
+            guard ayuGramProfileExtrasSupported(peer.id) else {
+                return nil
+            }
+            return AyuGramProfileRelay.shared.localMedia(rawId: ayuGramRawPeerId(peer.id))
+        } : nil
+        let ayuHasCustomBackground = ayuBackgroundMedia != nil
+        let ayuHidesRealGifts = peer.flatMap { ayuGramProfileHidesRealGifts(entry: ayuEntry, peerId: $0.id, accountPeerId: self.context.account.peerId) } ?? false
+        if ayuHasCustomBackground {
+            hasBackground = true
         }
         
         let currentSavedMusic = self.profileMusic(peer: peer, screenData: screenData)
@@ -847,11 +980,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         
         let avatarFrame = CGRect(origin: CGPoint(x: hasStrip ? bandCenteredOrigin(width: avatarSize, margin: 16.0) : floor((width - avatarSize) / 2.0), y: statusBarHeight + 22.0), size: CGSize(width: avatarSize, height: avatarSize))
         
-        let regularNavigationContentsAccentColor: UIColor = peer?.effectiveProfileColor != nil ? .white : presentationData.theme.list.itemAccentColor
+        let regularNavigationContentsAccentColor: UIColor = (peer?.effectiveProfileColor != nil || ayuHasCustomBackground) ? .white : presentationData.theme.list.itemAccentColor
         let collapsedHeaderNavigationContentsAccentColor = presentationData.theme.list.itemAccentColor
         let expandedAvatarNavigationContentsAccentColor: UIColor = .white
         
-        let regularNavigationContentsPrimaryColor: UIColor = peer?.effectiveProfileColor != nil ? .white : presentationData.theme.list.itemPrimaryTextColor
+        let regularNavigationContentsPrimaryColor: UIColor = (peer?.effectiveProfileColor != nil || ayuHasCustomBackground) ? .white : presentationData.theme.list.itemPrimaryTextColor
         let collapsedHeaderNavigationContentsPrimaryColor = presentationData.theme.list.itemPrimaryTextColor
         let expandedAvatarNavigationContentsPrimaryColor: UIColor = .white
         
@@ -863,13 +996,18 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         let collapsedHeaderButtonBackgroundColor: UIColor = .clear
         let expandedAvatarHeaderButtonBackgroundColor: UIColor = UIColor(white: 0.0, alpha: 0.5)
         
-        let regularContentButtonForegroundColor: UIColor = peer?.effectiveProfileColor != nil ? UIColor.white : presentationData.theme.list.itemAccentColor
+        let regularContentButtonForegroundColor: UIColor = (peer?.effectiveProfileColor != nil || ayuHasCustomBackground) ? UIColor.white : presentationData.theme.list.itemAccentColor
         let collapsedHeaderContentButtonForegroundColor = presentationData.theme.list.itemAccentColor
         let expandedAvatarContentButtonForegroundColor: UIColor = .white
         
         var hasCoverColor = false
         let regularNavigationContentsSecondaryColor: UIColor
-        if let emojiStatus = peer?.emojiStatus, case let .starGift(_, _, _, _, _, innerColor, outerColor, _, _) = emojiStatus.content {
+        if ayuHasCustomBackground {
+            regularNavigationContentsSecondaryColor = UIColor(white: 1.0, alpha: 0.74)
+            regularContentButtonBackgroundColor = UIColor(white: 0.0, alpha: 0.32)
+            regularHeaderButtonBackgroundColor = UIColor(white: 0.0, alpha: 0.3)
+            hasCoverColor = true
+        } else if let emojiStatus = peer?.emojiStatus, case let .starGift(_, _, _, _, _, innerColor, outerColor, _, _) = emojiStatus.content {
             let mainColor = UIColor(rgb: UInt32(bitPattern: innerColor))
             let secondaryColor = UIColor(rgb: UInt32(bitPattern: outerColor))
             regularNavigationContentsSecondaryColor = UIColor(white: 1.0, alpha: 0.6).blitOver(mainColor.withMultiplied(hue: 1.0, saturation: 2.2, brightness: 1.5), alpha: 1.0)
@@ -1231,7 +1369,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                         guard let self else {
                             return
                         }
-                        if let uniqueGiftSlug, !self.isSettings {
+                        if let uniqueGiftSlug, !self.isSettings, let fakeGift = self.ayuFakeStatusMatch(slug: uniqueGiftSlug) {
+                            self.ayuOpenFakeGift?(fakeGift)
+                        } else if let uniqueGiftSlug, !self.isSettings {
                             self.openUniqueGift?(self.titleStatusIconView, uniqueGiftSlug)
                         } else {
                             self.displayPremiumIntro?(self.titleStatusIconView, currentEmojiStatus, self.emojiStatusFileAndPackTitle.get(), false)
@@ -1283,7 +1423,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                         guard let self else {
                             return
                         }
-                        if let uniqueGiftSlug, !self.isSettings {
+                        if let uniqueGiftSlug, !self.isSettings, let fakeGift = self.ayuFakeStatusMatch(slug: uniqueGiftSlug) {
+                            self.ayuOpenFakeGift?(fakeGift)
+                        } else if let uniqueGiftSlug, !self.isSettings {
                             self.openUniqueGift?(self.titleExpandedStatusIconView, uniqueGiftSlug)
                         } else {
                             self.displayPremiumIntro?(self.titleExpandedStatusIconView, currentEmojiStatus, self.emojiStatusFileAndPackTitle.get(), true)
@@ -2691,6 +2833,108 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         }
         
+        let ayuBannerContentFrame = CGRect(origin: CGPoint(x: 0.0, y: bannerFrame.height - backgroundCoverSize.height), size: CGSize(width: bannerFrame.width, height: backgroundCoverSize.height))
+        if let ayuBackgroundMedia {
+            let mediaView: AyuGramProfileMediaView
+            if let current = self.ayuMediaView {
+                mediaView = current
+            } else {
+                mediaView = AyuGramProfileMediaView(frame: ayuBannerContentFrame)
+                self.ayuMediaView = mediaView
+                if let backgroundCoverView = self.backgroundCover.view, backgroundCoverView.superview === self.backgroundBannerView {
+                    self.backgroundBannerView.insertSubview(mediaView, aboveSubview: backgroundCoverView)
+                } else {
+                    self.backgroundBannerView.addSubview(mediaView)
+                }
+                mediaView.alpha = 0.0
+                ContainedViewLayoutTransition.animated(duration: 0.3, curve: .easeInOut).updateAlpha(layer: mediaView.layer, alpha: 1.0)
+            }
+            mediaView.setMedia(url: ayuBackgroundMedia.url, isVideo: ayuBackgroundMedia.isVideo)
+            if additive {
+                transition.updateFrameAdditive(view: mediaView, frame: ayuBannerContentFrame)
+            } else {
+                transition.updateFrame(view: mediaView, frame: ayuBannerContentFrame)
+            }
+            mediaView.brightness = CGFloat(ayuEntry?.brightness ?? 0.0)
+            mediaView.isActive = !self.isAvatarExpanded && !state.isEditing && backgroundBannerAlpha > 0.0
+        } else if let mediaView = self.ayuMediaView {
+            self.ayuMediaView = nil
+            mediaView.isActive = false
+            ContainedViewLayoutTransition.animated(duration: 0.2, curve: .easeInOut).updateAlpha(layer: mediaView.layer, alpha: 0.0, completion: { [weak mediaView] _ in
+                mediaView?.removeFromSuperview()
+            })
+        }
+        
+        var ayuBubbleItems: [AyuGramProfileBubblesView.Item] = []
+        var ayuPinnedFakeGifts: [ProfileGiftsContext.State.StarGift] = []
+        if let peer, ayuGramProfileExtrasSupported(peer.id), !isMediaOnly {
+            var statusGiftId: Int64?
+            if case let .starGift(id, _, _, _, _, _, _, _, _) = peer.emojiStatus?.content {
+                statusGiftId = id
+            }
+            var realSlugs = Set<String>()
+            var realItems: [AyuGramProfileBubblesView.Item] = []
+            for gift in (ayuHidesRealGifts ? [] : self.ayuRealPinnedGifts) {
+                guard case let .unique(uniqueGift) = gift.gift else {
+                    continue
+                }
+                let slug = uniqueGift.slug.lowercased()
+                if realSlugs.contains(slug) {
+                    continue
+                }
+                realSlugs.insert(slug)
+                if uniqueGift.id == statusGiftId {
+                    continue
+                }
+                realItems.append(AyuGramProfileBubblesView.Item(id: "real:" + slug, gift: gift, isFake: false))
+            }
+            var pinnedFakeItems: [AyuGramProfileBubblesView.Item] = []
+            var otherFakeItems: [AyuGramProfileBubblesView.Item] = []
+            var fakeSlugs = Set<String>()
+            for fake in self.ayuFakeItems {
+                guard let starGift = fake.starGift, case let .unique(uniqueGift) = starGift.gift else {
+                    continue
+                }
+                let slug = uniqueGift.slug.lowercased()
+                if realSlugs.contains(slug) || fakeSlugs.contains(slug) {
+                    continue
+                }
+                fakeSlugs.insert(slug)
+                let item = AyuGramProfileBubblesView.Item(id: "fake:" + slug, gift: starGift, isFake: true)
+                if fake.nft.pinned {
+                    pinnedFakeItems.append(item)
+                    ayuPinnedFakeGifts.append(starGift)
+                } else {
+                    otherFakeItems.append(item)
+                }
+            }
+            ayuBubbleItems = pinnedFakeItems + realItems + otherFakeItems
+        }
+        let ayuBubblesActive = !ayuBubbleItems.isEmpty && ayuGramProfileBubblesVisible(entry: ayuEntry) && !self.isSettings && !state.isEditing && !isSearching && self.customNavigationContentNode == nil
+        
+        self.ayuMediaView?.dimAlpha = ayuBubblesActive ? 0.22 : 0.0
+        
+        if ayuBubblesActive && ayuBackgroundMedia == nil {
+            let haloView: AyuGramProfileBubblesHaloView
+            if let current = self.ayuBubblesHaloView {
+                haloView = current
+            } else {
+                haloView = AyuGramProfileBubblesHaloView(frame: ayuBannerContentFrame)
+                self.ayuBubblesHaloView = haloView
+                if let backgroundCoverView = self.backgroundCover.view, backgroundCoverView.superview === self.backgroundBannerView {
+                    self.backgroundBannerView.insertSubview(haloView, aboveSubview: backgroundCoverView)
+                } else {
+                    self.backgroundBannerView.addSubview(haloView)
+                }
+            }
+            haloView.frame = ayuBannerContentFrame
+            haloView.update(size: ayuBannerContentFrame.size, center: CGPoint(x: apparentAvatarFrame.center.x + bannerInset, y: apparentAvatarFrame.center.y + bannerInset), radius: width * 0.62, isDark: presentationData.theme.overallDarkAppearance, dimsBackground: hasCoverColor)
+            haloView.alpha = max(0.0, min(1.0, 1.0 - titleCollapseFraction * 1.5))
+        } else if let haloView = self.ayuBubblesHaloView {
+            self.ayuBubblesHaloView = nil
+            haloView.removeFromSuperview()
+        }
+        
         if let profileGiftsContext, let peer {
             let giftsCoverSize = self.giftsCover.update(
                 transition: ComponentTransition(transition),
@@ -2710,11 +2954,17 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                     titleCenterX: hasStrip ? titleFrame.midX : nil,
                     sideInsets: sideInsets,
                     bottomHeight: !buttonKeys.isEmpty ? 81.0 : 30.0,
+                    extraGifts: ayuPinnedFakeGifts,
+                    hidesRealGifts: ayuHidesRealGifts,
                     action: { [weak self] gift in
-                        guard let self, case let .unique(gift) = gift.gift else {
+                        guard let self, case let .unique(uniqueGift) = gift.gift else {
                             return
                         }
-                        self.openUniqueGift?(self.view, gift.slug)
+                        if gift.reference == nil && (self.ayuFakeSlugs.contains(uniqueGift.slug.lowercased()) || self.ayuFakeGiftIds.contains(uniqueGift.id)) {
+                            self.ayuOpenFakeGift?(uniqueGift)
+                            return
+                        }
+                        self.openUniqueGift?(self.view, uniqueGift.slug)
                     }
                 )),
                 environment: {},
@@ -2729,7 +2979,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 } else {
                     transition.updateFrame(view: giftsCoverView, frame: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: giftsCoverSize))
                 }
-                navigationTransition.updateAlpha(layer: giftsCoverView.layer, alpha: backgroundBannerAlpha)
+                navigationTransition.updateAlpha(layer: giftsCoverView.layer, alpha: ayuBubblesActive ? 0.0 : backgroundBannerAlpha)
                 if backgroundCoverAnimateIn {
                     if !self.isAvatarExpanded {
                         giftsCoverView.willAnimateIn()
@@ -2739,6 +2989,63 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                     }
                 }
             }
+        }
+        
+        if ayuBubblesActive {
+            let bubblesView: AyuGramProfileBubblesView
+            if let current = self.ayuBubblesView {
+                bubblesView = current
+            } else {
+                bubblesView = AyuGramProfileBubblesView(context: self.context)
+                bubblesView.action = { [weak self] item in
+                    guard let self, case let .unique(uniqueGift) = item.gift.gift else {
+                        return
+                    }
+                    if item.isFake {
+                        self.ayuOpenFakeGift?(uniqueGift)
+                    } else {
+                        self.openUniqueGift?(self.view, uniqueGift.slug)
+                    }
+                }
+                bubblesView.alpha = 0.0
+                bubblesView.backView.alpha = 0.0
+                self.ayuBubblesView = bubblesView
+                self.view.insertSubview(bubblesView.backView, belowSubview: self.regularContentNode.view)
+                self.view.insertSubview(bubblesView, aboveSubview: self.regularContentNode.view)
+            }
+            let bubbleAvatarDiameter = max(1.0, avatarSize * avatarScale)
+            let bubbleAvatarCenter = apparentAvatarFrame.center
+            let bubbleStoryCount = self.avatarListNode.avatarContainerNode.avatarNode.storyStats?.totalCount ?? 0
+            let bubblesFrame = CGRect(origin: CGPoint(), size: CGSize(width: width, height: max(1.0, apparentBackgroundHeight)))
+            if bubblesView.frame != bubblesFrame {
+                bubblesView.frame = bubblesFrame
+            }
+            if bubblesView.backView.frame != bubblesFrame {
+                bubblesView.backView.frame = bubblesFrame
+            }
+            bubblesView.fakeLabel = i18n("Ayu.FakeNft.Title", presentationData.strings.baseLanguageCode)
+            bubblesView.update(items: ayuBubbleItems, layout: AyuGramProfileBubblesView.Layout(
+                size: bubblesFrame.size,
+                avatarCenter: bubbleAvatarCenter,
+                avatarDiameter: bubbleAvatarDiameter,
+                collapseFraction: max(0.0, min(1.0, titleCollapseFraction)),
+                isDark: presentationData.theme.overallDarkAppearance || hasCoverColor,
+                showsAvatarRim: bubbleStoryCount == 0 && !self.isAvatarExpanded
+            ))
+            let bubblesAlpha: CGFloat = self.isAvatarExpanded ? 0.0 : backgroundBannerAlpha
+            navigationTransition.updateAlpha(layer: bubblesView.layer, alpha: bubblesAlpha)
+            navigationTransition.updateAlpha(layer: bubblesView.backView.layer, alpha: bubblesAlpha)
+            bubblesView.isActive = bubblesAlpha > 0.0
+        } else if let bubblesView = self.ayuBubblesView {
+            self.ayuBubblesView = nil
+            bubblesView.isActive = false
+            let backView = bubblesView.backView
+            ContainedViewLayoutTransition.animated(duration: 0.2, curve: .easeInOut).updateAlpha(layer: backView.layer, alpha: 0.0, completion: { [weak backView] _ in
+                backView?.removeFromSuperview()
+            })
+            ContainedViewLayoutTransition.animated(duration: 0.2, curve: .easeInOut).updateAlpha(layer: bubblesView.layer, alpha: 0.0, completion: { [weak bubblesView] _ in
+                bubblesView?.removeFromSuperview()
+            })
         }
         
         let edgeEffectHeight: CGFloat = 60.0
@@ -3174,11 +3481,66 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             return result
         }
         
+        if result == self.view || result == self.regularContentNode.view, let bubblesView = self.ayuBubblesView, bubblesView.superview != nil, bubblesView.backBubbleContains(self.view.convert(point, to: bubblesView)) {
+            return bubblesView
+        }
+        
         if result == self.view || result == self.regularContentNode.view || result == self.editingContentNode.view {
             return nil
         }
         
         return result
+    }
+    
+    func ayuSpinBandContains(_ point: CGPoint) -> Bool {
+        guard let bubblesView = self.ayuBubblesView, bubblesView.superview != nil, !self.isAvatarExpanded, !self.isSearching, !(self.state?.isEditing ?? false), self.customNavigationContentNode == nil else {
+            return false
+        }
+        return bubblesView.spinBandContains(self.view.convert(point, to: bubblesView))
+    }
+    
+    func ayuInstallSpinGesture(on hostView: UIView) {
+        if self.ayuSpinRecognizer != nil {
+            return
+        }
+        let recognizer = AyuGramOrbitPanGestureRecognizer(bandTest: { [weak self, weak hostView] point in
+            guard let self, let hostView else {
+                return false
+            }
+            return self.ayuSpinBandContains(hostView.convert(point, to: self.view))
+        }, isBlocked: { [weak self] in
+            guard let self, let bubblesView = self.ayuBubblesView else {
+                return true
+            }
+            return bubblesView.isInteracting
+        }, updated: { [weak self] recognizer in
+            self?.ayuHandleSpin(recognizer)
+        })
+        hostView.addGestureRecognizer(recognizer)
+        self.ayuSpinRecognizer = recognizer
+    }
+    
+    private func ayuHandleSpin(_ recognizer: AyuGramOrbitPanGestureRecognizer) {
+        guard let bubblesView = self.ayuBubblesView else {
+            return
+        }
+        switch recognizer.state {
+        case .began:
+            bubblesView.spinBegan()
+            let translation = recognizer.translation(in: recognizer.view)
+            recognizer.setTranslation(CGPoint(), in: recognizer.view)
+            bubblesView.spinChanged(translationX: translation.x)
+        case .changed:
+            let translation = recognizer.translation(in: recognizer.view)
+            recognizer.setTranslation(CGPoint(), in: recognizer.view)
+            bubblesView.spinChanged(translationX: translation.x)
+        case .ended:
+            bubblesView.spinEnded(velocityX: recognizer.velocity(in: recognizer.view).x)
+        case .cancelled, .failed:
+            bubblesView.spinEnded(velocityX: 0.0)
+        default:
+            break
+        }
     }
     
     func updateIsAvatarExpanded(_ isAvatarExpanded: Bool, transition: ContainedViewLayoutTransition) {

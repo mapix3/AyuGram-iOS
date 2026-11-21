@@ -2509,6 +2509,13 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
             }
         }
         
+        self.headerNode.ayuOpenFakeGift = { [weak self] gift in
+            guard let self else {
+                return
+            }
+            self.controller?.push(ayuGramFakeNftViewScreen(context: self.context, gift: gift))
+        }
+        
         self.headerNode.openUniqueGift = { [weak self] _, slug in
             guard let self, let profileGifts = self.data?.profileGiftsContext else {
                 return
@@ -2823,6 +2830,13 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 return false
             }
         }
+        self.view.interactiveTransitionGestureRecognizerTest = { [weak self] point in
+            guard let self else {
+                return false
+            }
+            return self.headerNode.ayuSpinBandContains(self.view.convert(point, to: self.headerNode.view))
+        }
+        self.headerNode.ayuInstallSpinGesture(on: self.view)
     }
         
     var canAttachVideo: Bool?

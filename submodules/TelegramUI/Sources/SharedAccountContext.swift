@@ -872,6 +872,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                     self.activeAccountsPromise.set(.single(self.activeAccountsValue!))
                     AyuGramBadgeSync.shared.start()
                     AyuGramClientBadges.shared.setActiveAccount(self.activeAccountsValue!.primary?.account.peerId.toInt64())
+                    AyuGramProfileRelay.shared.setActiveAccount(self.activeAccountsValue!.primary?.account.peerId.id._internalGetInt64Value())
                     
                     self.performAccountSettingsImportIfNecessary()
                 }

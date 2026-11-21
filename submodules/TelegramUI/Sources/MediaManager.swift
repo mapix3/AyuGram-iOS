@@ -115,6 +115,7 @@ public final class MediaManagerImpl: NSObject, MediaManager {
         didSet {
             if self.musicMediaPlayer !== oldValue {
                 if let musicMediaPlayer = self.musicMediaPlayer {
+                    self.ayuMusicAudioLevelValue.set(.single(musicMediaPlayer.audioLevel))
                     let type = musicMediaPlayer.type
                     let account = musicMediaPlayer.engine.account
                     self.musicMediaPlayerStateValue.set(musicMediaPlayer.playbackState
@@ -130,6 +131,7 @@ public final class MediaManagerImpl: NSObject, MediaManager {
                     } |> deliverOnMainQueue)
                 } else {
                     self.musicMediaPlayerStateValue.set(.single(nil))
+                    self.ayuMusicAudioLevelValue.set(.single(Signal<Float, NoError>.never()))
                     self.musicListenTracker?.playerClosed()
                 }
             }
@@ -138,6 +140,30 @@ public final class MediaManagerImpl: NSObject, MediaManager {
     private let musicMediaPlayerStateValue = Promise<(Account, SharedMediaPlayerItemPlaybackStateOrLoading, MediaManagerPlayerType)?>(nil)
     public var musicMediaPlayerState: Signal<(Account, SharedMediaPlayerItemPlaybackStateOrLoading, MediaManagerPlayerType)?, NoError> {
         return self.musicMediaPlayerStateValue.get()
+    }
+    
+    private let ayuMusicAudioLevelValue = Promise<Signal<Float, NoError>>(Signal<Float, NoError>.never())
+    public var ayuMusicAudioLevel: Signal<Float, NoError> {
+        return self.ayuMusicAudioLevelValue.get()
+        |> mapToSignal { signal -> Signal<Float, NoError> in
+            return signal
+        }
+    }
+    public var ayuMusicActivity: Signal<AyuGramMusicActivity?, NoError> {
+        return self.musicMediaPlayerStateValue.get()
+        |> map { value -> AyuGramMusicActivity? in
+            guard let value, case let .state(state) = value.1 else {
+                return nil
+            }
+            let isPlaying: Bool
+            if case .playing = state.status.status {
+                isPlaying = true
+            } else {
+                isPlaying = false
+            }
+            return AyuGramMusicActivity(isPlaying: isPlaying, timestamp: state.status.timestamp, generationTimestamp: state.status.generationTimestamp, rate: state.status.baseRate)
+        }
+        |> distinctUntilChanged
     }
     
     private let globalMediaPlayerStateValue = Promise<(Account, SharedMediaPlayerItemPlaybackStateOrLoading, MediaManagerPlayerType)?>()

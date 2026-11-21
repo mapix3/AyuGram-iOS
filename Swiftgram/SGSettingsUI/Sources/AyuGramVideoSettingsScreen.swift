@@ -11,11 +11,11 @@ import SGSimpleSettings
 import SGStrings
 
 private enum AyuVideoSection: Int32 {
-    case round, roundExperimental, video
+    case round, video
 }
 
 private enum AyuVideoToggle: Equatable {
-    case roundFromGallery, roundHEVC, roundLargeAs640, bestQuality, highBitrate
+    case roundFromGallery, roundHEVC, bestQuality, highBitrate
 }
 
 private enum AyuVideoPicker: Equatable {
@@ -100,10 +100,6 @@ private func ayuVideoQualityTitle(_ index: Int32, locale: String) -> String {
     switch index {
     case 1:
         return i18n("Ayu.Video.RoundMax", locale)
-    case 2:
-        return i18n("Ayu.Video.Round720", locale)
-    case 3:
-        return i18n("Ayu.Video.Round1080", locale)
     default:
         return i18n("Ayu.Video.RoundStandard", locale)
     }
@@ -134,10 +130,6 @@ private func ayuVideoEntries(data: PresentationData, video: AyuGramVideoSettings
     entries.append(.toggle(id: 40, section: .round, key: .roundFromGallery, symbol: "photo.on.rectangle.angled", color: AyuGramRowColor.blue, title: s("Ayu.Video.RoundFromGallery"), subtitle: s("Ayu.Video.RoundFromGalleryInfo"), value: video.roundFromGallery))
     entries.append(.footer(id: 50, section: .round, text: s("Ayu.Video.RoundFooter")))
 
-    entries.append(.header(id: 60, section: .roundExperimental, text: s("Ayu.Video.RoundExperimentalSection")))
-    entries.append(.toggle(id: 70, section: .roundExperimental, key: .roundLargeAs640, symbol: "exclamationmark.triangle.fill", color: AyuGramRowColor.gray, title: s("Ayu.Video.RoundLargeAs640"), subtitle: s("Ayu.Video.RoundLargeAs640Info"), value: video.roundLargeAs640))
-    entries.append(.footer(id: 80, section: .roundExperimental, text: s("Ayu.Video.RoundExperimentalFooter")))
-
     entries.append(.header(id: 100, section: .video, text: s("Ayu.Video.VideoSection")))
     entries.append(.toggle(id: 110, section: .video, key: .bestQuality, symbol: "film.fill", color: AyuGramRowColor.teal, title: s("Ayu.Video.BestQuality"), subtitle: s("Ayu.Video.BestQualityInfo"), value: video.videoBestQuality))
     entries.append(.toggle(id: 120, section: .video, key: .highBitrate, symbol: "waveform.path.ecg", color: AyuGramRowColor.green, title: s("Ayu.Video.HighBitrate"), subtitle: s("Ayu.Video.HighBitrateInfo"), value: video.videoHighBitrate))
@@ -163,11 +155,6 @@ public func ayuGramVideoSettingsController(context: AccountContext) -> ViewContr
                 video.roundFromGallery = value
             case .roundHEVC:
                 video.roundHEVC = value
-            case .roundLargeAs640:
-                video.roundLargeAs640 = value
-                if !value {
-                    video.roundQuality = video.roundQualityIndex
-                }
             case .bestQuality:
                 video.videoBestQuality = value
                 if value {
@@ -185,7 +172,7 @@ public func ayuGramVideoSettingsController(context: AccountContext) -> ViewContr
         var items: [ActionSheetItem] = []
         switch key {
         case .roundQuality:
-            for index in 0 ..< Int32(video.roundAvailableQualityCount) {
+            for index in 0 ..< Int32(AyuGramVideoSettings.roundSides.count) {
                 items.append(ActionSheetButtonItem(title: (index == video.roundQualityIndex ? "✓ " : "") + ayuVideoQualityTitle(index, locale: locale), color: .accent, action: { [weak sheet] in
                     sheet?.dismissAnimated()
                     AyuGramSettings.shared.updateVideo { $0.roundQuality = index }

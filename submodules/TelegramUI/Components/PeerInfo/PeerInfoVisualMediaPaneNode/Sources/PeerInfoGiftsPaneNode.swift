@@ -36,6 +36,9 @@ import TextFormat
 import PromptUI
 import CollectionTabItemComponent
 import EdgeEffect
+import SGSimpleSettings
+import SGStrings
+import AyuGramProfileExtras
 
 public final class PeerInfoGiftsPaneNode: ASDisplayNode, PeerInfoPaneNode, UIScrollViewDelegate {
     public enum GiftCollection: Equatable {
@@ -129,6 +132,7 @@ public final class PeerInfoGiftsPaneNode: ASDisplayNode, PeerInfoPaneNode, UIScr
     }
     
     public var openShareLink: ((String) -> Void)?
+    public var ayuOpenFakeGiftsEditor: (() -> Void)?
     
     private let collectionsMaxCount: Int
     
@@ -173,6 +177,12 @@ public final class PeerInfoGiftsPaneNode: ASDisplayNode, PeerInfoPaneNode, UIScr
                 return
             }
             self.contextAction(gift: gift, view: view, gesture: gesture)
+        }
+        self.giftsListView.ayuFakeContextAction = { [weak self] gift, view, gesture in
+            guard let self else {
+                return
+            }
+            self.ayuFakeContextAction(gift: gift, view: view, gesture: gesture)
         }
         self.giftsListView.displayUnpinScreen = { [weak self] gift, completion in
             guard let self else {
@@ -976,6 +986,67 @@ public final class PeerInfoGiftsPaneNode: ASDisplayNode, PeerInfoPaneNode, UIScr
         }
     }
     
+    private func ayuFakeContextAction(gift: ProfileGiftsContext.State.StarGift, view: UIView, gesture: ContextGesture) {
+        guard let currentParams = self.currentParams, self.peerId == self.context.account.peerId, case let .unique(uniqueGift) = gift.gift else {
+            return
+        }
+        guard let entry = ayuGramProfileEntry(peerId: self.peerId, refresh: false), let nft = entry.nfts.first(where: { $0.slug?.lowercased() == uniqueGift.slug.lowercased() }) else {
+            return
+        }
+        let presentationData = currentParams.presentationData
+        let locale = presentationData.strings.baseLanguageCode
+        let accountPeerId = self.context.account.peerId
+        let isStatus = entry.statusSlug?.lowercased() == uniqueGift.slug.lowercased()
+
+        let apply: (AyuGramOwnNftAction) -> Void = { [weak self] action in
+            ayuGramApplyOwnNftAction(accountPeerId: accountPeerId, action: action, completion: { [weak self] error in
+                guard let self, let error else {
+                    return
+                }
+                let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+                self.parentController?.present(textAlertController(context: self.context, title: nil, text: error.text(locale: presentationData.strings.baseLanguageCode), actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]), in: .window(.root))
+            })
+        }
+
+        var items: [ContextMenuItem] = []
+        items.append(.action(ContextMenuActionItem(text: i18n("Ayu.FakeNft.Badge", locale), textColor: .disabled, textFont: .small, icon: { _ in return nil }, action: { _, f in
+            f(.default)
+        })))
+        items.append(.separator)
+        items.append(.action(ContextMenuActionItem(text: i18n(nft.pinned ? "Ayu.ProfileExtras.Unpin" : "Ayu.ProfileExtras.Pin", locale), icon: { theme in generateTintedImage(image: UIImage(bundleImageName: nft.pinned ? "Chat/Context Menu/Unpin" : "Chat/Context Menu/Pin"), color: theme.contextMenu.primaryColor) }, action: { c, _ in
+            c?.dismiss(completion: {
+                apply(.togglePinned(key: nft.key))
+            })
+        })))
+        items.append(.action(ContextMenuActionItem(text: i18n(isStatus ? "Ayu.ProfileExtras.RemoveStatus" : "Ayu.ProfileExtras.SetStatus", locale), icon: { theme in generateTintedImage(image: UIImage(bundleImageName: "Peer Info/WearIcon"), color: theme.contextMenu.primaryColor) }, action: { c, _ in
+            c?.dismiss(completion: {
+                apply(.toggleStatus(slug: uniqueGift.slug))
+            })
+        })))
+        if let openEditor = self.ayuOpenFakeGiftsEditor {
+            items.append(.action(ContextMenuActionItem(text: i18n("Ayu.ProfileExtras.EditFakeGifts", locale), icon: { theme in generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/ReorderItems"), color: theme.contextMenu.primaryColor) }, action: { c, _ in
+                c?.dismiss(completion: {
+                    openEditor()
+                })
+            })))
+        }
+        items.append(.separator)
+        items.append(.action(ContextMenuActionItem(text: i18n("Ayu.ProfileExtras.Delete", locale), textColor: .destructive, icon: { theme in generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Delete"), color: theme.contextMenu.destructiveColor) }, action: { c, _ in
+            c?.dismiss(completion: {
+                apply(.delete(key: nft.key))
+            })
+        })))
+
+        let previewController = GiftContextPreviewController(context: self.context, gift: gift)
+        let contextController = makeContextController(
+            context: self.context,
+            presentationData: presentationData,
+            source: .controller(ContextControllerContentSourceImpl(controller: previewController, sourceView: view)),
+            items: .single(ContextController.Items(content: .list(items))), gesture: gesture
+        )
+        self.parentController?.presentInGlobalOverlay(contextController)
+    }
+
     private func contextAction(gift: ProfileGiftsContext.State.StarGift, view: UIView, gesture: ContextGesture) {
         guard let currentParams = self.currentParams else {
             return

@@ -34,6 +34,8 @@ public final class PeerInfoGiftsCoverComponent: Component {
     /// Keeps the icons off the navigation buttons and out of a side strip (iPhone Duo).
     public let sideInsets: PeerInfoSideInsets
     public let bottomHeight: CGFloat
+    public let extraGifts: [ProfileGiftsContext.State.StarGift]
+    public let hidesRealGifts: Bool
     public let action: (ProfileGiftsContext.State.StarGift) -> Void
     
     public init(
@@ -52,6 +54,8 @@ public final class PeerInfoGiftsCoverComponent: Component {
         titleCenterX: CGFloat?,
         sideInsets: PeerInfoSideInsets,
         bottomHeight: CGFloat,
+        extraGifts: [ProfileGiftsContext.State.StarGift] = [],
+        hidesRealGifts: Bool = false,
         action: @escaping (ProfileGiftsContext.State.StarGift) -> Void
     ) {
         self.context = context
@@ -69,6 +73,8 @@ public final class PeerInfoGiftsCoverComponent: Component {
         self.titleCenterX = titleCenterX
         self.sideInsets = sideInsets
         self.bottomHeight = bottomHeight
+        self.extraGifts = extraGifts
+        self.hidesRealGifts = hidesRealGifts
         self.action = action
     }
     
@@ -115,6 +121,12 @@ public final class PeerInfoGiftsCoverComponent: Component {
         if lhs.bottomHeight != rhs.bottomHeight {
             return false
         }
+        if lhs.extraGifts != rhs.extraGifts {
+            return false
+        }
+        if lhs.hidesRealGifts != rhs.hidesRealGifts {
+            return false
+        }
         return true
     }
     
@@ -125,6 +137,7 @@ public final class PeerInfoGiftsCoverComponent: Component {
                 
         private var giftsDisposable: Disposable?
         private var gifts: [ProfileGiftsContext.State.StarGift] = []
+        private var stateGifts: [ProfileGiftsContext.State.StarGift] = []
         private var appliedGiftIds: [Int64] = []
         
         private var iconLayers: [AnyHashable: GiftIconLayer] = [:]
@@ -277,6 +290,30 @@ public final class PeerInfoGiftsCoverComponent: Component {
             }
         }
     
+        private func mergedGifts(component: PeerInfoGiftsCoverComponent) -> [ProfileGiftsContext.State.StarGift] {
+            if component.hidesRealGifts {
+                return component.extraGifts
+            }
+            if component.extraGifts.isEmpty {
+                return self.stateGifts
+            }
+            var result: [ProfileGiftsContext.State.StarGift] = []
+            var slugs = Set<String>()
+            for gift in self.stateGifts {
+                if case let .unique(uniqueGift) = gift.gift {
+                    slugs.insert(uniqueGift.slug.lowercased())
+                }
+            }
+            for gift in component.extraGifts {
+                if case let .unique(uniqueGift) = gift.gift, !slugs.contains(uniqueGift.slug.lowercased()) {
+                    slugs.insert(uniqueGift.slug.lowercased())
+                    result.append(gift)
+                }
+            }
+            result.append(contentsOf: self.stateGifts)
+            return result
+        }
+        
         func update(component: PeerInfoGiftsCoverComponent, availableSize: CGSize, state: EmptyComponentState, environment: Environment<Empty>, transition: ComponentTransition) -> CGSize {
             self.isUpdating = true
             defer {
@@ -289,6 +326,7 @@ public final class PeerInfoGiftsCoverComponent: Component {
             
             let previousCurrentSize = self.currentSize
             self.currentSize = availableSize
+            self.gifts = self.mergedGifts(component: component)
                     
             let iconSize = CGSize(width: 32.0, height: 32.0)
             
@@ -354,7 +392,12 @@ public final class PeerInfoGiftsCoverComponent: Component {
                         }
                         return false
                     }
-                    self.gifts = pinnedGifts
+                    self.stateGifts = pinnedGifts
+                    if let component = self.component {
+                        self.gifts = self.mergedGifts(component: component)
+                    } else {
+                        self.gifts = pinnedGifts
+                    }
                     
                     if !self.isUpdating {
                         self.state?.updated(transition: .spring(duration: 0.4))

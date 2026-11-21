@@ -13,6 +13,7 @@ sgdeps = [
     "//Swiftgram/Wrap:Wrap",
     "//Swiftgram/SGDeviceToken:SGDeviceToken",
     "//Swiftgram/SGDebugUI:SGDebugUI",
+    "//Swiftgram/AyuGramProfileExtras:AyuGramProfileExtras",
     "//Swiftgram/SGInputToolbar:SGInputToolbar",
     "//Swiftgram/SGIAP:SGIAP",
     "//Swiftgram/SGPayWall:SGPayWall",

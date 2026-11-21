@@ -259,6 +259,20 @@ public struct AudioRecorderResumeData {
     }
 }
 
+public struct AyuGramMusicActivity: Equatable {
+    public let isPlaying: Bool
+    public let timestamp: Double
+    public let generationTimestamp: Double
+    public let rate: Double
+
+    public init(isPlaying: Bool, timestamp: Double, generationTimestamp: Double, rate: Double) {
+        self.isPlaying = isPlaying
+        self.timestamp = timestamp
+        self.generationTimestamp = generationTimestamp
+        self.rate = rate
+    }
+}
+
 public protocol MediaManager: AnyObject {
     var audioSession: ManagedAudioSession { get }
     var galleryHiddenMediaManager: GalleryHiddenMediaManager { get }
@@ -270,6 +284,8 @@ public protocol MediaManager: AnyObject {
     var globalMediaPlayerState: Signal<(Account, SharedMediaPlayerItemPlaybackStateOrLoading, MediaManagerPlayerType)?, NoError> { get }
     var musicMediaPlayerState: Signal<(Account, SharedMediaPlayerItemPlaybackStateOrLoading, MediaManagerPlayerType)?, NoError> { get }
     var activeGlobalMediaPlayerAccountId: Signal<(AccountRecordId, Bool)?, NoError> { get }
+    var ayuMusicActivity: Signal<AyuGramMusicActivity?, NoError> { get }
+    var ayuMusicAudioLevel: Signal<Float, NoError> { get }
     
     func setPlaylist(_ playlist: (AccountContext, SharedMediaPlaylist)?, type: MediaManagerPlayerType, control: SharedMediaPlayerControlAction)
     func playlistControl(_ control: SharedMediaPlayerControlAction, type: MediaManagerPlayerType?)

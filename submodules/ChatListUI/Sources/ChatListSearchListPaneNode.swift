@@ -40,6 +40,7 @@ import ButtonComponent
 import BundleIconComponent
 import AnimatedTextComponent
 import TextFormat
+import AyuGramProfileExtras
 
 private func isIncludedCommunityContainer(_ peer: EnginePeer?, filter: ChatListNodePeersFilter) -> Bool {
     if filter.contains(.includeCommunities), case .community = peer {
@@ -1113,7 +1114,13 @@ public enum ChatListSearchEntry: Comparable, Identifiable {
                     isSavedMessages = true
                 }
 
-                return ContactsPeerItem(presentationData: ItemListPresentationData(presentationData), sortOrder: nameSortOrder, displayOrder: nameDisplayOrder, context: context, peerMode: .generalSearch(isSavedMessages: isSavedMessages), peer: .peer(peer: peer.peer, chatPeer: peer.peer), status: .addressName(suffixString), badge: badge, requiresPremiumForMessaging: requiresPremiumForMessaging, enabled: enabled, selection: .none, editing: ContactsPeerItemEditing(editable: false, editing: false, revealed: false), index: nil, header: header, searchQuery: query, isAd: false, action: { _ in
+                let ayuStatus: ContactsPeerItemStatus
+                if let fakeText = ayuGramFakeNumberHolderText(peer: peer.peer, query: query, locale: strings.baseLanguageCode) {
+                    ayuStatus = .custom(string: NSAttributedString(string: fakeText, font: Font.regular(13.0), textColor: theme.list.itemDestructiveColor), multiline: false, isActive: false, icon: nil)
+                } else {
+                    ayuStatus = .addressName(suffixString)
+                }
+                return ContactsPeerItem(presentationData: ItemListPresentationData(presentationData), sortOrder: nameSortOrder, displayOrder: nameDisplayOrder, context: context, peerMode: .generalSearch(isSavedMessages: isSavedMessages), peer: .peer(peer: peer.peer, chatPeer: peer.peer), status: ayuStatus, badge: badge, requiresPremiumForMessaging: requiresPremiumForMessaging, enabled: enabled, selection: .none, editing: ContactsPeerItemEditing(editable: false, editing: false, revealed: false), index: nil, header: header, searchQuery: query, isAd: false, action: { _ in
                     interaction.peerSelected(peer.peer, nil, nil, nil, false)
                 }, disabledAction: { _ in
                     interaction.disabledPeerSelected(peer.peer, nil, requiresPremiumForMessaging ? .premiumRequired : .generic)
@@ -2741,6 +2748,15 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                                 return context.engine.peers.searchAdPeers(query: query)
                                 |> map { adPeers in
                                     return (result.0, result.1, adPeers, false)
+                                }
+                            }
+                            |> mapToSignal { value -> Signal<([FoundPeer], [FoundPeer], [AdPeer], Bool), NoError> in
+                                return ayuGramFakeNumberHolderPeer(engine: context.engine, query: query)
+                                |> map { fakeHolder -> ([FoundPeer], [FoundPeer], [AdPeer], Bool) in
+                                    guard let fakeHolder, !value.0.contains(where: { $0.peer.id == fakeHolder.id }), !value.1.contains(where: { $0.peer.id == fakeHolder.id }) else {
+                                        return value
+                                    }
+                                    return (value.0, value.1 + [FoundPeer(peer: fakeHolder, subscribers: nil)], value.2, value.3)
                                 }
                             }
                         )
