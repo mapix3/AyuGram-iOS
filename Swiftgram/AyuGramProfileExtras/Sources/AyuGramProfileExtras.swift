@@ -358,7 +358,7 @@ public enum AyuGramOwnNftAction: Equatable {
     case delete(key: String)
 }
 
-public enum AyuGramOwnEditError: Equatable {
+public enum AyuGramOwnEditError: Error, Equatable {
     case profile(AyuGramProfileError)
     case pinLimit
     case notFound
