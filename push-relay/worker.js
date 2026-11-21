@@ -43,13 +43,15 @@ function allowRequest(request, pathname) {
     return true;
   }
 
-  const push = pathname.startsWith('/p/');
-  const capacity = push ? 60 : 20;
-  const refillPerSecond = push ? 5 : 2;
-  const key = (push ? 'push:' : 'api:') + ip;
+  const route = pathname === '/ai/guide' ? { key: 'guide', capacity: 20, refillPerSecond: 1 } : pathname.startsWith('/test/') ? { key: 'test', capacity: 2, refillPerSecond: 0.1 } : null;
+  if (!route) {
+    return true;
+  }
+
+  const key = route.key + ':' + ip;
   const now = Date.now();
-  const previous = REQUEST_BUCKETS.get(key) || { tokens: capacity, updatedAt: now, seenAt: now };
-  const tokens = Math.min(capacity, previous.tokens + Math.max(0, now - previous.updatedAt) * refillPerSecond / 1000);
+  const previous = REQUEST_BUCKETS.get(key) || { tokens: route.capacity, updatedAt: now, seenAt: now };
+  const tokens = Math.min(route.capacity, previous.tokens + Math.max(0, now - previous.updatedAt) * route.refillPerSecond / 1000);
   if (tokens < 1) {
     REQUEST_BUCKETS.set(key, { tokens, updatedAt: now, seenAt: now });
     return false;
