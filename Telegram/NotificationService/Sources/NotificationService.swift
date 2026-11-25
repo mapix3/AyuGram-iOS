@@ -25,10 +25,29 @@ import UniformTypeIdentifiers
 
 private let groupUserDefaults: UserDefaults? = UserDefaults(suiteName: sgAppGroupIdentifier())
 private let LEGACY_NOTIFICATIONS_FIX: Bool = groupUserDefaults?.bool(forKey: "legacyNotificationsFix") ?? false
-private let PINNED_MESSAGE_ACTION: String = groupUserDefaults?.string(forKey: "pinnedMessageNotifications") ?? "default"
-private let PINNED_MESSAGE_ACTION_EXCEPTIONS: [String: String] = (groupUserDefaults?.dictionary(forKey: "pinnedMessageNotificationsExceptions") as? [String: String]) ?? [:]
-private let MENTION_AND_REPLY_ACTION: String = groupUserDefaults?.string(forKey: "mentionsAndRepliesNotifications") ?? "default"
-private let MENTION_AND_REPLY_ACTION_EXCEPTIONS: [String: String] = (groupUserDefaults?.dictionary(forKey: "mentionsAndRepliesNotificationsExceptions") as? [String: String]) ?? [:]
+private var PINNED_MESSAGE_ACTION: String {
+    return groupUserDefaults?.string(forKey: "pinnedMessageNotifications") ?? "default"
+}
+private var PINNED_MESSAGE_ACTION_EXCEPTIONS: [String: String] {
+    return (groupUserDefaults?.dictionary(forKey: "pinnedMessageNotificationsExceptions") as? [String: String]) ?? [:]
+}
+private var MENTION_AND_REPLY_ACTION: String {
+    return groupUserDefaults?.string(forKey: "mentionsAndRepliesNotifications") ?? "default"
+}
+private var MENTION_AND_REPLY_ACTION_EXCEPTIONS: [String: String] {
+    return (groupUserDefaults?.dictionary(forKey: "mentionsAndRepliesNotificationsExceptions") as? [String: String]) ?? [:]
+}
+
+private func sgIsPinnedNotification(payload: [String: Any], aps: [String: Any]) -> Bool {
+    var locKeys: [String] = []
+    if let locKey = payload["loc-key"] as? String {
+        locKeys.append(locKey)
+    }
+    if let alert = aps["alert"] as? [String: Any], let locKey = alert["loc-key"] as? String {
+        locKeys.append(locKey)
+    }
+    return locKeys.contains(where: { $0.hasPrefix("PINNED_") || $0.contains("_PINNED_") })
+}
 
 private let queue = Queue()
 
@@ -1282,6 +1301,7 @@ private final class NotificationServiceHandler {
                     } else {
                         if let aps = payloadJson["aps"] as? [String: Any], var peerId = peerId {
                             var content: NotificationContent = NotificationContent(sgStatus: sgStatus, isLockedMessage: isLockedMessage, isMentionOrReply: isMentionOrReply, chatId: chatId)
+                            content.isPinned = sgIsPinnedNotification(payload: payloadJson, aps: aps)
                             content.recipientAccountName = recipientAccountName
                             if let alert = aps["alert"] as? [String: Any] {
                                 if let topicTitleValue = payloadJson["topic_title"] as? String {
@@ -2224,6 +2244,20 @@ private final class NotificationServiceHandler {
                                             var content = content
                                             
                                             var parsedMedia: Media?
+                                            if let messageId, let message = transaction.getMessage(messageId) {
+                                                for media in message.media {
+                                                    if let action = media as? TelegramMediaAction, case .pinnedMessageUpdated = action.action {
+                                                        content.isPinned = true
+                                                    }
+                                                }
+                                                if messageId.peerId.namespace == Namespaces.Peer.CloudGroup || messageId.peerId.namespace == Namespaces.Peer.CloudChannel {
+                                                    for attribute in message.attributes {
+                                                        if let attribute = attribute as? NotificationInfoMessageAttribute, attribute.flags.contains(.personal) {
+                                                            content.isMentionOrReply = true
+                                                        }
+                                                    }
+                                                }
+                                            }
                                             if let messageId, let message = transaction.getMessage(messageId), !message.containsSecretMedia, !message.attributes.contains(where: { $0 is MediaSpoilerMessageAttribute }) {
                                                 if let media = message.media.first {
                                                     parsedMedia = media
@@ -2886,7 +2920,7 @@ final class NotificationService: UNNotificationServiceExtension {
                             // MARK: Swiftgram
                             strongSelf.removeEmptyNotificationsOnce()
                             contentHandler(content.generate())
-                            if content.isEmpty {
+                            if content.isEmpty || content.forceIsEmpty {
                                 strongSelf.removeEmptyNotifications()
                             }
                         } else if let initialContent = strongSelf.initialContent {

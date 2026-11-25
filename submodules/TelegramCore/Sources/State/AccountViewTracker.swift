@@ -717,6 +717,9 @@ public final class AccountViewTracker {
     }
     
     public func updateViewCountForMessageIds(messageIds: Set<MessageId>, clientId: Int32) {
+        if AyuGramBackgroundLean.isActive {
+            return
+        }
         self.queue.async { [self] in
             var addedMessageIds: [MessageId] = []
             let updatedState = ViewCountContextState(timestamp: Int32(CFAbsoluteTimeGetCurrent()), clientId: clientId, result: nil)
@@ -859,6 +862,9 @@ public final class AccountViewTracker {
     }
     
     public func updateReactionsForMessageIds(messageIds: Set<MessageId>, force: Bool = false) {
+        if AyuGramBackgroundLean.isActive {
+            return
+        }
         self.queue.async { [self] in
             var addedMessageIds: [MessageId] = []
             let timestamp = Int32(CFAbsoluteTimeGetCurrent())
@@ -1023,6 +1029,9 @@ public final class AccountViewTracker {
     }
     
     public func updatedExtendedMediaForMessageIds(messageIds: Set<MessageId>) {
+        if AyuGramBackgroundLean.isActive {
+            return
+        }
         self.queue.async { [self] in
             var addedMessageIds: [MessageId] = []
             let timestamp = Int32(CFAbsoluteTimeGetCurrent())
@@ -1270,6 +1279,9 @@ public final class AccountViewTracker {
     }
     
     public func refreshStoriesForMessageIds(messageIds: Set<MessageId>) {
+        if AyuGramBackgroundLean.isActive {
+            return
+        }
         self.queue.async { [self] in
             var addedMessageIds: [MessageId] = []
             let timestamp = Int32(CFAbsoluteTimeGetCurrent())
@@ -1350,6 +1362,9 @@ public final class AccountViewTracker {
     }
     
     public func refreshInlineGroupCallsForMessageIds(messageIds: Set<MessageId>) {
+        if AyuGramBackgroundLean.isActive {
+            return
+        }
         self.queue.async { [self] in
             var addedMessageIds: [MessageId] = []
             let timestamp = Int32(CFAbsoluteTimeGetCurrent())

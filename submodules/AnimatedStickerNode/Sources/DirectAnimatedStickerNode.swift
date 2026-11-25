@@ -81,14 +81,21 @@ public final class DirectAnimatedStickerNode: ASDisplayNode, AnimatedStickerNode
     private var frameImages: [Int: UIImage] = [:]
     private var loadFrameTasks: [Int: LoadFrameTask] = [:]
     private var nextFrameTimer: SwiftSignalKit.Timer?
-    
+    private var renderGateObserver: NSObjectProtocol?
 
     override public init() {
 
         super.init()
+        
+        self.renderGateObserver = AyuGramRenderGate.observe({ [weak self] _ in
+            self?.updatePlayback()
+        })
     }
     
     deinit {
+        if let renderGateObserver = self.renderGateObserver {
+            NotificationCenter.default.removeObserver(renderGateObserver)
+        }
         self.sourceDisposable?.dispose()
         self.nextFrameTimer?.invalidate()
     }
@@ -135,7 +142,7 @@ public final class DirectAnimatedStickerNode: ASDisplayNode, AnimatedStickerNode
     }
     
     private func updatePlayback() {
-        let isPlaying = self.visibility && (self.lottieInstance != nil || self.videoSource != nil)
+        let isPlaying = self.visibility && (self.lottieInstance != nil || self.videoSource != nil) && !AyuGramRenderGate.isSuspended
         if self.isPlaying != isPlaying {
             self.isPlaying = isPlaying
             
@@ -152,6 +159,9 @@ public final class DirectAnimatedStickerNode: ASDisplayNode, AnimatedStickerNode
     }
     
     private func startNextFrameTimerIfNeeded() {
+        if AyuGramRenderGate.isSuspended {
+            return
+        }
         var frameRate: Double?
         if let lottieInstance = self.lottieInstance {
             frameRate = Double(lottieInstance.frameRate)

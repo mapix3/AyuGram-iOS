@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import AVFAudio
+import CoreLocation
 import UserNotifications
 import Intents
 import SwiftSignalKit
@@ -42,32 +43,22 @@ private func ayuGramSilentWav() -> Data {
     return data
 }
 
-final class AyuGramKeepAlive {
+private final class AyuGramAudioKeepAlive {
     private let beginBackgroundTask: (String, @escaping () -> Void) -> UIBackgroundTaskIdentifier?
     private let endBackgroundTask: (UIBackgroundTaskIdentifier) -> Void
-    private let updated: (Bool) -> Void
 
     private var player: AVAudioPlayer?
     private var isPlaying = false
-    private var inForeground = true
+    private var isWanted = false
     private var telegramAudioActive = false
     private var interrupted = false
     private var retryTimer: SwiftSignalKit.Timer?
     private var retryTask: UIBackgroundTaskIdentifier?
     private var observers: [NSObjectProtocol] = []
 
-    private(set) var isWanted = false {
-        didSet {
-            if self.isWanted != oldValue {
-                self.updated(self.isWanted)
-            }
-        }
-    }
-
-    init(beginBackgroundTask: @escaping (String, @escaping () -> Void) -> UIBackgroundTaskIdentifier?, endBackgroundTask: @escaping (UIBackgroundTaskIdentifier) -> Void, updated: @escaping (Bool) -> Void) {
+    init(beginBackgroundTask: @escaping (String, @escaping () -> Void) -> UIBackgroundTaskIdentifier?, endBackgroundTask: @escaping (UIBackgroundTaskIdentifier) -> Void) {
         self.beginBackgroundTask = beginBackgroundTask
         self.endBackgroundTask = endBackgroundTask
-        self.updated = updated
 
         let center = NotificationCenter.default
         self.observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(), queue: .main, using: { [weak self] notification in
@@ -84,7 +75,6 @@ final class AyuGramKeepAlive {
             self.isPlaying = false
             self.apply()
         }))
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [AyuGramBackgroundNotifier.terminatedIdentifier])
     }
 
     deinit {
@@ -94,25 +84,14 @@ final class AyuGramKeepAlive {
         self.retryTimer?.invalidate()
     }
 
-    func update(inForeground: Bool) {
-        if self.inForeground == inForeground {
+    func update(wanted: Bool, telegramAudioActive: Bool) {
+        if self.isWanted == wanted && self.telegramAudioActive == telegramAudioActive {
             return
         }
-        self.inForeground = inForeground
-        if inForeground {
+        if !wanted {
             self.interrupted = false
-            self.isWanted = false
-            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [AyuGramBackgroundNotifier.terminatedIdentifier])
-        } else {
-            self.isWanted = true
         }
-        self.apply()
-    }
-
-    func update(telegramAudioActive: Bool) {
-        if self.telegramAudioActive == telegramAudioActive {
-            return
-        }
+        self.isWanted = wanted
         self.telegramAudioActive = telegramAudioActive
         self.apply()
     }
@@ -223,6 +202,201 @@ final class AyuGramKeepAlive {
     }
 }
 
+private final class AyuGramLocationKeepAlive: NSObject, CLLocationManagerDelegate {
+    var availabilityUpdated: (() -> Void)?
+
+    private var manager: CLLocationManager?
+    private var isEnabled = false
+    private var isWanted = false
+    private var isResigning = false
+    private var isRunning = false
+    private var failed = false
+    private var observers: [NSObjectProtocol] = []
+
+    override init() {
+        super.init()
+
+        let center = NotificationCenter.default
+        self.observers.append(center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main, using: { [weak self] _ in
+            guard let self else {
+                return
+            }
+            self.isResigning = true
+            self.apply()
+        }))
+        self.observers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main, using: { [weak self] _ in
+            guard let self else {
+                return
+            }
+            self.isResigning = false
+            self.failed = false
+            self.apply()
+        }))
+    }
+
+    deinit {
+        for observer in self.observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        self.manager?.stopUpdatingLocation()
+    }
+
+    private var clManager: CLLocationManager {
+        if let manager = self.manager {
+            return manager
+        }
+        let manager = CLLocationManager()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
+        manager.distanceFilter = CLLocationDistanceMax
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.activityType = .other
+        self.manager = manager
+        return manager
+    }
+
+    var isAvailable: Bool {
+        if self.failed {
+            return false
+        }
+        switch self.clManager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            return true
+        default:
+            return false
+        }
+    }
+
+    func prepare() {
+        let manager = self.clManager
+        switch manager.authorizationStatus {
+        case .notDetermined, .authorizedWhenInUse:
+            manager.requestAlwaysAuthorization()
+        default:
+            break
+        }
+    }
+
+    func update(enabled: Bool, wanted: Bool) {
+        self.isEnabled = enabled
+        self.isWanted = wanted
+        self.apply()
+    }
+
+    private func apply() {
+        let shouldRun = self.isEnabled && (self.isWanted || self.isResigning) && self.isAvailable
+        if shouldRun == self.isRunning {
+            return
+        }
+        self.isRunning = shouldRun
+        if shouldRun {
+            let manager = self.clManager
+            manager.allowsBackgroundLocationUpdates = true
+            manager.showsBackgroundLocationIndicator = false
+            manager.startUpdatingLocation()
+        } else if let manager = self.manager {
+            manager.stopUpdatingLocation()
+            manager.allowsBackgroundLocationUpdates = false
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        self.apply()
+        self.availabilityUpdated?()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        guard let error = error as? CLError, error.code == .denied else {
+            return
+        }
+        self.failed = true
+        self.apply()
+        self.availabilityUpdated?()
+    }
+}
+
+final class AyuGramKeepAlive {
+    private let updated: (Bool) -> Void
+    private let audio: AyuGramAudioKeepAlive
+    private let location: AyuGramLocationKeepAlive
+
+    private var mode: AyuGramBackgroundMode
+    private var inForeground = true
+    private var telegramAudioActive = false
+    private var observers: [NSObjectProtocol] = []
+
+    private(set) var isWanted = false {
+        didSet {
+            if self.isWanted != oldValue {
+                self.updated(self.isWanted)
+            }
+        }
+    }
+
+    init(beginBackgroundTask: @escaping (String, @escaping () -> Void) -> UIBackgroundTaskIdentifier?, endBackgroundTask: @escaping (UIBackgroundTaskIdentifier) -> Void, updated: @escaping (Bool) -> Void) {
+        self.updated = updated
+        self.mode = AyuGramBackgroundMode.current
+        self.audio = AyuGramAudioKeepAlive(beginBackgroundTask: beginBackgroundTask, endBackgroundTask: endBackgroundTask)
+        self.location = AyuGramLocationKeepAlive()
+
+        self.location.availabilityUpdated = { [weak self] in
+            self?.apply()
+        }
+        self.observers.append(NotificationCenter.default.addObserver(forName: AyuGramBackgroundMode.didChange, object: nil, queue: .main, using: { [weak self] _ in
+            guard let self else {
+                return
+            }
+            self.mode = AyuGramBackgroundMode.current
+            if self.inForeground && self.mode.usesLocation {
+                self.location.prepare()
+            }
+            self.apply()
+        }))
+        if self.mode.usesLocation {
+            self.location.prepare()
+        }
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [AyuGramBackgroundNotifier.terminatedIdentifier])
+    }
+
+    deinit {
+        for observer in self.observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    func update(inForeground: Bool) {
+        if self.inForeground == inForeground {
+            return
+        }
+        self.inForeground = inForeground
+        if inForeground {
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [AyuGramBackgroundNotifier.terminatedIdentifier])
+        }
+        self.apply()
+    }
+
+    func update(telegramAudioActive: Bool) {
+        if self.telegramAudioActive == telegramAudioActive {
+            return
+        }
+        self.telegramAudioActive = telegramAudioActive
+        self.apply()
+    }
+
+    private func apply() {
+        let inBackground = !self.inForeground
+        let usesLocation = self.mode.usesLocation
+        self.location.update(enabled: usesLocation, wanted: inBackground)
+        let locationAvailable = usesLocation && self.location.isAvailable
+        let usesAudio = self.mode.usesAudio || (usesLocation && !locationAvailable)
+        self.audio.update(wanted: inBackground && usesAudio, telegramAudioActive: self.telegramAudioActive)
+        self.isWanted = inBackground && (usesAudio || locationAvailable)
+    }
+}
+
 final class AyuGramBackgroundNotifier {
     static let terminatedIdentifier = "ayu-terminated"
     private(set) static weak var current: AyuGramBackgroundNotifier?
@@ -301,7 +475,7 @@ final class AyuGramBackgroundNotifier {
                     guard notify, let first = messages.first else {
                         continue
                     }
-                    if let peer = first.enginePeers[first.id.peerId] ?? first.author {
+                    if !AyuGramBackgroundLean.isActive, let peer = first.enginePeers[first.id.peerId] ?? first.author {
                         let _ = self.avatarData(account: account, accountId: id, peer: peer)
                     }
                     if !enabled {
@@ -404,7 +578,7 @@ final class AyuGramBackgroundNotifier {
             userInfo["threadId"] = threadId
         }
         content.userInfo = userInfo
-        let isSilent = message.attributes.contains(where: { attribute in
+        let isSilent = sgNotificationOverride(message: message._asMessage()) == .silenced || message.attributes.contains(where: { attribute in
             if let attribute = attribute as? NotificationInfoMessageAttribute {
                 return attribute.flags.contains(.muted)
             }
@@ -423,6 +597,13 @@ final class AyuGramBackgroundNotifier {
         }
         if let path = TelegramEngine(account: account).resources.completedResourcePath(id: EngineMediaResource(representation.resource).id), let value = try? Data(contentsOf: URL(fileURLWithPath: path)), UIImage(data: value) != nil {
             self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: avatarData, picture: value)
+            return
+        }
+        if AyuGramBackgroundLean.isActive {
+            content.categoryIdentifier = "ayu-" + category
+            userInfo["ayuPictureId"] = pictureMessage.id.id
+            content.userInfo = userInfo
+            self.deliver(content: content, identifier: identifier, title: title, conversationId: conversationId, avatar: avatarData, picture: nil)
             return
         }
         let _ = (AyuGramBackgroundNotifier.loadPicture(account: account, message: pictureMessage, side: 300, timeout: 2.5)
