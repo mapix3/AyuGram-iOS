@@ -684,5 +684,3 @@
 "Ayu.FakeNumber.NoRealResult" = "У жодного акаунта Telegram немає цього номера.";
 "Ayu.FakeNumber.SearchInfo" = "показує цей номер в AyuGram, це не його справжній номер";
 
-"Ayu.BackgroundKeepAlive" = "Робота у фоні";
-"Ayu.BackgroundKeepAliveInfo" = "Програє тишу, щоб AyuGram не засинав у фоні. Сильно витрачає батарею; без цього повідомлення все одно приходять через сповіщення.";
