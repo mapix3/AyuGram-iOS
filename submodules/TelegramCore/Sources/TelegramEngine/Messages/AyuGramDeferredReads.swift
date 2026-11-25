@@ -47,8 +47,92 @@ private func ayuGramUpdateDeferredReads(transaction: Transaction, peerId: PeerId
     }
 }
 
+private struct AyuGramDeferredPeers: Codable {
+    var peers: [Int64]
+}
+
+private func ayuGramDeferredPeersEntryId() -> ItemCacheEntryId {
+    let key = ValueBoxKey(length: 8)
+    key.setInt64(0, value: 0)
+    return ItemCacheEntryId(collectionId: 122, key: key)
+}
+
+private func ayuGramDeferredPeers(transaction: Transaction) -> [PeerId] {
+    let stored = transaction.retrieveItemCacheEntry(id: ayuGramDeferredPeersEntryId())?.get(AyuGramDeferredPeers.self)
+    return (stored?.peers ?? []).map { PeerId($0) }
+}
+
+private func ayuGramRememberDeferredPeer(transaction: Transaction, peerId: PeerId) {
+    var peers = transaction.retrieveItemCacheEntry(id: ayuGramDeferredPeersEntryId())?.get(AyuGramDeferredPeers.self)?.peers ?? []
+    let value = peerId.toInt64()
+    if !peers.contains(value) {
+        peers.append(value)
+        if let entry = CodableEntry(AyuGramDeferredPeers(peers: Array(peers.suffix(2000)))) {
+            transaction.putItemCacheEntry(id: ayuGramDeferredPeersEntryId(), entry: entry)
+        }
+    }
+}
+
+func ayuAdjustedMentionCount(transaction: Transaction, peerId: PeerId, count: Int32) -> Int32 {
+    guard count > 0 else { return count }
+    let deferred = Int32(ayuGramDeferredReads(transaction: transaction, peerId: peerId).mentions.count)
+    return max(0, count - deferred)
+}
+
+final class AyuDeferredReadsFlusher {
+    private let postbox: Postbox
+    private let network: Network
+    private let stateManager: AccountStateManager
+    private var observer: NSObjectProtocol?
+    private var wasSuppressed: Bool
+    private let disposable = MetaDisposable()
+
+    init(postbox: Postbox, network: Network, stateManager: AccountStateManager) {
+        self.postbox = postbox
+        self.network = network
+        self.stateManager = stateManager
+        self.wasSuppressed = AyuGramSettings.shared.snapshot.suppressRead || AyuGramSettings.shared.snapshot.suppressOnline
+        self.observer = NotificationCenter.default.addObserver(forName: AyuGramSettings.didChange, object: nil, queue: nil) { [weak self] _ in
+            self?.settingsChanged()
+        }
+        if !self.wasSuppressed {
+            self.flushAll()
+        }
+    }
+
+    deinit {
+        if let observer = self.observer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        self.disposable.dispose()
+    }
+
+    private func settingsChanged() {
+        let suppressed = AyuGramSettings.shared.snapshot.suppressRead || AyuGramSettings.shared.snapshot.suppressOnline
+        let shouldFlush = self.wasSuppressed && !suppressed
+        self.wasSuppressed = suppressed
+        if shouldFlush {
+            self.flushAll()
+        }
+    }
+
+    private func flushAll() {
+        let postbox = self.postbox
+        let network = self.network
+        let stateManager = self.stateManager
+        self.disposable.set((postbox.transaction { transaction -> [PeerId] in
+            return ayuGramDeferredPeers(transaction: transaction)
+        }
+        |> mapToSignal { peerIds -> Signal<Void, NoError> in
+            let signals = peerIds.map { _internal_ayuFlushDeferredReads(postbox: postbox, network: network, stateManager: stateManager, peerId: $0, includeVisible: true) }
+            return combineLatest(signals) |> map { _ in Void() }
+        }).start())
+    }
+}
+
 func ayuDeferMentionRead(transaction: Transaction, id: MessageId) {
     guard id.namespace == Namespaces.Message.Cloud else { return }
+    ayuGramRememberDeferredPeer(transaction: transaction, peerId: id.peerId)
     ayuGramUpdateDeferredReads(transaction: transaction, peerId: id.peerId) { reads in
         if !reads.mentions.contains(id.id) {
             reads.mentions.append(id.id)
@@ -75,6 +159,7 @@ private func ayuReactionKeys(transaction: Transaction, id: MessageId, unseen: Bo
 }
 
 func ayuDeferReactionRead(transaction: Transaction, id: MessageId) {
+    ayuGramRememberDeferredPeer(transaction: transaction, peerId: id.peerId)
     guard id.namespace == Namespaces.Message.Cloud else { return }
     let keys = ayuReactionKeys(transaction: transaction, id: id, unseen: false)
     ayuGramUpdateDeferredReads(transaction: transaction, peerId: id.peerId) { reads in
@@ -124,12 +209,12 @@ func ayuMarkReactionsSeenLocally(transaction: Transaction, id: MessageId) {
 }
 
 /// Reports the mentions and reactions read on this device in a chat you just wrote to.
-func _internal_ayuFlushDeferredReads(postbox: Postbox, network: Network, stateManager: AccountStateManager, peerId: PeerId) -> Signal<Void, NoError> {
+func _internal_ayuFlushDeferredReads(postbox: Postbox, network: Network, stateManager: AccountStateManager, peerId: PeerId, includeVisible: Bool = false) -> Signal<Void, NoError> {
     return postbox.transaction { transaction -> (Peer?, [Int32]) in
         let reads = ayuGramDeferredReads(transaction: transaction, peerId: peerId)
         let mentions = reads.mentions.filter { id in
             guard let message = transaction.getMessage(MessageId(peerId: peerId, namespace: Namespaces.Message.Cloud, id: id)) else { return false }
-            return ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes)
+            return includeVisible || ayuMentionReadIsPrivate(media: message.media, attributes: message.attributes)
         }
         // At most 100 per request; the rest goes with the next message.
         return (transaction.getPeer(peerId), Array(Set(mentions + reads.reactions).sorted().suffix(100)))

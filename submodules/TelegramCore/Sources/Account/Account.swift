@@ -1243,6 +1243,7 @@ public class Account {
     public let auxiliaryMethods: AccountAuxiliaryMethods
     
     private let serviceQueue = Queue()
+    private var ayuDeferredReadsFlusher: AyuDeferredReadsFlusher?
     
     private let accountManager: AccountManager<TelegramAccountManagerTypes>
     public private(set) var stateManager: AccountStateManager!
@@ -1694,6 +1695,7 @@ public class Account {
             print("debugFetchAllStickers done")
         }))
         #endif*/
+        self.ayuDeferredReadsFlusher = AyuDeferredReadsFlusher(postbox: self.postbox, network: self.network, stateManager: self.stateManager)
     }
     
     deinit {
