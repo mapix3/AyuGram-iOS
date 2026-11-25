@@ -3,7 +3,7 @@ import Postbox
 import SwiftSignalKit
 import SGSimpleSettings
 
-private let ayuGhostScheduleDelay: Int32 = 6
+private let ayuGhostScheduleDelay: Int32 = 12
 
 func ayuPrepareGhostSending(account: Account, peerId: PeerId, messages: [(Bool, EnqueueMessage)]) -> Signal<[(Bool, EnqueueMessage)], NoError> {
     let extra = AyuGramSettings.shared.extra
