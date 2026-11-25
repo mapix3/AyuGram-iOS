@@ -826,3 +826,6 @@
 
 "Ayu.BackgroundKeepAlive" = "Keep running in background";
 "Ayu.BackgroundKeepAliveInfo" = "Plays silent audio so AyuGram stays alive in the background. Uses a lot of battery; messages still arrive through push notifications when it is off.";
+
+"Ayu.Effects.ProfileBubbles" = "Profile Bubbles";
+"Ayu.Effects.ProfileBubblesInfo" = "On profiles that turned them on, gifts float around the avatar in glass bubbles";
