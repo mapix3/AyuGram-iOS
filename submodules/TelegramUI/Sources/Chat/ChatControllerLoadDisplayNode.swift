@@ -907,6 +907,22 @@ extension ChatControllerImpl {
                 return
             }
             self.layoutActionOnViewTransitionAction = f
+            self.ayuSendActionToken += 1
+            var ayuGhostSchedule = AyuGramSettings.shared.extra.scheduleInGhost && AyuGramSettings.shared.snapshot.ghostMode
+            if case .scheduledMessages = self.presentationInterfaceState.subject {
+                ayuGhostSchedule = false
+            }
+            if ayuGhostSchedule {
+                let token = self.ayuSendActionToken
+                Queue.mainQueue().after(0.3, { [weak self] in
+                    guard let self, self.ayuSendActionToken == token, self.layoutActionOnViewTransitionAction != nil else {
+                        return
+                    }
+                    self.layoutActionOnViewTransitionAction = nil
+                    self.chatDisplayNode.historyNode.layoutActionOnViewTransition = nil
+                    f()
+                })
+            }
             
             if !enableSendAnimationV2 {
                 self.chatDisplayNode.historyNode.pinToTopStableId = nil

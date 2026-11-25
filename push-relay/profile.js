@@ -52,6 +52,7 @@ const MP4_BRANDS = new Set(['isom', 'iso2', 'iso3', 'iso4', 'iso5', 'iso6', 'mp4
 const MOV_FIRST = new Set(['moov', 'mdat', 'wide', 'free', 'skip', 'pnot']);
 const RESERVED_USERNAMES = new Set(['botfather', 'spambot', 'premium', 'stars', 'gift', 'gifts', 'wallet', 'notoscam', 'verify', 'username', 'usernames', 'jobs', 'news', 'team', 'durov', 'pavel', 'nikolai']);
 const RESERVED_PARTS = ['telegram', 'ayugram', 'official', 'support', 'admin', 'fragment', 'security', 'moderator'];
+const HIDDEN_GIFT = /^(u:[a-z][a-z0-9]{1,47}-[1-9][0-9]{0,6}|g:-?[0-9]{1,20}:[0-9]{1,12})$/;
 const SLUG = /^[A-Za-z][A-Za-z0-9]{1,47}-[1-9][0-9]{0,6}$/;
 const SLUG_LOWER = /^[a-z][a-z0-9]{1,47}-[1-9][0-9]{0,6}$/;
 const HEX = /^[0-9a-fA-F]{6}$/;
@@ -213,6 +214,13 @@ export function cleanPatch(input) {
       return { error: 'bad_hide_real' };
     }
     patch.hideReal = input.hideReal;
+  }
+  if (Object.hasOwn(input, 'hiddenGifts')) {
+    const list = input.hiddenGifts;
+    if (!Array.isArray(list) || list.length > 300 || !list.every((item) => typeof item === 'string' && HIDDEN_GIFT.test(item))) {
+      return { error: 'bad_hidden_gifts' };
+    }
+    patch.hiddenGifts = [...new Set(list)];
   }
   if (Object.hasOwn(input, 'status')) {
     const status = input.status;
@@ -465,7 +473,7 @@ function unverified() {
 }
 
 function emptyRecord(lock, now) {
-  return { lock, nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, status: null, number: null, brightness: 0, updatedAt: now, claimedAt: now };
+  return { lock, nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, hiddenGifts: [], status: null, number: null, brightness: 0, updatedAt: now, claimedAt: now };
 }
 
 function dataOf(record) {
@@ -476,6 +484,7 @@ function dataOf(record) {
     bubbles: source.bubbles === true,
     background: source.background || null,
     hideReal: source.hideReal === true,
+    hiddenGifts: Array.isArray(source.hiddenGifts) ? source.hiddenGifts.filter((item) => typeof item === 'string' && HIDDEN_GIFT.test(item)) : [],
     status: typeof source.status === 'string' && SLUG.test(source.status) ? source.status : null,
     number: typeof source.number === 'string' && cleanNumber(source.number) === source.number ? source.number : null,
     brightness: cleanBrightness(source.brightness) || 0,
@@ -488,7 +497,7 @@ function publicData(record) {
     return null;
   }
   const data = dataOf(record);
-  return data.nfts.length || data.usernames.length || data.bubbles || data.background || data.hideReal || data.number ? data : null;
+  return data.nfts.length || data.usernames.length || data.bubbles || data.background || data.hideReal || data.hiddenGifts.length || data.number ? data : null;
 }
 
 function slugPins(record) {
@@ -531,6 +540,7 @@ function presentEntry(id, data, origin) {
     background: presentBackground(id, data.background, origin, data.brightness),
     bubbles: data.bubbles,
     hideReal: data.hideReal === true,
+    hiddenGifts: data.hiddenGifts || [],
     status: data.status ? { slug: data.status } : null,
     number: data.number || null,
     updatedAt: data.updatedAt,
@@ -943,7 +953,7 @@ export class Profiles {
     }
     if (url.pathname === '/write' || url.pathname === '/clear') {
       const clearing = url.pathname === '/clear';
-      const patch = clearing ? { nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, status: null, number: null, brightness: 0 } : input.patch && typeof input.patch === 'object' ? input.patch : {};
+      const patch = clearing ? { nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, hiddenGifts: [], status: null, number: null, brightness: 0 } : input.patch && typeof input.patch === 'object' ? input.patch : {};
       const keys = Object.keys(patch);
       const removing = keys.length === 1 && keys[0] === 'background';
       const auth = await this.authorize(input, now, !clearing && !removing);
@@ -959,7 +969,7 @@ export class Profiles {
       }
       const before = auth.created ? null : auth.record;
       const record = { ...auth.record };
-      for (const field of ['nfts', 'usernames', 'bubbles', 'hideReal', 'brightness']) {
+      for (const field of ['nfts', 'usernames', 'bubbles', 'hideReal', 'hiddenGifts', 'brightness']) {
         if (field in patch) {
           record[field] = patch[field];
         }

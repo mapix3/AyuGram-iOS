@@ -230,18 +230,20 @@ public struct AyuGramProfileEntry: Codable, Equatable {
     public var background: AyuGramProfileBackground?
     public var bubbles: Bool
     public var hideReal: Bool
+    public var hiddenGifts: [String]
     public var statusSlug: String?
     public var number: String?
     public var brightness: Double
     public var updatedAt: Double
 
-    public init(id: Int64, nfts: [AyuGramProfileNft], usernames: [String], background: AyuGramProfileBackground?, bubbles: Bool, hideReal: Bool = false, statusSlug: String? = nil, number: String? = nil, brightness: Double = 0.0, updatedAt: Double) {
+    public init(id: Int64, nfts: [AyuGramProfileNft], usernames: [String], background: AyuGramProfileBackground?, bubbles: Bool, hideReal: Bool = false, hiddenGifts: [String] = [], statusSlug: String? = nil, number: String? = nil, brightness: Double = 0.0, updatedAt: Double) {
         self.id = id
         self.nfts = nfts
         self.usernames = usernames
         self.background = background
         self.bubbles = bubbles
         self.hideReal = hideReal
+        self.hiddenGifts = hiddenGifts
         self.statusSlug = statusSlug
         self.number = number
         self.brightness = AyuGramProfileEntry.clampBrightness(brightness)
@@ -249,7 +251,7 @@ public struct AyuGramProfileEntry: Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, nfts, usernames, background, bubbles, hideReal, statusSlug, number, brightness, updatedAt
+        case id, nfts, usernames, background, bubbles, hideReal, hiddenGifts, statusSlug, number, brightness, updatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -260,6 +262,7 @@ public struct AyuGramProfileEntry: Codable, Equatable {
         self.background = try container.decodeIfPresent(AyuGramProfileBackground.self, forKey: .background)
         self.bubbles = try container.decodeIfPresent(Bool.self, forKey: .bubbles) ?? false
         self.hideReal = try container.decodeIfPresent(Bool.self, forKey: .hideReal) ?? false
+        self.hiddenGifts = try container.decodeIfPresent([String].self, forKey: .hiddenGifts) ?? []
         self.statusSlug = try container.decodeIfPresent(String.self, forKey: .statusSlug)
         self.number = try container.decodeIfPresent(String.self, forKey: .number).flatMap(AyuGramProfileEntry.normalizeNumber)
         let brightness = try container.decodeIfPresent(Double.self, forKey: .brightness) ?? 0.0
@@ -268,7 +271,7 @@ public struct AyuGramProfileEntry: Codable, Equatable {
     }
 
     public var isEmpty: Bool {
-        return self.nfts.isEmpty && self.usernames.isEmpty && self.background == nil && !self.bubbles && !self.hideReal && self.number == nil
+        return self.nfts.isEmpty && self.usernames.isEmpty && self.background == nil && !self.bubbles && !self.hideReal && self.hiddenGifts.isEmpty && self.number == nil
     }
 
     public var statusNft: AyuGramProfileNft? {
@@ -360,6 +363,7 @@ public struct AyuGramProfileEntry: Codable, Equatable {
         }
         let bubbles = (json["bubbles"] as? Bool) ?? false
         let hideReal = (json["hideReal"] as? Bool) ?? false
+        let hiddenGifts = Array(((json["hiddenGifts"] as? [String]) ?? []).prefix(300))
         var statusSlug: String?
         if let status = json["status"] as? [String: Any], let slug = status["slug"] as? String, AyuGramProfileNft.isValidSlug(slug), let nft = nfts.first(where: { $0.slug?.lowercased() == slug.lowercased() }) {
             statusSlug = nft.slug
@@ -372,7 +376,7 @@ public struct AyuGramProfileEntry: Codable, Equatable {
             brightness = value.doubleValue
         }
         let updatedAt = (json["updatedAt"] as? NSNumber)?.doubleValue ?? 0.0
-        return AyuGramProfileEntry(id: id, nfts: nfts, usernames: usernames, background: AyuGramProfileBackground.from(json: json["background"]), bubbles: bubbles, hideReal: hideReal, statusSlug: statusSlug, number: number, brightness: brightness, updatedAt: updatedAt)
+        return AyuGramProfileEntry(id: id, nfts: nfts, usernames: usernames, background: AyuGramProfileBackground.from(json: json["background"]), bubbles: bubbles, hideReal: hideReal, hiddenGifts: hiddenGifts, statusSlug: statusSlug, number: number, brightness: brightness, updatedAt: updatedAt)
     }
 }
 
@@ -453,22 +457,24 @@ public struct AyuGramProfilePatch: Equatable {
     public var usernames: [String]?
     public var bubbles: Bool?
     public var hideReal: Bool?
+    public var hiddenGifts: [String]?
     public var status: AyuGramProfileStatusChange?
     public var number: AyuGramProfileNumberChange?
     public var brightness: Double?
 
-    public init(nfts: [AyuGramProfileNft]? = nil, usernames: [String]? = nil, bubbles: Bool? = nil, hideReal: Bool? = nil, status: AyuGramProfileStatusChange? = nil, number: AyuGramProfileNumberChange? = nil, brightness: Double? = nil) {
+    public init(nfts: [AyuGramProfileNft]? = nil, usernames: [String]? = nil, bubbles: Bool? = nil, hideReal: Bool? = nil, hiddenGifts: [String]? = nil, status: AyuGramProfileStatusChange? = nil, number: AyuGramProfileNumberChange? = nil, brightness: Double? = nil) {
         self.nfts = nfts
         self.usernames = usernames
         self.bubbles = bubbles
         self.hideReal = hideReal
+        self.hiddenGifts = hiddenGifts
         self.status = status
         self.number = number
         self.brightness = brightness
     }
 
     public var isEmpty: Bool {
-        return self.nfts == nil && self.usernames == nil && self.bubbles == nil && self.hideReal == nil && self.status == nil && self.number == nil && self.brightness == nil
+        return self.nfts == nil && self.usernames == nil && self.bubbles == nil && self.hideReal == nil && self.hiddenGifts == nil && self.status == nil && self.number == nil && self.brightness == nil
     }
 
     var jsonObject: [String: Any] {
@@ -484,6 +490,9 @@ public struct AyuGramProfilePatch: Equatable {
         }
         if let hideReal = self.hideReal {
             body["hideReal"] = hideReal
+        }
+        if let hiddenGifts = self.hiddenGifts {
+            body["hiddenGifts"] = hiddenGifts
         }
         if let status = self.status {
             switch status {

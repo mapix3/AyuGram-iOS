@@ -680,6 +680,7 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
     }
     
     var layoutActionOnViewTransitionAction: (() -> Void)?
+    var ayuSendActionToken = 0
     
     var lastPostedScheduledMessagesToastTimestamp: Double = 0.0
     var postedScheduledMessagesEventsDisposable: Disposable?

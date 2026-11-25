@@ -43,6 +43,7 @@ final class GiftsListView: UIView {
     private var ayuFakeDisposable: Disposable?
     private var ayuFakeGifts: [ProfileGiftsContext.State.StarGift] = []
     private var ayuHidesReal = false
+    private var ayuHiddenKeys = Set<String>()
     private var ayuLastState: ProfileGiftsContext.State?
         
     weak var parentController: ViewController?
@@ -164,7 +165,7 @@ final class GiftsListView: UIView {
             let isFirstTime = self.starsProducts == nil
             self.ayuLastState = state
             let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
-            self.statusPromise.set(.single(PeerInfoStatusData(text: presentationData.strings.SharedMedia_GiftCount(self.ayuHidesReal ? Int32(self.ayuFakeGifts.count) : (state.count ?? 0)), isActivity: true, key: .gifts)))
+            self.statusPromise.set(.single(PeerInfoStatusData(text: presentationData.strings.SharedMedia_GiftCount(self.ayuHidesReal ? Int32(self.ayuFakeGifts.count) : max(0, (state.count ?? 0) - Int32(self.ayuHiddenCount(state)))), isActivity: true, key: .gifts)))
             
             if self.isReordering {
                 var stateItems: [ProfileGiftsContext.State.StarGift] = state.gifts
@@ -223,17 +224,22 @@ final class GiftsListView: UIView {
         })
         
         if !canSelect && ignoreCollection == nil && profileGifts.collectionId == nil && ayuGramProfileExtrasSupported(peerId) {
-            self.ayuFakeDisposable = (combineLatest(ayuGramFakeNftItems(engine: context.engine, peerId: peerId), ayuGramProfileHidesRealGiftsSignal(peerId: peerId, accountPeerId: context.account.peerId))
-            |> deliverOnMainQueue).startStrict(next: { [weak self] items, hidesReal in
+            self.ayuFakeDisposable = (combineLatest(ayuGramFakeNftItems(engine: context.engine, peerId: peerId), ayuGramProfileHidesRealGiftsSignal(peerId: peerId, accountPeerId: context.account.peerId), ayuGramProfileHiddenGiftKeysSignal(peerId: peerId, accountPeerId: context.account.peerId))
+            |> deliverOnMainQueue).startStrict(next: { [weak self] items, hidesReal, hiddenKeys in
                 guard let self else {
                     return
                 }
                 let gifts = items.compactMap { $0.starGift }
-                if gifts == self.ayuFakeGifts && hidesReal == self.ayuHidesReal {
+                if gifts == self.ayuFakeGifts && hidesReal == self.ayuHidesReal && hiddenKeys == self.ayuHiddenKeys {
                     return
                 }
                 self.ayuFakeGifts = gifts
                 self.ayuHidesReal = hidesReal
+                self.ayuHiddenKeys = hiddenKeys
+                if let state = self.ayuLastState {
+                    let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+                    self.statusPromise.set(.single(PeerInfoStatusData(text: presentationData.strings.SharedMedia_GiftCount(self.ayuHidesReal ? Int32(self.ayuFakeGifts.count) : max(0, (state.count ?? 0) - Int32(self.ayuHiddenCount(state)))), isActivity: true, key: .gifts)))
+                }
                 if !self.isReordering, let state = self.ayuLastState {
                     self.starsProducts = self.ayuMerged(state.filteredGifts, state: state)
                     self.resultsAreEmpty = self.ayuResultsAreEmpty(state)
@@ -333,10 +339,22 @@ final class GiftsListView: UIView {
         if self.ayuHidesReal {
             return state.filter == .All && self.ayuFakeGifts.isEmpty && state.dataState != .loading
         }
-        return state.filter == .All && state.gifts.isEmpty && state.dataState != .loading && self.ayuFakeGifts.isEmpty
+        return state.filter == .All && (state.gifts.isEmpty || state.gifts.allSatisfy { self.ayuIsHidden($0) }) && state.dataState != .loading && self.ayuFakeGifts.isEmpty
     }
     
-    private func ayuMerged(_ gifts: [ProfileGiftsContext.State.StarGift], state: ProfileGiftsContext.State) -> [ProfileGiftsContext.State.StarGift] {
+    private func ayuIsHidden(_ gift: ProfileGiftsContext.State.StarGift) -> Bool {
+        return !self.ayuHiddenKeys.isEmpty && self.ayuHiddenKeys.contains(ayuGramGiftHideKey(gift: gift.gift, date: gift.date))
+    }
+    
+    private func ayuHiddenCount(_ state: ProfileGiftsContext.State) -> Int {
+        if self.ayuHiddenKeys.isEmpty {
+            return 0
+        }
+        return state.gifts.filter { self.ayuIsHidden($0) }.count
+    }
+    
+    private func ayuMerged(_ allGifts: [ProfileGiftsContext.State.StarGift], state: ProfileGiftsContext.State) -> [ProfileGiftsContext.State.StarGift] {
+        let gifts = self.ayuHiddenKeys.isEmpty ? allGifts : allGifts.filter { !self.ayuIsHidden($0) }
         if self.ayuHidesReal {
             guard state.filter == .All else {
                 return []
@@ -431,7 +449,7 @@ final class GiftsListView: UIView {
                     self.reorderedReferences = nil
                     self.reorderedPinnedReferences = nil
                 }
-            } else if !isReordering, let state = self.ayuLastState, !self.ayuFakeGifts.isEmpty || self.ayuHidesReal {
+            } else if !isReordering, let state = self.ayuLastState, !self.ayuFakeGifts.isEmpty || self.ayuHidesReal || !self.ayuHiddenKeys.isEmpty {
                 self.starsProducts = self.ayuMerged(state.filteredGifts, state: state)
             }
             
