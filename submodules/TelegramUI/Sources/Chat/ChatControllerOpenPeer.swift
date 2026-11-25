@@ -388,7 +388,8 @@ extension ChatControllerImpl {
                 guard let self else {
                     return
                 }
-                (self.navigationController as? NavigationController)?.pushViewController(ayuGramHistoryController(context: self.context, chat: chatPeerId))
+                let ayuTitle = self.presentationInterfaceState.renderedPeer?.chatMainPeer.flatMap { EnginePeer($0).compactDisplayTitle } ?? ""
+                (self.navigationController as? NavigationController)?.pushViewController(ayuGramChatDeletedViewer(context: self.context, peerId: chatPeerId, title: ayuTitle))
             })))
         }
         

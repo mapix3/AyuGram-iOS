@@ -469,7 +469,7 @@ extension PeerInfoScreenNode {
                     guard let self else {
                         return
                     }
-                    self.controller?.push(ayuGramHistoryController(context: self.context, chat: ayuHistoryPeerId))
+                    self.controller?.push(ayuGramChatDeletedViewer(context: self.context, peerId: ayuHistoryPeerId, title: chatPeer.compactDisplayTitle))
                 })))
                 
                 var hasDiscussion = false

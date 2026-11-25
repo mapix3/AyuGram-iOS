@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 14;
+export const GUIDE_VERSION = 15;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -6,7 +6,7 @@ Main menu: Telegram Settings > AyuGram. At the top: Ghost Mode state and how man
 
 Ghost Mode: AyuGram > Ghost Mode. Turns on every "Hide" switch below while keeping their own values. Quick switch: hold the Chats tab (needs "Switch in the Chats tab" on).
 Hide: read receipts, online status, typing, recording voice/video, uploading, story views (AyuGram > Hide).
-Behavior (AyuGram > Behavior): Offline after sending; Read chat when replying; Silent sending (off / in Ghost Mode / always); Send as scheduled while in Ghost Mode; Confirm sending a read receipt.
+Behavior (AyuGram > Behavior): Offline after sending; Read chat when replying; Silent sending (off / in Ghost Mode / always); Send as scheduled while in Ghost Mode (messages go out as scheduled 6 seconds later); Confirm sending a read receipt.
 Content: Bypass copy protection (save, copy, forward protected content); Allow screenshots of protected and secret content.
 
 Deleted and edited messages: deleted messages stay in the chat where they were, marked as deleted; "Dim deleted messages" (AyuGram > Chats) makes them semi-transparent. Edit and deletion history: AyuGram > Message history > Open history (only chosen chats, 30 days, up to 200 entries, no secret chats or one-time media). Chats deleted as a whole: AyuGram > Message history > Open history > Deleted chats.
@@ -40,7 +40,7 @@ Custom build only: AyuGram > Client > Appearance: your own background image or v
 Profile extras: AyuGram > Client > Profile extras (also Profile > Gifts tab of your own profile > Fake gifts). Decorations that every AyuGram user sees on your profile, on both the standard and the custom build; they are not real and other Telegram apps do not show them. Standard build: fake NFTs, fake usernames and the anonymous number. Custom build adds bubbles and the profile background; in the standard build these show "Available in the AyuGram Custom build".
 - Fake NFTs: up to 30 collectible gifts; tap Add NFT, pick a collection by name, then a gift for sale or any number in it, or paste a link or slug (like t.me/nft/PlushPepe-1). Reorder with drag or the Reorder button, Pin up to 6 to the top of the profile, Delete. On your own profile, long-press a fake NFT in the Gifts tab for Pin, Set as status and Delete. Tapping a fake NFT anywhere shows a "Fake NFT" label and offers no transfer, sell, wear or other real actions.
 - Fake status: "Set as status" on one of your fake NFTs (link or slug ones) wears it as the emoji status next to your name for AyuGram users; tapping it shows "Fake". Removing that NFT removes the status.
-- Hide real gifts: AyuGram users then see only your fake NFTs on your profile (bubbles, gift icons and the Gifts tab); stock Telegram apps are not affected.
+- Hide real gifts: AyuGram users then see only your fake NFTs on your profile (bubbles, gift icons and the Gifts tab); stock Telegram apps are not affected. To hide only some real gifts, long-press one in the Gifts tab of your own profile and pick Hide for AyuGram users (Show to AyuGram users brings it back).
 - Anonymous number: one +888 number (8 digits after +888) per account. Each number belongs to one AyuGram user, the first to claim it; a taken one answers "Number is taken". Enter one or take a random one; it is claimed at once. It shows in your profile info for AyuGram users with a "Fake number" sheet (no calling). Searching that number in AyuGram (chats or contacts search) shows the real Telegram result if any and your profile as an extra result marked Fake; opening a t.me/+888... or tel:+888... link shows both too. Free Number releases it.
 - NFT holders: opening an NFT (t.me/nft/... or any gift card) in AyuGram lists, under the real owner, the AyuGram users who show it as a fake NFT, each marked Fake; tap one to open the profile.
 - Fake usernames: up to 10 extra usernames (4-32 letters, digits or underscores; names like telegram, support or admin are not allowed). Tapping one shows "Fake username"; it opens no chat and nobody can find you by it.

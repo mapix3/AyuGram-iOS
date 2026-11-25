@@ -1513,6 +1513,35 @@ public final class PeerInfoGiftsPaneNode: ASDisplayNode, PeerInfoPaneNode, UIScr
             })))
         }
         
+        if self.peerId == self.context.account.peerId, gift.reference != nil, let entry = ayuGramProfileEntry(peerId: self.peerId, refresh: false) {
+            let locale = presentationData.strings.baseLanguageCode
+            let hideKey = ayuGramGiftHideKey(gift: gift.gift, date: gift.date)
+            let isHidden = entry.hiddenGifts.contains(hideKey)
+            let accountPeerId = self.context.account.peerId
+            if !items.isEmpty {
+                items.append(.separator)
+            }
+            items.append(.action(ContextMenuActionItem(text: i18n(isHidden ? "Ayu.ProfileExtras.ShowGiftAyu" : "Ayu.ProfileExtras.HideGiftAyu", locale), icon: { theme in generateTintedImage(image: UIImage(bundleImageName: isHidden ? "Chat/Context Menu/Eye" : "Chat/Context Menu/EyeLocked"), color: theme.contextMenu.primaryColor) }, action: { [weak self] c, _ in
+                c?.dismiss(completion: {
+                    ayuGramApplyOwnNftAction(accountPeerId: accountPeerId, action: .toggleHiddenGift(key: hideKey), completion: { [weak self] error in
+                        Queue.mainQueue().async {
+                            guard let self else {
+                                return
+                            }
+                            let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+                            let text: String
+                            if let error {
+                                text = error.text(locale: presentationData.strings.baseLanguageCode)
+                            } else {
+                                text = i18n(isHidden ? "Ayu.ProfileExtras.GiftShownAyu" : "Ayu.ProfileExtras.GiftHiddenAyu", presentationData.strings.baseLanguageCode)
+                            }
+                            self.parentController?.present(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: text, timeout: nil, customUndoText: nil), elevatedLayout: true, action: { _ in return true }), in: .current)
+                        }
+                    })
+                })
+            })))
+        }
+        
         guard !items.isEmpty else {
             return
         }

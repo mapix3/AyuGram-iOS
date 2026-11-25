@@ -304,7 +304,7 @@
 "Ayu.SilentInGhost" = "У режиму духа";
 "Ayu.SilentAlways" = "Увек";
 "Ayu.ScheduleInGhost" = "Шаљи као заказано";
-"Ayu.ScheduleInGhostInfo" = "У режиму духа поруке одлазе заказане за 12 секунди, па се никад не појављујеш на мрежи";
+"Ayu.ScheduleInGhostInfo" = "У режиму духа поруке одлазе заказане за 6 секунди, па се никад не појављујеш на мрежи";
 "Ayu.ChatsSection" = "Ћаскања";
 "Ayu.DisableAds" = "Сакриј спонзорисане поруке";
 "Ayu.DisableLinkWarning" = "Без упозорења за скривене везе";

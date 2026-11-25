@@ -444,7 +444,7 @@
 "Ayu.SilentInGhost" = "У режимі привида";
 "Ayu.SilentAlways" = "Завжди";
 "Ayu.ScheduleInGhost" = "Надсилати відкладеними";
-"Ayu.ScheduleInGhostInfo" = "У режимі привида повідомлення йдуть як відкладені через 12 секунд, і ти не з'являєшся в мережі";
+"Ayu.ScheduleInGhostInfo" = "У режимі привида повідомлення йдуть як відкладені через 6 секунд, і ти не з'являєшся в мережі";
 "Ayu.ChatsSection" = "Чати";
 "Ayu.DisableAds" = "Приховувати рекламу";
 "Ayu.DisableLinkWarning" = "Без попередження про приховані посилання";

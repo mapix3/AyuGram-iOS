@@ -43,10 +43,10 @@ private func ayuBubbleLerp(_ from: CGFloat, _ to: CGFloat, _ t: CGFloat) -> CGFl
 private func ayuBubbleGlowImage(isDark: Bool) -> UIImage? {
     return generateImage(CGSize(width: 96.0, height: 96.0), rotatedContext: { size, context in
         context.clear(CGRect(origin: CGPoint(), size: size))
-        let base = isDark ? UIColor(red: 0.42, green: 0.62, blue: 1.0, alpha: 1.0) : UIColor(red: 0.25, green: 0.48, blue: 1.0, alpha: 1.0)
+        let base = UIColor(white: 1.0, alpha: 1.0)
         let colors: [CGColor] = [
-            base.withAlphaComponent(isDark ? 0.42 : 0.26).cgColor,
-            base.withAlphaComponent(isDark ? 0.3 : 0.18).cgColor,
+            base.withAlphaComponent(isDark ? 0.14 : 0.1).cgColor,
+            base.withAlphaComponent(isDark ? 0.07 : 0.05).cgColor,
             base.withAlphaComponent(0.0).cgColor
         ]
         var locations: [CGFloat] = [0.0, 0.62, 1.0]
@@ -385,29 +385,29 @@ public final class AyuGramProfileBubblesView: UIView {
             self.appliedDark = isDark
             self.appliedAccent = accent
             self.glowLayer.contents = (isDark ? ayuBubbleDarkGlowImage : ayuBubbleLightGlowImage)?.cgImage
-            self.edgeLayer.strokeColor = accent.withAlphaComponent(isDark ? 0.22 : 0.16).cgColor
+            self.edgeLayer.strokeColor = UIColor(white: 1.0, alpha: isDark ? 0.14 : 0.2).cgColor
             if isDark {
                 self.bodyLayer.colors = [
                     UIColor(white: 1.0, alpha: 0.02).cgColor,
                     UIColor(white: 1.0, alpha: 0.05).cgColor,
-                    UIColor(red: 0.78, green: 0.88, blue: 1.0, alpha: 0.16).cgColor,
+                    UIColor(white: 1.0, alpha: 0.14).cgColor,
                     UIColor(white: 1.0, alpha: 0.38).cgColor
                 ]
                 self.rimLayer.colors = [
                     UIColor(white: 1.0, alpha: 0.95).cgColor,
-                    accent.mixedWith(.white, alpha: 0.55).withAlphaComponent(0.45).cgColor,
+                    UIColor(white: 1.0, alpha: 0.5).cgColor,
                     UIColor(white: 1.0, alpha: 0.7).cgColor
                 ]
             } else {
                 self.bodyLayer.colors = [
                     UIColor(white: 1.0, alpha: 0.04).cgColor,
                     UIColor(white: 1.0, alpha: 0.08).cgColor,
-                    UIColor(red: 0.7, green: 0.82, blue: 1.0, alpha: 0.18).cgColor,
+                    UIColor(white: 1.0, alpha: 0.16).cgColor,
                     UIColor(white: 1.0, alpha: 0.5).cgColor
                 ]
                 self.rimLayer.colors = [
                     UIColor(white: 1.0, alpha: 1.0).cgColor,
-                    accent.mixedWith(.white, alpha: 0.4).withAlphaComponent(0.5).cgColor,
+                    UIColor(white: 1.0, alpha: 0.6).cgColor,
                     UIColor(white: 1.0, alpha: 0.85).cgColor
                 ]
             }
@@ -502,9 +502,9 @@ public final class AyuGramProfileBubblesView: UIView {
         self.rimGradient.mask = self.rimMask
         self.rimGradient.colors = [
             UIColor(white: 1.0, alpha: 0.18).cgColor,
-            UIColor(red: 0.72, green: 0.84, blue: 1.0, alpha: 0.85).cgColor,
+            UIColor(white: 1.0, alpha: 0.7).cgColor,
             UIColor(white: 1.0, alpha: 0.95).cgColor,
-            UIColor(red: 0.6, green: 0.76, blue: 1.0, alpha: 0.6).cgColor,
+            UIColor(white: 1.0, alpha: 0.45).cgColor,
             UIColor(white: 1.0, alpha: 0.18).cgColor
         ]
         self.rimContainer.addSublayer(self.rimGlow)
@@ -927,7 +927,7 @@ public final class AyuGramProfileBubblesView: UIView {
             }
             if self.rimAppliedDark != layout.isDark {
                 self.rimAppliedDark = layout.isDark
-                self.rimGlow.strokeColor = (layout.isDark ? UIColor(red: 0.55, green: 0.72, blue: 1.0, alpha: 0.2) : UIColor(red: 0.3, green: 0.5, blue: 1.0, alpha: 0.16)).cgColor
+                self.rimGlow.strokeColor = UIColor(white: 1.0, alpha: layout.isDark ? 0.12 : 0.1).cgColor
             }
             if motion {
                 self.rimGradient.setAffineTransform(CGAffineTransform(rotationAngle: t * 0.22))

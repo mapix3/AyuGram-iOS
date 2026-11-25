@@ -295,6 +295,26 @@ public func ayuGramProfileHidesRealGiftsSignal(peerId: EnginePeer.Id, accountPee
     |> distinctUntilChanged
 }
 
+public func ayuGramGiftHideKey(gift: StarGift, date: Int32) -> String {
+    switch gift {
+    case let .unique(uniqueGift):
+        return "u:" + uniqueGift.slug.lowercased()
+    case let .generic(genericGift):
+        return "g:\(genericGift.id):\(date)"
+    }
+}
+
+public func ayuGramProfileHiddenGiftKeysSignal(peerId: EnginePeer.Id, accountPeerId: EnginePeer.Id) -> Signal<Set<String>, NoError> {
+    if peerId == accountPeerId {
+        return .single(Set())
+    }
+    return ayuGramProfileEntrySignal(peerId: peerId)
+    |> map { entry -> Set<String> in
+        return Set(entry?.hiddenGifts ?? [])
+    }
+    |> distinctUntilChanged
+}
+
 public func ayuGramFakeEmojiStatus(gift: StarGift.UniqueGift) -> PeerEmojiStatus? {
     var fileId: Int64?
     var patternFileId: Int64?
@@ -356,6 +376,7 @@ public enum AyuGramOwnNftAction: Equatable {
     case togglePinned(key: String)
     case toggleStatus(slug: String)
     case delete(key: String)
+    case toggleHiddenGift(key: String)
 }
 
 public enum AyuGramOwnEditError: Error, Equatable {
@@ -405,6 +426,17 @@ public func ayuGramOwnNftPatch(entry: AyuGramProfileEntry, limits: AyuGramProfil
             patch.status = .clear
         }
         return .success(patch)
+    case let .toggleHiddenGift(key):
+        var hidden = entry.hiddenGifts
+        if let index = hidden.firstIndex(of: key) {
+            hidden.remove(at: index)
+        } else {
+            if hidden.count >= 300 {
+                hidden.removeFirst()
+            }
+            hidden.append(key)
+        }
+        return .success(AyuGramProfilePatch(hiddenGifts: hidden))
     }
 }
 

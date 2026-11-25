@@ -473,7 +473,7 @@
 "Ayu.SilentInGhost" = "В режиме призрака";
 "Ayu.SilentAlways" = "Всегда";
 "Ayu.ScheduleInGhost" = "Отправлять отложенными";
-"Ayu.ScheduleInGhostInfo" = "В режиме призрака сообщения уходят как отложенные через 12 секунд, и ты не появляешься в сети";
+"Ayu.ScheduleInGhostInfo" = "В режиме призрака сообщения уходят как отложенные через 6 секунд, и ты не появляешься в сети";
 "Ayu.ChatsSection" = "Чаты";
 "Ayu.DisableAds" = "Скрывать рекламу";
 "Ayu.DisableLinkWarning" = "Без предупреждения о скрытых ссылках";
@@ -831,3 +831,7 @@
 
 "Ayu.Effects.ProfileBubbles" = "Пузыри в профиле";
 "Ayu.Effects.ProfileBubblesInfo" = "В профилях, где их включили, подарки плавают вокруг аватара в стеклянных пузырях";
+"Ayu.ProfileExtras.HideGiftAyu" = "Скрыть для юзеров AyuGram";
+"Ayu.ProfileExtras.ShowGiftAyu" = "Показать юзерам AyuGram";
+"Ayu.ProfileExtras.GiftHiddenAyu" = "Скрыт для юзеров AyuGram";
+"Ayu.ProfileExtras.GiftShownAyu" = "Снова виден юзерам AyuGram";
