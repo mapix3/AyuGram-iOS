@@ -14,6 +14,7 @@ import TelegramUIPreferences
 
 // Optional
 import SGSimpleSettings
+import SGStrings
 import SGLogging
 import SGPayWall
 import OverlayStatusController
@@ -25,6 +26,7 @@ import FLEX
 private enum SGDebugControllerSection: Int32, SGItemListSection {
     case base
     case notifications
+    case background
 }
 
 private enum SGDebugDisclosureLink: String {
@@ -53,6 +55,7 @@ private enum SGDebugToggles: String {
 private enum SGDebugOneFromManySetting: String {
     case pinnedMessageNotifications
     case mentionsAndRepliesNotifications
+    case backgroundMode
 }
 
 private typealias SGDebugControllerEntry = SGItemListUIEntry<SGDebugControllerSection, SGDebugToggles, AnyHashable, SGDebugOneFromManySetting, SGDebugDisclosureLink, SGDebugActions>
@@ -77,6 +80,11 @@ private func SGDebugControllerEntries(presentationData: PresentationData) -> [SG
     entries.append(.action(id: id.count, section: .base, actionType: .resetIAP, text: "Reset Pro", kind: .destructive))
 
     entries.append(.toggle(id: id.count, section: .notifications, settingName: .legacyNotificationsFix, value: SGSimpleSettings.shared.legacyNotificationsFix, text: "[OLD] Fix empty notifications", enabled: true))
+
+    let lang = presentationData.strings.baseLanguageCode
+    entries.append(.header(id: id.count, section: .background, text: i18n("Ayu.BackgroundMode.Header", lang), badge: nil))
+    entries.append(.oneFromManySelector(id: id.count, section: .background, settingName: .backgroundMode, text: i18n("Ayu.BackgroundMode", lang), value: i18n(AyuGramBackgroundMode.current.titleKey, lang), enabled: true))
+    entries.append(.notice(id: id.count, section: .background, text: i18n("Ayu.BackgroundMode.Notice", lang)))
     return entries
 }
 private func okUndoController(_ text: String, _ presentationData: PresentationData) -> UndoOverlayController {
@@ -103,12 +111,21 @@ public func sgDebugController(context: AccountContext) -> ViewController {
     }, setOneFromManyValue: { setting in
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
         let actionSheet = ActionSheetController(presentationData: presentationData)
-        let items: [ActionSheetItem] = []
-//        var items: [ActionSheetItem] = []
-        
-//        switch (setting) {
-//        }
-        
+        var items: [ActionSheetItem] = []
+        switch setting {
+        case .backgroundMode:
+            let lang = presentationData.strings.baseLanguageCode
+            let current = AyuGramBackgroundMode.current
+            for mode in AyuGramBackgroundMode.allCases {
+                items.append(ActionSheetButtonItem(title: i18n(mode.titleKey, lang), color: .accent, font: mode == current ? .bold : .default, action: { [weak actionSheet] in
+                    actionSheet?.dismissAnimated()
+                    AyuGramBackgroundMode.current = mode
+                    simplePromise.set(true)
+                }))
+            }
+        case .pinnedMessageNotifications, .mentionsAndRepliesNotifications:
+            break
+        }
         actionSheet.setItemGroups([ActionSheetItemGroup(items: items), ActionSheetItemGroup(items: [
             ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, font: .bold, action: { [weak actionSheet] in
                 actionSheet?.dismissAnimated()

@@ -205,6 +205,8 @@ public final class AyuGramProfileBubblesView: UIView {
         let bodyMask = SimpleShapeLayer()
         let rimLayer = SimpleGradientLayer()
         let rimMask = SimpleShapeLayer()
+        let edgeLayer = SimpleShapeLayer()
+        let innerLayer = SimpleShapeLayer()
         let highlightLayer = SimpleGradientLayer()
         var stickerLayer: InlineStickerItemLayer
         var stickerFileId: Int64
@@ -238,6 +240,7 @@ public final class AyuGramProfileBubblesView: UIView {
         var depth: CGFloat = 0.0
         var appliedDark: Bool?
         var appliedLowPower: Bool?
+        var appliedAccent: UIColor?
 
         init(context: AccountContext, id: String, copyIndex: Int, item: Item, slot: Int, longitudeOffset: CGFloat) {
             self.id = id
@@ -285,6 +288,7 @@ public final class AyuGramProfileBubblesView: UIView {
                     backdropLayer.setValue(0.5 as NSNumber, forKey: "scale")
                 }
                 backdropLayer.frame = bounds
+                backdropLayer.setAffineTransform(CGAffineTransform(scaleX: 1.12, y: 1.12))
                 self.backdropMask.frame = bounds
                 self.backdropMask.path = path
                 self.backdropMask.fillColor = UIColor.black.cgColor
@@ -312,6 +316,27 @@ public final class AyuGramProfileBubblesView: UIView {
             self.rimLayer.startPoint = CGPoint(x: 0.15, y: 0.05)
             self.rimLayer.endPoint = CGPoint(x: 0.85, y: 0.95)
 
+            self.edgeLayer.frame = bounds
+            self.edgeLayer.path = path
+            self.edgeLayer.fillColor = nil
+            self.edgeLayer.lineJoin = .round
+            self.edgeLayer.lineWidth = 7.0
+            self.edgeLayer.mask = {
+                let mask = SimpleShapeLayer()
+                mask.frame = bounds
+                mask.path = path
+                mask.fillColor = UIColor.black.cgColor
+                return mask
+            }()
+
+            self.innerLayer.frame = bounds
+            self.innerLayer.path = path
+            self.innerLayer.fillColor = nil
+            self.innerLayer.lineJoin = .round
+            self.innerLayer.lineWidth = 0.8
+            self.innerLayer.strokeColor = UIColor(white: 1.0, alpha: 0.35).cgColor
+            self.innerLayer.setAffineTransform(CGAffineTransform(scaleX: 0.93, y: 0.93))
+
             self.highlightLayer.type = .radial
             self.highlightLayer.startPoint = CGPoint(x: 0.5, y: 0.5)
             self.highlightLayer.endPoint = CGPoint(x: 1.0, y: 1.0)
@@ -329,6 +354,8 @@ public final class AyuGramProfileBubblesView: UIView {
                 self.shapeLayer.addSublayer(backdropLayer)
             }
             self.shapeLayer.addSublayer(self.bodyLayer)
+            self.shapeLayer.addSublayer(self.edgeLayer)
+            self.shapeLayer.addSublayer(self.innerLayer)
             self.shapeLayer.addSublayer(self.rimLayer)
             self.container.addSublayer(self.shapeLayer)
             self.container.addSublayer(self.stickerLayer)
@@ -344,51 +371,54 @@ public final class AyuGramProfileBubblesView: UIView {
             self.stickerLayer = replacement
         }
 
-        func applyAppearance(isDark: Bool, lowPower: Bool) {
+        func applyAppearance(isDark: Bool, lowPower: Bool, accent: UIColor) {
             if self.appliedLowPower != lowPower {
                 self.appliedLowPower = lowPower
                 if let backdropLayer = self.backdropLayer, let blurFilter = CALayer.blur() {
-                    blurFilter.setValue((lowPower ? 2.0 : 4.5) as NSNumber, forKey: "inputRadius")
+                    blurFilter.setValue((lowPower ? 1.5 : 2.5) as NSNumber, forKey: "inputRadius")
                     backdropLayer.filters = [blurFilter]
                 }
             }
-            if self.appliedDark == isDark {
+            if self.appliedDark == isDark && self.appliedAccent == accent {
                 return
             }
             self.appliedDark = isDark
+            self.appliedAccent = accent
             self.glowLayer.contents = (isDark ? ayuBubbleDarkGlowImage : ayuBubbleLightGlowImage)?.cgImage
+            self.edgeLayer.strokeColor = accent.withAlphaComponent(isDark ? 0.22 : 0.16).cgColor
             if isDark {
                 self.bodyLayer.colors = [
-                    UIColor(red: 0.48, green: 0.66, blue: 1.0, alpha: 0.34).cgColor,
-                    UIColor(red: 0.55, green: 0.72, blue: 1.0, alpha: 0.4).cgColor,
-                    UIColor(red: 0.68, green: 0.82, blue: 1.0, alpha: 0.55).cgColor,
-                    UIColor(red: 0.86, green: 0.93, blue: 1.0, alpha: 0.7).cgColor
+                    UIColor(white: 1.0, alpha: 0.02).cgColor,
+                    UIColor(white: 1.0, alpha: 0.05).cgColor,
+                    UIColor(red: 0.78, green: 0.88, blue: 1.0, alpha: 0.16).cgColor,
+                    UIColor(white: 1.0, alpha: 0.38).cgColor
                 ]
                 self.rimLayer.colors = [
                     UIColor(white: 1.0, alpha: 0.95).cgColor,
-                    UIColor(red: 0.62, green: 0.77, blue: 1.0, alpha: 0.5).cgColor,
-                    UIColor(white: 1.0, alpha: 0.8).cgColor
+                    accent.mixedWith(.white, alpha: 0.55).withAlphaComponent(0.45).cgColor,
+                    UIColor(white: 1.0, alpha: 0.7).cgColor
                 ]
             } else {
                 self.bodyLayer.colors = [
-                    UIColor(red: 0.3, green: 0.52, blue: 1.0, alpha: 0.16).cgColor,
-                    UIColor(red: 0.33, green: 0.55, blue: 1.0, alpha: 0.26).cgColor,
-                    UIColor(red: 0.4, green: 0.62, blue: 1.0, alpha: 0.42).cgColor,
-                    UIColor(red: 0.5, green: 0.7, blue: 1.0, alpha: 0.58).cgColor
+                    UIColor(white: 1.0, alpha: 0.04).cgColor,
+                    UIColor(white: 1.0, alpha: 0.08).cgColor,
+                    UIColor(red: 0.7, green: 0.82, blue: 1.0, alpha: 0.18).cgColor,
+                    UIColor(white: 1.0, alpha: 0.5).cgColor
                 ]
                 self.rimLayer.colors = [
                     UIColor(white: 1.0, alpha: 1.0).cgColor,
-                    UIColor(red: 0.25, green: 0.47, blue: 1.0, alpha: 0.55).cgColor,
-                    UIColor(white: 1.0, alpha: 0.9).cgColor
+                    accent.mixedWith(.white, alpha: 0.4).withAlphaComponent(0.5).cgColor,
+                    UIColor(white: 1.0, alpha: 0.85).cgColor
                 ]
             }
-            self.bodyLayer.locations = [0.0, 0.62, 0.9, 1.0]
+            self.bodyLayer.locations = [0.0, 0.55, 0.86, 1.0]
             self.rimLayer.locations = [0.0, 0.55, 1.0]
         }
     }
 
     public var action: ((Item) -> Void)?
     public var fakeLabel: String?
+    public var accentColor: UIColor = UIColor(red: 0.45, green: 0.65, blue: 1.0, alpha: 1.0)
     public let backView: UIView
 
     private let context: AccountContext
@@ -1000,7 +1030,7 @@ public final class AyuGramProfileBubblesView: UIView {
 
             self.setFront(bubble, normalizedDepth >= 0.0 || bubble.lift > 0.0 || bubble.liftTarget > 0.0)
 
-            bubble.applyAppearance(isDark: layout.isDark, lowPower: lowPower)
+            bubble.applyAppearance(isDark: layout.isDark, lowPower: lowPower, accent: self.accentColor)
 
             let hidden = alpha < 0.005
             if bubble.container.isHidden != hidden {

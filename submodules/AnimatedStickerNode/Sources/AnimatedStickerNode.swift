@@ -268,6 +268,9 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
     
     public var forceSynchronous = false
     
+    private var renderGateObserver: NSObjectProtocol?
+    private var renderGateResume: Bool?
+    private var renderGateIsAnimating = false
 
     public init(useMetalCache: Bool = false) {
         self.queue = sharedQueue
@@ -284,12 +287,36 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
             strongSelf.isDisplaying = value
         }
         self.addSubnode(self.eventsNode)
+        
+        self.renderGateObserver = AyuGramRenderGate.observe({ [weak self] isSuspended in
+            self?.updateRenderGate(isSuspended: isSuspended)
+        })
     }
     
     deinit {
+        if let renderGateObserver = self.renderGateObserver {
+            NotificationCenter.default.removeObserver(renderGateObserver)
+        }
         self.disposable.dispose()
         self.fetchDisposable.dispose()
         self.timer.swap(nil)?.invalidate()
+    }
+    
+    private func updateRenderGate(isSuspended: Bool) {
+        if isSuspended {
+            if self.renderGateIsAnimating {
+                self.timer.swap(nil)?.invalidate()
+                self.renderGateIsAnimating = false
+                self.renderGateResume = true
+            }
+        } else if let resume = self.renderGateResume {
+            self.renderGateResume = nil
+            if resume {
+                self.play()
+            } else {
+                self.play(firstFrame: true)
+            }
+        }
     }
     
     private static let hardwareRendererPool = AnimationRendererPool(generate: {
@@ -468,6 +495,11 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
                 break
             }
         }
+        if AyuGramRenderGate.isSuspended {
+            self.renderGateResume = !firstFrame || (self.renderGateResume ?? false)
+            return
+        }
+        self.renderGateIsAnimating = !firstFrame
         if self.isSetUpForPlayback {
             let directData = self.directData
             let cachedData = self.cachedData
@@ -697,10 +729,14 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
     }
     
     public func pause() {
+        self.renderGateResume = nil
+        self.renderGateIsAnimating = false
         self.timer.swap(nil)?.invalidate()
     }
     
     public func stop() {
+        self.renderGateResume = nil
+        self.renderGateIsAnimating = false
         self.isSetUpForPlayback = false
         self.reportedStarted = false
         self.timer.swap(nil)?.invalidate()
@@ -711,6 +747,8 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
     
     public func seekTo(_ position: AnimatedStickerPlaybackPosition) {
         self.isPlaying = false
+        self.renderGateResume = nil
+        self.renderGateIsAnimating = false
         
         let directData = self.directData
         let cachedData = self.cachedData

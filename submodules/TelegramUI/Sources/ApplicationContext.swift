@@ -382,7 +382,7 @@ final class AuthorizedApplicationContext {
                             guard !locked else {
                                 return
                             }
-                            let isMuted = firstMessage.attributes.contains(where: { attribute in
+                            let isMuted = sgNotificationOverride(message: firstMessage) == .silenced || firstMessage.attributes.contains(where: { attribute in
                                 if let attribute = attribute as? NotificationInfoMessageAttribute {
                                     return attribute.flags.contains(.muted)
                                 } else {

@@ -177,7 +177,6 @@ public struct AyuGramExtraSettings: Codable, Equatable {
     public var searchEngine: Int32 = 0
     public var assistantBubble = true
     public var disableLiquidGlass = false
-    public var backgroundKeepAlive = false
     public var disableLinkWarning = false
     public var disableGreetingSticker = false
     public var dimDeletedMessages = false
@@ -210,7 +209,6 @@ public struct AyuGramExtraSettings: Codable, Equatable {
         self.searchEngine = try container.decodeIfPresent(Int32.self, forKey: .searchEngine) ?? defaults.searchEngine
         self.assistantBubble = try container.decodeIfPresent(Bool.self, forKey: .assistantBubble) ?? defaults.assistantBubble
         self.disableLiquidGlass = try container.decodeIfPresent(Bool.self, forKey: .disableLiquidGlass) ?? defaults.disableLiquidGlass
-        self.backgroundKeepAlive = try container.decodeIfPresent(Bool.self, forKey: .backgroundKeepAlive) ?? defaults.backgroundKeepAlive
         self.disableLinkWarning = try container.decodeIfPresent(Bool.self, forKey: .disableLinkWarning) ?? defaults.disableLinkWarning
         self.disableGreetingSticker = try container.decodeIfPresent(Bool.self, forKey: .disableGreetingSticker) ?? defaults.disableGreetingSticker
         self.dimDeletedMessages = try container.decodeIfPresent(Bool.self, forKey: .dimDeletedMessages) ?? defaults.dimDeletedMessages

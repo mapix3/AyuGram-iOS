@@ -1,6 +1,7 @@
 import Foundation
 import Postbox
 import SwiftSignalKit
+import SGSimpleSettings
 internal import TelegramApi
 import MtProtoKit
 
@@ -1519,6 +1520,21 @@ func resolveNotificationSettings(list: [TelegramPeerNotificationSettings], defau
     return (sound, notify, displayContents)
 }
 
+public func sgNotificationOverride(message: Message) -> SGNotificationOverride {
+    var isPinned = false
+    for media in message.media {
+        if let action = media as? TelegramMediaAction, case .pinnedMessageUpdated = action.action {
+            isPinned = true
+        }
+    }
+    let isGroupOrChannel = message.id.peerId.namespace == Namespaces.Peer.CloudGroup || message.id.peerId.namespace == Namespaces.Peer.CloudChannel
+    let isMentionOrReply = isGroupOrChannel && message.personal
+    if !isPinned && !isMentionOrReply {
+        return .none
+    }
+    return SGSimpleSettings.shared.notificationOverride(isPinned: isPinned, isMentionOrReply: isMentionOrReply, chatId: message.id.peerId.id._internalGetInt64Value())
+}
+
 public func messagesForNotification(transaction: Transaction, id: MessageId, alwaysReturnMessage: Bool) -> (messages: [Message], notify: Bool, sound: PeerMessageSound, displayContents: Bool, threadData: MessageHistoryThreadData?) {
     if id.namespace == Namespaces.Message.EphemeralLocal || Namespaces.Message.allWelcomeMessages.contains(id.namespace) {
         return ([], false, defaultCloudPeerNotificationSound, false, nil)
@@ -1608,7 +1624,16 @@ public func messagesForNotification(transaction: Transaction, id: MessageId, alw
     if muted {
         sound = .none
     }
-    
+
+    switch sgNotificationOverride(message: message) {
+    case .disabled:
+        notify = false
+    case .silenced:
+        sound = .none
+    case .none:
+        break
+    }
+
     if let channel = message.peers[message.id.peerId] as? TelegramChannel {
         if !channel.flags.contains(.isForum) {
             threadData = nil

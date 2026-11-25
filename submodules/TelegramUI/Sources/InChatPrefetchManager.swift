@@ -8,6 +8,7 @@ import PhotoResources
 import UniversalMediaPlayer
 import ChatMessageInteractiveMediaNode
 import TelegramUniversalVideoContent
+import SGSimpleSettings
 
 private final class PrefetchMediaContext {
     let fetchDisposable = MetaDisposable()
@@ -30,13 +31,20 @@ final class InChatPrefetchManager {
     private var directionIsToLater: Bool = true
     
     private var contexts: [MediaId: PrefetchMediaContext] = [:]
+    private var leanObserver: NSObjectProtocol?
     
     init(context: AccountContext) {
         self.context = context
         self.settings = context.sharedContext.currentAutomaticMediaDownloadSettings
+        self.leanObserver = AyuGramBackgroundLean.observe({ [weak self] _ in
+            self?.update()
+        })
     }
     
     deinit {
+        if let leanObserver = self.leanObserver {
+            NotificationCenter.default.removeObserver(leanObserver)
+        }
         for (_, context) in self.contexts {
             context.fetchDisposable.dispose()
         }
@@ -68,7 +76,8 @@ final class InChatPrefetchManager {
         }
         
         var validIds = Set<MediaId>()
-        for (message, media) in self.messages {
+        let messages = AyuGramBackgroundLean.isActive ? [] : self.messages
+        for (message, media) in messages {
             guard let id = media.id else {
                 continue
             }

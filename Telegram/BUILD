@@ -1945,6 +1945,8 @@ plist_fragment(
     <string>Swiftgram stores your contacts heavily encrypted in the Telegram cloud to let you connect with your friends across all your devices.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>You can use Face ID to unlock the app.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>When you share your live location or turn on location keep-alive, the app uses your approximate location in the background to stay connected and deliver your messages.</string>
     <key>NSLocationAlwaysUsageDescription</key>
     <string>When you send your location to your friends, Swiftgram needs access to show them a map. You also need this to send locations from an Apple Watch.</string>
     <key>NSLocationWhenInUseUsageDescription</key>

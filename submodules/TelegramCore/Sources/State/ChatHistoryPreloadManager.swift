@@ -306,7 +306,7 @@ final class ChatHistoryPreloadManager {
             AdditionalPreloadPeerIdsContext(queue: queue)
         })
         
-        self.canPreloadHistoryDisposable = (networkState
+        self.canPreloadHistoryDisposable = (combineLatest(networkState
         |> map { state -> Bool in
             switch state {
             case .online:
@@ -314,6 +314,9 @@ final class ChatHistoryPreloadManager {
             default:
                 return false
             }
+        }, ayuGramBackgroundLeanSignal())
+        |> map { isOnline, isLean -> Bool in
+            return isOnline && !isLean
         }
         |> distinctUntilChanged
         |> deliverOn(self.queue)).start(next: { [weak self] value in

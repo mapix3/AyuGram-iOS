@@ -528,6 +528,13 @@
 "Ayu.KeepAliveMinutes" = "%@ мин после выхода";
 "Ayu.KeepAliveFooter" = "AyuGram остаётся работать в фоне за счёт беззвучного звука и показывает уведомления о новых сообщениях без пушей Apple. Расходует больше батареи. Музыку и звонки не прерывает, после звонка включается сам. С Bark не нужно.";
 "Ayu.TerminatedNotice" = "AyuGram закрыт, уведомления приостановлены. Откройте его, чтобы вернуть их.";
+"Ayu.BackgroundMode.Header" = "РАБОТА В ФОНЕ";
+"Ayu.BackgroundMode" = "Удержание";
+"Ayu.BackgroundMode.Audio" = "Тихое аудио";
+"Ayu.BackgroundMode.Location" = "Геолокация";
+"Ayu.BackgroundMode.AudioLocation" = "Аудио + геолокация";
+"Ayu.BackgroundMode.Off" = "Выключено";
+"Ayu.BackgroundMode.Notice" = "Как AyuGram остаётся на связи в фоне. Все аккаунты остаются подключёнными, рендер останавливается, обрабатываются только входящие сообщения. Геолокация работает с минимальной точностью и требует доступа к геопозиции (лучше «Всегда»).";
 "Ayu.NotificationPicture" = "Загрузить фото";
 "Ayu.AISection" = "Поиск и ИИ";
 "Ayu.SearchEngine" = "Поисковик";
