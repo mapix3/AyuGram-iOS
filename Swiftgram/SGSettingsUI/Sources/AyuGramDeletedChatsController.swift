@@ -235,3 +235,32 @@ func ayuGramDeletedChatsController(context: AccountContext, onlyPeers: Set<Int64
     }
     return controller
 }
+
+public func ayuGramChatDeletedViewer(context: AccountContext, peerId: EnginePeer.Id, title: String) -> ViewController {
+    return ayuGramDeletedChatViewer(context: context, peerId: peerId, title: title.isEmpty ? "\(peerId.id._internalGetInt64Value())" : title, more: { controller in
+        let data = context.sharedContext.currentPresentationData.with { $0 }
+        let locale = data.strings.baseLanguageCode
+        let sheet = ActionSheetController(presentationData: data)
+        var items: [ActionSheetItem] = []
+        items.append(ActionSheetButtonItem(title: i18n("Ayu.DeletedChatSave", locale), color: .accent, action: { [weak sheet, weak controller] in
+            sheet?.dismissAnimated()
+            let _ = (context.engine.ayuGramDeletedChatMessages(peerId: peerId) |> deliverOnMainQueue).startStandalone(next: { messages in
+                guard let controller else { return }
+                ayuGramExportChatArchive(context: context, peerId: peerId, title: title, messages: messages, present: { [weak controller] next in
+                    controller?.present(next, in: .window(.root))
+                })
+            })
+        }))
+        items.append(ActionSheetButtonItem(title: i18n("Ayu.DeletedChatDelete", locale), color: .destructive, action: { [weak sheet, weak controller] in
+            sheet?.dismissAnimated()
+            let _ = (context.engine.ayuGramForgetDeletedChat(peerId: peerId, deleteMessages: true) |> deliverOnMainQueue).startStandalone(completed: {
+                let _ = (controller?.navigationController as? NavigationController)?.popViewController(animated: true)
+            })
+        }))
+        sheet.setItemGroups([
+            ActionSheetItemGroup(items: items),
+            ActionSheetItemGroup(items: [ActionSheetButtonItem(title: data.strings.Common_Cancel, color: .accent, action: { [weak sheet] in sheet?.dismissAnimated() })])
+        ])
+        controller.present(sheet, in: .window(.root))
+    })
+}
