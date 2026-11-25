@@ -717,3 +717,6 @@
 "Ayu.FakeNumber.RealResult" = "Telegram account with this number";
 "Ayu.FakeNumber.NoRealResult" = "No Telegram account has this number.";
 "Ayu.FakeNumber.SearchInfo" = "shows this number in AyuGram, it is not their real number";
+
+"Ayu.BackgroundKeepAlive" = "Keep running in background";
+"Ayu.BackgroundKeepAliveInfo" = "Plays silent audio so AyuGram stays alive in the background. Uses a lot of battery; messages still arrive through push notifications when it is off.";

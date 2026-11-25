@@ -1,3 +1,4 @@
+import SGSimpleSettings
 import Foundation
 import BackgroundTasks
 import AVFAudio
@@ -167,7 +168,7 @@ public final class SharedWakeupManager {
                 return
             }
             strongSelf.inForeground = value
-            strongSelf.ayuKeepAlive?.update(inForeground: value)
+            strongSelf.ayuKeepAlive?.update(inForeground: value || !AyuGramSettings.shared.extra.backgroundKeepAlive)
             if value {
                 strongSelf.activeExplicitExtensionTimer?.invalidate()
                 strongSelf.activeExplicitExtensionTimer = nil
