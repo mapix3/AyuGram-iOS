@@ -422,7 +422,7 @@
 "Ayu.SilentInGhost" = "В режиме призрака";
 "Ayu.SilentAlways" = "Всегда";
 "Ayu.ScheduleInGhost" = "Отправлять отложенными";
-"Ayu.ScheduleInGhostInfo" = "В режиме призрака сообщения уходят как отложенные через 6 секунд, и ты не появляешься в сети";
+"Ayu.ScheduleInGhostInfo" = "В режиме призрака сообщения уходят как отложенные через 12 секунд, и ты не появляешься в сети";
 "Ayu.ChatsSection" = "Чаты";
 "Ayu.DisableAds" = "Скрывать рекламу";
 "Ayu.DisableLinkWarning" = "Без предупреждения о скрытых ссылках";

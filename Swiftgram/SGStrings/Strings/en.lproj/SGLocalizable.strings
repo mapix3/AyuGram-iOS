@@ -427,7 +427,7 @@
 "Ayu.SilentInGhost" = "In Ghost Mode";
 "Ayu.SilentAlways" = "Always";
 "Ayu.ScheduleInGhost" = "Send as scheduled";
-"Ayu.ScheduleInGhostInfo" = "In Ghost Mode messages go out as scheduled in 6 seconds, so you never appear online";
+"Ayu.ScheduleInGhostInfo" = "In Ghost Mode messages go out as scheduled in 12 seconds, so you never appear online";
 "Ayu.ChatsSection" = "Chats";
 "Ayu.DisableAds" = "Hide sponsored messages";
 "Ayu.DisableLinkWarning" = "No warning for hidden links";
