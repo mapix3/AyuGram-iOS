@@ -200,7 +200,7 @@ public struct AyuGramProfileBackground: Codable, Equatable {
     }
 
     static func from(json: Any?) -> AyuGramProfileBackground? {
-        guard let json = json as? [String: Any], let type = json["type"] as? String, type == "photo" || type == "video", let url = json["url"] as? String, AyuGramProfileRelay.mediaFileName(url: url) != nil else {
+        guard let json = json as? [String: Any], let type = json["type"] as? String, type == "photo" || type == "video", let url = json["url"] as? String, let canonicalURL = AyuGramProfileRelay.canonicalMediaURL(url) else {
             return nil
         }
         let width = (json["width"] as? NSNumber)?.intValue ?? 0
@@ -209,7 +209,7 @@ public struct AyuGramProfileBackground: Codable, Equatable {
         let duration = (json["duration"] as? NSNumber)?.doubleValue
         let updatedAt = (json["updatedAt"] as? NSNumber)?.doubleValue ?? 0.0
         let mime = (json["mime"] as? String) ?? (type == "video" ? "video/mp4" : "image/jpeg")
-        return AyuGramProfileBackground(isVideo: type == "video", url: url, width: width, height: height, mime: String(mime.prefix(40)), size: size, duration: duration, updatedAt: updatedAt)
+        return AyuGramProfileBackground(isVideo: type == "video", url: canonicalURL, width: width, height: height, mime: String(mime.prefix(40)), size: size, duration: duration, updatedAt: updatedAt)
     }
 }
 
@@ -579,11 +579,14 @@ public final class AyuGramProfileRelay {
     }
 
     static func mediaFileName(url: String) -> String? {
-        let prefix = AyuGramSecurity.relayURL + "/profile/media/"
-        guard url.hasPrefix(prefix), url.count <= 256 else {
+        guard let components = URLComponents(string: url), let scheme = components.scheme?.lowercased(), scheme == "https" || scheme == "http", let host = components.host, !host.isEmpty, components.user == nil, components.password == nil, components.query == nil, components.fragment == nil, url.count <= 512 else {
             return nil
         }
-        let parts = url.dropFirst(prefix.count).split(separator: "/", omittingEmptySubsequences: false)
+        let pathParts = components.path.split(separator: "/", omittingEmptySubsequences: false)
+        guard pathParts.count == 5, pathParts[1] == "profile", pathParts[2] == "media" else {
+            return nil
+        }
+        let parts = Array(pathParts.dropFirst(3))
         guard parts.count == 2, let id = Int64(parts[0]), id > 0 else {
             return nil
         }
@@ -596,6 +599,13 @@ public final class AyuGramProfileRelay {
             return nil
         }
         return "\(id)_\(fileParts[0]).\(ext)"
+    }
+
+    static func canonicalMediaURL(_ url: String) -> String? {
+        guard mediaFileName(url: url) != nil, let components = URLComponents(string: url) else {
+            return nil
+        }
+        return AyuGramSecurity.relayURL + components.path
     }
 
     public var activeAccount: Int64? {
@@ -916,7 +926,7 @@ public final class AyuGramProfileRelay {
     }
 
     private func download(background: AyuGramProfileBackground, name: String, rawId: Int64) {
-        guard let remote = URL(string: background.url) else {
+        guard let canonicalURL = AyuGramProfileRelay.canonicalMediaURL(background.url), let remote = URL(string: canonicalURL) else {
             return
         }
         let now = Date().timeIntervalSince1970
