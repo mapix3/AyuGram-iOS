@@ -926,12 +926,24 @@ public final class DCTMultiAnimationRendererImpl: MultiAnimationRenderer {
         }
     }
 
+    private var renderGateObserver: NSObjectProtocol?
+
     public init() {
         if !ProcessInfo.processInfo.isLowPowerModeEnabled && ProcessInfo.processInfo.processorCount > 2 {
             self.frameSkip = 1
         } else {
             self.frameSkip = 2
         }
+        self.renderGateObserver = AyuGramRenderGate.observe({ [weak self] _ in
+            self?.updateIsPlaying()
+        })
+    }
+
+    deinit {
+        if let renderGateObserver = self.renderGateObserver {
+            NotificationCenter.default.removeObserver(renderGateObserver)
+        }
+        self.displayTimer?.invalidate()
     }
 
     public func add(target: MultiAnimationRenderTarget, cache: AnimationCache, itemId: String, unique: Bool, size: CGSize, fetch: @escaping (AnimationCacheFetchOptions) -> Disposable) -> Disposable {
@@ -1018,6 +1030,9 @@ public final class DCTMultiAnimationRendererImpl: MultiAnimationRenderer {
             if groupContext.isPlaying {
                 isPlaying = true
             }
+        }
+        if AyuGramRenderGate.isSuspended {
+            isPlaying = false
         }
 
         self.isPlaying = isPlaying

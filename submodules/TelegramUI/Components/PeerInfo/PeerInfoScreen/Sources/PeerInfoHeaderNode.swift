@@ -3024,6 +3024,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 bubblesView.backView.frame = bubblesFrame
             }
             bubblesView.fakeLabel = i18n("Ayu.FakeNft.Title", presentationData.strings.baseLanguageCode)
+            if let profileColor = peer?.effectiveProfileColor {
+                bubblesView.accentColor = self.context.peerNameColors.getProfile(profileColor, dark: presentationData.theme.overallDarkAppearance).main
+            } else {
+                bubblesView.accentColor = presentationData.theme.list.itemAccentColor
+            }
             bubblesView.update(items: ayuBubbleItems, layout: AyuGramProfileBubblesView.Layout(
                 size: bubblesFrame.size,
                 avatarCenter: bubbleAvatarCenter,

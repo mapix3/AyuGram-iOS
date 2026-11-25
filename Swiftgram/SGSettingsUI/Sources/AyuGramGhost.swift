@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import QuartzCore
+import SGSimpleSettings
 
 private final class AyuGramGhostTicker: NSObject {
     static let shared = AyuGramGhostTicker()
@@ -15,6 +16,14 @@ private final class AyuGramGhostTicker: NSObject {
 
     private var ghosts: [Weak] = []
     private var link: CADisplayLink?
+    private var leanObserver: NSObjectProtocol?
+
+    override init() {
+        super.init()
+        self.leanObserver = AyuGramBackgroundLean.observe({ [weak self] isActive in
+            self?.link?.isPaused = isActive
+        })
+    }
 
     func add(_ ghost: AyuGramGhostView) {
         self.ghosts.removeAll(where: { $0.ghost == nil || $0.ghost === ghost })
@@ -24,6 +33,7 @@ private final class AyuGramGhostTicker: NSObject {
             if #available(iOS 15.0, *) {
                 link.preferredFrameRateRange = CAFrameRateRange(minimum: 30.0, maximum: 60.0, preferred: 60.0)
             }
+            link.isPaused = AyuGramBackgroundLean.isActive
             link.add(to: .main, forMode: .common)
             self.link = link
         }

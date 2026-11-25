@@ -9,6 +9,7 @@ import AccountContext
 import UniversalMediaPlayer
 import TelegramAudio
 import TelegramPresentationData
+import SGSimpleSettings
 
 private struct AccountTasks {
     let stateSynchronization: Bool
@@ -167,6 +168,7 @@ public final class SharedWakeupManager {
                 return
             }
             strongSelf.inForeground = value
+            AyuGramBackgroundLean.update(isActive: !value)
             strongSelf.ayuKeepAlive?.update(inForeground: value)
             if value {
                 strongSelf.activeExplicitExtensionTimer?.invalidate()

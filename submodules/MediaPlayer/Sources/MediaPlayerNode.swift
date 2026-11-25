@@ -105,6 +105,11 @@ public final class MediaPlayerNode: ASDisplayNode {
     var takeFrameAndQueue: (Queue, () -> MediaTrackFrameResult)?
     var timer: SwiftSignalKit.Timer?
     var polling = false
+    private var renderGateObserver: NSObjectProtocol?
+    
+    private var isRenderSuspended: Bool {
+        return AyuGramRenderGate.isSuspended && !self.canPlaybackWithoutHierarchy
+    }
     
     var currentRotationAngle = 0.0
     var currentAspect = 1.0
@@ -156,6 +161,11 @@ public final class MediaPlayerNode: ASDisplayNode {
     }
     
     private func startPolling() {
+        if self.isRenderSuspended {
+            self.timer?.invalidate()
+            self.timer = nil
+            return
+        }
         if !self.polling {
             self.polling = true
             MediaPlayerNode.poll(node: self, completion: { [weak self] status in
@@ -368,6 +378,20 @@ public final class MediaPlayerNode: ASDisplayNode {
         }
         self.addSubnode(self.videoNode)
         
+        self.renderGateObserver = AyuGramRenderGate.observe({ [weak self] isSuspended in
+            guard let self else {
+                return
+            }
+            if isSuspended {
+                if self.isRenderSuspended {
+                    self.timer?.invalidate()
+                    self.timer = nil
+                }
+            } else {
+                self.updateState()
+            }
+        })
+        
         self.videoQueue.async { [weak self] in
             let videoLayer = MediaPlayerNodeLayer()
             videoLayer.videoGravity = .resize
@@ -401,6 +425,10 @@ public final class MediaPlayerNode: ASDisplayNode {
     
     deinit {
         assert(Queue.mainQueue().isCurrent())
+        if let renderGateObserver = self.renderGateObserver {
+            NotificationCenter.default.removeObserver(renderGateObserver)
+        }
+        self.timer?.invalidate()
         self.videoLayer?.removeFromSuperlayer()
         
         if let _ = self.takeFrameAndQueue {

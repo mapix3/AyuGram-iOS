@@ -5,6 +5,7 @@ import TelegramAudio
 import SwiftSignalKit
 import Postbox
 import VideoToolbox
+import SGSimpleSettings
 
 public let internal_isHardwareAv1Supported: Bool = {
     let value = VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1)
@@ -220,6 +221,8 @@ public final class ChunkMediaPlayerV2: ChunkMediaPlayer {
     private var hasClockMovedSinceSeek: Bool = false
     private var baseRate: Double = 1.0
     private var isSoundEnabled: Bool
+    private var renderGateObserver: NSObjectProtocol?
+    private var renderGatePaused: Bool = false
     private var isMuted: Bool
     private var isAmbientMode: Bool
     private var continuePlayingWithoutSoundOnLostAudioSession: Bool
@@ -320,9 +323,34 @@ public final class ChunkMediaPlayerV2: ChunkMediaPlayer {
         } else {
             self.renderSynchronizer.addRenderer(self.videoRenderer)
         }
+        
+        self.renderGateObserver = AyuGramBackgroundLean.observe({ [weak self] isSuspended in
+            self?.updateRenderGate(isSuspended: isSuspended)
+        })
+    }
+    
+    private var isRenderGateExempt: Bool {
+        return self.playerNode?.canPlaybackWithoutHierarchy ?? false
+    }
+    
+    private func updateRenderGate(isSuspended: Bool) {
+        if isSuspended {
+            if self.isPlaying && (!self.isSoundEnabled || !self.hasSound) && !self.isRenderGateExempt {
+                self.pause()
+                self.renderGatePaused = true
+            }
+        } else if self.renderGatePaused {
+            self.renderGatePaused = false
+            if !self.isPlaying {
+                self.play()
+            }
+        }
     }
     
     deinit {
+        if let renderGateObserver = self.renderGateObserver {
+            NotificationCenter.default.removeObserver(renderGateObserver)
+        }
         self.partsStateDisposable?.dispose()
         self.updateTimer?.invalidate()
         self.audioSessionDisposable?.dispose()
@@ -881,6 +909,11 @@ public final class ChunkMediaPlayerV2: ChunkMediaPlayer {
     }
     
     public func play() {
+        if AyuGramBackgroundLean.isActive && !self.isSoundEnabled && !self.isRenderGateExempt {
+            self.renderGatePaused = true
+            return
+        }
+        self.renderGatePaused = false
         self.isPlaying = true
         self.resetMediaDataStarvation()
         self.updateInternalState()
@@ -956,6 +989,7 @@ public final class ChunkMediaPlayerV2: ChunkMediaPlayer {
     }
 
     public func pause() {
+        self.renderGatePaused = false
         self.isPlaying = false
         self.updateInternalState()
     }
