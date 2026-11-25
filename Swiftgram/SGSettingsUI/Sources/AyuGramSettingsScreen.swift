@@ -22,7 +22,7 @@ private enum AyuScreenToggle: Equatable {
     case ignoreProtection, screenshots
     case history, premium
     case scheduleInGhost, disableAds, disableLinkWarning, disableGreeting, dimDeleted, repeatMessage, confirmStickers, confirmGifs, confirmRead
-    case anonymousStats, assistantBubble, disableLiquidGlass, chatCopilot
+    case anonymousStats, assistantBubble, disableLiquidGlass, chatCopilot, backgroundKeepAlive
 }
 
 private enum AyuScreenLink: Equatable {
@@ -199,6 +199,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
         entries.append(.toggle(id: 630, section: .client, key: .disableLiquidGlass, symbol: "drop.fill", tint: .teal, title: s("Ayu.DisableLiquidGlass"), subtitle: s("Ayu.DisableLiquidGlassInfo") + (extra.disableLiquidGlass != AyuLegacyUI.isEnabled ? "\n" + s("Ayu.RestartPending") : ""), value: extra.disableLiquidGlass, enabled: true))
     }
+    entries.append(.toggle(id: 640, section: .client, key: .backgroundKeepAlive, symbol: "battery.25", tint: .orange, title: s("Ayu.BackgroundKeepAlive"), subtitle: s("Ayu.BackgroundKeepAliveInfo"), value: extra.backgroundKeepAlive, enabled: true))
     entries.append(.footer(id: 650, section: .client, text: s("Ayu.LocalOnly")))
 
     let security = AyuGramSecurity.shared
@@ -273,6 +274,8 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .chatCopilot: settings.updateExtra { $0.chatCopilot = value }
         case .disableLiquidGlass:
             settings.updateExtra { $0.disableLiquidGlass = value }
+        case .backgroundKeepAlive:
+            settings.updateExtra { $0.backgroundKeepAlive = value }
             let data = context.sharedContext.currentPresentationData.with { $0 }
             let lang = data.strings.baseLanguageCode
             if value != AyuLegacyUI.isEnabled {
