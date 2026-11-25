@@ -47,13 +47,7 @@ private func transcribeAudio(path: String, locale: String) -> Signal<Transcripti
                             speechRecognizerValue.defaultTaskHint = .dictation
                             sharedRecognizers[locale] = speechRecognizerValue
                             speechRecognizer = speechRecognizerValue
-                            
-                            if locale == "en-US" {
-                                speechRecognizer.supportsOnDeviceRecognition = true
-                            } else {
-                                speechRecognizer.supportsOnDeviceRecognition = false
-                            }
-                            speechRecognizer.supportsOnDeviceRecognition = true
+
                         }
                         speechRecognizer.defaultTaskHint = .dictation
                         
@@ -64,7 +58,7 @@ private func transcribeAudio(path: String, locale: String) -> Signal<Transcripti
                         if #available(iOS 16.0, *) {
                             request.addsPunctuation = true
                         }
-                        request.requiresOnDeviceRecognition = speechRecognizer.supportsOnDeviceRecognition
+                        request.requiresOnDeviceRecognition = false
                         request.shouldReportPartialResults = false
                         
                         let task = speechRecognizer.recognitionTask(with: request, resultHandler: { result, error in
@@ -117,7 +111,20 @@ public struct LocallyTranscribedAudio {
 
 public func transcribeAudio(path: String, appLocale: String) -> Signal<LocallyTranscribedAudio?, NoError> {
     var signals: [Signal<TranscriptionResult?, NoError>] = []
-    let locales: [String] = [appLocale]
+    var resolvedLocale = appLocale
+    if #available(iOS 13.0, *) {
+        let language = appLocale.split(whereSeparator: { $0 == "-" || $0 == "_" }).first.map(String.init)?.lowercased() ?? appLocale
+        let supported = SFSpeechRecognizer.supportedLocales().map { $0.identifier }
+        if !supported.contains(appLocale) {
+            let regional = Locale.current.identifier.replacingOccurrences(of: "_", with: "-")
+            if regional.lowercased().hasPrefix(language), supported.contains(where: { $0.replacingOccurrences(of: "_", with: "-") == regional }) {
+                resolvedLocale = regional
+            } else if let match = supported.first(where: { $0.lowercased().hasPrefix(language + "-") || $0.lowercased().hasPrefix(language + "_") }) {
+                resolvedLocale = match
+            }
+        }
+    }
+    let locales: [String] = [resolvedLocale]
     // Device can effectivelly transcribe only one language at a time. So it will be wise to run language recognition once for each popular language, check the confidence, start over with most confident language and output something it has already generated
 //    if !locales.contains(Locale.current.identifier) {
 //        locales.append(Locale.current.identifier)
