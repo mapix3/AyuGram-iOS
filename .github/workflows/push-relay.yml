@@ -2,9 +2,6 @@ name: Push relay
 
 on:
   workflow_dispatch:
-  push:
-    branches: [standard]
-    paths: ['push-relay/**', '.github/workflows/push-relay.yml']
 
 permissions:
   contents: read

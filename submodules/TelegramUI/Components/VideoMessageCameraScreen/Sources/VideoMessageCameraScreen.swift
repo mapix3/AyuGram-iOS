@@ -52,11 +52,6 @@ private func storeUneditedVideoMessage(
     return id
 }
 
-private func ayuGramDeclaredRoundVideoDimensions(_ dimensions: PixelDimensions) -> PixelDimensions {
-    let declared = AyuGramVideoSettings.roundDeclaredSize(width: Int(dimensions.width), height: Int(dimensions.height))
-    return PixelDimensions(width: Int32(declared.width), height: Int32(declared.height))
-}
-
 struct CameraState: Equatable {
     enum Recording: Equatable {
         case none
@@ -2242,14 +2237,14 @@ public class VideoMessageCameraScreen: ViewController {
                 )
                 if let storedFileId {
                     resource = LocalFileMediaResource(fileId: storedFileId)
-                    outputDimensions = ayuGramDeclaredRoundVideoDimensions(video.dimensions)
+                    outputDimensions = video.dimensions
                 } else {
                     resource = LocalFileVideoMediaResource(randomId: Int64.random(in: Int64.min ... Int64.max), paths: videoPaths, adjustments: resourceAdjustments)
                     let exportConfiguration = recommendedVideoExportConfiguration(values: values, duration: duration, frameRate: Float(AyuGramSettings.shared.video.roundFps))
-                    outputDimensions = ayuGramDeclaredRoundVideoDimensions(PixelDimensions(
+                    outputDimensions = PixelDimensions(
                         width: Int32(exportConfiguration.videoSettings[AVVideoWidthKey] as? Int ?? Int(video.dimensions.width)),
                         height: Int32(exportConfiguration.videoSettings[AVVideoHeightKey] as? Int ?? Int(video.dimensions.height))
-                    ))
+                    )
                 }
                 
                 var previewRepresentations: [TelegramMediaImageRepresentation] = []

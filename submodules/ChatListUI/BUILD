@@ -5,6 +5,7 @@ load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl
 sgdeps = [
     "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
     "//Swiftgram/SGStrings:SGStrings",
+    "//Swiftgram/AyuGramProfileExtras:AyuGramProfileExtras",
     "//Swiftgram/SGAPIWebSettings:SGAPIWebSettings",
     "//Swiftgram/SGAPIToken:SGAPIToken",
     "//Swiftgram/AyuGramEffects:AyuGramEffects",

@@ -1655,7 +1655,9 @@ func peerInfoScreenData(
             |> mapToSignal { regDate, peerView, availablePanes, globalNotificationSettings, encryptionKeyFingerprint, status, hasStories, hasStoryArchive, recommendedBots, accountIsPremium, savedMessagesPeer, hasSavedMessagesChats, hasSavedMessages, hasSavedMessageTags, hasBotPreviewItems, personalChannel, privacySettings, starsRevenueContextAndState, revenueContextAndState, premiumGiftOptions, webAppPermissions, savedMusicState, businessConnectedBotAndWalletBalanceAndAgentState -> Signal<PeerInfoScreenData, NoError> in
                 let (businessConnectedBot, walletBalance, agentState) = businessConnectedBotAndWalletBalanceAndAgentState
                 var availablePanes = availablePanes
-                let ayuHasFakeNfts = ayuGramProfileEntry(peerId: userPeerId, refresh: false)?.nfts.isEmpty == false
+                let ayuEntry = ayuGramProfileEntry(peerId: userPeerId, refresh: false)
+                let ayuHasFakeNfts = ayuEntry?.nfts.isEmpty == false
+                let ayuHidesRealGifts = ayuGramProfileHidesRealGifts(entry: ayuEntry, peerId: userPeerId, accountPeerId: context.account.peerId)
                 if isMyProfile {
                     availablePanes?.insert(.stories, at: 0)
                     if availablePanes != nil, profileGiftsContext != nil, let cachedData = peerView.cachedData as? CachedUserData {
@@ -1672,7 +1674,7 @@ func peerInfoScreenData(
                     }
                     
                     if availablePanes != nil, profileGiftsContext != nil, let cachedData = peerView.cachedData as? CachedUserData, peerView.peerId != context.account.peerId {
-                        if (cachedData.starGiftsCount ?? 0) > 0 || ayuHasFakeNfts {
+                        if (!ayuHidesRealGifts && (cachedData.starGiftsCount ?? 0) > 0) || ayuHasFakeNfts {
                             availablePanes?.insert(.gifts, at: hasStories ? 1 : 0)
                         }
                     }

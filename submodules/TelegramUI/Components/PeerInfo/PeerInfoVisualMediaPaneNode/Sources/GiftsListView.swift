@@ -42,6 +42,7 @@ final class GiftsListView: UIView {
     private var dataDisposable: Disposable?
     private var ayuFakeDisposable: Disposable?
     private var ayuFakeGifts: [ProfileGiftsContext.State.StarGift] = []
+    private var ayuHidesReal = false
     private var ayuLastState: ProfileGiftsContext.State?
         
     weak var parentController: ViewController?
@@ -132,6 +133,7 @@ final class GiftsListView: UIView {
     let maxPinnedCount: Int
     
     var contextAction: ((ProfileGiftsContext.State.StarGift, UIView, ContextGesture) -> Void)?
+    var ayuFakeContextAction: ((ProfileGiftsContext.State.StarGift, UIView, ContextGesture) -> Void)?
     var addToCollection: (() -> Void)?
     
     init(context: AccountContext, peerId: EnginePeer.Id, profileGifts: ProfileGiftsContext, giftsCollections: ProfileGiftsCollectionsContext?, canSelect: Bool, ignoreCollection: Int32? = nil, remainingSelectionCount: Int32 = 0) {
@@ -162,7 +164,7 @@ final class GiftsListView: UIView {
             let isFirstTime = self.starsProducts == nil
             self.ayuLastState = state
             let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
-            self.statusPromise.set(.single(PeerInfoStatusData(text: presentationData.strings.SharedMedia_GiftCount(state.count ?? 0), isActivity: true, key: .gifts)))
+            self.statusPromise.set(.single(PeerInfoStatusData(text: presentationData.strings.SharedMedia_GiftCount(self.ayuHidesReal ? Int32(self.ayuFakeGifts.count) : (state.count ?? 0)), isActivity: true, key: .gifts)))
             
             if self.isReordering {
                 var stateItems: [ProfileGiftsContext.State.StarGift] = state.gifts
@@ -199,8 +201,8 @@ final class GiftsListView: UIView {
                 self.pinnedReferences = Array(state.gifts.filter { $0.pinnedToTop }.compactMap { $0.reference })
             }
             
-            self.resultsAreEmpty = state.filter == .All && state.gifts.isEmpty && state.dataState != .loading && self.ayuFakeGifts.isEmpty
-            self.filteredResultsAreEmpty = state.filter != .All && state.filteredGifts.isEmpty
+            self.resultsAreEmpty = self.ayuResultsAreEmpty(state)
+            self.filteredResultsAreEmpty = state.filter != .All && (state.filteredGifts.isEmpty || self.ayuHidesReal)
         
             if !self.didSetReady {
                 self.didSetReady = true
@@ -221,19 +223,21 @@ final class GiftsListView: UIView {
         })
         
         if !canSelect && ignoreCollection == nil && profileGifts.collectionId == nil && ayuGramProfileExtrasSupported(peerId) {
-            self.ayuFakeDisposable = (ayuGramFakeNftItems(engine: context.engine, peerId: peerId)
-            |> deliverOnMainQueue).startStrict(next: { [weak self] items in
+            self.ayuFakeDisposable = (combineLatest(ayuGramFakeNftItems(engine: context.engine, peerId: peerId), ayuGramProfileHidesRealGiftsSignal(peerId: peerId, accountPeerId: context.account.peerId))
+            |> deliverOnMainQueue).startStrict(next: { [weak self] items, hidesReal in
                 guard let self else {
                     return
                 }
                 let gifts = items.compactMap { $0.starGift }
-                if gifts == self.ayuFakeGifts {
+                if gifts == self.ayuFakeGifts && hidesReal == self.ayuHidesReal {
                     return
                 }
                 self.ayuFakeGifts = gifts
+                self.ayuHidesReal = hidesReal
                 if !self.isReordering, let state = self.ayuLastState {
                     self.starsProducts = self.ayuMerged(state.filteredGifts, state: state)
-                    self.resultsAreEmpty = state.filter == .All && state.gifts.isEmpty && state.dataState != .loading && self.ayuFakeGifts.isEmpty
+                    self.resultsAreEmpty = self.ayuResultsAreEmpty(state)
+                    self.filteredResultsAreEmpty = state.filter != .All && (state.filteredGifts.isEmpty || self.ayuHidesReal)
                     let _ = self.updateScrolling(transition: .easeInOut(duration: 0.25))
                     Queue.mainQueue().justDispatch {
                         self.onContentUpdated()
@@ -325,7 +329,20 @@ final class GiftsListView: UIView {
         self.ayuFakeDisposable?.dispose()
     }
     
+    private func ayuResultsAreEmpty(_ state: ProfileGiftsContext.State) -> Bool {
+        if self.ayuHidesReal {
+            return state.filter == .All && self.ayuFakeGifts.isEmpty && state.dataState != .loading
+        }
+        return state.filter == .All && state.gifts.isEmpty && state.dataState != .loading && self.ayuFakeGifts.isEmpty
+    }
+    
     private func ayuMerged(_ gifts: [ProfileGiftsContext.State.StarGift], state: ProfileGiftsContext.State) -> [ProfileGiftsContext.State.StarGift] {
+        if self.ayuHidesReal {
+            guard state.filter == .All else {
+                return []
+            }
+            return self.ayuFakeGifts.filter { $0.pinnedToTop } + self.ayuFakeGifts.filter { !$0.pinnedToTop }
+        }
         guard !self.ayuFakeGifts.isEmpty, state.filter == .All else {
             return gifts
         }
@@ -414,7 +431,7 @@ final class GiftsListView: UIView {
                     self.reorderedReferences = nil
                     self.reorderedPinnedReferences = nil
                 }
-            } else if !isReordering, let state = self.ayuLastState, !self.ayuFakeGifts.isEmpty {
+            } else if !isReordering, let state = self.ayuLastState, !self.ayuFakeGifts.isEmpty || self.ayuHidesReal {
                 self.starsProducts = self.ayuMerged(state.filteredGifts, state: state)
             }
             
@@ -831,11 +848,15 @@ final class GiftsListView: UIView {
                                     self.parentController?.push(controller)
                                 }
                             },
-                            contextAction: self.isReordering || self.canSelect || ayuIsFakeProduct ? nil : { [weak self] view, gesture in
+                            contextAction: self.isReordering || self.canSelect || (ayuIsFakeProduct && (self.peerId != self.context.account.peerId || self.ayuFakeContextAction == nil)) ? nil : { [weak self] view, gesture in
                                 guard let self else {
                                     return
                                 }
-                                self.contextAction?(product, view, gesture)
+                                if ayuIsFakeProduct {
+                                    self.ayuFakeContextAction?(product, view, gesture)
+                                } else {
+                                    self.contextAction?(product, view, gesture)
+                                }
                             }
                         )
                     ),

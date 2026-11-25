@@ -23,6 +23,7 @@ import UndoUI
 import HorizontalTabsComponent
 import GlassBackgroundComponent
 import EdgeEffect
+import SGSettingsUI
 
 final class PeerInfoPaneWrapper {
     let key: PeerInfoPaneKey
@@ -465,6 +466,11 @@ private final class PeerInfoPendingPane {
             // profile that is the user, not the secret chat `peerId` names.
             let giftPaneNode = PeerInfoGiftsPaneNode(context: context, peerId: data.peer?.id ?? peerId, chatControllerInteraction: chatControllerInteraction, profileGiftsCollections: data.profileGiftsCollectionsContext!, profileGifts: data.profileGiftsContext!, canManage: canManage, canGift: canGift, initialGiftCollectionId: initialGiftCollectionId)
             giftPaneNode.openShareLink = openShareLink
+            if (data.peer?.id ?? peerId) == context.account.peerId {
+                giftPaneNode.ayuOpenFakeGiftsEditor = { [weak parentController] in
+                    parentController?.push(ayuGramProfileExtrasController(context: context))
+                }
+            }
             paneNode = giftPaneNode
         case .stories, .storyArchive, .botPreview:
             var canManage = false

@@ -461,6 +461,16 @@ extension PeerInfoScreenNode {
                         self?.openChatWithMessageSearch()
                     })))
                 }
+                let ayuHistoryPeerId = chatPeer.id
+                items.append(.action(ContextMenuActionItem(text: i18n("Ayu.History", presentationData.strings.baseLanguageCode), icon: { theme in
+                    generateTintedImage(image: UIImage(systemName: "clock.arrow.circlepath"), color: theme.contextMenu.primaryColor)
+                }, action: { [weak self] _, f in
+                    f(.dismissWithoutContent)
+                    guard let self else {
+                        return
+                    }
+                    self.controller?.push(ayuGramHistoryController(context: self.context, chat: ayuHistoryPeerId))
+                })))
                 
                 var hasDiscussion = false
                 if case let .channel(channel) = chatPeer {

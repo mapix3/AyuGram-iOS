@@ -23,13 +23,8 @@ enum AyuGramSilentVideo {
     }
 }
 
-/// Loops a video track without AVPlayer. AVPlayer activates the shared audio
-/// session on playback even when muted or when the item has no audio track,
-/// which stops music and other apps' audio. AVAssetReader decodes only the
-/// video track and AVSampleBufferDisplayLayer never touches AVAudioSession.
 final class AyuGramSilentVideoRenderer {
     let layer = AVSampleBufferDisplayLayer()
-    /// Called on the main queue after the first decoded frame was enqueued.
     var firstFrameDisplayed: (() -> Void)?
 
     private let asset: AVURLAsset
@@ -41,7 +36,6 @@ final class AyuGramSilentVideoRenderer {
     private var loopStartTime: CFTimeInterval = 0.0
     private var loopStartTimestamp: CMTime?
     private var loopHasFrames = false
-    // Main queue only.
     private var notifiedFirstFrame = false
 
     init(url: URL) {
@@ -54,7 +48,6 @@ final class AyuGramSilentVideoRenderer {
         self.reader?.cancelReading()
     }
 
-    /// Call on the main queue.
     func start() {
         if self.layer.status == .failed {
             self.layer.flush()
@@ -116,8 +109,6 @@ final class AyuGramSilentVideoRenderer {
         var reachedEnd = false
         var decodedFrames = 0
         while true {
-            // Never catch up by decoding a burst: a slow device or a large
-            // video would otherwise keep this queue and the decoder busy.
             if decodedFrames >= 3 {
                 break
             }
@@ -148,7 +139,6 @@ final class AyuGramSilentVideoRenderer {
             decodedFrames += 1
         }
         if frame != nil, elapsed - frameOffset > 0.2 {
-            // Running behind: continue from the shown frame instead of skipping ahead.
             self.loopStartTime += elapsed - frameOffset
         }
         if let frame {
@@ -156,7 +146,6 @@ final class AyuGramSilentVideoRenderer {
             self.display(frame)
         }
         if reachedEnd {
-            // A loop without a single frame would otherwise restart forever.
             if !self.loopHasFrames || !self.restartLoop() {
                 self.timer?.cancel()
                 self.timer = nil
@@ -170,9 +159,6 @@ final class AyuGramSilentVideoRenderer {
                 dictionary[kCMSampleAttachmentKey_DisplayImmediately as NSString] = true as NSNumber
             }
         }
-        // Decoding stays on the background queue, but the layer is only
-        // touched on the main thread: layer changes from a thread without a
-        // run loop sit in an uncommitted transaction and can stall the UI.
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if self.layer.status == .failed {

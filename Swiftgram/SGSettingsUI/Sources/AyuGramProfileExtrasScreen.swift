@@ -13,33 +13,37 @@ import ItemListUI
 import PromptUI
 import OverlayStatusController
 import UndoUI
+import SGItemListUI
 import GiftViewScreen
 import SGSimpleSettings
 import SGStrings
 import AyuGramProfileExtras
 
 private enum AyuProfileExtrasSection: Int32 {
-    case intro, verify, bubbles, background, nfts, usernames, danger
+    case intro, verify, nfts, number, usernames, bubbles, background, brightness, danger
 }
 
 private enum AyuProfileExtrasEntry: ItemListNodeEntry {
     case intro(id: Int, text: String)
     case retry(id: Int, title: String)
-    case bubbles(id: Int, title: String, value: Bool, enabled: Bool)
+    case toggle(id: Int, section: AyuProfileExtrasSection, key: AyuProfileExtrasToggle, symbol: String, title: String, value: Bool, enabled: Bool)
+    case brightness(id: Int, value: Int32, enabled: Bool)
     case header(id: Int, section: AyuProfileExtrasSection, text: String)
     case footer(id: Int, section: AyuProfileExtrasSection, text: String)
     case status(id: Int, section: AyuProfileExtrasSection, symbol: String, title: String, label: String)
     case action(id: Int, section: AyuProfileExtrasSection, key: AyuProfileExtrasAction, symbol: String, title: String, enabled: Bool)
     case destructive(id: Int, section: AyuProfileExtrasSection, key: AyuProfileExtrasAction, title: String, enabled: Bool)
-    case nft(id: Int, index: Int, title: String, label: String, enabled: Bool)
+    case nft(id: Int, sortIndex: Int, index: Int, title: String, label: String, color: UInt32, isReordering: Bool, enabled: Bool)
     case username(id: Int, index: Int, title: String, enabled: Bool)
 
     var section: ItemListSectionId {
         switch self {
         case .intro, .retry:
             return AyuProfileExtrasSection.intro.rawValue
-        case .bubbles:
-            return AyuProfileExtrasSection.bubbles.rawValue
+        case let .toggle(_, section, _, _, _, _, _):
+            return section.rawValue
+        case .brightness:
+            return AyuProfileExtrasSection.brightness.rawValue
         case let .header(_, section, _), let .footer(_, section, _):
             return section.rawValue
         case let .status(_, section, _, _, _):
@@ -59,7 +63,9 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
         switch self {
         case let .intro(id, _), let .retry(id, _):
             return id
-        case let .bubbles(id, _, _, _):
+        case let .toggle(id, _, _, _, _, _, _):
+            return id
+        case let .brightness(id, _, _):
             return id
         case let .header(id, _, _), let .footer(id, _, _):
             return id
@@ -69,15 +75,22 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
             return id
         case let .destructive(id, _, _, _, _):
             return id
-        case let .nft(id, _, _, _, _):
+        case let .nft(id, _, _, _, _, _, _, _):
             return id
         case let .username(id, _, _, _):
             return id
         }
     }
 
+    var sortIndex: Int {
+        if case let .nft(_, sortIndex, _, _, _, _, _, _) = self {
+            return sortIndex
+        }
+        return self.stableId
+    }
+
     static func <(lhs: AyuProfileExtrasEntry, rhs: AyuProfileExtrasEntry) -> Bool {
-        return lhs.stableId < rhs.stableId
+        return lhs.sortIndex < rhs.sortIndex
     }
 
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
@@ -89,9 +102,15 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: title, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.perform(.retry)
             })
-        case let .bubbles(_, title, value, enabled):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: ayuGramRowIcon("bubbles.and.sparkles.fill", color: AyuGramRowColor.blue), title: title, value: value, enabled: enabled, maximumNumberOfLines: 0, sectionId: self.section, style: .blocks, updated: { value in
-                arguments.toggleBubbles(value)
+        case let .toggle(_, _, key, symbol, title, value, enabled):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, icon: ayuGramRowIcon(symbol, color: AyuGramRowColor.blue), title: title, value: value, enabled: enabled, maximumNumberOfLines: 0, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.toggle(key, value)
+            })
+        case let .brightness(_, value, enabled):
+            return SliderPercentageItem(theme: presentationData.theme, strings: presentationData.strings, value: value, sectionId: self.section, updated: { value in
+                if enabled {
+                    arguments.updateBrightness(value)
+                }
             })
         case let .header(_, _, text):
             return ItemListSectionHeaderItem(presentationData: presentationData, text: text, sectionId: self.section)
@@ -111,11 +130,9 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
                     arguments.perform(key)
                 }
             })
-        case let .nft(_, index, title, label, enabled):
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: ayuGramRowIcon("gift.fill", color: AyuGramRowColor.purple), title: title, enabled: enabled, label: label, sectionId: self.section, style: .blocks, action: {
-                if enabled {
-                    arguments.openNft(index)
-                }
+        case let .nft(_, _, index, title, label, color, isReordering, enabled):
+            return AyuGramFakeNftRowItem(presentationData: presentationData, title: title, subtitle: label, color: color == 0 ? AyuGramRowColor.purple : UIColor(rgb: color), symbol: "gift.fill", isReordering: isReordering, enabled: enabled, sectionId: self.section, action: {
+                arguments.openNft(index)
             })
         case let .username(_, index, title, enabled):
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: ayuGramRowIcon("at", color: AyuGramRowColor.teal), title: title, enabled: enabled, label: "", sectionId: self.section, style: .blocks, action: {
@@ -127,6 +144,12 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
     }
 }
 
+private enum AyuProfileExtrasToggle: Equatable {
+    case bubbles
+    case showBubbles
+    case hideReal
+}
+
 private enum AyuProfileExtrasAction: Equatable {
     case retry
     case verify
@@ -134,18 +157,22 @@ private enum AyuProfileExtrasAction: Equatable {
     case chooseVideo
     case removeBackground
     case addNft
+    case reorder
     case addUsername
+    case number
     case deleteAll
 }
 
 private final class AyuProfileExtrasArguments {
-    let toggleBubbles: (Bool) -> Void
+    let toggle: (AyuProfileExtrasToggle, Bool) -> Void
+    let updateBrightness: (Int32) -> Void
     let perform: (AyuProfileExtrasAction) -> Void
     let openNft: (Int) -> Void
     let openUsername: (Int) -> Void
 
-    init(toggleBubbles: @escaping (Bool) -> Void, perform: @escaping (AyuProfileExtrasAction) -> Void, openNft: @escaping (Int) -> Void, openUsername: @escaping (Int) -> Void) {
-        self.toggleBubbles = toggleBubbles
+    init(toggle: @escaping (AyuProfileExtrasToggle, Bool) -> Void, updateBrightness: @escaping (Int32) -> Void, perform: @escaping (AyuProfileExtrasAction) -> Void, openNft: @escaping (Int) -> Void, openUsername: @escaping (Int) -> Void) {
+        self.toggle = toggle
+        self.updateBrightness = updateBrightness
         self.perform = perform
         self.openNft = openNft
         self.openUsername = openUsername
@@ -160,6 +187,10 @@ private final class AyuProfileExtrasModel {
     var nfts: [AyuGramProfileNft] = []
     var usernames: [String] = []
     var bubbles = false
+    var hideReal = false
+    var statusSlug: String?
+    var number: String?
+    var brightness: Double = 0.0
     var verified = true
     var awaitingVerification = false
     var verificationCode: String?
@@ -169,12 +200,71 @@ private final class AyuProfileExtrasModel {
     var mediaStatus: String?
     var gifts: [String: StarGift.UniqueGift] = [:]
     var resolving = Set<String>()
+    var reordering = false
+    var numberBusy = false
+    private var nftIds: [String: Int] = [:]
+    private var nextNftId = 0
+
+    func nftStableId(_ nft: AyuGramProfileNft) -> Int {
+        if let id = self.nftIds[nft.key] {
+            return id
+        }
+        self.nextNftId += 1
+        self.nftIds[nft.key] = self.nextNftId
+        return self.nextNftId
+    }
 
     var dirty: Bool {
         guard let saved = self.saved else {
             return false
         }
-        return self.nfts != saved.nfts || self.usernames != saved.usernames || self.bubbles != saved.bubbles
+        return !self.patch(saved: saved).isEmpty
+    }
+
+    func patch(saved: AyuGramProfileEntry) -> AyuGramProfilePatch {
+        var patch = AyuGramProfilePatch()
+        if self.nfts != saved.nfts {
+            patch.nfts = self.nfts
+        }
+        if self.usernames != saved.usernames {
+            patch.usernames = self.usernames
+        }
+        if AyuGramVariant.isCustom && self.bubbles != saved.bubbles {
+            patch.bubbles = self.bubbles
+        }
+        if self.hideReal != saved.hideReal {
+            patch.hideReal = self.hideReal
+        }
+        if self.statusSlug?.lowercased() != saved.statusSlug?.lowercased() {
+            if let statusSlug = self.statusSlug {
+                patch.status = .set(statusSlug)
+            } else {
+                patch.status = .clear
+            }
+        }
+        if AyuGramVariant.isCustom && AyuGramProfileEntry.clampBrightness(self.brightness) != saved.brightness {
+            patch.brightness = self.brightness
+        }
+        return patch
+    }
+
+    func discard() {
+        self.nfts = self.saved?.nfts ?? []
+        self.usernames = self.saved?.usernames ?? []
+        self.bubbles = self.saved?.bubbles ?? false
+        self.hideReal = self.saved?.hideReal ?? false
+        self.statusSlug = self.saved?.statusSlug
+        self.number = self.saved?.number
+        self.brightness = self.saved?.brightness ?? 0.0
+    }
+
+    func dropStatusIfMissing() {
+        guard let statusSlug = self.statusSlug?.lowercased() else {
+            return
+        }
+        if !self.nfts.contains(where: { $0.slug?.lowercased() == statusSlug }) {
+            self.statusSlug = nil
+        }
     }
 
     func apply(_ own: AyuGramOwnProfile, keepDraft: Bool) {
@@ -189,10 +279,9 @@ private final class AyuProfileExtrasModel {
             self.verificationCode = nil
         }
         if !(keepDraft && wasDirty) {
-            self.nfts = own.entry.nfts
-            self.usernames = own.entry.usernames
-            self.bubbles = own.entry.bubbles
+            self.discard()
         }
+        self.number = own.entry.number
     }
 }
 
@@ -405,33 +494,16 @@ private final class AyuProfileVideoExporter {
 private let ayuProfileReservedExact: Set<String> = ["botfather", "spambot", "premium", "stars", "gift", "gifts", "wallet", "notoscam", "verify", "username", "usernames", "jobs", "news", "team", "durov", "pavel", "nikolai"]
 private let ayuProfileReservedParts: [String] = ["telegram", "ayugram", "official", "support", "admin", "fragment", "security", "moderator"]
 
-private func ayuProfileErrorText(_ error: AyuGramProfileError, locale: String) -> String {
-    switch error {
-    case .network:
-        return i18n("Ayu.ProfileExtras.Error.Network", locale)
-    case .unavailable:
-        return i18n("Ayu.ProfileExtras.Error.Unavailable", locale)
-    case .locked:
-        return i18n("Ayu.ProfileExtras.Error.Locked", locale)
-    case .unverified:
-        return i18n("Ayu.ProfileExtras.Error.Unverified", locale)
-    case .banned, .blocked:
-        return i18n("Ayu.ProfileExtras.Error.Banned", locale)
-    case .rateLimited:
-        return i18n("Ayu.ProfileExtras.Error.RateLimited", locale)
-    case .tooLarge:
-        return i18n("Ayu.ProfileExtras.Error.TooLarge", locale)
-    case .tooLong:
-        return i18n("Ayu.ProfileExtras.Error.TooLong", locale)
-    case .badMedia, .unsupported:
-        return i18n("Ayu.ProfileExtras.Error.BadMedia", locale)
-    case let .reservedUsername(value):
-        return i18n("Ayu.ProfileExtras.Error.Reserved", locale, "@" + value)
-    case .badUsername:
-        return i18n("Ayu.ProfileExtras.Error.BadUsername", locale)
-    case .invalid, .server:
-        return i18n("Ayu.ProfileExtras.Error.Invalid", locale)
+private func ayuProfileNftColor(_ gift: StarGift.UniqueGift?) -> UInt32 {
+    guard let gift else {
+        return 0
     }
+    for attribute in gift.attributes {
+        if case let .backdrop(_, _, innerColor, _, _, _, _) = attribute {
+            return UInt32(bitPattern: innerColor)
+        }
+    }
+    return 0
 }
 
 private func ayuProfileExtrasEntries(data: PresentationData, model: AyuProfileExtrasModel) -> [AyuProfileExtrasEntry] {
@@ -443,7 +515,7 @@ private func ayuProfileExtrasEntries(data: PresentationData, model: AyuProfileEx
     entries.append(.intro(id: 0, text: s("Ayu.ProfileExtras.Intro")))
     guard model.loaded else {
         if let loadError = model.loadError {
-            entries.append(.footer(id: 1, section: .intro, text: ayuProfileErrorText(loadError, locale: locale)))
+            entries.append(.footer(id: 1, section: .intro, text: ayuGramProfileErrorText(loadError, locale: locale)))
             entries.append(.retry(id: 2, title: s("Ayu.ProfileExtras.Retry")))
         } else {
             entries.append(.status(id: 3, section: .intro, symbol: "hourglass", title: s("Ayu.ProfileExtras.Loading"), label: ""))
@@ -465,33 +537,42 @@ private func ayuProfileExtrasEntries(data: PresentationData, model: AyuProfileEx
         }
     }
 
-    entries.append(.header(id: 10, section: .bubbles, text: s("Ayu.ProfileExtras.BubblesSection")))
-    entries.append(.bubbles(id: 11, title: s("Ayu.ProfileExtras.Bubbles"), value: model.bubbles, enabled: editable))
-    entries.append(.footer(id: 12, section: .bubbles, text: s("Ayu.ProfileExtras.BubblesInfo")))
-
-    entries.append(.header(id: 20, section: .background, text: s("Ayu.ProfileExtras.BackgroundSection")))
-    if let mediaStatus = model.mediaStatus {
-        entries.append(.status(id: 21, section: .background, symbol: "arrow.up.circle.fill", title: mediaStatus, label: ""))
-    } else if let background = model.saved?.background {
-        entries.append(.status(id: 21, section: .background, symbol: background.isVideo ? "video.fill" : "photo.fill", title: s("Ayu.ProfileExtras.CurrentBackground"), label: s(background.isVideo ? "Ayu.ProfileExtras.Video" : "Ayu.ProfileExtras.Photo")))
-    }
-    entries.append(.action(id: 22, section: .background, key: .choosePhoto, symbol: "photo.on.rectangle", title: s("Ayu.ProfileExtras.ChoosePhoto"), enabled: editable))
-    entries.append(.action(id: 23, section: .background, key: .chooseVideo, symbol: "video.badge.plus", title: s("Ayu.ProfileExtras.ChooseVideo"), enabled: editable))
-    if model.saved?.background != nil {
-        entries.append(.destructive(id: 24, section: .background, key: .removeBackground, title: s("Ayu.ProfileExtras.RemoveBackground"), enabled: editable))
-    }
-    entries.append(.footer(id: 25, section: .background, text: s("Ayu.ProfileExtras.BackgroundInfo")))
-
+    let reordering = model.reordering && model.nfts.count > 1
     entries.append(.header(id: 100, section: .nfts, text: s("Ayu.ProfileExtras.NftsSection") + " · \(model.nfts.count)/\(model.limits.nfts)"))
-    entries.append(.action(id: 101, section: .nfts, key: .addNft, symbol: "plus.circle.fill", title: s("Ayu.ProfileExtras.AddNft"), enabled: editable && model.nfts.count < model.limits.nfts))
+    if !reordering {
+        entries.append(.action(id: 101, section: .nfts, key: .addNft, symbol: "plus.circle.fill", title: s("Ayu.ProfileExtras.AddNft"), enabled: editable && model.nfts.count < model.limits.nfts))
+    }
     for (index, nft) in model.nfts.enumerated() {
         var title = nft.title
-        if let slug = nft.slug, let gift = model.gifts[slug.lowercased()] {
-            title = "\(gift.title) #\(gift.number)"
+        var gift: StarGift.UniqueGift?
+        if let slug = nft.slug, let resolved = model.gifts[slug.lowercased()] {
+            title = "\(resolved.title) #\(resolved.number)"
+            gift = resolved
         }
-        entries.append(.nft(id: 200 + index, index: index, title: title, label: nft.pinned ? "📌 " + s("Ayu.ProfileExtras.Pinned") : "", enabled: editable))
+        var marks: [String] = []
+        if let slug = nft.slug, slug.lowercased() == model.statusSlug?.lowercased() {
+            marks.append(s("Ayu.ProfileExtras.Status"))
+        }
+        if nft.pinned {
+            marks.append(s("Ayu.ProfileExtras.Pinned"))
+        }
+        entries.append(.nft(id: 100000 + model.nftStableId(nft), sortIndex: 200 + index, index: index, title: title, label: marks.joined(separator: " · "), color: ayuProfileNftColor(gift), isReordering: reordering, enabled: editable))
     }
-    entries.append(.footer(id: 300, section: .nfts, text: s("Ayu.ProfileExtras.NftsInfo")))
+    if model.nfts.count > 1 {
+        entries.append(.action(id: 280, section: .nfts, key: .reorder, symbol: reordering ? "checkmark.circle.fill" : "arrow.up.arrow.down", title: s(reordering ? "Ayu.ProfileExtras.ReorderDone" : "Ayu.ProfileExtras.Reorder"), enabled: editable))
+    }
+    entries.append(.toggle(id: 290, section: .nfts, key: .hideReal, symbol: "eye.slash.fill", title: s("Ayu.ProfileExtras.HideReal"), value: model.hideReal, enabled: editable))
+    entries.append(.footer(id: 300, section: .nfts, text: reordering ? s("Ayu.ProfileExtras.ReorderInfo") : s("Ayu.ProfileExtras.NftsInfo") + "\n" + s("Ayu.ProfileExtras.HideRealInfo")))
+
+    entries.append(.header(id: 310, section: .number, text: s("Ayu.ProfileExtras.NumberSection")))
+    if model.numberBusy {
+        entries.append(.status(id: 311, section: .number, symbol: "hourglass", title: s("Ayu.ProfileExtras.Loading"), label: ""))
+    } else if let number = model.number {
+        entries.append(.action(id: 311, section: .number, key: .number, symbol: "phone.fill", title: AyuGramProfileEntry.formatNumber(number), enabled: editable && !model.dirty))
+    } else {
+        entries.append(.action(id: 311, section: .number, key: .number, symbol: "plus.circle.fill", title: s("Ayu.ProfileExtras.ClaimNumber"), enabled: editable && !model.dirty))
+    }
+    entries.append(.footer(id: 312, section: .number, text: model.dirty ? s("Ayu.ProfileExtras.NumberSaveFirst") : s("Ayu.ProfileExtras.NumberInfo")))
 
     entries.append(.header(id: 400, section: .usernames, text: s("Ayu.ProfileExtras.UsernamesSection") + " · \(model.usernames.count)/\(model.limits.usernames)"))
     entries.append(.action(id: 401, section: .usernames, key: .addUsername, symbol: "plus.circle.fill", title: s("Ayu.ProfileExtras.AddUsername"), enabled: editable && model.usernames.count < model.limits.usernames))
@@ -499,6 +580,39 @@ private func ayuProfileExtrasEntries(data: PresentationData, model: AyuProfileEx
         entries.append(.username(id: 500 + index, index: index, title: "@" + name, enabled: editable))
     }
     entries.append(.footer(id: 600, section: .usernames, text: s("Ayu.ProfileExtras.UsernamesInfo")))
+
+    let fullEditing = AyuGramVariant.isCustom
+    entries.append(.header(id: 610, section: .bubbles, text: s("Ayu.ProfileExtras.BubblesSection")))
+    if fullEditing {
+        entries.append(.toggle(id: 611, section: .bubbles, key: .bubbles, symbol: "bubbles.and.sparkles.fill", title: s("Ayu.ProfileExtras.Bubbles"), value: model.bubbles, enabled: editable))
+    }
+    entries.append(.toggle(id: 612, section: .bubbles, key: .showBubbles, symbol: "eye.fill", title: s("Ayu.ProfileExtras.ShowBubbles"), value: AyuGramProfileRelay.bubblesEnabled, enabled: true))
+    entries.append(.footer(id: 613, section: .bubbles, text: fullEditing ? s("Ayu.ProfileExtras.BubblesInfo") : s("Ayu.ProfileExtras.BubblesInfoStandard")))
+
+    if fullEditing {
+        entries.append(.header(id: 620, section: .background, text: s("Ayu.ProfileExtras.BackgroundSection")))
+        if let mediaStatus = model.mediaStatus {
+            entries.append(.status(id: 621, section: .background, symbol: "arrow.up.circle.fill", title: mediaStatus, label: ""))
+        } else if let background = model.saved?.background {
+            entries.append(.status(id: 621, section: .background, symbol: background.isVideo ? "video.fill" : "photo.fill", title: s("Ayu.ProfileExtras.CurrentBackground"), label: s(background.isVideo ? "Ayu.ProfileExtras.Video" : "Ayu.ProfileExtras.Photo")))
+        }
+        entries.append(.action(id: 622, section: .background, key: .choosePhoto, symbol: "photo.on.rectangle", title: s("Ayu.ProfileExtras.ChoosePhoto"), enabled: editable))
+        entries.append(.action(id: 623, section: .background, key: .chooseVideo, symbol: "video.badge.plus", title: s("Ayu.ProfileExtras.ChooseVideo"), enabled: editable))
+        if model.saved?.background != nil {
+            entries.append(.destructive(id: 624, section: .background, key: .removeBackground, title: s("Ayu.ProfileExtras.RemoveBackground"), enabled: editable))
+        }
+        entries.append(.footer(id: 625, section: .background, text: s("Ayu.ProfileExtras.BackgroundInfo")))
+        if model.saved?.background != nil {
+            entries.append(.header(id: 630, section: .brightness, text: s("Ayu.ProfileExtras.Brightness")))
+            entries.append(.brightness(id: 631, value: Int32(((model.brightness + 1.0) * 50.0).rounded()), enabled: editable))
+            entries.append(.footer(id: 632, section: .brightness, text: s("Ayu.ProfileExtras.BrightnessInfo")))
+        }
+    } else if let background = model.saved?.background {
+        entries.append(.header(id: 620, section: .background, text: s("Ayu.ProfileExtras.BackgroundSection")))
+        entries.append(.status(id: 621, section: .background, symbol: background.isVideo ? "video.fill" : "photo.fill", title: s("Ayu.ProfileExtras.CurrentBackground"), label: s(background.isVideo ? "Ayu.ProfileExtras.Video" : "Ayu.ProfileExtras.Photo")))
+        entries.append(.destructive(id: 624, section: .background, key: .removeBackground, title: s("Ayu.ProfileExtras.RemoveBackground"), enabled: editable))
+        entries.append(.footer(id: 625, section: .background, text: s("Ayu.ProfileExtras.CustomOnly")))
+    }
 
     let hasAnything = !(model.saved?.isEmpty ?? true)
     entries.append(.destructive(id: 700, section: .danger, key: .deleteAll, title: s("Ayu.ProfileExtras.DeleteAll"), enabled: editable && hasAnything))
@@ -519,6 +633,7 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
     }
     var presentControllerImpl: ((ViewController) -> Void)?
     var pushControllerImpl: ((ViewController) -> Void)?
+    var popToSelfImpl: (() -> Void)?
 
     func locale() -> String {
         return context.sharedContext.currentPresentationData.with { $0 }.strings.baseLanguageCode
@@ -530,7 +645,7 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
     }
 
     func showError(_ error: AyuGramProfileError) {
-        showText(ayuProfileErrorText(error, locale: locale()))
+        showText(ayuGramProfileErrorText(error, locale: locale()))
     }
 
     func startVerification() {
@@ -662,7 +777,13 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
         }
         model.busy = true
         changed()
-        AyuGramProfileRelay.shared.updateOwn(accountId: accountId, nfts: model.nfts, usernames: model.usernames, bubbles: model.bubbles, completion: { result in
+        guard let saved = model.saved else {
+            model.busy = false
+            changed()
+            completion?()
+            return
+        }
+        AyuGramProfileRelay.shared.updateOwn(accountId: accountId, patch: model.patch(saved: saved), completion: { result in
             model.busy = false
             switch result {
             case let .success(own):
@@ -750,43 +871,6 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
         ]))
     }
 
-    func addNft(_ value: String) {
-        guard let slug = AyuGramProfileNft.parseSlug(value) else {
-            showText(i18n("Ayu.ProfileExtras.Error.NftNotFound", locale()))
-            return
-        }
-        if model.nfts.contains(where: { $0.slug?.lowercased() == slug.lowercased() }) {
-            showText(i18n("Ayu.ProfileExtras.Error.NftExists", locale()))
-            return
-        }
-        let data = context.sharedContext.currentPresentationData.with { $0 }
-        let progress = OverlayStatusController(theme: data.theme, type: .loading(cancelled: nil))
-        presentControllerImpl?(progress)
-        disposables.add((AyuGramFakeNftResolver.shared.fetch(engine: context.engine, slug: slug)
-        |> deliverOnMainQueue).start(next: { gift in
-            progress.dismiss()
-            let canonical = AyuGramProfileNft.isValidSlug(gift.slug) ? gift.slug : slug
-            model.gifts[canonical.lowercased()] = gift
-            model.gifts[slug.lowercased()] = gift
-            if model.nfts.contains(where: { $0.slug?.lowercased() == canonical.lowercased() }) || model.nfts.count >= model.limits.nfts {
-                return
-            }
-            let pinned = model.nfts.filter { $0.pinned }.count < model.limits.pinned
-            model.nfts.append(AyuGramProfileNft(slug: canonical, pinned: pinned))
-            changed()
-        }, error: { error in
-            progress.dismiss()
-            switch error {
-            case .alreadyBurned:
-                showText(i18n("Ayu.ProfileExtras.Error.NftBurned", locale()))
-            case .invalidSlug:
-                showText(i18n("Ayu.ProfileExtras.Error.NftNotFound", locale()))
-            case .generic:
-                showText(i18n("Ayu.ProfileExtras.Error.Network", locale()))
-            }
-        }))
-    }
-
     func addUsername(_ value: String) {
         guard let name = AyuGramProfileEntry.normalizeUsername(value) else {
             showText(i18n("Ayu.ProfileExtras.Error.BadUsername", locale()))
@@ -812,8 +896,88 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
         items.insert(item, at: target)
     }
 
-    let arguments = AyuProfileExtrasArguments(toggleBubbles: { value in
-        model.bubbles = value
+    func applyNumber(_ change: AyuGramProfileNumberChange) {
+        guard !model.numberBusy, !model.busy else {
+            return
+        }
+        model.numberBusy = true
+        changed()
+        AyuGramProfileRelay.shared.updateOwn(accountId: accountId, patch: AyuGramProfilePatch(number: change), completion: { result in
+            model.numberBusy = false
+            switch result {
+            case let .success(own):
+                model.apply(own, keepDraft: true)
+                let data = context.sharedContext.currentPresentationData.with { $0 }
+                let text: String
+                if let number = own.entry.number {
+                    text = i18n("Ayu.ProfileExtras.NumberClaimed", locale(), AyuGramProfileEntry.formatNumber(number))
+                } else {
+                    text = i18n("Ayu.ProfileExtras.NumberFreed", locale())
+                }
+                presentControllerImpl?(UndoOverlayController(presentationData: data, content: .succeed(text: text, timeout: nil, customUndoText: nil), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }))
+            case let .failure(error):
+                handleFailure(error)
+            }
+            changed()
+        })
+    }
+
+    func setNumber(_ value: String) {
+        guard let number = AyuGramProfileEntry.normalizeNumber(value) else {
+            showError(.badNumber)
+            return
+        }
+        if number == model.number {
+            return
+        }
+        applyNumber(.set(number))
+    }
+
+    func askNumber() {
+        presentControllerImpl?(promptController(context: context, text: i18n("Ayu.ProfileExtras.NumberPrompt", locale()), value: model.number.map(AyuGramProfileEntry.formatNumber) ?? "+888 ", placeholder: "+888 1234 5678", characterLimit: 24, apply: { value in
+            if let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                setNumber(value)
+            }
+        }))
+    }
+
+    func addGift(_ gift: StarGift.UniqueGift) -> Bool {
+        guard AyuGramProfileNft.isValidSlug(gift.slug) else {
+            showText(i18n("Ayu.ProfileExtras.Error.NftNotFound", locale()))
+            return false
+        }
+        if model.nfts.contains(where: { $0.slug?.lowercased() == gift.slug.lowercased() }) {
+            showText(i18n("Ayu.ProfileExtras.Error.NftExists", locale()))
+            return false
+        }
+        if model.nfts.count >= model.limits.nfts {
+            showText(i18n("Ayu.ProfileExtras.Error.NftLimit", locale(), "\(model.limits.nfts)"))
+            return false
+        }
+        model.gifts[gift.slug.lowercased()] = gift
+        let pinned = model.nfts.filter { $0.pinned }.count < model.limits.pinned
+        model.nfts.append(AyuGramProfileNft(slug: gift.slug, pinned: pinned))
+        changed()
+        return true
+    }
+
+    let arguments = AyuProfileExtrasArguments(toggle: { key, value in
+        switch key {
+        case .bubbles:
+            if AyuGramVariant.isCustom {
+                model.bubbles = value
+            }
+        case .showBubbles:
+            AyuGramProfileRelay.bubblesEnabled = value
+        case .hideReal:
+            model.hideReal = value
+        }
+        changed()
+    }, updateBrightness: { value in
+        guard AyuGramVariant.isCustom else {
+            return
+        }
+        model.brightness = AyuGramProfileEntry.clampBrightness(Double(value) / 50.0 - 1.0)
         changed()
     }, perform: { action in
         let data = context.sharedContext.currentPresentationData.with { $0 }
@@ -824,9 +988,13 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
         case .verify:
             startVerification()
         case .choosePhoto:
-            holder.picker.choose(video: false)
+            if AyuGramVariant.isCustom {
+                holder.picker.choose(video: false)
+            }
         case .chooseVideo:
-            holder.picker.choose(video: true)
+            if AyuGramVariant.isCustom {
+                holder.picker.choose(video: true)
+            }
         case .removeBackground:
             confirm(text: i18n("Ayu.ProfileExtras.RemoveBackgroundConfirm", locale), action: i18n("Ayu.ProfileExtras.RemoveBackground", locale), perform: {
                 model.busy = true
@@ -843,11 +1011,55 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
                 })
             })
         case .addNft:
-            presentControllerImpl?(promptController(context: context, text: i18n("Ayu.ProfileExtras.AddNftPrompt", locale), value: "", placeholder: "t.me/nft/PlushPepe-1", characterLimit: 200, apply: { value in
-                if let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    addNft(value)
+            guard model.nfts.count < model.limits.nfts else {
+                showText(i18n("Ayu.ProfileExtras.Error.NftLimit", locale, "\(model.limits.nfts)"))
+                return
+            }
+            pushControllerImpl?(ayuGramNftSearchController(context: context, onPick: { gift in
+                if addGift(gift) {
+                    popToSelfImpl?()
                 }
             }))
+        case .reorder:
+            model.reordering = !model.reordering
+            changed()
+        case .number:
+            if model.dirty {
+                showText(i18n("Ayu.ProfileExtras.NumberSaveFirst", locale))
+                return
+            }
+            let sheet = ActionSheetController(presentationData: data)
+            var numberItems: [ActionSheetItem] = []
+            if let number = model.number {
+                numberItems.append(ActionSheetTextItem(title: AyuGramProfileEntry.formatNumber(number), parseMarkdown: false))
+                numberItems.append(ActionSheetButtonItem(title: i18n("Ayu.ProfileExtras.ChangeNumber", locale), color: .accent, action: { [weak sheet] in
+                    sheet?.dismissAnimated()
+                    askNumber()
+                }))
+                numberItems.append(ActionSheetButtonItem(title: i18n("Ayu.ProfileExtras.ClearNumber", locale), color: .destructive, action: { [weak sheet] in
+                    sheet?.dismissAnimated()
+                    confirm(text: i18n("Ayu.ProfileExtras.ClearNumberConfirm", locale), action: i18n("Ayu.ProfileExtras.ClearNumber", locale), perform: {
+                        applyNumber(.clear)
+                    })
+                }))
+            } else {
+                numberItems.append(ActionSheetTextItem(title: i18n("Ayu.ProfileExtras.NumberOnlyOne", locale), parseMarkdown: false))
+                numberItems.append(ActionSheetButtonItem(title: i18n("Ayu.ProfileExtras.EnterNumber", locale), color: .accent, action: { [weak sheet] in
+                    sheet?.dismissAnimated()
+                    askNumber()
+                }))
+                numberItems.append(ActionSheetButtonItem(title: i18n("Ayu.ProfileExtras.RandomNumber", locale), color: .accent, action: { [weak sheet] in
+                    sheet?.dismissAnimated()
+                    setNumber(ayuGramRandomAnonymousNumber())
+                }))
+            }
+            sheet.setItemGroups([
+                ActionSheetItemGroup(items: numberItems),
+                ActionSheetItemGroup(items: [ActionSheetButtonItem(title: data.strings.Common_Cancel, color: .accent, action: { [weak sheet] in
+                    sheet?.dismissAnimated()
+                })])
+            ])
+            presentControllerImpl?(sheet)
         case .addUsername:
             presentControllerImpl?(promptController(context: context, text: i18n("Ayu.ProfileExtras.AddUsernamePrompt", locale), value: "", placeholder: "@username", characterLimit: 40, apply: { value in
                 if let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -904,6 +1116,14 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
             model.nfts[index] = model.nfts[index].withPinned(!model.nfts[index].pinned)
             changed()
         }))
+        if let slug = nft.slug {
+            let isStatus = slug.lowercased() == model.statusSlug?.lowercased()
+            items.append(ActionSheetButtonItem(title: i18n(isStatus ? "Ayu.ProfileExtras.RemoveStatus" : "Ayu.ProfileExtras.SetStatus", locale), color: .accent, action: { [weak sheet] in
+                sheet?.dismissAnimated()
+                model.statusSlug = isStatus ? nil : slug
+                changed()
+            }))
+        }
         if index > 0 {
             items.append(ActionSheetButtonItem(title: i18n("Ayu.ProfileExtras.MoveUp", locale), color: .accent, action: { [weak sheet] in
                 sheet?.dismissAnimated()
@@ -924,6 +1144,7 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
                 return
             }
             model.nfts.remove(at: index)
+            model.dropStatusIfMissing()
             changed()
         }))
         sheet.setItemGroups([
@@ -1014,9 +1235,7 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
         let locale = data.strings.baseLanguageCode
         presentControllerImpl?(textAlertController(context: context, title: nil, text: i18n("Ayu.ProfileExtras.UnsavedChanges", locale), actions: [
             TextAlertAction(type: .genericAction, title: i18n("Ayu.ProfileExtras.Discard", locale), action: {
-                model.nfts = model.saved?.nfts ?? []
-                model.usernames = model.saved?.usernames ?? []
-                model.bubbles = model.saved?.bubbles ?? false
+                model.discard()
                 proceed()
             }),
             TextAlertAction(type: .defaultAction, title: data.strings.Common_Save, action: {
@@ -1031,6 +1250,32 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
     pushControllerImpl = { [weak controller] next in
         (controller?.navigationController as? NavigationController)?.pushViewController(next)
     }
+    popToSelfImpl = { [weak controller] in
+        guard let controller, let navigationController = controller.navigationController as? NavigationController else {
+            return
+        }
+        let _ = navigationController.popToViewController(controller, animated: true)
+    }
+    controller.setReorderEntry({ (fromIndex: Int, toIndex: Int, entries: [AyuProfileExtrasEntry]) -> Signal<Bool, NoError> in
+        guard fromIndex >= 0, fromIndex < entries.count, case let .nft(_, _, fromNft, _, _, _, _, _) = entries[fromIndex] else {
+            return .single(false)
+        }
+        let target: Int
+        if toIndex >= 0, toIndex < entries.count, case let .nft(_, _, index, _, _, _, _, _) = entries[toIndex] {
+            target = index
+        } else if toIndex >= 0, toIndex < entries.count, entries[toIndex] < entries[fromIndex] {
+            target = 0
+        } else {
+            target = model.nfts.count - 1
+        }
+        guard fromNft >= 0, fromNft < model.nfts.count, target >= 0, target < model.nfts.count, target != fromNft else {
+            return .single(false)
+        }
+        let item = model.nfts.remove(at: fromNft)
+        model.nfts.insert(item, at: target)
+        changed()
+        return .single(true)
+    })
     load()
     return controller
 }

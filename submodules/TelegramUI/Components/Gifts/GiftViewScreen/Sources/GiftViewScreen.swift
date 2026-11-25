@@ -54,6 +54,8 @@ import TranslateUI
 import TelegramUIPreferences
 import WalletContext
 import SGStrings
+import SGSimpleSettings
+import AyuGramProfileExtras
 
 private let giftViewTopOverscrollBackgroundHeight: CGFloat = 250.0
 
@@ -426,6 +428,8 @@ private final class GiftViewSheetContent: CombinedComponent {
         
         var peerMap: [EnginePeer.Id: EnginePeer] = [:]
         var starGiftsMap: [Int64: StarGift.Gift] = [:]
+        var ayuFakeHolderIds: [EnginePeer.Id] = []
+        private var ayuHoldersDisposable: Disposable?
         
         var cachedStarImage: (UIImage, PresentationTheme)?
         var cachedSmallStarImage: (UIImage, PresentationTheme)?
@@ -527,6 +531,42 @@ private final class GiftViewSheetContent: CombinedComponent {
                     if let peerId = gift.hostPeerId {
                         peerIds.append(peerId)
                     }
+                    var ayuRealOwnerIds = Set<EnginePeer.Id>()
+                    if case let .peerId(peerId) = gift.owner {
+                        ayuRealOwnerIds.insert(peerId)
+                    }
+                    if let peerId = gift.hostPeerId {
+                        ayuRealOwnerIds.insert(peerId)
+                    }
+                    self.ayuHoldersDisposable = (ayuGramNftHoldersSignal(slug: gift.slug)
+                    |> mapToSignal { holders -> Signal<[EnginePeer], NoError> in
+                        let ids = holders.map { ayuGramPeerId(rawId: $0.id) }.filter { !ayuRealOwnerIds.contains($0) }
+                        if ids.isEmpty {
+                            return .single([])
+                        }
+                        return context.engine.data.get(EngineDataMap(ids.map(TelegramEngine.EngineData.Item.Peer.Peer.init(id:))))
+                        |> map { peers -> [EnginePeer] in
+                            return ids.compactMap { id -> EnginePeer? in
+                                if let peer = peers[id], let peer {
+                                    return peer
+                                }
+                                return nil
+                            }
+                        }
+                    }
+                    |> deliverOnMainQueue).start(next: { [weak self] peers in
+                        guard let self else {
+                            return
+                        }
+                        for peer in peers {
+                            self.peerMap[peer.id] = peer
+                        }
+                        let ids = peers.map { $0.id }
+                        if ids != self.ayuFakeHolderIds {
+                            self.ayuFakeHolderIds = ids
+                            self.updated(transition: .easeInOut(duration: 0.2))
+                        }
+                    })
                     for attribute in gift.attributes {
                         if case let .originalInfo(senderPeerId, recipientPeerId, _, _, _) = attribute {
                             if let senderPeerId {
@@ -705,6 +745,7 @@ private final class GiftViewSheetContent: CombinedComponent {
         
         deinit {
             self.disposable?.dispose()
+            self.ayuHoldersDisposable?.dispose()
             self.upgradePreviewDisposable.dispose()
             self.upgradePreviewTimer?.invalidate()
             self.upgradeFormDisposable?.dispose()
@@ -4804,6 +4845,45 @@ private final class GiftViewSheetContent: CombinedComponent {
                                     }
                                 ))
                             ))
+                        }
+                        
+                        if !isAyuFakeNft {
+                            let ayuLocale = strings.baseLanguageCode
+                            for holderId in state.ayuFakeHolderIds {
+                                guard let holderPeer = state.peerMap[holderId] else {
+                                    continue
+                                }
+                                tableItems.append(.init(
+                                    id: "ayu_fake_holder_\(holderId.toInt64())",
+                                    title: i18n("Ayu.FakeNft.ShownBy", ayuLocale),
+                                    component: AnyComponent(
+                                        HStack([
+                                            AnyComponentWithIdentity(
+                                                id: AnyHashable(0),
+                                                component: AnyComponent(Button(
+                                                    content: AnyComponent(
+                                                        PeerTableCellComponent(
+                                                            context: component.context,
+                                                            theme: theme,
+                                                            strings: strings,
+                                                            peer: holderPeer
+                                                        )
+                                                    ),
+                                                    action: { [weak state] in
+                                                        state?.openPeer(holderPeer, profile: true)
+                                                    }
+                                                ))
+                                            ),
+                                            AnyComponentWithIdentity(
+                                                id: AnyHashable(1),
+                                                component: AnyComponent(
+                                                    MultilineTextComponent(text: .plain(NSAttributedString(string: "⚠️ " + i18n("Ayu.FakeNumber.Plaque", ayuLocale), font: Font.semibold(13.0), textColor: theme.list.itemDestructiveColor)), maximumNumberOfLines: 1)
+                                                )
+                                            )
+                                        ], spacing: 6.0)
+                                    )
+                                ))
+                            }
                         }
                         
                     } else if let peerId = subject.arguments?.fromPeerId, var peer = state.peerMap[peerId] {

@@ -76,13 +76,18 @@ private func historyDayTitle(_ timestamp: Int32, locale: String) -> String {
     return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
 }
 
-public func ayuGramHistoryController(context: AccountContext, messageId: MessageId? = nil, deletedIn: EnginePeer.Id? = nil) -> ViewController {
+public func ayuGramHistoryController(context: AccountContext, messageId: MessageId? = nil, deletedIn: EnginePeer.Id? = nil, chat: EnginePeer.Id? = nil) -> ViewController {
     let records = Promise<[AyuGramHistoryEntry]>()
     let policy = Promise<(AyuGramHistoryPolicy, [EnginePeer])>()
     let filter = ValuePromise<Int>(0, ignoreRepeated: true)
-    let isMain = messageId == nil && deletedIn == nil
+    let isMain = messageId == nil && deletedIn == nil && chat == nil
     if let messageId {
         records.set(context.engine.ayuGramMessageVersions(messageId: messageId))
+    } else if let chat {
+        let chatValue = chat.toInt64()
+        records.set(context.engine.ayuGramMessageHistory() |> map { entries in
+            return entries.filter { $0.peerId == chatValue }
+        })
     } else if let deletedIn {
         records.set(context.engine.ayuGramKeptDeletedEntries(peerId: deletedIn))
     } else {

@@ -11,6 +11,7 @@ swift_library(
     ],
     deps = [
         "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+        "//Swiftgram/SGStrings:SGStrings",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
         "//submodules/TelegramCore:TelegramCore",
     ],

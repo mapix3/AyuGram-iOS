@@ -1,4 +1,6 @@
 import Foundation
+import SGStrings
+import SGSettingsUI
 import UIKit
 import SwiftSignalKit
 import Display
@@ -378,6 +380,17 @@ extension ChatControllerImpl {
             
             self?.beginMessageSearch("")
         })))
+        if let chatPeerId = self.chatLocation.peerId {
+            items.append(.action(ContextMenuActionItem(text: i18n("Ayu.History", strings.baseLanguageCode), icon: { theme in
+                return generateTintedImage(image: UIImage(systemName: "clock.arrow.circlepath"), color: theme.contextMenu.primaryColor)
+            }, action: { [weak self] action in
+                action.dismissWithResult(.default)
+                guard let self else {
+                    return
+                }
+                (self.navigationController as? NavigationController)?.pushViewController(ayuGramHistoryController(context: self.context, chat: chatPeerId))
+            })))
+        }
         
         if let threadId = self.chatLocation.threadId, let peer = self.presentationInterfaceState.renderedPeer?.chatMainPeer, (peer is TelegramChannel || peer is TelegramGroup) {
             items.append(.action(ContextMenuActionItem(text: strings.CreateTopic_EditTitle, icon: { theme in

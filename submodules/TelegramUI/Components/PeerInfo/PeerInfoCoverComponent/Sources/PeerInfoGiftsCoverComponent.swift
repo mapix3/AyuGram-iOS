@@ -35,6 +35,7 @@ public final class PeerInfoGiftsCoverComponent: Component {
     public let sideInsets: PeerInfoSideInsets
     public let bottomHeight: CGFloat
     public let extraGifts: [ProfileGiftsContext.State.StarGift]
+    public let hidesRealGifts: Bool
     public let action: (ProfileGiftsContext.State.StarGift) -> Void
     
     public init(
@@ -54,6 +55,7 @@ public final class PeerInfoGiftsCoverComponent: Component {
         sideInsets: PeerInfoSideInsets,
         bottomHeight: CGFloat,
         extraGifts: [ProfileGiftsContext.State.StarGift] = [],
+        hidesRealGifts: Bool = false,
         action: @escaping (ProfileGiftsContext.State.StarGift) -> Void
     ) {
         self.context = context
@@ -72,6 +74,7 @@ public final class PeerInfoGiftsCoverComponent: Component {
         self.sideInsets = sideInsets
         self.bottomHeight = bottomHeight
         self.extraGifts = extraGifts
+        self.hidesRealGifts = hidesRealGifts
         self.action = action
     }
     
@@ -119,6 +122,9 @@ public final class PeerInfoGiftsCoverComponent: Component {
             return false
         }
         if lhs.extraGifts != rhs.extraGifts {
+            return false
+        }
+        if lhs.hidesRealGifts != rhs.hidesRealGifts {
             return false
         }
         return true
@@ -285,6 +291,9 @@ public final class PeerInfoGiftsCoverComponent: Component {
         }
     
         private func mergedGifts(component: PeerInfoGiftsCoverComponent) -> [ProfileGiftsContext.State.StarGift] {
+            if component.hidesRealGifts {
+                return component.extraGifts
+            }
             if component.extraGifts.isEmpty {
                 return self.stateGifts
             }

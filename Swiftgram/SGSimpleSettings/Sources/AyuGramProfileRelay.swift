@@ -213,25 +213,105 @@ public struct AyuGramProfileBackground: Codable, Equatable {
     }
 }
 
+public struct AyuGramProfileHolder: Equatable {
+    public var id: Int64
+    public var pinned: Bool
+
+    public init(id: Int64, pinned: Bool) {
+        self.id = id
+        self.pinned = pinned
+    }
+}
+
 public struct AyuGramProfileEntry: Codable, Equatable {
     public var id: Int64
     public var nfts: [AyuGramProfileNft]
     public var usernames: [String]
     public var background: AyuGramProfileBackground?
     public var bubbles: Bool
+    public var hideReal: Bool
+    public var statusSlug: String?
+    public var number: String?
+    public var brightness: Double
     public var updatedAt: Double
 
-    public init(id: Int64, nfts: [AyuGramProfileNft], usernames: [String], background: AyuGramProfileBackground?, bubbles: Bool, updatedAt: Double) {
+    public init(id: Int64, nfts: [AyuGramProfileNft], usernames: [String], background: AyuGramProfileBackground?, bubbles: Bool, hideReal: Bool = false, statusSlug: String? = nil, number: String? = nil, brightness: Double = 0.0, updatedAt: Double) {
         self.id = id
         self.nfts = nfts
         self.usernames = usernames
         self.background = background
         self.bubbles = bubbles
+        self.hideReal = hideReal
+        self.statusSlug = statusSlug
+        self.number = number
+        self.brightness = AyuGramProfileEntry.clampBrightness(brightness)
         self.updatedAt = updatedAt
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id, nfts, usernames, background, bubbles, hideReal, statusSlug, number, brightness, updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(Int64.self, forKey: .id)
+        self.nfts = try container.decodeIfPresent([AyuGramProfileNft].self, forKey: .nfts) ?? []
+        self.usernames = try container.decodeIfPresent([String].self, forKey: .usernames) ?? []
+        self.background = try container.decodeIfPresent(AyuGramProfileBackground.self, forKey: .background)
+        self.bubbles = try container.decodeIfPresent(Bool.self, forKey: .bubbles) ?? false
+        self.hideReal = try container.decodeIfPresent(Bool.self, forKey: .hideReal) ?? false
+        self.statusSlug = try container.decodeIfPresent(String.self, forKey: .statusSlug)
+        self.number = try container.decodeIfPresent(String.self, forKey: .number).flatMap(AyuGramProfileEntry.normalizeNumber)
+        let brightness = try container.decodeIfPresent(Double.self, forKey: .brightness) ?? 0.0
+        self.brightness = AyuGramProfileEntry.clampBrightness(brightness)
+        self.updatedAt = try container.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0.0
+    }
+
     public var isEmpty: Bool {
-        return self.nfts.isEmpty && self.usernames.isEmpty && self.background == nil && !self.bubbles
+        return self.nfts.isEmpty && self.usernames.isEmpty && self.background == nil && !self.bubbles && !self.hideReal && self.number == nil
+    }
+
+    public var statusNft: AyuGramProfileNft? {
+        guard let statusSlug = self.statusSlug?.lowercased() else {
+            return nil
+        }
+        return self.nfts.first(where: { $0.slug?.lowercased() == statusSlug })
+    }
+
+    public func isFakeNumber(_ value: String) -> Bool {
+        guard let number = self.number, let normalized = AyuGramProfileEntry.normalizeNumber(value) else {
+            return false
+        }
+        return number == normalized
+    }
+
+    public static func clampBrightness(_ value: Double) -> Double {
+        guard value.isFinite else {
+            return 0.0
+        }
+        return (max(-1.0, min(1.0, value)) * 100.0).rounded() / 100.0
+    }
+
+    public static func normalizeNumber(_ value: String) -> String? {
+        guard value.count <= 32 else {
+            return nil
+        }
+        var digits = String(String.UnicodeScalarView(value.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) && $0 != "(" && $0 != ")" && $0 != "-" }))
+        if digits.hasPrefix("+") {
+            digits.removeFirst()
+        }
+        guard digits.count == 11, digits.hasPrefix("888"), digits.unicodeScalars.allSatisfy({ $0 >= "0" && $0 <= "9" }) else {
+            return nil
+        }
+        return "+" + digits
+    }
+
+    public static func formatNumber(_ value: String) -> String {
+        guard let normalized = AyuGramProfileEntry.normalizeNumber(value) else {
+            return value
+        }
+        let digits = Array(normalized.dropFirst())
+        return "+" + String(digits[0 ..< 3]) + " " + String(digits[3 ..< 7]) + " " + String(digits[7 ..< 11])
     }
 
     public var orderedNfts: [AyuGramProfileNft] {
@@ -279,8 +359,20 @@ public struct AyuGramProfileEntry: Codable, Equatable {
             }
         }
         let bubbles = (json["bubbles"] as? Bool) ?? false
+        let hideReal = (json["hideReal"] as? Bool) ?? false
+        var statusSlug: String?
+        if let status = json["status"] as? [String: Any], let slug = status["slug"] as? String, AyuGramProfileNft.isValidSlug(slug), let nft = nfts.first(where: { $0.slug?.lowercased() == slug.lowercased() }) {
+            statusSlug = nft.slug
+        }
+        let number = (json["number"] as? String).flatMap(AyuGramProfileEntry.normalizeNumber)
+        var brightness = 0.0
+        if let value = json["brightness"] as? NSNumber {
+            brightness = value.doubleValue
+        } else if let background = json["background"] as? [String: Any], let value = background["brightness"] as? NSNumber {
+            brightness = value.doubleValue
+        }
         let updatedAt = (json["updatedAt"] as? NSNumber)?.doubleValue ?? 0.0
-        return AyuGramProfileEntry(id: id, nfts: nfts, usernames: usernames, background: AyuGramProfileBackground.from(json: json["background"]), bubbles: bubbles, updatedAt: updatedAt)
+        return AyuGramProfileEntry(id: id, nfts: nfts, usernames: usernames, background: AyuGramProfileBackground.from(json: json["background"]), bubbles: bubbles, hideReal: hideReal, statusSlug: statusSlug, number: number, brightness: brightness, updatedAt: updatedAt)
     }
 }
 
@@ -291,8 +383,10 @@ public struct AyuGramProfileLimits: Equatable {
     public var photo: Int
     public var video: Int
     public var seconds: Double
+    public var numbers: Int
+    public var holders: Int
 
-    public static let standard = AyuGramProfileLimits(nfts: 30, pinned: 6, usernames: 10, photo: 1572864, video: 8388608, seconds: 15.0)
+    public static let standard = AyuGramProfileLimits(nfts: 30, pinned: 6, usernames: 10, photo: 1572864, video: 8388608, seconds: 15.0, numbers: 1, holders: 100)
 
     static func from(json: Any?) -> AyuGramProfileLimits {
         guard let json = json as? [String: Any] else {
@@ -306,7 +400,7 @@ public struct AyuGramProfileLimits: Equatable {
             return defaultValue
         }
         let seconds = (json["seconds"] as? NSNumber)?.doubleValue ?? fallback.seconds
-        return AyuGramProfileLimits(nfts: value("nfts", fallback.nfts), pinned: value("pinned", fallback.pinned), usernames: value("usernames", fallback.usernames), photo: value("photo", fallback.photo), video: value("video", fallback.video), seconds: seconds > 0.0 ? seconds : fallback.seconds)
+        return AyuGramProfileLimits(nfts: value("nfts", fallback.nfts), pinned: value("pinned", fallback.pinned), usernames: value("usernames", fallback.usernames), photo: value("photo", fallback.photo), video: value("video", fallback.video), seconds: seconds > 0.0 ? seconds : fallback.seconds, numbers: value("numbers", fallback.numbers), holders: value("holders", fallback.holders))
     }
 }
 
@@ -337,8 +431,81 @@ public enum AyuGramProfileError: Error, Equatable {
     case unsupported
     case reservedUsername(String)
     case badUsername(String)
+    case numberTaken
+    case badNumber
+    case statusNotOwned
     case invalid
     case server
+}
+
+public enum AyuGramProfileStatusChange: Equatable {
+    case set(String)
+    case clear
+}
+
+public enum AyuGramProfileNumberChange: Equatable {
+    case set(String)
+    case clear
+}
+
+public struct AyuGramProfilePatch: Equatable {
+    public var nfts: [AyuGramProfileNft]?
+    public var usernames: [String]?
+    public var bubbles: Bool?
+    public var hideReal: Bool?
+    public var status: AyuGramProfileStatusChange?
+    public var number: AyuGramProfileNumberChange?
+    public var brightness: Double?
+
+    public init(nfts: [AyuGramProfileNft]? = nil, usernames: [String]? = nil, bubbles: Bool? = nil, hideReal: Bool? = nil, status: AyuGramProfileStatusChange? = nil, number: AyuGramProfileNumberChange? = nil, brightness: Double? = nil) {
+        self.nfts = nfts
+        self.usernames = usernames
+        self.bubbles = bubbles
+        self.hideReal = hideReal
+        self.status = status
+        self.number = number
+        self.brightness = brightness
+    }
+
+    public var isEmpty: Bool {
+        return self.nfts == nil && self.usernames == nil && self.bubbles == nil && self.hideReal == nil && self.status == nil && self.number == nil && self.brightness == nil
+    }
+
+    var jsonObject: [String: Any] {
+        var body: [String: Any] = [:]
+        if let nfts = self.nfts {
+            body["nfts"] = nfts.map { $0.jsonObject }
+        }
+        if let usernames = self.usernames {
+            body["usernames"] = usernames
+        }
+        if let bubbles = self.bubbles {
+            body["bubbles"] = bubbles
+        }
+        if let hideReal = self.hideReal {
+            body["hideReal"] = hideReal
+        }
+        if let status = self.status {
+            switch status {
+            case let .set(slug):
+                body["status"] = ["slug": slug]
+            case .clear:
+                body["status"] = NSNull()
+            }
+        }
+        if let number = self.number {
+            switch number {
+            case let .set(value):
+                body["number"] = value
+            case .clear:
+                body["number"] = NSNull()
+            }
+        }
+        if let brightness = self.brightness {
+            body["background"] = ["brightness": AyuGramProfileEntry.clampBrightness(brightness)]
+        }
+        return body
+    }
 }
 
 public struct AyuGramProfileLocalMedia: Equatable {
@@ -369,6 +536,30 @@ public final class AyuGramProfileRelay {
     private let session = URLSession(configuration: .ephemeral)
     private let freshInterval: Double = 120.0
     private let retryInterval: Double = 30.0
+    private let lookupInterval: Double = 60.0
+    private var holderCache: [String: (value: [AyuGramProfileHolder], fetchedAt: Double)] = [:]
+    private var numberCache: [String: (value: Int64?, fetchedAt: Double)] = [:]
+    private var lookupBlockedUntil: Double = 0.0
+
+    public static let viewerDidChange = Notification.Name("AyuGram.ProfileRelay.viewerDidChange")
+    private static let bubblesEnabledKey = "ayuGram.profileExtras.showBubbles"
+
+    public static var bubblesEnabled: Bool {
+        get {
+            return (UserDefaults.standard.object(forKey: AyuGramProfileRelay.bubblesEnabledKey) as? Bool) ?? true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: AyuGramProfileRelay.bubblesEnabledKey)
+            let post = {
+                NotificationCenter.default.post(name: AyuGramProfileRelay.viewerDidChange, object: nil)
+            }
+            if Thread.isMainThread {
+                post()
+            } else {
+                DispatchQueue.main.async(execute: post)
+            }
+        }
+    }
 
     private init() {
         self.loadFromDisk()
@@ -878,9 +1069,15 @@ public final class AyuGramProfileRelay {
                 return .reservedUsername(value)
             case "bad_username":
                 return .badUsername(value)
+            case "bad_number":
+                return .badNumber
+            case "status_not_owned":
+                return .statusNotOwned
             default:
                 return .invalid
             }
+        case 409:
+            return code == "number_taken" ? .numberTaken : .invalid
         default:
             return .server
         }
@@ -975,24 +1172,161 @@ public final class AyuGramProfileRelay {
         }).resume()
     }
 
-    public func updateOwn(accountId: Int64, nfts: [AyuGramProfileNft]?, usernames: [String]?, bubbles: Bool?, completion: @escaping (Result<AyuGramOwnProfile, AyuGramProfileError>) -> Void) {
-        var body: [String: Any] = [:]
-        if let nfts {
-            body["nfts"] = nfts.map { $0.jsonObject }
-        }
-        if let usernames {
-            body["usernames"] = usernames
-        }
-        if let bubbles {
-            body["bubbles"] = bubbles
-        }
+    public func updateOwn(accountId: Int64, patch: AyuGramProfilePatch, completion: @escaping (Result<AyuGramOwnProfile, AyuGramProfileError>) -> Void) {
+        let body = patch.jsonObject
         guard !body.isEmpty, var request = self.authorizedRequest(path: "/profile", method: "PUT", accountId: accountId), let data = try? JSONSerialization.data(withJSONObject: body) else {
             completion(.failure(.invalid))
             return
         }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = data
-        self.perform(request, accountId: accountId, completion: completion)
+        self.perform(request, accountId: accountId, completion: { [weak self] result in
+            self?.invalidateLookups()
+            completion(result)
+        })
+    }
+
+    private func invalidateLookups() {
+        self.lock.lock()
+        self.holderCache.removeAll()
+        self.numberCache.removeAll()
+        self.lock.unlock()
+    }
+
+    public func cachedHolders(slug: String) -> [AyuGramProfileHolder]? {
+        let key = slug.lowercased()
+        self.lock.lock()
+        defer {
+            self.lock.unlock()
+        }
+        guard let cached = self.holderCache[key], Date().timeIntervalSince1970 - cached.fetchedAt < self.lookupInterval else {
+            return nil
+        }
+        return cached.value
+    }
+
+    public func holders(slug: String, completion: @escaping (Result<[AyuGramProfileHolder], AyuGramProfileError>) -> Void) {
+        guard AyuGramProfileNft.isValidSlug(slug), let encoded = slug.addingPercentEncoding(withAllowedCharacters: .alphanumerics), let url = URL(string: AyuGramSecurity.relayURL + "/profile/holders?slug=" + encoded) else {
+            completion(.failure(.invalid))
+            return
+        }
+        let key = slug.lowercased()
+        if let cached = self.cachedHolders(slug: key) {
+            completion(.success(cached))
+            return
+        }
+        let now = Date().timeIntervalSince1970
+        self.lock.lock()
+        let blocked = now < self.lookupBlockedUntil || now < self.unavailableUntil
+        self.lock.unlock()
+        if blocked {
+            completion(.failure(.rateLimited))
+            return
+        }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20.0)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        self.session.dataTask(with: request, completionHandler: { [weak self] data, response, _ in
+            guard let self else {
+                return
+            }
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let object = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+            let result: Result<[AyuGramProfileHolder], AyuGramProfileError>
+            if status == 200, let items = object["items"] as? [[String: Any]] {
+                var holders: [AyuGramProfileHolder] = []
+                var seen = Set<Int64>()
+                for item in items.prefix(100) {
+                    guard let idValue = item["id"], let id = Int64("\(idValue)"), id > 0, !seen.contains(id) else {
+                        continue
+                    }
+                    seen.insert(id)
+                    holders.append(AyuGramProfileHolder(id: id, pinned: (item["pinned"] as? Bool) ?? false))
+                }
+                self.lock.lock()
+                if self.holderCache.count > 200 {
+                    self.holderCache.removeAll()
+                }
+                self.holderCache[key] = (value: holders, fetchedAt: Date().timeIntervalSince1970)
+                self.lock.unlock()
+                result = .success(holders)
+            } else {
+                if status == 429 || status == 503 {
+                    self.lock.lock()
+                    self.lookupBlockedUntil = Date().timeIntervalSince1970 + 300.0
+                    self.lock.unlock()
+                }
+                result = .failure(AyuGramProfileRelay.error(status: status, object: object))
+            }
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }).resume()
+    }
+
+    public func cachedNumberHolder(number: String) -> Int64?? {
+        guard let normalized = AyuGramProfileEntry.normalizeNumber(number) else {
+            return .some(nil)
+        }
+        self.lock.lock()
+        defer {
+            self.lock.unlock()
+        }
+        guard let cached = self.numberCache[normalized], Date().timeIntervalSince1970 - cached.fetchedAt < self.lookupInterval else {
+            return nil
+        }
+        return .some(cached.value)
+    }
+
+    public func numberHolder(number: String, completion: @escaping (Result<Int64?, AyuGramProfileError>) -> Void) {
+        guard let normalized = AyuGramProfileEntry.normalizeNumber(number), let encoded = normalized.addingPercentEncoding(withAllowedCharacters: .alphanumerics), let url = URL(string: AyuGramSecurity.relayURL + "/profile/number?n=" + encoded) else {
+            completion(.success(nil))
+            return
+        }
+        if let cached = self.cachedNumberHolder(number: normalized) {
+            completion(.success(cached))
+            return
+        }
+        let now = Date().timeIntervalSince1970
+        self.lock.lock()
+        let blocked = now < self.lookupBlockedUntil || now < self.unavailableUntil
+        self.lock.unlock()
+        if blocked {
+            completion(.failure(.rateLimited))
+            return
+        }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20.0)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        self.session.dataTask(with: request, completionHandler: { [weak self] data, response, _ in
+            guard let self else {
+                return
+            }
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let object = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+            let result: Result<Int64?, AyuGramProfileError>
+            if status == 200 || status == 404 {
+                var holder: Int64?
+                if status == 200, let idValue = object["id"], let id = Int64("\(idValue)"), id > 0 {
+                    holder = id
+                }
+                self.lock.lock()
+                if self.numberCache.count > 200 {
+                    self.numberCache.removeAll()
+                }
+                self.numberCache[normalized] = (value: holder, fetchedAt: Date().timeIntervalSince1970)
+                self.lock.unlock()
+                result = .success(holder)
+            } else {
+                if status == 429 || status == 503 {
+                    self.lock.lock()
+                    self.lookupBlockedUntil = Date().timeIntervalSince1970 + 300.0
+                    self.lock.unlock()
+                }
+                result = .failure(AyuGramProfileRelay.error(status: status, object: object))
+            }
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }).resume()
     }
 
     public func removeBackground(accountId: Int64, completion: @escaping (Result<AyuGramOwnProfile, AyuGramProfileError>) -> Void) {
@@ -1010,7 +1344,10 @@ public final class AyuGramProfileRelay {
             return
         }
         self.clearPreview(rawId: accountId)
-        self.perform(request, accountId: accountId, completion: completion)
+        self.perform(request, accountId: accountId, completion: { [weak self] result in
+            self?.invalidateLookups()
+            completion(result)
+        })
     }
 
     public func uploadBackground(accountId: Int64, file: URL, mime: String, width: Int, height: Int, progress: @escaping (Double) -> Void, completion: @escaping (Result<AyuGramOwnProfile, AyuGramProfileError>) -> Void) {

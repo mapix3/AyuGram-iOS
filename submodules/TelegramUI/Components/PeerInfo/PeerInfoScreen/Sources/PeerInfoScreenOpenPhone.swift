@@ -8,9 +8,41 @@ import AsyncDisplayKit
 import ContextUI
 import PhoneNumberFormat
 import UndoUI
+import PresentationDataUtils
+import SGStrings
+import SGSimpleSettings
+import AyuGramProfileExtras
 
 extension PeerInfoScreenNode {
+    func ayuShowFakeNumber(_ number: String) {
+        let presentationData = self.presentationData
+        let languageCode = presentationData.strings.baseLanguageCode
+        let actionSheet = ActionSheetController(presentationData: presentationData)
+        actionSheet.setItemGroups([
+            ActionSheetItemGroup(items: [
+                ActionSheetTextItem(title: "⚠️ " + i18n("Ayu.FakeNumber.Title", languageCode), font: .large, parseMarkdown: false),
+                ActionSheetTextItem(title: i18n("Ayu.FakeNumber.Text", languageCode, AyuGramProfileEntry.formatNumber(number)), parseMarkdown: false)
+            ]),
+            ActionSheetItemGroup(items: [
+                ActionSheetButtonItem(title: presentationData.strings.Common_Close, color: .accent, action: { [weak actionSheet] in
+                    actionSheet?.dismissAnimated()
+                })
+            ])
+        ])
+        self.controller?.present(actionSheet, in: .window(.root))
+    }
+
     func openPhone(value: String, node: ASDisplayNode, gesture: ContextGesture?, progress: Promise<Bool>?) {
+        if let entry = ayuGramProfileEntry(peerId: self.data?.peer?.id ?? self.peerId, refresh: false), entry.isFakeNumber(value) {
+            var realPhone: String?
+            if case let .user(user) = self.data?.peer {
+                realPhone = user.phone.flatMap { AyuGramProfileEntry.normalizeNumber($0) }
+            }
+            if realPhone != AyuGramProfileEntry.normalizeNumber(value) {
+                self.ayuShowFakeNumber(value)
+                return
+            }
+        }
         guard let sourceNode = node as? ContextExtractedContentContainingNode else {
             return
         }

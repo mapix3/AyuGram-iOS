@@ -1,6 +1,8 @@
 import Foundation
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 import Display
+import SwiftSignalKit
 import TelegramCore
 import AccountContext
 import EmojiTextAttachmentView
@@ -14,6 +16,16 @@ private final class AyuBubbleLayerDelegate: NSObject, CALayerDelegate {
 }
 
 private let ayuBubbleLayerDelegate = AyuBubbleLayerDelegate()
+
+private let ayuBubbleDesignRadius: CGFloat = 40.0
+private let ayuBubbleDesignSide: CGFloat = ayuBubbleDesignRadius * 3.0
+private let ayuBubbleBaseSpeed: CGFloat = 0.3
+private let ayuBubbleMaxSpeed: CGFloat = 9.0
+private let ayuBubblePitch: CGFloat = 0.22
+private let ayuBubbleLatitudes: [CGFloat] = [0.04, 0.66, 0.22, 0.92, 0.4, 0.8, 0.12, 0.54]
+private let ayuBubbleOrbitScales: [CGFloat] = [1.0, 0.9, 1.05, 0.82, 0.97, 0.88, 1.08, 0.93]
+private let ayuBubbleSizeScales: [CGFloat] = [1.0, 0.86, 1.1, 0.8, 0.95, 0.84, 1.04, 0.9]
+private let ayuBubbleLongitudeJitter: [CGFloat] = [0.0, 0.21, -0.14, 0.33, -0.08, 0.17, -0.26, 0.11]
 
 private func ayuBubbleClamp(_ value: CGFloat, _ lower: CGFloat, _ upper: CGFloat) -> CGFloat {
     return max(lower, min(upper, value))
@@ -49,6 +61,106 @@ private func ayuBubbleGlowImage(isDark: Bool) -> UIImage? {
 private let ayuBubbleDarkGlowImage = ayuBubbleGlowImage(isDark: true)
 private let ayuBubbleLightGlowImage = ayuBubbleGlowImage(isDark: false)
 
+private func ayuBubbleBlobPath(center: CGPoint, radius: CGFloat, seeds: [CGFloat]) -> CGPath {
+    let count = 24
+    var points: [CGPoint] = []
+    points.reserveCapacity(count)
+    for index in 0 ..< count {
+        let phi: CGFloat = CGFloat(index) / CGFloat(count) * 2.0 * CGFloat.pi
+        let wave2: CGFloat = sin(2.0 * phi + seeds[0])
+        let wave3: CGFloat = sin(3.0 * phi + seeds[1])
+        let wave4: CGFloat = sin(4.0 * phi + seeds[2])
+        let deform: CGFloat = 0.034 * wave2 + 0.03 * wave3 + 0.012 * wave4
+        let r: CGFloat = radius * (1.0 + deform)
+        points.append(CGPoint(x: center.x + cos(phi) * r, y: center.y + sin(phi) * r))
+    }
+    let path = CGMutablePath()
+    path.move(to: points[0])
+    for index in 0 ..< count {
+        let p0 = points[(index - 1 + count) % count]
+        let p1 = points[index]
+        let p2 = points[(index + 1) % count]
+        let p3 = points[(index + 2) % count]
+        let control1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6.0, y: p1.y + (p2.y - p0.y) / 6.0)
+        let control2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6.0, y: p2.y - (p3.y - p1.y) / 6.0)
+        path.addCurve(to: p2, control1: control1, control2: control2)
+    }
+    path.closeSubpath()
+    return path
+}
+
+public final class AyuGramOrbitPanGestureRecognizer: UIPanGestureRecognizer, UIGestureRecognizerDelegate {
+    private let bandTest: (CGPoint) -> Bool
+    private let isBlocked: () -> Bool
+    private let updated: (AyuGramOrbitPanGestureRecognizer) -> Void
+    private var startLocation = CGPoint()
+    private var decided = false
+
+    public init(bandTest: @escaping (CGPoint) -> Bool, isBlocked: @escaping () -> Bool, updated: @escaping (AyuGramOrbitPanGestureRecognizer) -> Void) {
+        self.bandTest = bandTest
+        self.isBlocked = isBlocked
+        self.updated = updated
+        super.init(target: nil, action: nil)
+        self.addTarget(self, action: #selector(self.handleUpdate))
+        self.delegate = self
+        self.maximumNumberOfTouches = 1
+        self.delaysTouchesBegan = false
+        self.delaysTouchesEnded = false
+    }
+
+    @objc private func handleUpdate() {
+        self.updated(self)
+    }
+
+    public override func reset() {
+        super.reset()
+        self.decided = false
+    }
+
+    public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesBegan(touches, with: event)
+        guard touches.count == 1, let touch = touches.first, let view = self.view else {
+            self.state = .failed
+            return
+        }
+        let location = touch.location(in: view)
+        if !self.bandTest(location) || self.isBlocked() {
+            self.state = .failed
+            return
+        }
+        self.startLocation = location
+        self.decided = false
+    }
+
+    public override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        if !self.decided, let touch = touches.first, let view = self.view {
+            let location = touch.location(in: view)
+            let dx = abs(location.x - self.startLocation.x)
+            let dy = abs(location.y - self.startLocation.y)
+            if dx > 3.0 || dy > 3.0 {
+                self.decided = true
+                if dy >= dx || self.isBlocked() {
+                    self.state = .failed
+                    return
+                }
+            }
+        }
+        super.touchesMoved(touches, with: event)
+    }
+
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if self.isBlocked() {
+            return false
+        }
+        let velocity = self.velocity(in: self.view)
+        return abs(velocity.x) >= abs(velocity.y)
+    }
+
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return otherGestureRecognizer is UIPanGestureRecognizer && otherGestureRecognizer.view is UIScrollView
+    }
+}
+
 public final class AyuGramProfileBubblesView: UIView {
     public struct Item: Equatable {
         public let id: String
@@ -66,18 +178,14 @@ public final class AyuGramProfileBubblesView: UIView {
         public var size: CGSize
         public var avatarCenter: CGPoint
         public var avatarDiameter: CGFloat
-        public var fieldTop: CGFloat
-        public var fieldBottom: CGFloat
         public var collapseFraction: CGFloat
         public var isDark: Bool
         public var showsAvatarRim: Bool
 
-        public init(size: CGSize, avatarCenter: CGPoint, avatarDiameter: CGFloat, fieldTop: CGFloat, fieldBottom: CGFloat, collapseFraction: CGFloat, isDark: Bool, showsAvatarRim: Bool) {
+        public init(size: CGSize, avatarCenter: CGPoint, avatarDiameter: CGFloat, collapseFraction: CGFloat, isDark: Bool, showsAvatarRim: Bool) {
             self.size = size
             self.avatarCenter = avatarCenter
             self.avatarDiameter = avatarDiameter
-            self.fieldTop = fieldTop
-            self.fieldBottom = fieldBottom
             self.collapseFraction = collapseFraction
             self.isDark = isDark
             self.showsAvatarRim = showsAvatarRim
@@ -90,6 +198,7 @@ public final class AyuGramProfileBubblesView: UIView {
         var item: Item
         let container = SimpleLayer()
         let glowLayer = SimpleLayer()
+        let shapeLayer = SimpleLayer()
         let backdropLayer: CALayer?
         let backdropMask = SimpleShapeLayer()
         let bodyLayer = SimpleGradientLayer()
@@ -100,91 +209,149 @@ public final class AyuGramProfileBubblesView: UIView {
         var stickerLayer: InlineStickerItemLayer
         var stickerFileId: Int64
 
-        var depth: CGFloat
-        var orbitX: CGFloat
-        var orbitY: CGFloat
-        var angle: CGFloat
-        var speed: CGFloat
-        let noise: [CGFloat]
-        let wobble: [CGFloat]
-        var offset = CGPoint()
-        var velocity = CGPoint()
+        let longitudeOffset: CGFloat
+        let latitude: CGFloat
+        let orbitScale: CGFloat
+        let sizeScale: CGFloat
+        let phase1: CGFloat
+        let phase2: CGFloat
+        let phase3: CGFloat
+        let wobbleSpeed: CGFloat
+        let beatGain: CGFloat
+
         var appear: CGFloat = 0.0
         var removing = false
-        var swellStart: Double?
-        var swellSide: CGFloat = 1.0
-        var appliedBlur: CGFloat = -1.0
-        var appliedDark: Bool?
+        var isFront = true
+        var hop: CGFloat = 0.0
+        var hopVelocity: CGFloat = 0.0
+        var tapPulse: CGFloat = 0.0
+        var lift: CGFloat = 0.0
+        var liftTarget: CGFloat = 0.0
+        var dragCenter = CGPoint()
+        var dragVelocity = CGPoint()
+        var lastCenter = CGPoint()
+        var hasLastCenter = false
+        var screenVelocity = CGPoint()
         var displayCenter = CGPoint()
         var displayRadius: CGFloat = 0.0
         var displayAlpha: CGFloat = 0.0
+        var depth: CGFloat = 0.0
+        var appliedDark: Bool?
+        var appliedLowPower: Bool?
 
-        init(context: AccountContext, id: String, copyIndex: Int, item: Item, depth: CGFloat, angle: CGFloat) {
+        init(context: AccountContext, id: String, copyIndex: Int, item: Item, slot: Int, longitudeOffset: CGFloat) {
             self.id = id
             self.copyIndex = copyIndex
             self.item = item
-            self.depth = depth
-            self.angle = angle
-            self.orbitX = ayuBubbleLerp(0.5, 0.94, depth) + CGFloat.random(in: -0.05 ... 0.05)
-            self.orbitY = ayuBubbleLerp(0.62, 1.0, CGFloat.random(in: 0.0 ... 1.0))
-            let direction: CGFloat = depth > 0.5 ? -1.0 : 1.0
-            let baseSpeed: CGFloat = ayuBubbleLerp(0.09, 0.2, depth)
-            self.speed = direction * baseSpeed * CGFloat.random(in: 0.85 ... 1.15)
-            var noise: [CGFloat] = []
-            for _ in 0 ..< 4 {
-                noise.append(CGFloat.random(in: 0.22 ... 0.58))
-                noise.append(CGFloat.random(in: 0.0 ... (2.0 * CGFloat.pi)))
-            }
-            self.noise = noise
-            var wobble: [CGFloat] = []
-            for index in 0 ..< 3 {
-                let speed = CGFloat.random(in: 0.5 ... 1.1) + CGFloat(index) * 0.25
-                wobble.append(Bool.random() ? speed : -speed)
-                wobble.append(CGFloat.random(in: 0.0 ... (2.0 * CGFloat.pi)))
-            }
-            self.wobble = wobble
+            let patternIndex = slot % ayuBubbleLatitudes.count
+            self.longitudeOffset = longitudeOffset
+            self.latitude = ayuBubbleLatitudes[patternIndex]
+            self.orbitScale = ayuBubbleOrbitScales[patternIndex]
+            self.sizeScale = ayuBubbleSizeScales[patternIndex]
+            self.phase1 = CGFloat.random(in: 0.0 ... (2.0 * CGFloat.pi))
+            self.phase2 = CGFloat.random(in: 0.0 ... (2.0 * CGFloat.pi))
+            self.phase3 = CGFloat.random(in: 0.0 ... (2.0 * CGFloat.pi))
+            self.wobbleSpeed = CGFloat.random(in: 1.6 ... 2.6)
+            self.beatGain = CGFloat.random(in: 0.7 ... 1.15)
 
             let file = AyuGramProfileBubblesView.stickerFile(item.gift)
             self.stickerFileId = file?.fileId.id ?? 0
             self.stickerLayer = AyuGramProfileBubblesView.makeStickerLayer(context: context, file: file)
             self.backdropLayer = createBackdropLayer()
 
+            let side = ayuBubbleDesignSide
+            let radius = ayuBubbleDesignRadius
+            let bounds = CGRect(origin: CGPoint(), size: CGSize(width: side, height: side))
+            let center = CGPoint(x: side / 2.0, y: side / 2.0)
+            let seeds: [CGFloat] = [
+                CGFloat.random(in: 0.0 ... (2.0 * CGFloat.pi)),
+                CGFloat.random(in: 0.0 ... (2.0 * CGFloat.pi)),
+                CGFloat.random(in: 0.0 ... (2.0 * CGFloat.pi))
+            ]
+            let path = ayuBubbleBlobPath(center: center, radius: radius, seeds: seeds)
+
+            self.container.bounds = bounds
+            self.container.opacity = 0.0
+
+            let glowSide = radius * 2.75
+            self.glowLayer.frame = CGRect(x: center.x - glowSide / 2.0, y: center.y - glowSide / 2.0, width: glowSide, height: glowSide)
+
+            self.shapeLayer.bounds = bounds
+            self.shapeLayer.position = center
+
             if let backdropLayer = self.backdropLayer {
                 backdropLayer.delegate = ayuBubbleLayerDelegate
                 if backdropLayer.responds(to: NSSelectorFromString("setScale:")) {
                     backdropLayer.setValue(0.5 as NSNumber, forKey: "scale")
                 }
+                backdropLayer.frame = bounds
+                self.backdropMask.frame = bounds
+                self.backdropMask.path = path
+                self.backdropMask.fillColor = UIColor.black.cgColor
                 backdropLayer.mask = self.backdropMask
             }
 
-            self.backdropMask.fillColor = UIColor.black.cgColor
+            self.bodyLayer.frame = bounds
+            self.bodyMask.frame = bounds
+            self.bodyMask.path = path
             self.bodyMask.fillColor = UIColor.black.cgColor
             self.bodyLayer.mask = self.bodyMask
             self.bodyLayer.type = .radial
             self.bodyLayer.startPoint = CGPoint(x: 0.5, y: 0.5)
+            let reach = radius * 1.04 / side
+            self.bodyLayer.endPoint = CGPoint(x: 0.5 + reach, y: 0.5 + reach)
+
+            self.rimLayer.frame = bounds
+            self.rimMask.frame = bounds
+            self.rimMask.path = path
             self.rimMask.fillColor = nil
             self.rimMask.strokeColor = UIColor.black.cgColor
             self.rimMask.lineJoin = .round
+            self.rimMask.lineWidth = 1.8
             self.rimLayer.mask = self.rimMask
             self.rimLayer.startPoint = CGPoint(x: 0.15, y: 0.05)
             self.rimLayer.endPoint = CGPoint(x: 0.85, y: 0.95)
+
             self.highlightLayer.type = .radial
             self.highlightLayer.startPoint = CGPoint(x: 0.5, y: 0.5)
             self.highlightLayer.endPoint = CGPoint(x: 1.0, y: 1.0)
             self.highlightLayer.colors = [UIColor(white: 1.0, alpha: 0.42).cgColor, UIColor(white: 1.0, alpha: 0.0).cgColor]
+            self.highlightLayer.bounds = CGRect(origin: CGPoint(), size: CGSize(width: radius * 0.82, height: radius * 0.5))
+            self.highlightLayer.position = CGPoint(x: center.x - radius * 0.25, y: center.y - radius * 0.49)
             self.highlightLayer.setAffineTransform(CGAffineTransform(rotationAngle: -0.45))
+
+            let stickerSide = radius * 1.12
+            self.stickerLayer.bounds = CGRect(origin: CGPoint(), size: CGSize(width: stickerSide, height: stickerSide))
+            self.stickerLayer.position = center
 
             self.container.addSublayer(self.glowLayer)
             if let backdropLayer = self.backdropLayer {
-                self.container.addSublayer(backdropLayer)
+                self.shapeLayer.addSublayer(backdropLayer)
             }
-            self.container.addSublayer(self.bodyLayer)
+            self.shapeLayer.addSublayer(self.bodyLayer)
+            self.shapeLayer.addSublayer(self.rimLayer)
+            self.container.addSublayer(self.shapeLayer)
             self.container.addSublayer(self.stickerLayer)
             self.container.addSublayer(self.highlightLayer)
-            self.container.addSublayer(self.rimLayer)
         }
 
-        func applyAppearance(isDark: Bool) {
+        func replaceSticker(context: AccountContext, file: TelegramMediaFile?) {
+            let previous = self.stickerLayer
+            let replacement = AyuGramProfileBubblesView.makeStickerLayer(context: context, file: file)
+            replacement.bounds = previous.bounds
+            replacement.position = previous.position
+            self.container.replaceSublayer(previous, with: replacement)
+            self.stickerLayer = replacement
+        }
+
+        func applyAppearance(isDark: Bool, lowPower: Bool) {
+            if self.appliedLowPower != lowPower {
+                self.appliedLowPower = lowPower
+                if let backdropLayer = self.backdropLayer, let blurFilter = CALayer.blur() {
+                    blurFilter.setValue((lowPower ? 2.0 : 4.5) as NSNumber, forKey: "inputRadius")
+                    backdropLayer.filters = [blurFilter]
+                }
+            }
             if self.appliedDark == isDark {
                 return
             }
@@ -218,58 +385,81 @@ public final class AyuGramProfileBubblesView: UIView {
             self.bodyLayer.locations = [0.0, 0.62, 0.9, 1.0]
             self.rimLayer.locations = [0.0, 0.55, 1.0]
         }
-
-        func applyBlur(radius: CGFloat) {
-            guard let backdropLayer = self.backdropLayer else {
-                return
-            }
-            let quantized = (radius * 2.0).rounded() / 2.0
-            if quantized == self.appliedBlur {
-                return
-            }
-            self.appliedBlur = quantized
-            if let blurFilter = CALayer.blur() {
-                blurFilter.setValue(quantized as NSNumber, forKey: "inputRadius")
-                backdropLayer.filters = [blurFilter]
-            }
-        }
     }
 
     public var action: ((Item) -> Void)?
+    public var fakeLabel: String?
+    public let backView: UIView
 
     private let context: AccountContext
-    private var bubbles: [String: Bubble] = [:]
+    private var bubbles: [Bubble] = []
     private var currentLayout: Layout?
     private let rimContainer = SimpleLayer()
     private let rimGlow = SimpleShapeLayer()
     private let rimGradient = SimpleGradientLayer()
     private let rimMask = SimpleShapeLayer()
+    private var rimAppliedFrame = CGRect()
+    private var rimAppliedDark: Bool?
     private var link: SharedDisplayLinkDriver.Link?
     private var linkFramesPerSecond = 0
     private var lastTimestamp: Double?
     private var time: Double = 0.0
-    private var nextSwell: Double = 3.5
     private var observers: [NSObjectProtocol] = []
     private var accessibilityCache: [String: AyuBubbleAccessibilityElement] = [:]
-    public var fakeLabel: String?
+
+    private var phase: CGFloat = 0.0
+    private var angularVelocity: CGFloat = -ayuBubbleBaseSpeed
+    private var isSpinning = false
+    private var lastOrbitRadius: CGFloat = 150.0
+
+    private weak var draggedBubble: Bubble?
+    private var dragTarget = CGPoint()
+    private var dragOffset = CGPoint()
+    private var hapticFeedback: HapticFeedback?
+
+    private let musicActivityDisposable = MetaDisposable()
+    private let musicLevelDisposable = MetaDisposable()
+    private var isObservingMusic = false
+    private var isObservingLevel = false
+    private var musicPlaying = false
+    private var musicTimestamp: Double = 0.0
+    private var musicGenerationTimestamp: Double = 0.0
+    private var musicRate: Double = 1.0
+    private var lastLevelTime: Double = 0.0
+    private var levelFast: CGFloat = 0.0
+    private var levelSlow: CGFloat = 0.0
+    private var lastBeatTime: Double = 0.0
+    private var fallbackBeatIndex: Int = -1
+    private var beatEnvelope: CGFloat = 0.0
 
     public var isActive: Bool = true {
         didSet {
             if self.isActive != oldValue {
+                if !self.isActive {
+                    self.releaseDrag()
+                }
                 self.updateRunning()
             }
         }
     }
 
     public var hasItems: Bool {
-        return self.bubbles.values.contains(where: { !$0.removing })
+        return self.bubbles.contains(where: { !$0.removing })
+    }
+
+    public var isInteracting: Bool {
+        return self.draggedBubble != nil
     }
 
     public init(context: AccountContext) {
         self.context = context
+        self.backView = UIView()
         super.init(frame: CGRect())
         self.clipsToBounds = false
         self.isAccessibilityElement = false
+        self.backView.clipsToBounds = false
+        self.backView.isUserInteractionEnabled = false
+        self.backView.isAccessibilityElement = false
 
         self.rimGlow.fillColor = nil
         self.rimGlow.lineWidth = 6.0
@@ -280,13 +470,25 @@ public final class AyuGramProfileBubblesView: UIView {
         self.rimGradient.startPoint = CGPoint(x: 0.5, y: 0.5)
         self.rimGradient.endPoint = CGPoint(x: 0.5, y: 0.0)
         self.rimGradient.mask = self.rimMask
+        self.rimGradient.colors = [
+            UIColor(white: 1.0, alpha: 0.18).cgColor,
+            UIColor(red: 0.72, green: 0.84, blue: 1.0, alpha: 0.85).cgColor,
+            UIColor(white: 1.0, alpha: 0.95).cgColor,
+            UIColor(red: 0.6, green: 0.76, blue: 1.0, alpha: 0.6).cgColor,
+            UIColor(white: 1.0, alpha: 0.18).cgColor
+        ]
         self.rimContainer.addSublayer(self.rimGlow)
         self.rimContainer.addSublayer(self.rimGradient)
         self.rimContainer.zPosition = -1000.0
         self.rimContainer.opacity = 0.0
         self.layer.addSublayer(self.rimContainer)
 
-        self.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.tapped(_:))))
+        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.tapped(_:)))
+        self.addGestureRecognizer(tapRecognizer)
+        let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(self.longPressed(_:)))
+        longPressRecognizer.minimumPressDuration = 0.28
+        longPressRecognizer.allowableMovement = 12.0
+        self.addGestureRecognizer(longPressRecognizer)
 
         let names: [Notification.Name] = [
             UIAccessibility.reduceMotionStatusDidChangeNotification,
@@ -296,7 +498,14 @@ public final class AyuGramProfileBubblesView: UIView {
         ]
         for name in names {
             self.observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main, using: { [weak self] _ in
-                self?.updateRunning()
+                guard let self else {
+                    return
+                }
+                if UIApplication.shared.applicationState == .background {
+                    self.releaseDrag()
+                }
+                self.updateRunning()
+                self.render(dt: 0.0)
             }))
         }
     }
@@ -310,6 +519,8 @@ public final class AyuGramProfileBubblesView: UIView {
             NotificationCenter.default.removeObserver(observer)
         }
         self.link?.invalidate()
+        self.musicActivityDisposable.dispose()
+        self.musicLevelDisposable.dispose()
     }
 
     fileprivate static func stickerFile(_ gift: ProfileGiftsContext.State.StarGift) -> TelegramMediaFile? {
@@ -342,12 +553,10 @@ public final class AyuGramProfileBubblesView: UIView {
             renderer: context.animationRenderer,
             unique: true,
             placeholderColor: UIColor.white.withAlphaComponent(0.12),
-            pointSize: CGSize(width: 96.0, height: 96.0),
+            pointSize: CGSize(width: 128.0, height: 128.0),
             loopCount: 1
         )
     }
-
-    private static let depthPattern: [CGFloat] = [0.82, 0.32, 0.6, 0.14, 0.72, 0.44, 0.24, 0.94]
 
     private static func expandedItems(_ items: [Item]) -> [(id: String, copyIndex: Int, item: Item)] {
         let unique = Array(items.prefix(8))
@@ -369,44 +578,38 @@ public final class AyuGramProfileBubblesView: UIView {
     public func update(items: [Item], layout: Layout) {
         let limited = AyuGramProfileBubblesView.expandedItems(items)
         self.currentLayout = layout
-        var validIds = Set<String>()
         let count = max(1, limited.count)
+        var validIds = Set<String>()
         for (index, entry) in limited.enumerated() {
-            let item = entry.item
             validIds.insert(entry.id)
-            if let bubble = self.bubbles[entry.id] {
+            if let bubble = self.bubbles.first(where: { $0.id == entry.id }) {
                 bubble.removing = false
-                if bubble.item != item {
-                    bubble.item = item
-                    let file = AyuGramProfileBubblesView.stickerFile(item.gift)
+                if bubble.item != entry.item {
+                    bubble.item = entry.item
+                    let file = AyuGramProfileBubblesView.stickerFile(entry.item.gift)
                     let fileId = file?.fileId.id ?? 0
                     if fileId != bubble.stickerFileId {
                         bubble.stickerFileId = fileId
-                        let previous = bubble.stickerLayer
-                        let replacement = AyuGramProfileBubblesView.makeStickerLayer(context: self.context, file: file)
-                        replacement.bounds = previous.bounds
-                        replacement.position = previous.position
-                        bubble.container.replaceSublayer(previous, with: replacement)
-                        bubble.stickerLayer = replacement
+                        bubble.replaceSticker(context: self.context, file: file)
                     }
                 }
             } else {
-                let depth = AyuGramProfileBubblesView.depthPattern[index % AyuGramProfileBubblesView.depthPattern.count]
-                let fraction: CGFloat = CGFloat(index) / CGFloat(count)
-                let jitter: CGFloat = CGFloat.random(in: -0.25 ... 0.25)
-                let angle: CGFloat = fraction * 2.0 * CGFloat.pi - CGFloat.pi * 0.5 + jitter
-                let bubble = Bubble(context: self.context, id: entry.id, copyIndex: entry.copyIndex, item: item, depth: depth, angle: angle)
-                bubble.offset = self.anchor(for: bubble, layout: layout, swell: 0.0)
-                bubble.container.opacity = 0.0
+                let jitter = ayuBubbleLongitudeJitter[index % ayuBubbleLongitudeJitter.count]
+                let longitudeOffset = CGFloat(index) / CGFloat(count) * 2.0 * CGFloat.pi + jitter - self.phase
+                let bubble = Bubble(context: self.context, id: entry.id, copyIndex: entry.copyIndex, item: entry.item, slot: index, longitudeOffset: longitudeOffset)
+                bubble.isFront = true
                 self.layer.addSublayer(bubble.container)
-                self.bubbles[entry.id] = bubble
+                self.bubbles.append(bubble)
             }
         }
-        for (id, bubble) in self.bubbles where !validIds.contains(id) {
+        for bubble in self.bubbles where !validIds.contains(bubble.id) {
             bubble.removing = true
+            if bubble === self.draggedBubble {
+                self.releaseDrag()
+            }
         }
         if !AyuGramProfileBubblesView.motionAllowed {
-            for bubble in self.bubbles.values {
+            for bubble in self.bubbles {
                 bubble.appear = bubble.removing ? 0.0 : 1.0
             }
         }
@@ -422,7 +625,7 @@ public final class AyuGramProfileBubblesView: UIView {
         guard self.isActive, self.window != nil, !self.isHidden, AyuGramProfileBubblesView.motionAllowed, UIApplication.shared.applicationState != .background else {
             return false
         }
-        guard let layout = self.currentLayout, layout.collapseFraction < 0.62 else {
+        guard let layout = self.currentLayout, layout.collapseFraction < 0.62 || self.draggedBubble != nil else {
             return false
         }
         return !self.bubbles.isEmpty
@@ -432,7 +635,10 @@ public final class AyuGramProfileBubblesView: UIView {
         let framesPerSecond = ProcessInfo.processInfo.isLowPowerModeEnabled ? 30 : 60
         if self.shouldRun {
             if let link = self.link, self.linkFramesPerSecond == framesPerSecond {
-                link.isPaused = false
+                if link.isPaused {
+                    self.lastTimestamp = nil
+                    link.isPaused = false
+                }
             } else {
                 self.link?.invalidate()
                 self.linkFramesPerSecond = framesPerSecond
@@ -441,17 +647,19 @@ public final class AyuGramProfileBubblesView: UIView {
                     self?.tick()
                 })
             }
+            self.startMusicObservation()
         } else {
             self.link?.isPaused = true
             self.lastTimestamp = nil
-            if !AyuGramProfileBubblesView.motionAllowed {
-                self.render(dt: 0.0)
-            }
+            self.stopMusicObservation()
         }
     }
 
     public override func didMoveToWindow() {
         super.didMoveToWindow()
+        if self.window == nil {
+            self.releaseDrag()
+        }
         self.updateRunning()
     }
 
@@ -476,115 +684,158 @@ public final class AyuGramProfileBubblesView: UIView {
         if !self.shouldRun {
             self.link?.isPaused = true
             self.lastTimestamp = nil
+            self.stopMusicObservation()
         }
     }
 
-    private func fieldGeometry(layout: Layout) -> (origin: CGPoint, halfWidth: CGFloat, halfHeight: CGFloat, avatarRadius: CGFloat) {
-        let avatarRadius = max(30.0, layout.avatarDiameter / 2.0)
-        let top = layout.fieldTop - layout.avatarCenter.y
-        let bottom = layout.fieldBottom - layout.avatarCenter.y
-        let centerY = (top + bottom) / 2.0
-        let halfHeight = max(avatarRadius * 1.2, (bottom - top) / 2.0)
-        return (CGPoint(x: 0.0, y: centerY), layout.size.width / 2.0, halfHeight, avatarRadius)
-    }
-
-    private func baseRadius(for bubble: Bubble, layout: Layout) -> CGFloat {
-        let avatarDiameter = max(60.0, min(120.0, layout.avatarDiameter))
-        return avatarDiameter * ayuBubbleLerp(0.15, 0.27, bubble.depth)
-    }
-
-    private func swellAmount(for bubble: Bubble) -> CGFloat {
-        guard let start = bubble.swellStart else {
-            return 0.0
-        }
-        let progress = CGFloat((self.time - start) / 4.4)
-        if progress <= 0.0 || progress >= 1.0 {
-            return 0.0
-        }
-        return 0.5 - 0.5 * cos(progress * 2.0 * CGFloat.pi)
-    }
-
-    private func anchor(for bubble: Bubble, layout: Layout, swell: CGFloat) -> CGPoint {
-        let geometry = self.fieldGeometry(layout: layout)
-        let t = CGFloat(self.time)
-        let noise = bubble.noise
-        let noiseX1: CGFloat = sin(noise[0] * t + noise[1])
-        let noiseX2: CGFloat = sin(noise[2] * t + noise[3])
-        let noiseY1: CGFloat = sin(noise[4] * t + noise[5])
-        let noiseY2: CGFloat = sin(noise[6] * t + noise[7])
-        let noiseX: CGFloat = geometry.halfWidth * 0.07 * (noiseX1 + 0.6 * noiseX2)
-        let noiseY: CGFloat = geometry.halfHeight * 0.14 * (noiseY1 + 0.6 * noiseY2)
-        let orbitCos: CGFloat = cos(bubble.angle)
-        let orbitSin: CGFloat = sin(bubble.angle)
-        var point = CGPoint(
-            x: geometry.origin.x + geometry.halfWidth * bubble.orbitX * orbitCos + noiseX,
-            y: geometry.origin.y + geometry.halfHeight * bubble.orbitY * orbitSin + noiseY
-        )
-        if swell > 0.0 {
-            let target = CGPoint(x: bubble.swellSide * geometry.halfWidth * 0.16, y: geometry.avatarRadius * 1.45)
-            point.x = ayuBubbleLerp(point.x, target.x, swell * 0.85)
-            point.y = ayuBubbleLerp(point.y, target.y, swell * 0.85)
-        }
-        return point
-    }
-
-    private func startSwellIfNeeded(layout: Layout) {
-        guard AyuGramProfileBubblesView.motionAllowed, self.time >= self.nextSwell else {
+    private func startMusicObservation() {
+        if self.isObservingMusic {
             return
         }
-        if self.bubbles.values.contains(where: { $0.swellStart != nil }) {
-            return
-        }
-        let halfWidth = layout.size.width / 2.0
-        let candidates = self.bubbles.values.filter { bubble in
-            return !bubble.removing && bubble.appear >= 1.0 && abs(bubble.offset.x) < halfWidth * 0.55 && bubble.displayAlpha > 0.5
-        }
-        guard let chosen = candidates.randomElement() else {
-            self.nextSwell = self.time + 1.5
-            return
-        }
-        chosen.swellStart = self.time
-        chosen.swellSide = chosen.offset.x >= 0.0 ? 1.0 : -1.0
-        self.nextSwell = self.time + 4.4 + Double.random(in: 4.0 ... 7.5)
+        self.isObservingMusic = true
+        self.musicActivityDisposable.set((self.context.sharedContext.mediaManager.ayuMusicActivity
+        |> deliverOnMainQueue).startStrict(next: { [weak self] activity in
+            self?.updateMusicActivity(activity)
+        }))
     }
 
-    private func blobPath(center: CGPoint, radius: CGFloat, bubble: Bubble, squash: CGPoint, amplitude: CGFloat) -> CGPath {
-        let count = 20
-        let t = CGFloat(self.time)
-        let wobble = bubble.wobble
-        let speed = hypot(squash.x, squash.y)
-        let direction = speed > 0.001 ? CGPoint(x: squash.x / speed, y: squash.y / speed) : CGPoint(x: 1.0, y: 0.0)
-        let stretch = min(0.12, speed / 1600.0)
-        var points: [CGPoint] = []
-        points.reserveCapacity(count)
-        for index in 0 ..< count {
-            let phi: CGFloat = CGFloat(index) / CGFloat(count) * 2.0 * CGFloat.pi
-            let wave2: CGFloat = sin(2.0 * phi + wobble[0] * t + wobble[1])
-            let wave3: CGFloat = sin(3.0 * phi + wobble[2] * t + wobble[3])
-            let wave4: CGFloat = sin(4.0 * phi + wobble[4] * t + wobble[5])
-            let deform: CGFloat = 0.045 * wave2 + 0.048 * wave3 + 0.018 * wave4
-            let r: CGFloat = radius * (1.0 + deform * amplitude)
-            var point = CGPoint(x: cos(phi) * r, y: sin(phi) * r)
-            let along = point.x * direction.x + point.y * direction.y
-            let across = -point.x * direction.y + point.y * direction.x
-            let scaledAlong = along * (1.0 + stretch)
-            let scaledAcross = across * (1.0 - stretch * 0.6)
-            point = CGPoint(x: scaledAlong * direction.x - scaledAcross * direction.y + center.x, y: scaledAlong * direction.y + scaledAcross * direction.x + center.y)
-            points.append(point)
+    private func stopMusicObservation() {
+        if !self.isObservingMusic {
+            return
         }
-        let path = CGMutablePath()
-        path.move(to: points[0])
-        for index in 0 ..< count {
-            let p0 = points[(index - 1 + count) % count]
-            let p1 = points[index]
-            let p2 = points[(index + 1) % count]
-            let p3 = points[(index + 2) % count]
-            let control1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6.0, y: p1.y + (p2.y - p0.y) / 6.0)
-            let control2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6.0, y: p2.y - (p3.y - p1.y) / 6.0)
-            path.addCurve(to: p2, control1: control1, control2: control2)
+        self.isObservingMusic = false
+        self.musicActivityDisposable.set(nil)
+        self.updateMusicActivity(nil)
+    }
+
+    private func updateMusicActivity(_ activity: AyuGramMusicActivity?) {
+        let isPlaying = activity?.isPlaying ?? false
+        if let activity {
+            self.musicTimestamp = activity.timestamp
+            self.musicGenerationTimestamp = activity.generationTimestamp
+            self.musicRate = activity.rate > 0.0 ? activity.rate : 1.0
         }
-        path.closeSubpath()
-        return path
+        if isPlaying != self.musicPlaying {
+            self.musicPlaying = isPlaying
+            self.fallbackBeatIndex = -1
+            self.levelFast = 0.0
+            self.levelSlow = 0.0
+        }
+        if isPlaying && !self.isObservingLevel {
+            self.isObservingLevel = true
+            self.lastLevelTime = 0.0
+            self.musicLevelDisposable.set((self.context.sharedContext.mediaManager.ayuMusicAudioLevel
+            |> deliverOnMainQueue).startStrict(next: { [weak self] level in
+                self?.handleAudioLevel(level)
+            }))
+        } else if !isPlaying && self.isObservingLevel {
+            self.isObservingLevel = false
+            self.musicLevelDisposable.set(nil)
+        }
+    }
+
+    private func handleAudioLevel(_ level: Float) {
+        guard self.musicPlaying, level.isFinite else {
+            return
+        }
+        let now = CACurrentMediaTime()
+        self.lastLevelTime = now
+        let value = ayuBubbleClamp(CGFloat(level) / 6.0, 0.0, 1.0)
+        self.levelFast += (value - self.levelFast) * 0.55
+        self.levelSlow += (value - self.levelSlow) * 0.06
+        if self.levelFast > self.levelSlow * 1.28 + 0.035 && now - self.lastBeatTime > 0.24 {
+            self.lastBeatTime = now
+            self.triggerBeat(strength: ayuBubbleClamp(0.45 + (self.levelFast - self.levelSlow) * 3.0, 0.45, 1.0))
+        }
+    }
+
+    private func triggerBeat(strength: CGFloat) {
+        guard AyuGramProfileBubblesView.motionAllowed, self.link != nil, !(self.link?.isPaused ?? true) else {
+            return
+        }
+        self.beatEnvelope = max(self.beatEnvelope, strength)
+        for bubble in self.bubbles where !bubble.removing {
+            bubble.hopVelocity -= 125.0 * strength * bubble.beatGain
+        }
+    }
+
+    private func updateFallbackBeat(now: Double) {
+        guard self.musicPlaying, now - self.lastLevelTime > 0.8 else {
+            return
+        }
+        let position = self.musicTimestamp + max(0.0, now - self.musicGenerationTimestamp) * self.musicRate
+        guard position.isFinite, abs(position) < 1.0e7 else {
+            return
+        }
+        let index = Int(floor(position * 2.0))
+        if index != self.fallbackBeatIndex {
+            let shouldBeat = self.fallbackBeatIndex >= 0
+            self.fallbackBeatIndex = index
+            if shouldBeat {
+                self.triggerBeat(strength: 0.7)
+            }
+        }
+    }
+
+    public func spinBandContains(_ point: CGPoint) -> Bool {
+        guard self.isActive, !self.isHidden, self.window != nil, self.alpha > 0.01, let layout = self.currentLayout, layout.collapseFraction < 0.25, self.hasItems else {
+            return false
+        }
+        if point.x < 24.0 || point.x > layout.size.width {
+            return false
+        }
+        let avatarRadius = max(24.0, layout.avatarDiameter / 2.0)
+        let top = layout.avatarCenter.y - avatarRadius * 2.7
+        let bottom = layout.avatarCenter.y + avatarRadius * 1.15
+        return point.y >= top && point.y <= bottom
+    }
+
+    public func spinBegan() {
+        self.isSpinning = true
+    }
+
+    public func spinChanged(translationX: CGFloat) {
+        guard self.isSpinning, translationX.isFinite else {
+            return
+        }
+        self.phase += translationX / max(40.0, self.lastOrbitRadius)
+        if self.link == nil || (self.link?.isPaused ?? true) {
+            self.render(dt: 0.0)
+        }
+    }
+
+    public func spinEnded(velocityX: CGFloat) {
+        guard self.isSpinning else {
+            return
+        }
+        self.isSpinning = false
+        var velocity = velocityX.isFinite ? velocityX / max(40.0, self.lastOrbitRadius) : 0.0
+        velocity = ayuBubbleClamp(velocity, -ayuBubbleMaxSpeed, ayuBubbleMaxSpeed)
+        if abs(velocity) < ayuBubbleBaseSpeed {
+            let sign: CGFloat = velocity == 0.0 ? (self.angularVelocity >= 0.0 ? 1.0 : -1.0) : (velocity > 0.0 ? 1.0 : -1.0)
+            velocity = sign * ayuBubbleBaseSpeed
+        }
+        self.angularVelocity = velocity
+    }
+
+    private func releaseDrag() {
+        if let bubble = self.draggedBubble {
+            bubble.liftTarget = 0.0
+            self.draggedBubble = nil
+        }
+    }
+
+    private func setFront(_ bubble: Bubble, _ front: Bool) {
+        if bubble.isFront == front {
+            return
+        }
+        bubble.isFront = front
+        bubble.container.removeFromSuperlayer()
+        if front {
+            self.layer.addSublayer(bubble.container)
+        } else {
+            self.backView.layer.addSublayer(bubble.container)
+        }
     }
 
     private func render(dt: Double) {
@@ -592,227 +843,307 @@ public final class AyuGramProfileBubblesView: UIView {
             return
         }
         let motion = AyuGramProfileBubblesView.motionAllowed
-        if motion {
-            self.time += dt
-        }
         let step = CGFloat(dt)
-        let geometry = self.fieldGeometry(layout: layout)
-        let width = layout.size.width
-        let collapse = ayuBubbleClamp(layout.collapseFraction, 0.0, 1.0)
-
-        if motion && dt > 0.0 {
-            self.startSwellIfNeeded(layout: layout)
-        }
-
-        var removed: [String] = []
-        let ordered = self.bubbles.values.sorted(by: { $0.depth < $1.depth })
-        var swells: [String: CGFloat] = [:]
-        var radii: [String: CGFloat] = [:]
-        for bubble in ordered {
-            let swell = self.swellAmount(for: bubble)
-            if bubble.swellStart != nil && swell == 0.0 && self.time - (bubble.swellStart ?? 0.0) > 1.0 {
-                bubble.swellStart = nil
+        let advancing = motion && dt > 0.0
+        if advancing {
+            self.time += dt
+            if !self.isSpinning {
+                let target: CGFloat = self.angularVelocity >= 0.0 ? ayuBubbleBaseSpeed : -ayuBubbleBaseSpeed
+                self.angularVelocity += (target - self.angularVelocity) * (1.0 - exp(-step * 0.9))
+                self.phase += self.angularVelocity * step
             }
-            swells[bubble.id] = swell
-            let base = self.baseRadius(for: bubble, layout: layout)
-            radii[bubble.id] = ayuBubbleLerp(base, max(base, width * 0.165), swell)
+            self.updateFallbackBeat(now: CACurrentMediaTime())
+            self.beatEnvelope *= exp(-step * 6.0)
+        }
+        let fullTurn: CGFloat = 2.0 * CGFloat.pi
+        if abs(self.phase) > fullTurn * 64.0 {
+            self.phase = self.phase.truncatingRemainder(dividingBy: fullTurn)
         }
 
-        if motion && dt > 0.0 {
-            for bubble in ordered {
-                let swell = swells[bubble.id] ?? 0.0
-                let speedScale: CGFloat = 1.0 + swell * 0.5
-                bubble.angle += bubble.speed * step * speedScale
+        let t = CGFloat(self.time)
+        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let collapse = ayuBubbleClamp(layout.collapseFraction, 0.0, 1.0)
+        let avatarRadius = max(24.0, layout.avatarDiameter / 2.0)
+        let orbitX = min(layout.size.width * 0.43, avatarRadius * 3.4)
+        let orbitY = avatarRadius * 1.45
+        self.lastOrbitRadius = orbitX
+        let cosPitch = cos(ayuBubblePitch)
+        let sinPitch = sin(ayuBubblePitch)
+        let baseRadius = ayuBubbleClamp(layout.avatarDiameter, 60.0, 120.0) * 0.24
+        let shrink = 1.0 - collapse * 0.6
+        let collapseAlpha = ayuBubbleClamp(1.0 - collapse * 1.7, 0.0, 1.0)
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        let rimAlpha: CGFloat = layout.showsAvatarRim && self.hasItems ? ayuBubbleClamp(1.0 - collapse * 2.2, 0.0, 1.0) : 0.0
+        self.rimContainer.opacity = Float(rimAlpha)
+        if rimAlpha > 0.0 {
+            let rimRadius = layout.avatarDiameter / 2.0
+            let rimFrame = CGRect(x: layout.avatarCenter.x - rimRadius - 6.0, y: layout.avatarCenter.y - rimRadius - 6.0, width: rimRadius * 2.0 + 12.0, height: rimRadius * 2.0 + 12.0)
+            if rimFrame.size != self.rimAppliedFrame.size {
+                let localBounds = CGRect(origin: CGPoint(), size: rimFrame.size)
+                let ringPath = CGPath(ellipseIn: localBounds.insetBy(dx: 6.6, dy: 6.6), transform: nil)
+                self.rimGlow.frame = localBounds
+                self.rimGlow.path = ringPath
+                self.rimGradient.bounds = localBounds
+                self.rimGradient.position = CGPoint(x: localBounds.midX, y: localBounds.midY)
+                self.rimMask.frame = localBounds
+                self.rimMask.path = ringPath
+            }
+            if rimFrame != self.rimAppliedFrame {
+                self.rimAppliedFrame = rimFrame
+                self.rimContainer.frame = rimFrame
+            }
+            if self.rimAppliedDark != layout.isDark {
+                self.rimAppliedDark = layout.isDark
+                self.rimGlow.strokeColor = (layout.isDark ? UIColor(red: 0.55, green: 0.72, blue: 1.0, alpha: 0.2) : UIColor(red: 0.3, green: 0.5, blue: 1.0, alpha: 0.16)).cgColor
+            }
+            if motion {
+                self.rimGradient.setAffineTransform(CGAffineTransform(rotationAngle: t * 0.22))
+            }
+        }
+
+        var hasRemoved = false
+        for bubble in self.bubbles {
+            if advancing {
                 if bubble.removing {
                     bubble.appear = max(0.0, bubble.appear - step * 2.2)
                 } else {
                     bubble.appear = min(1.0, bubble.appear + step * 1.4)
                 }
-                let target = self.anchor(for: bubble, layout: layout, swell: swell)
-                let stiffness: CGFloat = 3.2 + 7.0 * swell
-                let damping: CGFloat = swell > 0.0 ? 1.9 * sqrt(stiffness) : 3.4
-                var acceleration = CGPoint(x: (target.x - bubble.offset.x) * stiffness - bubble.velocity.x * damping, y: (target.y - bubble.offset.y) * stiffness - bubble.velocity.y * damping)
-                let radius = radii[bubble.id] ?? 0.0
-                if swell < 0.05 {
-                    for other in ordered where other !== bubble && !other.removing {
-                        let otherSwell = swells[other.id] ?? 0.0
-                        if otherSwell > 0.05 {
-                            continue
-                        }
-                        let dx = bubble.offset.x - other.offset.x
-                        let dy = bubble.offset.y - other.offset.y
-                        let distance = max(0.001, hypot(dx, dy))
-                        let minimum = (radius + (radii[other.id] ?? 0.0)) * 1.02
-                        if distance < minimum {
-                            let weight = ayuBubbleClamp(1.0 - abs(bubble.depth - other.depth) * 1.7, 0.0, 1.0)
-                            let push = (minimum - distance) * 11.0 * weight
-                            acceleration.x += dx / distance * push
-                            acceleration.y += dy / distance * push
-                        }
-                    }
-                    let avatarDistance = max(0.001, hypot(bubble.offset.x, bubble.offset.y))
-                    let avatarMinimum = geometry.avatarRadius * 0.55 + radius * 0.4
-                    if avatarDistance < avatarMinimum {
-                        let push = (avatarMinimum - avatarDistance) * 7.0
-                        acceleration.x += bubble.offset.x / avatarDistance * push
-                        acceleration.y += bubble.offset.y / avatarDistance * push
-                    }
-                }
-                bubble.velocity.x += acceleration.x * step
-                bubble.velocity.y += acceleration.y * step
-                let speed = hypot(bubble.velocity.x, bubble.velocity.y)
-                if speed > 260.0 {
-                    bubble.velocity.x *= 260.0 / speed
-                    bubble.velocity.y *= 260.0 / speed
-                }
-                bubble.offset.x += bubble.velocity.x * step
-                bubble.offset.y += bubble.velocity.y * step
-                if bubble.removing && bubble.appear <= 0.0 {
-                    removed.append(bubble.id)
-                }
+                let hopAcceleration = -170.0 * bubble.hop - 13.0 * bubble.hopVelocity
+                bubble.hopVelocity += hopAcceleration * step
+                bubble.hop += bubble.hopVelocity * step
+                bubble.tapPulse = max(0.0, bubble.tapPulse - step * 3.2)
+            } else if !motion {
+                bubble.appear = bubble.removing ? 0.0 : 1.0
+                bubble.hop = 0.0
+                bubble.hopVelocity = 0.0
+                bubble.tapPulse = 0.0
             }
-        } else if !motion {
-            for bubble in ordered {
-                bubble.offset = self.anchor(for: bubble, layout: layout, swell: 0.0)
-                bubble.velocity = CGPoint()
-                if bubble.removing {
-                    removed.append(bubble.id)
-                }
+            if bubble.removing && bubble.appear <= 0.0 {
+                hasRemoved = true
             }
-        }
 
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
+            let longitude = self.phase + bubble.longitudeOffset
+            let cosLatitude = cos(bubble.latitude)
+            let sinLatitude = sin(bubble.latitude)
+            let x = orbitX * bubble.orbitScale * cosLatitude * sin(longitude)
+            let up = orbitY * bubble.orbitScale * sinLatitude
+            let z = orbitX * bubble.orbitScale * cosLatitude * cos(longitude)
+            let screenY = -up * cosPitch + z * sinPitch
+            let depth = z * cosPitch + up * sinPitch
+            let normalizedDepth = ayuBubbleClamp(depth / max(1.0, orbitX), -1.0, 1.0)
+            bubble.depth = normalizedDepth
 
-        let avatarRadius = layout.avatarDiameter / 2.0
-        let rimAlpha = layout.showsAvatarRim && !self.bubbles.isEmpty ? ayuBubbleClamp(1.0 - collapse * 2.2, 0.0, 1.0) : 0.0
-        self.rimContainer.opacity = Float(rimAlpha)
-        if rimAlpha > 0.0 {
-            let rimFrame = CGRect(x: layout.avatarCenter.x - avatarRadius - 6.0, y: layout.avatarCenter.y - avatarRadius - 6.0, width: avatarRadius * 2.0 + 12.0, height: avatarRadius * 2.0 + 12.0)
-            self.rimContainer.frame = rimFrame
-            let localBounds = CGRect(origin: CGPoint(), size: rimFrame.size)
-            let ringPath = CGPath(ellipseIn: localBounds.insetBy(dx: 6.0 + 0.6, dy: 6.0 + 0.6), transform: nil)
-            self.rimGlow.frame = localBounds
-            self.rimGlow.path = ringPath
-            self.rimGlow.strokeColor = (layout.isDark ? UIColor(red: 0.55, green: 0.72, blue: 1.0, alpha: 0.2) : UIColor(red: 0.3, green: 0.5, blue: 1.0, alpha: 0.16)).cgColor
-            self.rimGradient.bounds = localBounds
-            self.rimGradient.position = CGPoint(x: localBounds.midX, y: localBounds.midY)
-            self.rimMask.frame = localBounds
-            self.rimMask.path = ringPath
-            self.rimGradient.colors = [
-                UIColor(white: 1.0, alpha: 0.18).cgColor,
-                UIColor(red: 0.72, green: 0.84, blue: 1.0, alpha: 0.85).cgColor,
-                UIColor(white: 1.0, alpha: 0.95).cgColor,
-                UIColor(red: 0.6, green: 0.76, blue: 1.0, alpha: 0.6).cgColor,
-                UIColor(white: 1.0, alpha: 0.18).cgColor
-            ]
-            if motion {
-                self.rimGradient.setAffineTransform(CGAffineTransform(rotationAngle: CGFloat(self.time) * 0.22))
-            }
-        }
+            let floatX: CGFloat = motion ? 3.5 * sin(t * 0.7 + bubble.phase1) : 0.0
+            let floatY: CGFloat = motion ? 4.5 * sin(t * 0.9 + bubble.phase2) : 0.0
+            let perspective = 1.0 + 0.07 * normalizedDepth
+            var center = CGPoint(
+                x: layout.avatarCenter.x + (x * perspective + floatX) * shrink,
+                y: layout.avatarCenter.y + (screenY + floatY + bubble.hop) * shrink - collapse * 30.0
+            )
 
-        for bubble in ordered {
-            let swell = swells[bubble.id] ?? 0.0
-            var radius = radii[bubble.id] ?? 0.0
-            var offset = bubble.offset
             let appear = ayuBubbleSmooth(bubble.appear)
-            let edgeDistance = min(layout.avatarCenter.x + offset.x, width - layout.avatarCenter.x - offset.x)
-            let edgeVisibility = ayuBubbleSmooth((edgeDistance + radius * 0.6) / (radius * 1.6))
-            let topEdge = geometry.origin.y - geometry.halfHeight * 1.15
-            let topVisibility = ayuBubbleSmooth((offset.y - topEdge + radius * 0.4) / (radius * 1.3))
-            let bottomEdge = geometry.origin.y + geometry.halfHeight * 1.1
-            let bottomVisibility = ayuBubbleLerp(ayuBubbleSmooth((bottomEdge - offset.y + radius * 0.4) / (radius * 1.3)), 1.0, swell)
-            let visibility = edgeVisibility * topVisibility * bottomVisibility
-            let parallax = ayuBubbleLerp(0.6, 1.4, bubble.depth)
-            offset.x *= 1.0 - collapse * 0.75
-            offset.y = offset.y * (1.0 - collapse * 0.75) - collapse * 40.0 * parallax
-            radius *= (1.0 - collapse * 0.55) * ayuBubbleLerp(0.55, 1.0, visibility) * ayuBubbleLerp(0.35, 1.0, appear)
-            let alpha = appear * visibility * ayuBubbleLerp(0.8, 1.0, max(bubble.depth, swell)) * ayuBubbleClamp(1.0 - collapse * 1.7, 0.0, 1.0)
-            let center = CGPoint(x: layout.avatarCenter.x + offset.x, y: layout.avatarCenter.y + offset.y)
+            let depthScale = 1.0 + 0.26 * normalizedDepth
+            let beatScale = 1.0 + 0.1 * self.beatEnvelope * bubble.beatGain + min(0.12, abs(bubble.hop) * 0.012)
+            var radius = baseRadius * bubble.sizeScale * depthScale * beatScale * ayuBubbleLerp(0.35, 1.0, appear) * (1.0 - collapse * 0.5)
+            var alpha = appear * ayuBubbleLerp(0.62, 1.0, (normalizedDepth + 1.0) * 0.5) * collapseAlpha
+
+            if bubble.lift > 0.0 || bubble.liftTarget > 0.0 {
+                if bubble === self.draggedBubble {
+                    if advancing {
+                        let ax = (self.dragTarget.x - bubble.dragCenter.x) * 260.0 - bubble.dragVelocity.x * 20.0
+                        let ay = (self.dragTarget.y - bubble.dragCenter.y) * 260.0 - bubble.dragVelocity.y * 20.0
+                        bubble.dragVelocity.x += ax * step
+                        bubble.dragVelocity.y += ay * step
+                        bubble.dragCenter.x += bubble.dragVelocity.x * step
+                        bubble.dragCenter.y += bubble.dragVelocity.y * step
+                    } else if !motion {
+                        bubble.dragCenter = self.dragTarget
+                    }
+                }
+                if advancing {
+                    let rate: CGFloat = bubble.liftTarget > bubble.lift ? 10.0 : 5.5
+                    bubble.lift += (bubble.liftTarget - bubble.lift) * (1.0 - exp(-step * rate))
+                } else if !motion {
+                    bubble.lift = bubble.liftTarget
+                }
+                if bubble.liftTarget <= 0.0 && bubble.lift < 0.002 {
+                    bubble.lift = 0.0
+                }
+                let lift = ayuBubbleSmooth(bubble.lift)
+                let liftFloatX: CGFloat = motion ? 2.5 * sin(t * 2.1 + bubble.phase1) : 0.0
+                let liftFloatY: CGFloat = motion ? 3.0 * sin(t * 1.7 + bubble.phase2) : 0.0
+                center.x = ayuBubbleLerp(center.x, bubble.dragCenter.x + liftFloatX, lift)
+                center.y = ayuBubbleLerp(center.y, bubble.dragCenter.y + liftFloatY, lift)
+                radius = ayuBubbleLerp(radius, baseRadius * bubble.sizeScale * 2.5, lift)
+                alpha = ayuBubbleLerp(alpha, 1.0, lift)
+            }
+            radius *= 1.0 - 0.14 * sin(bubble.tapPulse * CGFloat.pi)
+
+            if advancing && bubble.hasLastCenter {
+                let vx = (center.x - bubble.lastCenter.x) / step
+                let vy = (center.y - bubble.lastCenter.y) / step
+                bubble.screenVelocity.x += (vx - bubble.screenVelocity.x) * 0.3
+                bubble.screenVelocity.y += (vy - bubble.screenVelocity.y) * 0.3
+            } else if !motion {
+                bubble.screenVelocity = CGPoint()
+            }
+            bubble.lastCenter = center
+            bubble.hasLastCenter = true
+
             bubble.displayCenter = center
             bubble.displayRadius = radius
             bubble.displayAlpha = alpha
 
-            bubble.applyAppearance(isDark: layout.isDark)
-            bubble.applyBlur(radius: ProcessInfo.processInfo.isLowPowerModeEnabled ? 2.0 : 2.0 + radius * 0.06)
+            self.setFront(bubble, normalizedDepth >= 0.0 || bubble.lift > 0.0 || bubble.liftTarget > 0.0)
 
-            let side = max(4.0, ceil(radius * 3.0))
-            let bounds = CGRect(origin: CGPoint(), size: CGSize(width: side, height: side))
-            let localCenter = CGPoint(x: side / 2.0, y: side / 2.0)
-            bubble.container.bounds = bounds
+            bubble.applyAppearance(isDark: layout.isDark, lowPower: lowPower)
+
+            let hidden = alpha < 0.005
+            if bubble.container.isHidden != hidden {
+                bubble.container.isHidden = hidden
+            }
+            if hidden {
+                continue
+            }
+
+            let scale = radius / ayuBubbleDesignRadius
+            let speed = hypot(bubble.screenVelocity.x, bubble.screenVelocity.y)
+            let stretch: CGFloat = motion ? min(0.14, speed / 1800.0) : 0.0
+            let wobble: CGFloat = motion ? 0.03 * sin(t * bubble.wobbleSpeed + bubble.phase3) * (1.0 + 0.6 * self.beatEnvelope) : 0.0
+            let angle: CGFloat = speed > 1.0 ? atan2(bubble.screenVelocity.y, bubble.screenVelocity.x) : 0.0
+            var transform = CATransform3DMakeRotation(angle, 0.0, 0.0, 1.0)
+            transform = CATransform3DScale(transform, scale * (1.0 + stretch + wobble), scale * (1.0 - stretch * 0.6 - wobble), 1.0)
+            transform = CATransform3DRotate(transform, -angle, 0.0, 0.0, 1.0)
+
             bubble.container.position = center
+            bubble.container.transform = transform
             bubble.container.opacity = Float(alpha)
-            bubble.container.zPosition = swell > 0.02 ? 100.0 + swell : bubble.depth * 10.0
-            bubble.container.isHidden = alpha < 0.005
-
-            if alpha >= 0.005 {
-                let path = self.blobPath(center: localCenter, radius: radius, bubble: bubble, squash: motion ? bubble.velocity : CGPoint(), amplitude: motion ? (1.0 + swell * 0.15) : 0.4)
-                let glowSide = radius * 2.75
-                bubble.glowLayer.frame = CGRect(x: localCenter.x - glowSide / 2.0, y: localCenter.y - glowSide / 2.0, width: glowSide, height: glowSide)
-                if let backdropLayer = bubble.backdropLayer {
-                    backdropLayer.frame = bounds
-                    bubble.backdropMask.frame = bounds
-                    bubble.backdropMask.path = path
-                }
-                bubble.bodyLayer.frame = bounds
-                bubble.bodyMask.frame = bounds
-                bubble.bodyMask.path = path
-                let reach = ayuBubbleClamp(radius * 1.04 / side, 0.05, 0.5)
-                bubble.bodyLayer.endPoint = CGPoint(x: 0.5 + reach, y: 0.5 + reach)
-                bubble.rimLayer.frame = bounds
-                bubble.rimMask.frame = bounds
-                bubble.rimMask.path = path
-                bubble.rimMask.lineWidth = max(1.0, min(2.6, radius * 0.05))
-                bubble.highlightLayer.bounds = CGRect(origin: CGPoint(), size: CGSize(width: radius * 0.82, height: radius * 0.5))
-                bubble.highlightLayer.position = CGPoint(x: localCenter.x - radius * 0.25, y: localCenter.y - radius * 0.49)
-                let stickerSide = radius * 1.12
-                let bobWave: CGFloat = sin(CGFloat(self.time) * 1.3 + bubble.noise[1])
-                let bob: CGFloat = motion ? 1.6 * bobWave : 0.0
-                bubble.stickerLayer.bounds = CGRect(origin: CGPoint(), size: CGSize(width: stickerSide, height: stickerSide))
-                bubble.stickerLayer.position = CGPoint(x: localCenter.x, y: localCenter.y + bob)
+            bubble.container.zPosition = bubble.lift > 0.0 ? 10000.0 + bubble.lift : 100.0 + normalizedDepth * 50.0
+            if motion {
+                bubble.shapeLayer.setAffineTransform(CGAffineTransform(rotationAngle: 0.25 * sin(t * 0.3 + bubble.phase3)))
+                let bob: CGFloat = 1.6 * sin(t * 1.3 + bubble.phase1)
+                bubble.stickerLayer.position = CGPoint(x: ayuBubbleDesignSide / 2.0, y: ayuBubbleDesignSide / 2.0 + bob)
             }
         }
 
         CATransaction.commit()
 
-        for id in removed {
-            if let bubble = self.bubbles.removeValue(forKey: id) {
-                bubble.container.removeFromSuperlayer()
+        if hasRemoved {
+            var index = self.bubbles.count - 1
+            while index >= 0 {
+                let bubble = self.bubbles[index]
+                if bubble.removing && bubble.appear <= 0.0 {
+                    if bubble === self.draggedBubble {
+                        self.draggedBubble = nil
+                    }
+                    bubble.container.removeFromSuperlayer()
+                    self.bubbles.remove(at: index)
+                }
+                index -= 1
             }
         }
     }
 
-    private func bubble(at point: CGPoint) -> Bubble? {
+    private func bubble(at point: CGPoint, frontOnly: Bool, backOnly: Bool) -> Bubble? {
         var result: Bubble?
-        for bubble in self.bubbles.values where !bubble.removing && bubble.displayAlpha > 0.3 && !bubble.container.isHidden {
+        var resultRank: CGFloat = -CGFloat.greatestFiniteMagnitude
+        for bubble in self.bubbles where !bubble.removing && bubble.displayAlpha > 0.3 && !bubble.container.isHidden {
+            if frontOnly && !bubble.isFront {
+                continue
+            }
+            if backOnly && bubble.isFront {
+                continue
+            }
             let distance = hypot(point.x - bubble.displayCenter.x, point.y - bubble.displayCenter.y)
             if distance <= bubble.displayRadius * 1.05 {
-                if let current = result, current.container.zPosition >= bubble.container.zPosition {
-                    continue
+                let rank = (bubble.isFront ? 1000.0 : 0.0) + bubble.depth + bubble.lift * 10.0
+                if rank > resultRank {
+                    result = bubble
+                    resultRank = rank
                 }
-                result = bubble
             }
         }
         return result
     }
 
+    public func backBubbleContains(_ point: CGPoint) -> Bool {
+        if self.alpha <= 0.01 || self.isHidden {
+            return false
+        }
+        return self.bubble(at: point, frontOnly: false, backOnly: true) != nil
+    }
+
     public override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        return self.bubble(at: point) != nil
+        return self.bubble(at: point, frontOnly: true, backOnly: false) != nil
+    }
+
+    public override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer.view !== self {
+            return super.gestureRecognizerShouldBegin(gestureRecognizer)
+        }
+        if self.draggedBubble != nil {
+            return false
+        }
+        return self.bubble(at: gestureRecognizer.location(in: self), frontOnly: false, backOnly: false) != nil
     }
 
     @objc private func tapped(_ recognizer: UITapGestureRecognizer) {
-        guard case .ended = recognizer.state, let bubble = self.bubble(at: recognizer.location(in: self)) else {
+        guard case .ended = recognizer.state, self.draggedBubble == nil, let bubble = self.bubble(at: recognizer.location(in: self), frontOnly: false, backOnly: false) else {
             return
         }
-        bubble.container.animateScale(from: 0.86, to: 1.0, duration: 0.35, timingFunction: kCAMediaTimingFunctionSpring)
+        if AyuGramProfileBubblesView.motionAllowed {
+            bubble.tapPulse = 1.0
+        }
         self.action?(bubble.item)
+    }
+
+    @objc private func longPressed(_ recognizer: UILongPressGestureRecognizer) {
+        let location = recognizer.location(in: self)
+        switch recognizer.state {
+        case .began:
+            guard let bubble = self.bubble(at: location, frontOnly: false, backOnly: false) else {
+                return
+            }
+            self.draggedBubble = bubble
+            bubble.liftTarget = 1.0
+            bubble.dragCenter = bubble.displayCenter
+            bubble.dragVelocity = CGPoint()
+            self.dragOffset = CGPoint(x: bubble.displayCenter.x - location.x, y: bubble.displayCenter.y - location.y)
+            self.dragTarget = bubble.displayCenter
+            self.setFront(bubble, true)
+            let haptic: HapticFeedback
+            if let current = self.hapticFeedback {
+                haptic = current
+            } else {
+                haptic = HapticFeedback()
+                self.hapticFeedback = haptic
+            }
+            haptic.impact(.light)
+        case .changed:
+            guard self.draggedBubble != nil else {
+                return
+            }
+            self.dragTarget = CGPoint(x: location.x + self.dragOffset.x * 0.6, y: location.y + self.dragOffset.y * 0.6)
+        case .ended, .cancelled, .failed:
+            self.releaseDrag()
+        default:
+            break
+        }
+        self.updateRunning()
+        if self.link == nil || (self.link?.isPaused ?? true) {
+            self.render(dt: 0.0)
+        }
     }
 
     public override var accessibilityElements: [Any]? {
         get {
             var elements: [AyuBubbleAccessibilityElement] = []
             var validIds = Set<String>()
-            let sorted = self.bubbles.values.filter { !$0.removing && $0.copyIndex == 0 && $0.displayAlpha > 0.3 }.sorted(by: { lhs, rhs in
+            let sorted = self.bubbles.filter { !$0.removing && $0.copyIndex == 0 && $0.displayAlpha > 0.3 }.sorted(by: { lhs, rhs in
                 if lhs.displayCenter.y != rhs.displayCenter.y {
                     return lhs.displayCenter.y < rhs.displayCenter.y
                 }
@@ -878,11 +1209,17 @@ public final class AyuGramProfileBubblesHaloView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    public func update(size: CGSize, center: CGPoint, radius: CGFloat, isDark: Bool) {
+    public func update(size: CGSize, center: CGPoint, radius: CGFloat, isDark: Bool, dimsBackground: Bool) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         self.gradientLayer.frame = CGRect(origin: CGPoint(), size: size)
-        if isDark {
+        if dimsBackground {
+            self.gradientLayer.colors = [
+                UIColor(white: 0.0, alpha: 0.3).cgColor,
+                UIColor(white: 0.0, alpha: 0.2).cgColor,
+                UIColor(white: 0.0, alpha: 0.1).cgColor
+            ]
+        } else if isDark {
             self.gradientLayer.colors = [
                 UIColor(red: 0.36, green: 0.44, blue: 0.6, alpha: 0.42).cgColor,
                 UIColor(red: 0.22, green: 0.28, blue: 0.4, alpha: 0.24).cgColor,

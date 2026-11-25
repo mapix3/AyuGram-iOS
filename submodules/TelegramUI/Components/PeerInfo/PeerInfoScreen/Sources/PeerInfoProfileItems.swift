@@ -121,6 +121,7 @@ func infoItems(
         let ItemAbout = 3003
         let ItemNote = 3004
         let ItemAppFooter = 3005
+        let ItemAyuFakeNumber = 3006
         let ItemAffiliate = 4000
         let ItemAffiliateInfo = 4001
         let ItemBusinessHours = 5000
@@ -207,6 +208,15 @@ func infoItems(
                 interaction.openPhone(phone, node, nil, progress)
             }, longTapAction: nil, contextAction: { node, gesture, _ in
                 interaction.openPhone(phone, node, gesture, nil)
+            }, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+        }
+        if let ayuNumber = ayuGramProfileEntry(peerId: user.id)?.number, ayuNumber != user.phone.flatMap({ AyuGramProfileEntry.normalizeNumber($0) }) {
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemAyuFakeNumber, label: i18n("Ayu.FakeNumber.Label", presentationData.strings.baseLanguageCode), text: AyuGramProfileEntry.formatNumber(ayuNumber), textColor: .accent, action: { node, progress in
+                interaction.openPhone(ayuNumber, node, nil, progress)
+            }, longTapAction: nil, contextAction: { node, gesture, _ in
+                interaction.openPhone(ayuNumber, node, gesture, nil)
             }, requestLayout: { animated in
                 interaction.requestLayout(animated)
             }))

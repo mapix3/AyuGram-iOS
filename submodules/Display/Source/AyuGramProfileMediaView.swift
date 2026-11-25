@@ -6,6 +6,8 @@ import ImageIO
 public final class AyuGramProfileMediaView: UIView {
     private let imageView = UIImageView()
     private let shadeLayer = CAGradientLayer()
+    private let brightnessLayer = CALayer()
+    private let dimLayer = CALayer()
     private var renderer: AyuGramSilentVideoRenderer?
     private var videoTransform = CGAffineTransform.identity
     private var videoReady = false
@@ -19,6 +21,22 @@ public final class AyuGramProfileMediaView: UIView {
         didSet {
             if self.isActive != oldValue {
                 self.updatePlayback()
+            }
+        }
+    }
+
+    public var brightness: CGFloat = 0.0 {
+        didSet {
+            if self.brightness != oldValue {
+                self.updateOverlays()
+            }
+        }
+    }
+
+    public var dimAlpha: CGFloat = 0.0 {
+        didSet {
+            if self.dimAlpha != oldValue {
+                self.updateOverlays()
             }
         }
     }
@@ -43,7 +61,11 @@ public final class AyuGramProfileMediaView: UIView {
         self.shadeLayer.locations = [0.0, 0.3, 0.6, 1.0]
         self.shadeLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
         self.shadeLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
+        self.layer.addSublayer(self.brightnessLayer)
         self.layer.addSublayer(self.shadeLayer)
+        self.layer.addSublayer(self.dimLayer)
+        self.dimLayer.backgroundColor = UIColor.black.cgColor
+        self.updateOverlays()
         let names: [Notification.Name] = [
             UIApplication.didBecomeActiveNotification,
             UIApplication.didEnterBackgroundNotification,
@@ -155,6 +177,21 @@ public final class AyuGramProfileMediaView: UIView {
         self.updatePlayback()
     }
 
+    private func updateOverlays() {
+        let value = max(-1.0, min(1.0, self.brightness.isFinite ? self.brightness : 0.0))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if value < 0.0 {
+            self.brightnessLayer.backgroundColor = UIColor.black.cgColor
+            self.brightnessLayer.opacity = Float(-value * 0.8)
+        } else {
+            self.brightnessLayer.backgroundColor = UIColor.white.cgColor
+            self.brightnessLayer.opacity = Float(value * 0.45)
+        }
+        self.dimLayer.opacity = Float(max(0.0, min(0.8, self.dimAlpha)))
+        CATransaction.commit()
+    }
+
     private func updatePlayback() {
         let playing = self.isVideo && self.isActive && self.window != nil && !self.isHidden && UIApplication.shared.applicationState == .active && !ProcessInfo.processInfo.isLowPowerModeEnabled && !UIAccessibility.isReduceMotionEnabled
         if playing {
@@ -182,6 +219,8 @@ public final class AyuGramProfileMediaView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         self.shadeLayer.frame = self.bounds
+        self.brightnessLayer.frame = self.bounds
+        self.dimLayer.frame = self.bounds
         if let videoLayer = self.renderer?.layer {
             let angle = atan2(self.videoTransform.b, self.videoTransform.a)
             let quarterTurns = Int((angle / (.pi / 2.0)).rounded()) & 3

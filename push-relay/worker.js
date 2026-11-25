@@ -33,6 +33,43 @@ const SHOWN_TTL_MS = ARCHIVE_TTL * 1000;
 const STASH_TTL_MS = 2 * 24 * 60 * 60 * 1000;
 const DELETED_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const COLLECT_LIMIT = 300;
+const REQUEST_BUCKETS = new Map();
+const REQUEST_BUCKETS_MAX = 5000;
+const REQUEST_BUCKETS_TTL_MS = 10 * 60 * 1000;
+
+function allowRequest(request, pathname) {
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  if (!ip || pathname === '/__cron') {
+    return true;
+  }
+
+  const route = pathname === '/ai/guide' ? { key: 'guide', capacity: 20, refillPerSecond: 1 } : pathname.startsWith('/test/') ? { key: 'test', capacity: 2, refillPerSecond: 0.1 } : null;
+  if (!route) {
+    return true;
+  }
+
+  const key = route.key + ':' + ip;
+  const now = Date.now();
+  const previous = REQUEST_BUCKETS.get(key) || { tokens: route.capacity, updatedAt: now, seenAt: now };
+  const tokens = Math.min(route.capacity, previous.tokens + Math.max(0, now - previous.updatedAt) * route.refillPerSecond / 1000);
+  if (tokens < 1) {
+    REQUEST_BUCKETS.set(key, { tokens, updatedAt: now, seenAt: now });
+    return false;
+  }
+  REQUEST_BUCKETS.set(key, { tokens: tokens - 1, updatedAt: now, seenAt: now });
+
+  if (REQUEST_BUCKETS.size > REQUEST_BUCKETS_MAX) {
+    for (const [bucketKey, bucket] of REQUEST_BUCKETS) {
+      if (now - bucket.seenAt > REQUEST_BUCKETS_TTL_MS) {
+        REQUEST_BUCKETS.delete(bucketKey);
+      }
+    }
+    while (REQUEST_BUCKETS.size > REQUEST_BUCKETS_MAX) {
+      REQUEST_BUCKETS.delete(REQUEST_BUCKETS.keys().next().value);
+    }
+  }
+  return true;
+}
 
 export class Presence {
   constructor(state) {
@@ -1055,6 +1092,16 @@ async function handleTranscription(request, env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname === '/__cron' && request.method === 'POST' && env.STATS_TOKEN && request.headers.get('x-cron') === env.STATS_TOKEN && !request.headers.get('cf-connecting-ip')) {
+      await checkBadgePayments(env).catch((error) => console.log('badge payments not checked: ' + error));
+      return new Response('ok');
+    }
+    if (!allowRequest(request, url.pathname)) {
+      return new Response(JSON.stringify({ error: 'rate_limited', message: 'Too many requests; wait a moment and retry' }), {
+        status: 429,
+        headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '1' },
+      });
+    }
     if (request.method === 'POST' && url.pathname === '/ai') {
       try {
         return await handleAssistant(request, env);

@@ -58,6 +58,14 @@ final class CameraDevice {
             Logger.shared.log("Camera", "No device selected, availabled devices: \(allDevices)")
         }
         
+        if #available(iOS 15.0, *), let device = selectedDevice, device.isVirtualDevice {
+            do {
+                try device.lockForConfiguration()
+                device.setPrimaryConstituentDeviceSwitchingBehavior(.locked, restrictedSwitchingBehaviorConditions: [])
+                device.unlockForConfiguration()
+            } catch {
+            }
+        }
         self.videoDevice = selectedDevice
         self.videoDevicePromise.set(.single(selectedDevice))
         

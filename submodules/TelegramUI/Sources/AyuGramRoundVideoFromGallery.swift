@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 import Photos
-import AVFoundation
 import Display
 import SwiftSignalKit
 import TelegramCore
@@ -49,11 +48,7 @@ extension ChatControllerImpl {
             return
         }
         let resource = VideoLibraryMediaResource(localIdentifier: selection.asset.localIdentifier, conversion: .compress(adjustments))
-        let exportConfiguration = recommendedVideoExportConfiguration(values: values, duration: selection.duration, frameRate: 30.0)
-        let exportWidth = (exportConfiguration.videoSettings[AVVideoWidthKey] as? Int) ?? AyuGramVideoSettings.roundDeclaredMaximumSide
-        let exportHeight = (exportConfiguration.videoSettings[AVVideoHeightKey] as? Int) ?? AyuGramVideoSettings.roundDeclaredMaximumSide
-        let declaredSize = AyuGramVideoSettings.roundDeclaredSize(width: exportWidth, height: exportHeight)
-        let outputDimensions = PixelDimensions(width: Int32(declaredSize.width), height: Int32(declaredSize.height))
+        let outputDimensions = chatMediaEditorVideoFileDimensions(values: values, duration: selection.duration)
 
         var previewRepresentations: [TelegramMediaImageRepresentation] = []
         if let thumbnail = selection.thumbnail {

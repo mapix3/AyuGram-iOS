@@ -6,6 +6,7 @@ import SwiftSignalKit
 import TelegramCore
 import ContextUI
 import PeerInfoVisualMediaPaneNode
+import SGStrings
 
 extension PeerInfoScreenNode {
     func displayGiftsContextMenu(source: ContextReferenceContentNode, gesture: ContextGesture?) {
@@ -32,8 +33,10 @@ extension PeerInfoScreenNode {
         }
         
         let isCollection = giftsContext.collectionId != nil
+        let isOwnProfile = data.peer?.id == self.context.account.peerId
             
         let strings = self.presentationData.strings
+        let locale = strings.baseLanguageCode
         let items: Signal<ContextController.Items, NoError> = giftsContext.state
         |> map { state in
             var hasPinnedGifts = false
@@ -114,6 +117,16 @@ extension PeerInfoScreenNode {
                 } else {
                     items.insert(shareAction, at: 1)
                 }
+            }
+            
+            if isOwnProfile, let pane, case .all = pane.currentCollection, pane.ayuOpenFakeGiftsEditor != nil {
+                items.append(.action(ContextMenuActionItem(text: i18n("Ayu.ProfileExtras.FakeGifts", locale), icon: { theme in
+                    return generateTintedImage(image: UIImage(bundleImageName: "Peer Info/Gifts/AddGift"), color: theme.contextMenu.primaryColor)
+                }, action: { [weak pane] _, f in
+                    f(.default)
+                    
+                    pane?.ayuOpenFakeGiftsEditor?()
+                })))
             }
             
             if !items.isEmpty {

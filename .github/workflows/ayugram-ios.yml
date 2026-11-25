@@ -13,14 +13,9 @@ on:
         type: choice
         options: [release_arm64, debug_arm64]
         default: release_arm64
-      label:
-        description: 'Label shown after the build number in the release title, for example hotfix'
-        required: false
-        type: string
 
 permissions:
-  # Releases hold the IPA behind a direct link, which the in-app updater hands to installer apps.
-  contents: write
+  contents: read
 
 concurrency:
   group: ayugram-ios-${{ inputs.variant }}
@@ -151,40 +146,27 @@ jobs:
           path: ~/telegram-bazel-cache
           key: bazel-${{ github.ref_name }}-${{ github.run_id }}
 
-      - name: Upload IPA and build manifest
+      - name: Read build number
+        if: ${{ always() }}
+        id: manifest
+        run: |
+          if [[ -f artifacts/build-manifest.json ]]; then
+            BUILD_NUMBER="$(python -c 'import json; print(json.load(open("artifacts/build-manifest.json"))["build_number"])')"
+          else
+            BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          fi
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Save build artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: ayugram-${{ matrix.variant }}-${{ github.run_number }}-${{ github.run_attempt }}
+          name: ayugram-${{ matrix.variant }}-${{ steps.manifest.outputs.build_number }}
           path: |
             artifacts/*.ipa
             artifacts/build-manifest.json
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Attach the IPA to the build release
-        if: ${{ success() }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VARIANT: ${{ matrix.variant }}
-          LABEL: ${{ inputs.label }}
-        run: |
-          set -euo pipefail
-          [[ -z "$LABEL" || "$LABEL" =~ ^[A-Za-z0-9._-]+$ ]] || LABEL=""
-          BUILD="$(python -c 'import json; print(json.load(open("artifacts/build-manifest.json"))["build_number"])')"
-          TAG="build-$BUILD"
-          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            # Both variants race to create it; whichever loses just uploads.
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-              --title "AyuGram build $BUILD${LABEL:+-$LABEL}" \
-              --notes "Unsigned IPAs; re-sign them with your installer. Published to users with the Publish update workflow." || true
-          fi
-          # The build number in the name keeps downloads of different builds apart; Safari
-          # turns a second "AyuGram-standard.ipa" into "AyuGram-standard.ipa 2".
-          cp "artifacts/AyuGram-$VARIANT-unsigned.ipa" "AyuGram-$VARIANT-$BUILD.ipa"
-          # The app compares its loaded code with this fingerprint to tell an official build from a modified one.
-          python ci/ayugram_integrity.py "AyuGram-$VARIANT-$BUILD.ipa" "$BUILD" > "AyuGram-$VARIANT-$BUILD.integrity.json"
-          gh release upload "$TAG" "AyuGram-$VARIANT-$BUILD.ipa" "AyuGram-$VARIANT-$BUILD.integrity.json" --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Remove generated credential files
         if: ${{ always() }}
