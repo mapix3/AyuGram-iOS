@@ -6,7 +6,7 @@ Main menu: Telegram Settings > AyuGram. At the top: Ghost Mode state and how man
 
 Ghost Mode: AyuGram > Ghost Mode. Turns on every "Hide" switch below while keeping their own values. Quick switch: hold the Chats tab (needs "Switch in the Chats tab" on).
 Hide: read receipts, online status, typing, recording voice/video, uploading, story views (AyuGram > Hide).
-Behavior (AyuGram > Behavior): Offline after sending; Read chat when replying; Silent sending (off / in Ghost Mode / always); Send as scheduled while in Ghost Mode (messages go out as scheduled 6 seconds later); Confirm sending a read receipt.
+Behavior (AyuGram > Behavior): Offline after sending; Read chat when replying; Silent sending (off / in Ghost Mode / always); Send as scheduled while in Ghost Mode (messages go out as scheduled 12 seconds later); Confirm sending a read receipt.
 Content: Bypass copy protection (save, copy, forward protected content); Allow screenshots of protected and secret content.
 
 Deleted and edited messages: deleted messages stay in the chat where they were, marked as deleted; "Dim deleted messages" (AyuGram > Chats) makes them semi-transparent. Edit and deletion history: AyuGram > Message history > Open history (only chosen chats, 30 days, up to 200 entries, no secret chats or one-time media). Chats deleted as a whole: AyuGram > Message history > Open history > Deleted chats.
