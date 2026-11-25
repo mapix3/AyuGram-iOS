@@ -971,6 +971,9 @@ final class CameraNeo: NSObject, CameraProtocol, RoundVideoCameraInitializationR
             try device.lockForConfiguration()
             defer { device.unlockForConfiguration() }
             device.activeFormat = format
+            if #available(iOS 15.0, *), device.isVirtualDevice {
+                device.setPrimaryConstituentDeviceSwitchingBehavior(.locked, restrictedSwitchingBehaviorConditions: [])
+            }
             if device.isLowLightBoostSupported {
                 device.automaticallyEnablesLowLightBoostWhenAvailable = frameRate <= AyuGramRoundVideoQuality.standardFrameRate
             }
