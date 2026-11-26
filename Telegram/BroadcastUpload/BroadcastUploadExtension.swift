@@ -297,6 +297,34 @@ private final class EmbeddedBroadcastUploadImpl: BroadcastUploadImpl {
     }
 }
 
+private func ayuBroadcastProvisionedGroups() -> [String] {
+    var paths: [String] = []
+    if let path = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision") {
+        paths.append(path)
+    }
+    paths.append(URL(fileURLWithPath: Bundle.main.bundlePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("embedded.mobileprovision").path)
+    for path in paths {
+        guard let data = FileManager.default.contents(atPath: path), let text = String(data: data, encoding: .isoLatin1), let start = text.range(of: "<?xml"), let end = text.range(of: "</plist>", range: start.upperBound ..< text.endIndex), let plistData = String(text[start.lowerBound ..< end.upperBound]).data(using: .isoLatin1), let plist = (try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil)) as? [String: Any], let entitlements = plist["Entitlements"] as? [String: Any], let groups = entitlements["com.apple.security.application-groups"] as? [String], !groups.isEmpty else {
+            continue
+        }
+        return groups
+    }
+    return []
+}
+
+private func ayuBroadcastAppGroupURL(baseAppBundleId: String) -> URL? {
+    if let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.\(baseAppBundleId)") {
+        return url
+    }
+    let groups = ayuBroadcastProvisionedGroups().filter { !$0.contains("*") }
+    for group in groups.filter({ $0.contains(baseAppBundleId) }) + groups.filter({ !$0.contains(baseAppBundleId) }) {
+        if let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) {
+            return url
+        }
+    }
+    return nil
+}
+
 @available(iOS 10.0, *)
 @objc(BroadcastUploadSampleHandler) class BroadcastUploadSampleHandler: RPBroadcastSampleHandler {
     private var impl: BroadcastUploadImpl?
@@ -322,11 +350,10 @@ private final class EmbeddedBroadcastUploadImpl: BroadcastUploadImpl {
 
         let baseAppBundleId = String(appBundleIdentifier[..<lastDotRange.lowerBound])
 
-        let appGroupName = "group.\(baseAppBundleId)"
-        let maybeAppGroupUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName)
-
-        guard let appGroupUrl = maybeAppGroupUrl else {
-            self.finishWithError()
+        guard let appGroupUrl = ayuBroadcastAppGroupURL(baseAppBundleId: baseAppBundleId) else {
+            let russian = ["ru", "uk", "be", "kk"].contains(Locale.preferredLanguages.first.map { String($0.prefix(2)) } ?? "")
+            let text = russian ? "Демонстрация экрана недоступна: установщик подписал AyuGram без App Group, поэтому расширение трансляции не видит приложение. Переустановите AyuGram через установщик, который сохраняет App Groups (например, SideStore или AltStore)." : "Screen sharing is unavailable: the installer signed AyuGram without an App Group, so the broadcast extension cannot reach the app. Reinstall AyuGram with an installer that keeps App Groups (for example SideStore or AltStore)."
+            self.finishBroadcastWithError(NSError(domain: "BroadcastUploadExtension", code: 2, userInfo: [NSLocalizedDescriptionKey: text]))
             return
         }
 
