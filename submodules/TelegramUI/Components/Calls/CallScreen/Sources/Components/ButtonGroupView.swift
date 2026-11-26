@@ -13,6 +13,7 @@ final class ButtonGroupView: OverlayMaskContainerView {
                 case flipCamera
                 case video
                 case microphone
+                case record
                 case end
             }
             
@@ -20,6 +21,7 @@ final class ButtonGroupView: OverlayMaskContainerView {
             case flipCamera
             case video(isActive: Bool)
             case microphone(isMuted: Bool)
+            case record(isActive: Bool)
             case end
             
             var key: Key {
@@ -32,6 +34,8 @@ final class ButtonGroupView: OverlayMaskContainerView {
                     return .video
                 case .microphone:
                     return .microphone
+                case .record:
+                    return .record
                 case .end:
                     return .end
                 }
@@ -319,6 +323,10 @@ final class ButtonGroupView: OverlayMaskContainerView {
             case let .microphone(isActiveValue):
                 title = strings.Call_Mute
                 image = UIImage(bundleImageName: "Call/Mute")
+                isActive = isActiveValue
+            case let .record(isActiveValue):
+                title = ["ru", "uk", "be"].contains(strings.baseLanguageCode) ? (strings.baseLanguageCode == "uk" ? "Запис" : "Запись") : "Record"
+                image = UIImage(systemName: isActiveValue ? "stop.circle.fill" : "record.circle", withConfiguration: UIImage.SymbolConfiguration(pointSize: 26.0, weight: .regular))?.withRenderingMode(.alwaysTemplate)
                 isActive = isActiveValue
             case .end:
                 title = strings.Call_End
