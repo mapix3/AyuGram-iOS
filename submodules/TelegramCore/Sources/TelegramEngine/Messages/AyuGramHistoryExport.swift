@@ -89,6 +89,30 @@ public extension TelegramEngine {
             return messages.map(EngineMessage.init)
         }
     }
+    func ayuGramOwnRecentTexts(chats: Int, perChat: Int) -> Signal<[String], NoError> {
+        return self.account.postbox.transaction { transaction -> [String] in
+            var result: [String] = []
+            for rendered in transaction.getTopChatListEntries(groupId: .root, count: chats) {
+                if let channel = rendered.peer as? TelegramChannel, case .broadcast = channel.info {
+                    continue
+                }
+                if let user = rendered.peer as? TelegramUser, user.botInfo != nil {
+                    continue
+                }
+                var found = 0
+                var scanned = 0
+                transaction.withAllMessages(peerId: rendered.peerId, namespace: Namespaces.Message.Cloud, reversed: true, { message in
+                    scanned += 1
+                    if !message.flags.contains(.Incoming) && message.forwardInfo == nil && !message.text.isEmpty && message.author?.id == self.account.peerId {
+                        result.append(message.text)
+                        found += 1
+                    }
+                    return found < perChat && scanned < perChat * 8
+                })
+            }
+            return result
+        }
+    }
     func ayuGramRecentMessages(peerId: EnginePeer.Id, limit: Int) -> Signal<[EngineMessage], NoError> {
         return self.account.postbox.transaction { transaction -> [EngineMessage] in
             var messages: [Message] = []

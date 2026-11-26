@@ -1,3 +1,4 @@
+import { sharedCache } from './memcache.js';
 import { accountId, lockOf } from './badges.js';
 import { ipTag, sameToken, statsStub } from './stats.js';
 
@@ -1162,7 +1163,7 @@ async function invoke(stub, path, body) {
 }
 
 function edgeCache() {
-  return typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  return sharedCache();
 }
 
 async function later(ctx, work) {

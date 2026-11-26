@@ -22,11 +22,15 @@ private enum AyuScreenToggle: Equatable {
     case ignoreProtection, screenshots
     case history, premium
     case scheduleInGhost, disableAds, disableLinkWarning, disableGreeting, dimDeleted, repeatMessage, confirmStickers, confirmGifs, confirmRead
-    case anonymousStats, assistantBubble, disableLiquidGlass, chatCopilot
+    case anonymousStats, assistantBubble, disableLiquidGlass, chatCopilot, styleLearning
 }
 
 private enum AyuScreenLink: Equatable {
+<<<<<<< HEAD
     case history, appearance, effects, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, supporter, video, profileExtras
+=======
+    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, aiStyle, supporter, video, profileExtras
+>>>>>>> origin/standard
 }
 
 private enum AyuScreenTint: Equatable {
@@ -177,6 +181,8 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 445, section: .assistant, link: .aiModel, symbol: "cpu", tint: .indigo, title: s("Ayu.AIModel"), label: ai.model))
     entries.append(.link(id: 446, section: .assistant, link: .aiLanguage, symbol: "globe", tint: .green, title: s("Ayu.AILanguage"), label: AyuGramAssistantPreferences.language.isEmpty ? s("Ayu.AILanguageAuto") : AyuGramAssistantPreferences.language))
     entries.append(.link(id: 450, section: .assistant, link: .aiPersona, symbol: "person.fill", tint: .purple, title: s("Ayu.AIPersona"), label: AyuGramAssistantPreferences.persona.isEmpty ? "" : "✓"))
+    entries.append(.toggle(id: 451, section: .assistant, key: .styleLearning, symbol: "text.bubble.fill", tint: .orange, title: s("Ayu.AIStyleLearn"), subtitle: s("Ayu.AIStyleLearnInfo"), value: AyuGramStyleLearning.enabled, enabled: true))
+    entries.append(.link(id: 452, section: .assistant, link: .aiStyle, symbol: "signature", tint: .pink, title: s("Ayu.AIStyle"), label: AyuGramStyleLearning.notes.isEmpty ? "\(AyuGramStyleLearning.samples.count)" : "✓"))
     entries.append(.footer(id: 448, section: .assistant, text: s("Ayu.AIFooter")))
 
     entries.append(.header(id: 500, section: .history, text: s("Ayu.History")))
@@ -272,6 +278,7 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
         case .anonymousStats: settings.updateExtra { $0.anonymousStats = value }
         case .assistantBubble: settings.updateExtra { $0.assistantBubble = value }
         case .chatCopilot: settings.updateExtra { $0.chatCopilot = value }
+        case .styleLearning: AyuGramStyleLearning.enabled = value
         case .disableLiquidGlass:
             settings.updateExtra { $0.disableLiquidGlass = value }
             let data = context.sharedContext.currentPresentationData.with { $0 }
@@ -381,6 +388,17 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             presentController?(promptController(context: context, text: i18n("Ayu.AILanguageInfo", data.strings.baseLanguageCode), value: AyuGramAssistantPreferences.language, placeholder: "English", characterLimit: 40, apply: { value in
                 if let value {
                     AyuGramAssistantPreferences.language = value
+                }
+            }))
+        case .aiStyle:
+            let data = context.sharedContext.currentPresentationData.with { $0 }
+            presentController?(promptController(context: context, text: i18n("Ayu.AIStyleInfo", data.strings.baseLanguageCode), value: AyuGramStyleLearning.notes, placeholder: i18n("Ayu.AIStyleHint", data.strings.baseLanguageCode), characterLimit: 900, apply: { value in
+                if let value {
+                    if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        AyuGramStyleLearning.reset()
+                    } else {
+                        AyuGramStyleLearning.notes = value
+                    }
                 }
             }))
         case .aiPersona:

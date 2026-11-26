@@ -835,3 +835,10 @@
 "Ayu.ProfileExtras.ShowGiftAyu" = "Показать юзерам AyuGram";
 "Ayu.ProfileExtras.GiftHiddenAyu" = "Скрыт для юзеров AyuGram";
 "Ayu.ProfileExtras.GiftShownAyu" = "Снова виден юзерам AyuGram";
+"Ayu.AIStyleLearn" = "Учить мой стиль общения";
+"Ayu.AIStyleLearnInfo" = "ИИ-подсказки изучают твои сообщения из всех чатов и пишут как ты";
+"Ayu.AIStyle" = "Мой стиль общения";
+"Ayu.AIStyleInfo" = "Что ассистент понял о твоей манере письма. Можно править; очисти поле, чтобы всё забыть и учиться заново.";
+"Ayu.AIStyleHint" = "Короткие сообщения с маленькой буквы, без точек…";
+"Ayu.AISaveImage" = "Сохранить в Фото";
+"Ayu.AICopyImage" = "Скопировать картинку";
