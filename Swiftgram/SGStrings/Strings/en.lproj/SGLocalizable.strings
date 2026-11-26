@@ -728,3 +728,10 @@
 "Ayu.ProfileExtras.ShowGiftAyu" = "Show to AyuGram users";
 "Ayu.ProfileExtras.GiftHiddenAyu" = "Hidden from AyuGram users";
 "Ayu.ProfileExtras.GiftShownAyu" = "Visible to AyuGram users again";
+"Ayu.AIStyleLearn" = "Learn my writing style";
+"Ayu.AIStyleLearnInfo" = "AI hints study your own messages from all chats and write like you";
+"Ayu.AIStyle" = "My writing style";
+"Ayu.AIStyleInfo" = "What the assistant learned about how you write. Edit it freely; clear it to forget everything and start learning again.";
+"Ayu.AIStyleHint" = "Short lowercase messages, no periods…";
+"Ayu.AISaveImage" = "Save to Photos";
+"Ayu.AICopyImage" = "Copy image";

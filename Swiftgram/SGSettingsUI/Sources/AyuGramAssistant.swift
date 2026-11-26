@@ -266,7 +266,7 @@ final class AyuGramAssistantGuide {
 
     func relevant(_ question: String) -> Bool {
         let lower = question.lowercased()
-        let words = ["ayu", "аюг", "аю ", "сборк", "настро", "где ", "как вкл", "как выкл", "как найти", "как сделать", "как открыть", "функци", "удал", "призрак", "ghost", "онлайн", "online", "прочит", "прочт", "набор", "экспорт", "импорт", "окн", "скрин", "бейдж", "шрифт", "фон", "оформлен", "обнов", "liquid", "premium", "премиум", "ассистент", "assistant", "подсказ", "анализ", "провайдер", "ключ", "модел", "донат", "скам", "журнал", "истори", "чат", "кнопк", "меню", "налашт", "де ", "видал", "where", "how do", "how to", "setting", "delete", "feature"]
+        let words = ["ayu", "аюг", "аюгр", "айюг", "swiftgram", "свифтгр", "в настройк", "настройки", "настройках", "в приложени", "этом клиент", "этого клиент", "в клиенте", "призрак", "ghost", "режим призрак", "профиль экстр", "фейк нфт", "fake nft", "бульбаш", "бейдж", "ассистент", "assistant", "копилот", "copilot", "провайдер", "api ключ", "api key", "релей", "relay", "bark", "налаштуван", "у застосунку", "this app", "in the app", "app setting", "аюшк"]
         return words.contains(where: { lower.contains($0) })
     }
 }
@@ -332,7 +332,7 @@ private func ayuGramAssistantPost(config: AyuGramAssistantConfig, url: URL, body
     }).resume()
 }
 
-func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, locale: String, completion: @escaping (String?, String?) -> Void) {
+func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, locale: String, images: [String] = [], completion: @escaping (String?, String?) -> Void) {
     let config = AyuGramAssistantConfig.current
     if config.provider.needsKey && config.key.isEmpty {
         completion(nil, i18n("Ayu.AINeedKey", locale))
@@ -342,7 +342,15 @@ func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, lo
         completion(nil, i18n("Ayu.AIError", locale))
         return
     }
-    var body: [String: Any] = ["messages": [["role": "system", "content": system], ["role": "user", "content": prompt]], "max_tokens": maxTokens, "temperature": 0.8]
+    var userContent: Any = prompt
+    if !images.isEmpty && (config.provider.id == "ayugram" || config.provider.id == "gemini") {
+        var parts: [[String: Any]] = [["type": "text", "text": prompt]]
+        for image in images.prefix(4) {
+            parts.append(["type": "image_url", "image_url": ["url": image]])
+        }
+        userContent = parts
+    }
+    var body: [String: Any] = ["messages": [["role": "system", "content": system], ["role": "user", "content": userContent]], "max_tokens": maxTokens, "temperature": 0.8]
     if config.provider.id == "ayugram" {
         body["ayugram_mode"] = "copilot"
     }
@@ -419,10 +427,10 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
         return
     }
     let history = Array(messages.filter({ !$0.failed }).suffix(20))
-    var system = "You are the assistant built into AyuGram, a Telegram client. Answer in the language of the user's last message. Be direct and concrete: lead with the answer, no filler, no restating the question. Never use emoji or emoticons. Formatting: short paragraphs, bold for key terms, bullet lists for several items; never use tables." + AyuGramAssistantPreferences.promptSuffix
+    var system = "You are a capable general-purpose assistant that lives inside AyuGram, a Telegram client. Help with anything the user asks: everyday questions, advice, explanations, writing, translation, studying, coding, math, ideas and so on. Never refuse an ordinary question and never steer the conversation to AyuGram or its settings unless the user asks about the app. Answer in the language of the user's last message. Be direct and concrete: lead with the answer, no filler, no restating the question. Stay strictly within this conversation: answer the latest message, use earlier messages only as context, and never bring up people, companies, banks, services or topics that nobody mentioned. If something is unclear, ask one short question instead of guessing. You can generate pictures: when the user asks for an image, the app draws it for them. Never use emoji or emoticons. Formatting: short paragraphs, bold for key terms, bullet lists for several items; never use tables." + AyuGramAssistantPreferences.promptSuffix
     let guide = AyuGramAssistantGuide.shared.text
     if !guide.isEmpty, let question = history.last(where: { $0.outgoing })?.text, AyuGramAssistantGuide.shared.relevant(question) {
-        system += "\n\n" + guide
+        system += "\n\nReference about the AyuGram app, use it only for questions about the app:\n" + guide
     }
     var payload: [[String: Any]] = [["role": "system", "content": system]]
     for (index, message) in history.enumerated() {
@@ -446,6 +454,47 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
         }
         completion(text.map(ayuGramRemoveEmoji), failure)
     })
+}
+
+func ayuGramWantsImage(_ text: String) -> Bool {
+    let lower = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    if lower.hasPrefix("/img") || lower.hasPrefix("/image") || lower.hasPrefix("/draw") {
+        return true
+    }
+    let words = ["нарисуй", "нарисовать", "дорисуй", "перерисуй", "сгенерируй карт", "сгенерируй изоб", "сгенерируй фот", "сгенерируй арт", "сгенерируй логот", "сгенерируй аватар", "сгенерировать карт", "сгенерировать изоб", "создай картин", "создай изображ", "создай арт", "создай логот", "создай аватар", "сделай картин", "сделай изображ", "сделай арт", "сделай аватар", "сделай логот", "отредактируй фото", "отредактируй картин", "измени фото", "измени картин", "намалюй", "згенеруй зобр", "згенеруй карт", "створи зобр", "створи карт", "draw ", "draw me", "generate an image", "generate a picture", "generate image", "generate a photo", "make an image", "make a picture", "create an image", "create a picture", "edit this image", "edit this photo"]
+    return words.contains(where: { lower.contains($0) })
+}
+
+func ayuGramAssistantGenerateImage(prompt: String, imagePayload: String?, locale: String, completion: @escaping (UIImage?, String?, String?) -> Void) {
+    guard let url = URL(string: AyuGramPushRelay.baseURL + "/ai/image") else {
+        completion(nil, nil, i18n("Ayu.AIError", locale))
+        return
+    }
+    var body: [String: Any] = ["prompt": prompt]
+    if let imagePayload {
+        body["image"] = imagePayload
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.timeoutInterval = 120.0
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
+        var image: UIImage?
+        var text: String?
+        if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let address = object["image"] as? String, let comma = address.firstIndex(of: ","), let decoded = Data(base64Encoded: String(address[address.index(after: comma)...])) {
+                image = UIImage(data: decoded)
+            }
+            if let value = object["text"] as? String, !value.isEmpty {
+                text = value
+            }
+        }
+        let failure = image == nil ? ayuGramAssistantFailure(data: data, response: response, error: error, locale: locale) : nil
+        DispatchQueue.main.async {
+            completion(image, text.map(ayuGramRemoveEmoji), failure)
+        }
+    }).resume()
 }
 
 private func ayuGramAssistantTranscribe(file: URL, locale: String, completion: @escaping (String?, String?) -> Void) {
@@ -1525,6 +1574,21 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.append(AyuGramAssistantMessage(outgoing: true, text: text, failed: false, image: attachment?.0, imagePayload: attachment?.1), to: chat)
         self.setLoading(true)
         self.setTyping(chat)
+        if ayuGramWantsImage(text) {
+            ayuGramAssistantGenerateImage(prompt: text, imagePayload: attachment?.1, locale: self.locale, completion: { [weak self] image, caption, failure in
+                guard let self else {
+                    return
+                }
+                self.setLoading(false)
+                self.typingChat = nil
+                if let image {
+                    self.append(AyuGramAssistantMessage(outgoing: false, text: caption ?? "", failed: false, image: image), to: chat)
+                } else {
+                    self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
+                }
+            })
+            return
+        }
         ayuGramAssistantRequest(messages: chat.messages, locale: self.locale, completion: { [weak self] reply, failure in
             guard let self else {
                 return
@@ -1685,15 +1749,34 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     }
 
     func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
-        guard indexPath.row < ayuGramAssistantMessages.count, !ayuGramAssistantMessages[indexPath.row].text.isEmpty else {
+        guard indexPath.row < ayuGramAssistantMessages.count else {
             return nil
         }
-        let text = ayuGramAssistantMessages[indexPath.row].text
+        let message = ayuGramAssistantMessages[indexPath.row]
+        let text = message.text
+        let picture = message.image
+        if text.isEmpty && picture == nil {
+            return nil
+        }
         let title = i18n("Ayu.AICopy", self.locale)
+        let saveTitle = i18n("Ayu.AISaveImage", self.locale)
+        let copyImageTitle = i18n("Ayu.AICopyImage", self.locale)
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil, actionProvider: { _ in
-            return UIMenu(title: "", children: [UIAction(title: title, image: UIImage(systemName: "doc.on.doc"), handler: { _ in
-                UIPasteboard.general.string = text
-            })])
+            var actions: [UIAction] = []
+            if let picture {
+                actions.append(UIAction(title: saveTitle, image: UIImage(systemName: "square.and.arrow.down"), handler: { _ in
+                    UIImageWriteToSavedPhotosAlbum(picture, nil, nil, nil)
+                }))
+                actions.append(UIAction(title: copyImageTitle, image: UIImage(systemName: "photo.on.rectangle"), handler: { _ in
+                    UIPasteboard.general.image = picture
+                }))
+            }
+            if !text.isEmpty {
+                actions.append(UIAction(title: title, image: UIImage(systemName: "doc.on.doc"), handler: { _ in
+                    UIPasteboard.general.string = text
+                }))
+            }
+            return UIMenu(title: "", children: actions)
         })
     }
 }
