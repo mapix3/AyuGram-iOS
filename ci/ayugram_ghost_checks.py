@@ -108,7 +108,7 @@ def check_sources(source: Path, variant: str):
         assert 'AyuGramSilentVideoRenderer' in backdrop
         assert 'rowTint' in backdrop and 'backdrop.rowTint' in (source / 'submodules/ChatListUI/Sources/ChatListControllerNode.swift').read_text(), 'Header and rows share one shade'
         video = (source / 'submodules/Display/Source/AyuGramSilentVideo.swift').read_text()
-        assert 'decodedFrames >= 3' in video, 'Wallpaper decoding is paced per tick'
+        assert 'decodedFrames >= 16' in video, 'Wallpaper decoding is paced per tick'
         tick = video.split('    private func tick()', 1)[1].split('    private func display(', 1)[0]
         assert 'self.layer.' not in tick, 'The decode loop never touches the display layer'
         display = video.split('    private func display(', 1)[1]
