@@ -1351,14 +1351,14 @@ extension PeerInfoScreenNode {
                 switch chatPeer {
                 case let .channel(channel):
                     if case .broadcast = channel.info {
-                        canFloat = false
+                        floatIsGroup = false
                     } else {
                         floatIsGroup = true
                     }
                 case .legacyGroup:
                     floatIsGroup = true
-                case let .user(user):
-                    canFloat = user.id != strongSelf.context.account.peerId
+                case .secretChat:
+                    canFloat = false
                 default:
                     break
                 }
@@ -1381,6 +1381,23 @@ extension PeerInfoScreenNode {
                             context.sharedContext.navigateToChatController(NavigateToChatControllerParams(navigationController: navigationController, context: context, chatLocation: .peer(floatPeer), keepStack: .default))
                         })
                     }))
+                    let floatProfilePeer = peer
+                    let floatProfileItem: ContextMenuItem = .action(ContextMenuActionItem(text: i18n("Ayu.FloatProfile", presentationData.strings.baseLanguageCode), icon: { theme in
+                        generateTintedImage(image: UIImage(systemName: "person.crop.square.on.square.angled"), color: theme.contextMenu.primaryColor)
+                    }, action: { [weak self] _, f in
+                        f(.dismissWithoutContent)
+                        guard let self else {
+                            return
+                        }
+                        let context = self.context
+                        let navigationController = self.controller?.navigationController as? NavigationController
+                        ayuGramOpenFloatingProfile(context: context, peer: floatProfilePeer, openFull: { [weak navigationController] in
+                            guard let navigationController, let controller = context.sharedContext.makePeerInfoController(context: context, updatedPresentationData: nil, peer: floatProfilePeer, mode: .generic, avatarInitiallyExpanded: false, fromChat: false, requestsContext: nil) else {
+                                return
+                            }
+                            navigationController.pushViewController(controller)
+                        })
+                    }))
                     if let separatorIndex = items.firstIndex(where: { item in
                         if case .separator = item {
                             return true
@@ -1389,8 +1406,10 @@ extension PeerInfoScreenNode {
                         }
                     }) {
                         items.insert(floatItem, at: separatorIndex)
+                        items.insert(floatProfileItem, at: separatorIndex + 1)
                     } else {
                         items.append(floatItem)
+                        items.append(floatProfileItem)
                     }
                 }
                 if case let .user(peekUser) = chatPeer, peekUser.botInfo == nil, peekUser.id != strongSelf.context.account.peerId {
