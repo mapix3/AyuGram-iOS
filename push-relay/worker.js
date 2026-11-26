@@ -1,3 +1,4 @@
+import { sharedCache } from './memcache.js';
 // AyuGram push relay (Cloudflare Worker).
 //
 // A sideloaded AyuGram cannot receive Apple push notifications: Telegram holds no APNs key for
@@ -1394,7 +1395,7 @@ export function seenUpdate(data) {
 }
 
 function seenCache() {
-  return typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  return sharedCache();
 }
 
 async function seenRequest(barkKey, parts) {
