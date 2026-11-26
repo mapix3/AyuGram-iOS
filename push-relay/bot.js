@@ -1,5 +1,6 @@
 import { paymentHealth, paymentHealthText } from './badges.js';
 import { profileAdmin, profileVerify } from './profile.js';
+import { marketCallback, marketPendingText } from './market.js';
 import { BAN_REASONS, COPY_REASONS, OFFICIAL_REPO, copyMenu, copyMessage, reasonLabel, reasonNote, reportMessage, statsStub } from './stats.js';
 
 const kyiv = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -300,6 +301,10 @@ async function handleCallback(env, query, note) {
   const message = query.message;
   const [action, rid, reason] = String(query.data || '').split(':');
   const answer = (text, alert) => (query.id ? telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: text || undefined, show_alert: Boolean(alert) }) : null);
+  if (['MA', 'MR', 'MB', 'MU', 'MV', 'MO', 'MH', 'MX', 'MS'].includes(action)) {
+    await marketCallback(env, query, action, rid, reason, note, answer, (data) => stats(env, '/pending', 'POST', { data, chat: message.chat.id, message: message.message_id }));
+    return;
+  }
   if (reason === 'custom' && !note && ['Z', 'K', 'B'].includes(action)) {
     if (!message) {
       await answer('Не получилось', true);
@@ -508,7 +513,10 @@ export async function handleBot(request, env, ctx) {
     if (query) {
       await handleCallback(env, query);
     } else if (message && message.chat && String(message.chat.id) === owner && typeof message.text === 'string') {
-      if (message.text.startsWith('/bans') || message.text.startsWith('/blocks')) {
+      if (/^\/market(\s|$|@)/.test(message.text)) {
+        const pending = await marketPendingText(env);
+        await telegram(env, 'sendMessage', { chat_id: owner, text: pending.text, link_preview_options: { is_disabled: true }, reply_markup: pending.markup });
+      } else if (message.text.startsWith('/bans') || message.text.startsWith('/blocks')) {
         await sendBans(env, owner);
       } else if (/^\/pay(\s|$|@)/.test(message.text)) {
         await telegram(env, 'sendMessage', { chat_id: owner, text: paymentHealthText(await paymentHealth(env)) });
@@ -549,7 +557,7 @@ export async function handleBot(request, env, ctx) {
           await telegram(env, 'sendMessage', { chat_id: owner, text: '⛔ Готово. Причина: ' + note });
         }
       } else if (message.text.startsWith('/start')) {
-        await telegram(env, 'sendMessage', { chat_id: owner, text: 'Готов. Жалобы на скам приходят сюда. /bans — список банов и блокировок с кнопками снятия.' });
+        await telegram(env, 'sendMessage', { chat_id: owner, text: 'Готов. Жалобы на скам и заявки в маркетплейс плагинов приходят сюда. /bans — список банов и блокировок с кнопками снятия. /market — плагины, которые ждут проверки.' });
       }
     }
   })().catch((error) => console.log('bot update failed: ' + error));

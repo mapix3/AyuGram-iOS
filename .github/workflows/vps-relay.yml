@@ -81,3 +81,29 @@ jobs:
             RESULT="$(curl -sS "https://api.telegram.org/bot$BOT_TOKEN/setWebhook" --data-urlencode "url=https://relay.mapixdev.com/tg/hook" --data-urlencode "secret_token=$HOOK_SECRET" --data-urlencode 'allowed_updates=["message","callback_query"]')"
             python3 -c 'import json,sys; d=json.loads(sys.argv[1]); sys.exit(0 if d.get("ok") else "setWebhook failed: " + str(d.get("description")))' "$RESULT"
           fi
+
+      - name: Marketplace DNS
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -u
+          api=https://api.cloudflare.com/client/v4
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          zone=$(curl -s -H "$auth" "$api/zones?name=mapixdev.com" | jq -r '.result[0].id // empty')
+          if [ -z "$zone" ]; then
+            echo "::warning::Cloudflare zone mapixdev.com is not visible to the token; add a proxied CNAME marketplace -> relay.mapixdev.com by hand"
+            exit 0
+          fi
+          count=$(curl -s -H "$auth" "$api/zones/$zone/dns_records?name=marketplace.mapixdev.com" | jq -r '.result | length')
+          if [ "$count" = "0" ]; then
+            result=$(curl -s -X POST -H "$auth" -H 'Content-Type: application/json' "$api/zones/$zone/dns_records" -d '{"type":"CNAME","name":"marketplace","content":"relay.mapixdev.com","proxied":true,"ttl":1}')
+            if echo "$result" | jq -e '.success' >/dev/null; then
+              echo "marketplace.mapixdev.com created"
+            else
+              echo "::warning::The token cannot edit DNS; add a proxied CNAME marketplace -> relay.mapixdev.com in Cloudflare by hand"
+            fi
+          else
+            echo "marketplace.mapixdev.com already exists"
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 https://marketplace.mapixdev.com/api/limits || true)
+          echo "marketplace answers $code"

@@ -1283,6 +1283,22 @@ async function identify(request, env) {
   return { id, base: { id, lock, ip: ip ? await ipTag(ip) : '' } };
 }
 
+export async function marketIdentity(request, env) {
+  const who = await identify(request, env);
+  if (who.error) {
+    return who;
+  }
+  const stub = metaStub(env);
+  if (!stub) {
+    return { error: fail('unavailable', 503) };
+  }
+  const response = await call(stub, '/verify-status', who.base);
+  if (!response.ok) {
+    return { error: await passError(response) };
+  }
+  return { ...who, verified: (await response.json()).verified === true };
+}
+
 async function passError(response) {
   const text = await response.text();
   try {
