@@ -2,10 +2,9 @@ import { sharedCache } from './memcache.js';
 import { accountId, lockOf } from './badges.js';
 import { ipTag, sameToken, statsStub } from './stats.js';
 
-export const PROFILE_LIMITS = { nfts: 30, pinned: 6, usernames: 10, numbers: 1, holders: 100, body: 16384, photo: 1572864, video: 20971520, seconds: 15, ids: 50 };
+export const PROFILE_LIMITS = { nfts: 30, pinned: 6, usernames: 10, numbers: 1, holders: 100, body: 16384, photo: 1572864, video: 20971520, ids: 50 };
 
 const CHUNK = 1048576;
-const SECONDS_SLACK = 0.25;
 const MAX_SIDE = 16384;
 const READ_TTL = 60;
 const MEDIA_EDGE_TTL = 3600;
@@ -443,9 +442,6 @@ export function inspectMedia(bytes, kind, hint) {
     }
     seconds = info.seconds;
     found = info.width ? { width: info.width, height: info.height } : null;
-    if (seconds > PROFILE_LIMITS.seconds + SECONDS_SLACK) {
-      return { error: 'too_long', status: 422, extra: { seconds: Math.round(seconds * 100) / 100, max: PROFILE_LIMITS.seconds } };
-    }
   }
   const wide = side(hint && hint.width);
   const tall = side(hint && hint.height);

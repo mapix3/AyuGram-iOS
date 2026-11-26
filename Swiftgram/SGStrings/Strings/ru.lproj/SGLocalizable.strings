@@ -724,7 +724,7 @@
 "Ayu.ProfileExtras.ChooseVideo" = "Выбрать видео";
 "Ayu.ProfileExtras.RemoveBackground" = "Удалить фон";
 "Ayu.ProfileExtras.RemoveBackgroundConfirm" = "Удалить фон профиля для всех?";
-"Ayu.ProfileExtras.BackgroundInfo" = "Фото или видео за шапкой профиля. Видео играет без звука по кругу, берутся первые 15 секунд. Большие файлы сжимаются автоматически; до 8 загрузок в день. Фоны проверяет команда AyuGram.";
+"Ayu.ProfileExtras.BackgroundInfo" = "Фото или видео за шапкой профиля. Видео играет без звука по кругу, без ограничения длины, до 1440p и 120 fps. Файлы до 20 МБ грузятся без пережатия, большие сжимаются автоматически; до 8 загрузок в день. Фоны проверяет команда AyuGram.";
 "Ayu.ProfileExtras.Preparing" = "Подготовка…";
 "Ayu.ProfileExtras.Uploading" = "Загрузка… %@";
 "Ayu.ProfileExtras.NftsSection" = "Фейковые NFT";
