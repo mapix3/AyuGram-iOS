@@ -26,7 +26,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, effects, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, aiStyle, larpStars, larpTon, supporter, video, profileExtras
+    case history, appearance, effects, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, aiStyle, larpStars, larpTon, plugins, supporter, video, profileExtras
 }
 
 private enum AyuScreenTint: Equatable {
@@ -199,6 +199,7 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.link(id: 612, section: .client, link: .larpStars, symbol: "star.circle.fill", tint: .orange, title: s("Ayu.LarpStars"), label: AyuGramLarpBalance.stars.map { "\($0)" } ?? s("Ayu.LarpOff")))
     entries.append(.link(id: 614, section: .client, link: .larpTon, symbol: "diamond.fill", tint: .blue, title: s("Ayu.LarpTon"), label: AyuGramLarpBalance.tonNano.map { AyuGramLarpBalance.formatTon($0) } ?? s("Ayu.LarpOff")))
     entries.append(.link(id: 615, section: .client, link: .effects, symbol: "sparkles", tint: .purple, title: s("Ayu.Effects.Title"), label: ""))
+    entries.append(.link(id: 616, section: .client, link: .plugins, symbol: "puzzlepiece.extension.fill", tint: .green, title: s("Ayu.Plugins.Title"), label: AyuGramPluginManager.shared.plugins.isEmpty ? "" : "\(AyuGramPluginManager.shared.plugins.filter { $0.enabled }.count)"))
     entries.append(.link(id: 617, section: .client, link: .profileExtras, symbol: "person.crop.circle.badge.plus", tint: .blue, title: s("Ayu.ProfileExtras.Title"), label: ""))
     if hasAppearance {
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
@@ -302,6 +303,8 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             }
         case .profileExtras:
             pushController?(ayuGramProfileExtrasController(context: context))
+        case .plugins:
+            pushController?(ayuGramPluginsController(context: context))
         case .larpStars:
             let data = context.sharedContext.currentPresentationData.with { $0 }
             presentController?(promptController(context: context, text: i18n("Ayu.LarpStarsInfo", data.strings.baseLanguageCode), value: AyuGramLarpBalance.stars.map { "\($0)" } ?? "", placeholder: "1000000", characterLimit: 15, apply: { value in
