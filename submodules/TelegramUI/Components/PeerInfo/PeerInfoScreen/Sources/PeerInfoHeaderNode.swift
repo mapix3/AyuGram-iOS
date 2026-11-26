@@ -2888,9 +2888,10 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 let background = UIVisualEffectView(effect: effect)
                 background.isUserInteractionEnabled = false
                 background.clipsToBounds = true
-                background.layer.cornerRadius = 22.0
-                background.frame = CGRect(x: 0.0, y: 0.0, width: 44.0, height: 44.0)
-                background.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                background.layer.cornerRadius = 20.0
+                background.tag = 0x415955
+                button.frame = CGRect(x: 0.0, y: 0.0, width: 40.0, height: 40.0)
+                background.frame = button.bounds
                 button.insertSubview(background, at: 0)
                 button.tintColor = .white
                 button.alpha = 0.0
@@ -2898,13 +2899,16 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 self.view.addSubview(button)
                 self.ayuSoundButton = button
             }
-            button.setImage(UIImage(systemName: self.ayuSoundMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17.0, weight: .semibold)), for: .normal)
+            button.setImage(UIImage(systemName: self.ayuSoundMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15.0, weight: .semibold)), for: .normal)
             if let imageView = button.imageView {
                 button.bringSubviewToFront(imageView)
             }
             button.accessibilityLabel = self.ayuSoundMuted ? "Unmute" : "Mute"
-            let soundFrame = CGRect(x: width - sideInsets.navigationRight - 16.0 - 44.0, y: navigationHeight + 6.0, width: 44.0, height: 44.0)
+            let soundFrame = CGRect(x: width - sideInsets.navigationRight - 16.0 - 40.0, y: navigationHeight + 6.0, width: 40.0, height: 40.0)
             transition.updateFrame(view: button, frame: soundFrame)
+            if let background = button.viewWithTag(0x415955) {
+                background.frame = CGRect(x: 0.0, y: 0.0, width: 40.0, height: 40.0)
+            }
             button.isUserInteractionEnabled = ayuSoundAlpha > 0.5
             ContainedViewLayoutTransition.animated(duration: 0.2, curve: .easeInOut).updateAlpha(layer: button.layer, alpha: ayuSoundAlpha)
             if !ayuSoundVisible {

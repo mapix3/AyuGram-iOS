@@ -57,7 +57,7 @@ final class AyuGramSilentVideoRenderer {
             guard let self, self.timer == nil else { return }
             guard self.restartLoop() else { return }
             let timer = DispatchSource.makeTimerSource(queue: self.queue)
-            timer.schedule(deadline: .now(), repeating: 1.0 / 30.0, leeway: .milliseconds(4))
+            timer.schedule(deadline: .now(), repeating: 1.0 / 60.0, leeway: .milliseconds(2))
             timer.setEventHandler { [weak self] in
                 self?.tick()
             }
@@ -113,7 +113,7 @@ final class AyuGramSilentVideoRenderer {
         var reachedEnd = false
         var decodedFrames = 0
         while true {
-            if decodedFrames >= 3 {
+            if decodedFrames >= 16 {
                 break
             }
             let sample: CMSampleBuffer
@@ -142,7 +142,7 @@ final class AyuGramSilentVideoRenderer {
             frameOffset = offset
             decodedFrames += 1
         }
-        if frame != nil, elapsed - frameOffset > 0.2 {
+        if frame != nil, elapsed - frameOffset > 0.6 {
             self.loopStartTime += elapsed - frameOffset
         }
         if let frame {
