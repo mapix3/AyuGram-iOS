@@ -491,6 +491,7 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
 
 private enum AyuDeepTarget {
     case main
+    case geminiKey
     case effects
     case link(AyuScreenLink)
     case deletedChats
@@ -514,6 +515,7 @@ private let ayuDeepTargets: [(String, AyuDeepTarget, String, Bool)] = [
     ("searchengine", .link(.searchEngine), "Ayu.SearchEngine", false),
     ("aiprovider", .link(.aiProvider), "Ayu.AIProvider", false),
     ("aikey", .link(.aiKey), "Ayu.AIKey", false),
+    ("geminikey", .geminiKey, "Ayu.DeepLink.GeminiKey", false),
     ("aimodel", .link(.aiModel), "Ayu.AIModel", false),
     ("ailanguage", .link(.aiLanguage), "Ayu.AILanguage", false),
     ("aipersona", .link(.aiPersona), "Ayu.AIPersona", false),
@@ -649,6 +651,18 @@ public func ayuGramHandleDeepLink(context: AccountContext, url: URL, navigationC
         push(ayuGramSettingsScreen(context: context))
     case let .link(link):
         ayuScreenOpenLink(context: context, link: link, push: push, present: present)
+    case .geminiKey:
+        if let index = AyuGramAssistantProvider.all.firstIndex(where: { $0.id == "gemini" }) {
+            AyuGramAssistantConfig.providerIndex = index
+        }
+        present(textAlertController(context: context, title: i18n("Ayu.DeepLink.GeminiKey", locale), text: i18n("Ayu.DeepLink.GeminiKeyInfo", locale), actions: [
+            TextAlertAction(type: .genericAction, title: i18n("Ayu.DeepLink.GeminiGet", locale), action: {
+                ayuGramOpenLink(context: context, url: "https://aistudio.google.com/apikey")
+            }),
+            TextAlertAction(type: .defaultAction, title: i18n("Ayu.DeepLink.GeminiPaste", locale), action: {
+                ayuScreenOpenLink(context: context, link: .aiKey, push: push, present: present)
+            })
+        ], actionLayout: .vertical))
     case .effects:
         if let controller = ayuGramEffectsEntryController(context: context) {
             push(controller)

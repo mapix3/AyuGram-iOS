@@ -980,3 +980,9 @@
 "Ayu.DeepLink.Toggles" = "Switches";
 "Ayu.DeepLink.Footer" = "Tap a row to copy its link. Paste a link in any chat or ask the AI assistant to send one: tapping it opens the screen. Switch links ask before changing anything; replace /on with /off to turn a switch off. Features marked Custom open the post with the Custom build in the standard version.";
 "Ayu.DeepLink.Effects" = "Effects";
+"Ayu.DeepLink.GeminiKey" = "Your Gemini API key";
+"Ayu.DeepLink.GeminiKeyInfo" = "A free key from Google AI Studio gives the assistant its own limits: answers and pictures go through your key, with the same AyuGram instructions. Get a key, copy it and tap Paste key.";
+"Ayu.DeepLink.GeminiGet" = "Get a free key";
+"Ayu.DeepLink.GeminiPaste" = "Paste key";
+"Ayu.AIOverloaded" = "API key overloaded. Get your free Gemini API key at https://aistudio.google.com/apikey and paste it here: ayugram://geminikey";
+"Ayu.AIModelChanged" = "Model changed to “%@”. Not happy with it? Tap to get your free Gemini API key";
