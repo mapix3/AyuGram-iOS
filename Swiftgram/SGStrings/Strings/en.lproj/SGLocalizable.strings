@@ -969,3 +969,4 @@
 "Ayu.Market.Error.storage_full" = "The marketplace storage is full. Try again later.";
 "Ayu.Market.Error.banned" = "This account is blocked in AyuGram.";
 "Ayu.Market.Error.too_large" = "The submission is too large.";
+"Ayu.FloatProfile" = "Open profile in floating window";

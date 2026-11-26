@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 21;
+export const GUIDE_VERSION = 22;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -9,13 +9,13 @@ Hide: read receipts, online status, typing, recording voice/video, uploading, st
 Behavior (AyuGram > Behavior): Offline after sending; Read chat when replying; Silent sending (off / in Ghost Mode / always); Send as scheduled while in Ghost Mode (messages go out as scheduled 12 seconds later); Confirm sending a read receipt.
 Content: Bypass copy protection (save, copy, forward protected content); Allow screenshots of protected and secret content.
 
-Deleted and edited messages: deleted messages stay in the chat where they were, marked as deleted; "Dim deleted messages" (AyuGram > Chats) makes them semi-transparent. Edit and deletion history: AyuGram > Message history > Open history (only chosen chats, 30 days, up to 200 entries, no secret chats or one-time media). Chats deleted as a whole: AyuGram > Message history > Open history > Deleted chats.
+Deleted and edited messages: deleted messages stay in the chat where they were, marked as deleted; "Dim deleted messages" (AyuGram > Chats) makes them semi-transparent. Tapping a photo or video in a deleted message opens exactly that file from the saved local copy, on its own. Edit and deletion history: AyuGram > Message history > Open history (only chosen chats, 30 days, up to 200 entries, no secret chats or one-time media). Chats deleted as a whole: AyuGram > Message history > Open history > Deleted chats.
 Chats section: Disable ads, Disable link warning, Disable greeting sticker, Dim deleted messages, "Repeat" in the message menu, Confirm sending stickers, Confirm sending GIFs. These are local only.
 
 In a chat:
 - AI analysis: the round ghost button at the top right under the avatar. Tap it: analysis of the chat plus one quick reply (tap inserts it, hold copies), and a field to ask about the chat. Switch: AyuGram > AI > AI hints in chats.
 - Export chat: open the chat profile > More (three dots) > Export chat. Works for private chats, groups, channels and secret chats; text only or with media; the archive can be imported back.
-- Open in floating window: chat profile > More > Open in floating window. The window floats over the whole app, shows live messages and lets you reply; drag by the header, "-" minimizes to a bubble, double tap on the header opens the full chat. Only inside AyuGram.
+- Open in floating window: profile of any chat, person, bot, group or channel > More > Open in floating window, or Open profile in window for the profile itself. The window is the real Telegram chat or profile, just smaller: stickers, photos, videos, voice and round messages, reactions and the full input panel work, tapping the header inside opens the profile and Back returns. Drag the window by its top strip, resize it with the corner handle or by pinching the strip, double tap the strip to switch between small and large; x closes, "-" minimizes it to a bubble that shows a red dot on new messages, the arrows button opens it full screen. Several windows can be open at once; the window lifts above the keyboard while you type in it. Only inside AyuGram.
 - Peek online: user profile > More > Peek online.
 Import chat: AyuGram > Chat import (ZIP or TXT from WhatsApp, LINE, KakaoTalk or AyuGram export).
 

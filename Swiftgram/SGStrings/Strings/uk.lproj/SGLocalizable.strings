@@ -930,3 +930,4 @@
 "Ayu.Market.Error.storage_full" = "Сховище маркетплейсу заповнене. Спробуйте пізніше.";
 "Ayu.Market.Error.banned" = "Цей акаунт заблоковано в AyuGram.";
 "Ayu.Market.Error.too_large" = "Заявка завелика.";
+"Ayu.FloatProfile" = "Відкрити профіль у вікні";
