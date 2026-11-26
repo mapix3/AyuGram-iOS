@@ -491,6 +491,7 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
 
 private enum AyuDeepTarget {
     case main
+    case effects
     case link(AyuScreenLink)
     case deletedChats
     case swiftgram
@@ -504,6 +505,7 @@ private let ayuDeepTargets: [(String, AyuDeepTarget, String, Bool)] = [
     ("history", .link(.history), "Ayu.OpenHistory", false),
     ("deletedchats", .deletedChats, "Ayu.DeepLink.DeletedChats", false),
     ("appearancesettings", .link(.appearance), "Ayu.DeepLink.Appearance", true),
+    ("effects", .effects, "Ayu.DeepLink.Effects", true),
     ("profileextras", .link(.profileExtras), "Ayu.ProfileExtras.Title", false),
     ("plugins", .link(.plugins), "Ayu.Plugins.Title", false),
     ("marketplace", .market, "Ayu.Market.Title", false),
@@ -647,6 +649,12 @@ public func ayuGramHandleDeepLink(context: AccountContext, url: URL, navigationC
         push(ayuGramSettingsScreen(context: context))
     case let .link(link):
         ayuScreenOpenLink(context: context, link: link, push: push, present: present)
+    case .effects:
+        if let controller = ayuGramEffectsEntryController(context: context) {
+            push(controller)
+        } else {
+            ayuDeepOpenCustomPost(context: context)
+        }
     case .deletedChats:
         push(ayuGramDeletedChatsController(context: context))
     case .swiftgram:
