@@ -438,7 +438,7 @@ async function handleAssistant(request, env) {
       return answerWith(gemini.content, tally, gemini.model);
     }
     if (!env.GROQ_API_KEY) {
-      return aiAnswer(502, { error: { message: 'The assistant is unavailable' + (gemini.reason ? ': ' + gemini.reason : '') } });
+      return aiAnswer(503, { error: { message: 'The assistant is unavailable' + (gemini.reason ? ': ' + gemini.reason : '') } });
     }
     let answer = await groqChat(key, groqPicked.get(kind) || preferred, messages, copilotTokens);
     if (!answer.content && answer.status !== 429 && answer.status !== 401) {
@@ -459,7 +459,7 @@ async function handleAssistant(request, env) {
       addUsage(tally, answer.usage);
       return answerWith(answer.content, tally, answer.model);
     }
-    return aiAnswer(answer.status === 429 ? 429 : 502, { error: { message: answer.status === 429 ? 'The assistant is busy, try again later' : 'The assistant is unavailable' + (answer.reason ? ': ' + answer.reason : '') } });
+    return aiAnswer(answer.status === 429 ? 429 : 503, { error: { message: answer.status === 429 ? 'The assistant is busy, try again later' : 'The assistant is unavailable' + (answer.reason ? ': ' + answer.reason : '') } });
   }
   let geminiTried = false;
   if (env.GEMINI_API_KEY) {
@@ -483,7 +483,7 @@ async function handleAssistant(request, env) {
     }
   }
   if (!env.GROQ_API_KEY) {
-    return aiAnswer(502, { error: { message: 'The assistant is unavailable' } });
+    return aiAnswer(503, { error: { message: 'The assistant is unavailable' } });
   }
   if (!vision) {
     let searched = '';
@@ -539,7 +539,7 @@ async function handleAssistant(request, env) {
   if (result.status === 429) {
     return aiAnswer(429, { error: { message: 'The assistant is busy, try again later' } });
   }
-  return aiAnswer(502, { error: { message: 'The assistant is unavailable' + (result.reason ? ': ' + result.reason : '') + (tried ? ' (tried ' + tried.slice(0, 300) + ')' : '') } });
+  return aiAnswer(503, { error: { message: 'The assistant is unavailable' + (result.reason ? ': ' + result.reason : '') + (tried ? ' (tried ' + tried.slice(0, 300) + ')' : '') } });
 }
 
 async function proQuota(env, ip) {
@@ -643,7 +643,7 @@ async function handlePro(request, env) {
   if (status === 429 || status === 529) {
     return aiAnswer(429, { error: { message: 'The assistant is busy, try again later' } });
   }
-  return aiAnswer(502, { error: { message: 'The assistant is unavailable (' + status + ')' } });
+  return aiAnswer(503, { error: { message: 'The assistant is unavailable (' + status + ')' } });
 }
 
 const groqPicked = new Map();
@@ -847,7 +847,36 @@ async function handleImage(request, env) {
       reason = String(error && error.message ? error.message : error).slice(0, 160);
     }
   }
-  return aiAnswer(502, { error: { message: 'Image generation is unavailable' + (reason ? ': ' + reason : '') } });
+  if (!parts.some((part) => part.inline_data)) {
+    const fallback = await pollinationsImage(prompt);
+    if (fallback) {
+      return aiAnswer(200, { image: fallback, text: '', model: 'pollinations', usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } });
+    }
+  }
+  const quota = /quota|billing|exceeded/i.test(reason);
+  return aiAnswer(quota ? 429 : 503, { error: { message: quota ? 'Image generation is out of quota for today: the Gemini key needs billing enabled for pictures, or try again tomorrow' : 'Image generation is unavailable' + (reason ? ': ' + reason : '') } });
+}
+
+async function pollinationsImage(prompt) {
+  try {
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt.slice(0, 900)) + '?width=1024&height=1024&nologo=true&safe=true';
+    const response = await fetch(url, { signal: AbortSignal.timeout(60000) });
+    const type = (response.headers.get('content-type') || '').split(';')[0];
+    if (!response.ok || !/^image\/(png|jpeg|webp)$/.test(type)) {
+      return null;
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (!bytes.length || bytes.length > 6000000) {
+      return null;
+    }
+    let binary = '';
+    for (let index = 0; index < bytes.length; index += 32768) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(index, index + 32768));
+    }
+    return 'data:' + type + ';base64,' + btoa(binary);
+  } catch {
+    return null;
+  }
 }
 
 const geminiPlain = new Set();
@@ -1243,7 +1272,7 @@ async function handleTranscription(request, env) {
     return aiAnswer(200, { text: output.text.trim() });
   }
   const busy = response.status === 429;
-  return aiAnswer(busy ? 429 : 502, { error: { message: busy ? 'The assistant is busy, try again later' : 'Transcription is unavailable: ' + groqReason(response.status, output) } });
+  return aiAnswer(busy ? 429 : 503, { error: { message: busy ? 'The assistant is busy, try again later' : 'Transcription is unavailable: ' + groqReason(response.status, output) } });
 }
 
 export default {
@@ -1267,14 +1296,14 @@ export default {
       try {
         return await handleAssistant(request, env);
       } catch (error) {
-        return aiAnswer(502, { error: { message: 'The assistant failed: ' + String(error && error.message ? error.message : error).replace(/gsk_[A-Za-z0-9]+/g, '').slice(0, 200) } });
+        return aiAnswer(503, { error: { message: 'The assistant failed: ' + String(error && error.message ? error.message : error).replace(/gsk_[A-Za-z0-9]+/g, '').slice(0, 200) } });
       }
     }
     if (request.method === 'POST' && url.pathname === '/ai/image') {
       try {
         return await handleImage(request, env);
       } catch (error) {
-        return aiAnswer(502, { error: { message: 'Image generation failed' } });
+        return aiAnswer(503, { error: { message: 'Image generation failed' } });
       }
     }
     if (request.method === 'GET' && url.pathname === '/ai/search') {
