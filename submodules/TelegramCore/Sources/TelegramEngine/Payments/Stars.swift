@@ -2,6 +2,7 @@ import Foundation
 import Postbox
 import MtProtoKit
 import SwiftSignalKit
+import SGSimpleSettings
 internal import TelegramApi
 import FlatBuffers
 import FlatSerialization
@@ -1102,8 +1103,35 @@ public final class StarsContext {
     
     private let impl: QueueLocalObject<StarsContextImpl>
     
-    public var state: Signal<StarsContext.State?, NoError> {
+    private static func ayuLarp(_ state: StarsContext.State?, ton: Bool) -> StarsContext.State? {
+        guard var state else {
+            return nil
+        }
+        if ton {
+            if let nano = AyuGramLarpBalance.tonNano {
+                state.balance = StarsAmount(value: nano, nanos: 0)
+            }
+        } else if let stars = AyuGramLarpBalance.stars {
+            state.balance = StarsAmount(value: stars, nanos: 0)
+        }
+        return state
+    }
+    
+    private static var ayuLarpChanges: Signal<Void, NoError> {
         return Signal { subscriber in
+            subscriber.putNext(Void())
+            let observer = NotificationCenter.default.addObserver(forName: AyuGramLarpBalance.didChange, object: nil, queue: .main, using: { _ in
+                subscriber.putNext(Void())
+            })
+            return ActionDisposable {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
+    
+    public var state: Signal<StarsContext.State?, NoError> {
+        let ton = self.ton
+        let raw = Signal<StarsContext.State?, NoError> { subscriber in
             let disposable = MetaDisposable()
             self.impl.with { impl in
                 disposable.set(impl.state.start(next: { value in
@@ -1111,6 +1139,10 @@ public final class StarsContext {
                 }))
             }
             return disposable
+        }
+        return combineLatest(raw, StarsContext.ayuLarpChanges)
+        |> map { value, _ -> StarsContext.State? in
+            return StarsContext.ayuLarp(value, ton: ton)
         }
     }
     
@@ -1129,7 +1161,7 @@ public final class StarsContext {
         self.impl.syncWith { impl in
             state = impl._state
         }
-        return state
+        return StarsContext.ayuLarp(state, ton: self.ton)
     }
     
     public func add(balance: StarsAmount, addTransaction: Bool = true) {

@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 17;
+export const GUIDE_VERSION = 18;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -37,6 +37,7 @@ Visual effects (custom build only, the standard build has none of these): Telegr
 
 Custom build only: AyuGram > Client > Appearance: your own background image or video for the chat list and chats with dim and blur, row opacity, particles (snow and others, seasonal), drift, fireworks, parallax, New Year mode. At the bottom of Appearance, "Font and badge": Font (system styles: rounded, serif, monospaced; iOS fonts like Avenir Next, Futura, Georgia; or import your own .ttf/.otf; applies after restarting the app) and App badge (the AYUGRAM pill under the Dynamic Island: your own text, picture and colors).
 
+Fake balance: AyuGram > Client > Fake Stars balance and Fake TON balance set the Stars and TON balance shown in the app, only on this phone; purchases and payments still use the real balance, leave the field empty to turn it off.
 Profile extras: AyuGram > Client > Profile extras (also Profile > Gifts tab of your own profile > Fake gifts). Decorations that every AyuGram user sees on your profile, on both the standard and the custom build; they are not real and other Telegram apps do not show them. Standard build: fake NFTs, fake usernames and the anonymous number. Custom build adds bubbles and the profile background; in the standard build these show "Available in the AyuGram Custom build".
 - Fake NFTs: up to 30 collectible gifts; tap Add NFT, pick a collection by name, then a gift for sale or any number in it, or paste a link or slug (like t.me/nft/PlushPepe-1). Reorder with drag or the Reorder button, Pin up to 6 to the top of the profile, Delete. On your own profile, long-press a fake NFT in the Gifts tab for Pin, Set as status and Delete. Tapping a fake NFT anywhere shows a "Fake NFT" label and offers no transfer, sell, wear or other real actions.
 - Fake status: "Set as status" on one of your fake NFTs (link or slug ones) wears it as the emoji status next to your name for AyuGram users; tapping it shows "Fake". Removing that NFT removes the status.
