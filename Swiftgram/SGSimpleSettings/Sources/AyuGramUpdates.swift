@@ -47,6 +47,24 @@ public final class AyuGramUpdates {
     }
 
     /// Parses the manifest; only https links are accepted.
+    private static let customPostKey = "ayugram.updates.customPost"
+
+    public static func customPost(completion: @escaping (String) -> Void) {
+        let cached = UserDefaults.standard.string(forKey: customPostKey)
+        var request = URLRequest(url: Self.manifestURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        request.httpMethod = "GET"
+        URLSession.shared.dataTask(with: request, completionHandler: { data, _, _ in
+            var result = cached ?? Self.channelURL
+            if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let post = object["customPost"] as? String, post.hasPrefix("https://t.me/") {
+                UserDefaults.standard.set(post, forKey: customPostKey)
+                result = post
+            }
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }).resume()
+    }
+
     public static func parse(_ data: Data, currentBuild: Int) -> AyuGramUpdateInfo? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let build = (object["build"] as? Int) ?? (object["build"] as? String).flatMap(Int.init),

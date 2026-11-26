@@ -746,7 +746,29 @@ func ayuGramAssistantFormatted(_ text: String, color: UIColor) -> NSAttributedSt
         result.append(NSAttributedString(string: indent, attributes: [.font: base, .foregroundColor: color]))
         result.append(ayuGramAssistantInline(trimmed, font: base, color: color))
     }
+    ayuGramAssistantMarkLinks(result)
     return result
+}
+
+let ayuGramAssistantLinkKey = NSAttributedString.Key("AyuGramAssistantLink")
+
+private let ayuGramAssistantLinkPattern = try? NSRegularExpression(pattern: "(?:ayugram|tg|https?)://[^\\s<>\"'«»()\\[\\]]+", options: [.caseInsensitive])
+
+func ayuGramAssistantMarkLinks(_ text: NSMutableAttributedString) {
+    guard let pattern = ayuGramAssistantLinkPattern else {
+        return
+    }
+    let string = text.string as NSString
+    for match in pattern.matches(in: text.string, options: [], range: NSRange(location: 0, length: string.length)) {
+        var range = match.range
+        while range.length > 0, let scalar = UnicodeScalar(string.character(at: range.location + range.length - 1)), ".,;:!?".unicodeScalars.contains(scalar) {
+            range.length -= 1
+        }
+        guard range.length > 0, let url = URL(string: string.substring(with: range)) else {
+            continue
+        }
+        text.addAttributes([ayuGramAssistantLinkKey: url, .foregroundColor: UIColor.systemBlue, .underlineStyle: NSUnderlineStyle.single.rawValue], range: range)
+    }
 }
 
 private final class AyuGramAssistantCell: UITableViewCell {
@@ -811,6 +833,8 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.stack.addArrangedSubview(self.picture)
         self.stack.addArrangedSubview(self.canvas)
         self.stack.addArrangedSubview(self.label)
+        self.label.isUserInteractionEnabled = true
+        self.label.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.labelTapped(_:))))
         self.stack.addArrangedSubview(self.metaLabel)
         self.stack.addArrangedSubview(self.dots)
         let canvasWidth = self.canvas.widthAnchor.constraint(equalToConstant: 64.0)
@@ -943,6 +967,32 @@ private final class AyuGramAssistantCell: UITableViewCell {
 
     func setWriting(_ text: NSAttributedString) {
         self.label.attributedText = text
+    }
+
+    @objc private func labelTapped(_ recognizer: UITapGestureRecognizer) {
+        guard let text = self.label.attributedText, text.length > 0, self.label.bounds.width > 0.0 else {
+            return
+        }
+        let storage = NSTextStorage(attributedString: text)
+        let manager = NSLayoutManager()
+        storage.addLayoutManager(manager)
+        let container = NSTextContainer(size: CGSize(width: self.label.bounds.width, height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0.0
+        container.lineBreakMode = self.label.lineBreakMode
+        manager.addTextContainer(container)
+        let used = manager.usedRect(for: container)
+        let point = recognizer.location(in: self.label)
+        let offset = max(0.0, (self.label.bounds.height - used.height) / 2.0)
+        let target = CGPoint(x: point.x, y: point.y - offset)
+        let glyph = manager.glyphIndex(for: target, in: container)
+        guard manager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: container).insetBy(dx: -6.0, dy: -6.0).contains(target) else {
+            return
+        }
+        let index = manager.characterIndexForGlyph(at: glyph)
+        guard index < text.length, let url = text.attribute(ayuGramAssistantLinkKey, at: index, effectiveRange: nil) as? URL else {
+            return
+        }
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
 
     func animateAppearance() {

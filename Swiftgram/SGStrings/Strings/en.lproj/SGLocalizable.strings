@@ -970,3 +970,12 @@
 "Ayu.Market.Error.banned" = "This account is blocked in AyuGram.";
 "Ayu.Market.Error.too_large" = "The submission is too large.";
 "Ayu.FloatProfile" = "Open profile in floating window";
+"Ayu.DeepLink.Title" = "Links to features";
+"Ayu.DeepLink.DeletedChats" = "Deleted chats";
+"Ayu.DeepLink.Appearance" = "Appearance";
+"Ayu.DeepLink.TurnOn" = "Turn on “%@”?";
+"Ayu.DeepLink.TurnOff" = "Turn off “%@”?";
+"Ayu.DeepLink.Copied" = "Link copied";
+"Ayu.DeepLink.Screens" = "Screens";
+"Ayu.DeepLink.Toggles" = "Switches";
+"Ayu.DeepLink.Footer" = "Tap a row to copy its link. Paste a link in any chat or ask the AI assistant to send one: tapping it opens the screen. Switch links ask before changing anything; replace /on with /off to turn a switch off. Features marked Custom open the post with the Custom build in the standard version.";

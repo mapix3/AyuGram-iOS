@@ -965,3 +965,12 @@
 "Ayu.Market.Error.banned" = "Этот аккаунт заблокирован в AyuGram.";
 "Ayu.Market.Error.too_large" = "Заявка слишком большая.";
 "Ayu.FloatProfile" = "Открыть профиль в окне";
+"Ayu.DeepLink.Title" = "Ссылки на функции";
+"Ayu.DeepLink.DeletedChats" = "Удалённые чаты";
+"Ayu.DeepLink.Appearance" = "Оформление";
+"Ayu.DeepLink.TurnOn" = "Включить «%@»?";
+"Ayu.DeepLink.TurnOff" = "Выключить «%@»?";
+"Ayu.DeepLink.Copied" = "Ссылка скопирована";
+"Ayu.DeepLink.Screens" = "Экраны";
+"Ayu.DeepLink.Toggles" = "Переключатели";
+"Ayu.DeepLink.Footer" = "Нажмите на строку, чтобы скопировать ссылку. Ссылку можно вставить в любой чат или попросить ИИ-ассистента её прислать: нажатие откроет нужный экран. Ссылки переключателей спрашивают подтверждение; замените /on на /off, чтобы выключить. Функции с пометкой Custom в стандартной версии открывают пост с Custom-сборкой.";
