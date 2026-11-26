@@ -460,7 +460,7 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
         return
     }
     let history = Array(messages.filter({ !$0.failed }).suffix(20))
-    var system = "You are a capable general-purpose assistant that lives inside AyuGram, a Telegram client. Help with anything the user asks: everyday questions, advice, explanations, writing, translation, studying, coding, math, ideas and so on. Never refuse an ordinary question and never steer the conversation to AyuGram or its settings unless the user asks about the app. Answer in the language of the user's last message. Be direct and concrete: lead with the answer, no filler, no restating the question. Stay strictly within this conversation: answer the latest message, use earlier messages only as context, and never bring up people, companies, banks, services or topics that nobody mentioned. If something is unclear, ask one short question instead of guessing. You can generate pictures: when the user asks for an image, the app draws it for them. Never use emoji or emoticons. Formatting: short paragraphs, bold for key terms, bullet lists for several items; never use tables." + AyuGramAssistantPreferences.promptSuffix
+    var system = "You are a capable general-purpose assistant that lives inside AyuGram, a Telegram client. Help with anything the user asks: everyday questions, advice, explanations, writing, translation, studying, coding, math, ideas and so on. Never refuse an ordinary question and never steer the conversation to AyuGram or its settings unless the user asks about the app. Answer in the language of the user's last message. Be direct and concrete: lead with the answer, no filler, no restating the question. Stay strictly within this conversation: answer the latest message, use earlier messages only as context, and never bring up people, companies, banks, services or topics that nobody mentioned. If something is unclear, ask one short question instead of guessing. You can draw and edit pictures. Whenever the user wants a picture made, drawn, generated, shown or edited, including follow-ups such as naming the subject after asking for a picture, asking where the picture is, or asking for another one, reply with only one line in exactly this form and nothing else: [[IMAGE: a detailed English description of the picture to draw, with subject, style, setting and lighting]]. The app then draws it. Never describe a picture in words instead of drawing it, never say you cannot draw, and never claim the picture is shown somewhere else. Never use emoji or emoticons. Formatting: short paragraphs, bold for key terms, bullet lists for several items; never use tables." + AyuGramAssistantPreferences.promptSuffix
     let guide = AyuGramAssistantGuide.shared.text
     if !guide.isEmpty, let question = history.last(where: { $0.outgoing })?.text, AyuGramAssistantGuide.shared.relevant(question) {
         system += "\n\nReference about the AyuGram app, use it only for questions about the app:\n" + guide
@@ -487,6 +487,16 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
         }
         completion(text.map(ayuGramRemoveEmoji), failure, tokens)
     })
+}
+
+func ayuGramAssistantImageRequest(_ reply: String) -> String? {
+    guard let start = reply.range(of: "[[IMAGE:", options: [.caseInsensitive]) else {
+        return nil
+    }
+    let rest = reply[start.upperBound...]
+    let body = rest.range(of: "]]").map { rest[..<$0.lowerBound] } ?? rest
+    let prompt = body.trimmingCharacters(in: .whitespacesAndNewlines)
+    return prompt.isEmpty ? nil : String(prompt.prefix(1500))
 }
 
 func ayuGramWantsImage(_ text: String) -> Bool {
@@ -1750,37 +1760,47 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.setLoading(true)
         let started = Date()
         if ayuGramWantsImage(text) {
-            self.generatingImage = false
-            self.canvasExpanded = false
             self.setTyping(chat)
-            Queue.mainQueue().after(0.35, { [weak self] in
-                self?.beginCanvas(chat: chat)
-            })
-            ayuGramAssistantGenerateImage(prompt: text, imagePayload: attachment?.1, locale: self.locale, completion: { [weak self] image, caption, failure, tokens in
-                guard let self else {
-                    return
-                }
-                self.generatingImage = false
-                self.canvasExpanded = false
-                self.setLoading(false)
-                self.typingChat = nil
-                if let image {
-                    self.append(AyuGramAssistantMessage(outgoing: false, text: caption ?? "", failed: false, image: image, meta: ayuGramAssistantMeta(started: started, tokens: tokens, locale: self.locale)), to: chat)
-                } else {
-                    self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
-                }
-            })
+            self.runImage(prompt: text, payload: attachment?.1, chat: chat, started: started)
             return
         }
         self.setTyping(chat)
+        let recentPayload = attachment?.1 ?? chat.messages.suffix(4).last(where: { $0.outgoing && $0.imagePayload != nil })?.imagePayload
         ayuGramAssistantRequest(messages: chat.messages, locale: self.locale, completion: { [weak self] reply, failure, tokens in
             guard let self else {
+                return
+            }
+            if let reply, let prompt = ayuGramAssistantImageRequest(reply) {
+                self.runImage(prompt: prompt, payload: recentPayload, chat: chat, started: started)
                 return
             }
             self.setLoading(false)
             self.typingChat = nil
             if let reply {
                 self.append(AyuGramAssistantMessage(outgoing: false, text: reply, failed: false, meta: ayuGramAssistantMeta(started: started, tokens: tokens, locale: self.locale)), to: chat)
+            } else {
+                self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
+            }
+        })
+    }
+
+    private func runImage(prompt: String, payload: String?, chat: AyuGramAssistantChat, started: Date) {
+        self.generatingImage = false
+        self.canvasExpanded = false
+        self.typingChat = chat
+        Queue.mainQueue().after(0.35, { [weak self] in
+            self?.beginCanvas(chat: chat)
+        })
+        ayuGramAssistantGenerateImage(prompt: prompt, imagePayload: payload, locale: self.locale, completion: { [weak self] image, caption, failure, tokens in
+            guard let self else {
+                return
+            }
+            self.generatingImage = false
+            self.canvasExpanded = false
+            self.setLoading(false)
+            self.typingChat = nil
+            if let image {
+                self.append(AyuGramAssistantMessage(outgoing: false, text: caption ?? "", failed: false, image: image, meta: ayuGramAssistantMeta(started: started, tokens: tokens, locale: self.locale)), to: chat)
             } else {
                 self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
             }
