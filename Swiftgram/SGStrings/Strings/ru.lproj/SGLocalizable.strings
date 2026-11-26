@@ -730,3 +730,5 @@
 "Ayu.AIStyleHint" = "Короткие сообщения с маленькой буквы, без точек…";
 "Ayu.AISaveImage" = "Сохранить в Фото";
 "Ayu.AICopyImage" = "Скопировать картинку";
+"Ayu.AITokens" = "%@ токенов";
+"Ayu.AISeconds" = "%@ с";

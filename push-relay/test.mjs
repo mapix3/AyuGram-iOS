@@ -1222,7 +1222,7 @@ async function testProfiles() {
     assert.equal((await upload('500', photo, 'video/mp4')).status, 415, 'A photo cannot pose as a video');
     assert.equal((await upload('500', enc.encode('<html><script>x</script></html>'), 'image/png')).status, 415, 'Content is sniffed, not trusted');
     assert.equal((await upload('500', jpeg(10, 10, 1572864), 'image/jpeg')).status, 413, 'Photos stop at 1.5 MB');
-    assert.equal((await call('/profile/background', { method: 'PUT', headers: { ...auth('500'), 'content-type': 'video/mp4', 'content-length': String(9 * 1024 * 1024) }, body: new Uint8Array(16) })).status, 413, 'A declared oversize video is refused before reading');
+    assert.equal((await call('/profile/background', { method: 'PUT', headers: { ...auth('500'), 'content-type': 'video/mp4', 'content-length': String(21 * 1024 * 1024) }, body: new Uint8Array(16) })).status, 413, 'A declared oversize video is refused before reading');
     const pngShot = await (await upload('500', png(640, 480), 'image/png')).json();
     assert.equal(pngShot.background.width, 640);
     assert.equal(pngShot.background.mime, 'image/png');
@@ -1244,7 +1244,7 @@ async function testProfiles() {
     assert.equal(createHash('sha256').update(clipServed).digest('hex'), createHash('sha256').update(clip).digest('hex'), 'The chunked video comes back intact');
     const mov = await (await upload('500', mp4(5, 64, 'qt  '), 'video/quicktime')).json();
     assert.match(mov.background.url, /\.mov$/);
-    assert.equal((await upload('500', mp4(5, 8 * 1024 * 1024), 'video/mp4')).status, 413, 'Videos stop at 8 MB');
+    assert.equal((await upload('500', mp4(5, 20 * 1024 * 1024), 'video/mp4')).status, 413, 'Videos stop at 20 MB');
 
     const removed = await call('/profile/background', { method: 'DELETE', headers: auth('500') });
     assert.equal((await removed.json()).background, null);

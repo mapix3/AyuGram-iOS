@@ -93,7 +93,7 @@ fi
   echo '  listen [::]:443 ssl default_server;'
   echo "  ssl_certificate $CERT/cert.pem;"
   echo "  ssl_certificate_key $CERT/key.pem;"
-  echo '  client_max_body_size 12m;'
+  echo '  client_max_body_size 28m;'
   echo '  location = /__cron { return 404; }'
   echo '  location / {'
   echo '    proxy_pass http://127.0.0.1:8787;'
