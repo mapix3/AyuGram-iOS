@@ -2845,6 +2845,15 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             // AyuGram: Bark notifications open the app with this scheme; ayugram://chat?user=ID
             // (or chat=ID, channel=ID) also opens that chat.
             if url.scheme?.lowercased() == "ayugram" {
+                if url.host == "market", let context {
+                    let slug = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "slug" })?.value ?? ""
+                    if slug.isEmpty {
+                        context.rootController.pushViewController(ayuGramMarketController(context: context.context))
+                    } else {
+                        context.rootController.pushViewController(ayuGramMarketPluginController(context: context.context, slug: slug))
+                    }
+                    return
+                }
                 if url.host == "chat", let context, let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems {
                     var peerId: PeerId?
                     var messageNumber: Int32?

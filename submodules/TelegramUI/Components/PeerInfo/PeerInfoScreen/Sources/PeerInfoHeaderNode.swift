@@ -145,6 +145,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     private var ayuBubblesView: AyuGramProfileBubblesView?
     private var ayuBubblesHaloView: AyuGramProfileBubblesHaloView?
     private var ayuMediaView: AyuGramProfileMediaView?
+    private var ayuSoundButton: UIButton?
+    private var ayuSoundMuted = true
     private var ayuSpinRecognizer: AyuGramOrbitPanGestureRecognizer?
     private let ayuExtrasDisposable = MetaDisposable()
     private var ayuExtrasPeerId: EnginePeer.Id?
@@ -2849,7 +2851,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 mediaView.alpha = 0.0
                 ContainedViewLayoutTransition.animated(duration: 0.3, curve: .easeInOut).updateAlpha(layer: mediaView.layer, alpha: 1.0)
             }
+            mediaView.audioAvailabilityChanged = { [weak self] _ in
+                self?.requestUpdateLayout?(false)
+            }
             mediaView.setMedia(url: ayuBackgroundMedia.url, isVideo: ayuBackgroundMedia.isVideo)
+            mediaView.isMuted = self.ayuSoundMuted
             if additive {
                 transition.updateFrameAdditive(view: mediaView, frame: ayuBannerContentFrame)
             } else {
@@ -2865,6 +2871,50 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             })
         }
         
+        let ayuSoundVisible = ayuBackgroundMedia?.isVideo == true && (self.ayuMediaView?.hasAudio ?? false) && !self.isAvatarExpanded && !state.isEditing && backgroundBannerAlpha > 0.0
+        let ayuSoundAlpha: CGFloat = ayuSoundVisible ? max(0.0, min(1.0, 1.0 - max(0.0, contentOffset) / 60.0)) : 0.0
+        if ayuSoundAlpha > 0.0 || self.ayuSoundButton != nil {
+            let button: UIButton
+            if let current = self.ayuSoundButton {
+                button = current
+            } else {
+                button = UIButton(type: .custom)
+                let effect: UIVisualEffect
+                if #available(iOS 26.0, *) {
+                    effect = UIGlassEffect(style: .regular)
+                } else {
+                    effect = UIBlurEffect(style: .systemUltraThinMaterialDark)
+                }
+                let background = UIVisualEffectView(effect: effect)
+                background.isUserInteractionEnabled = false
+                background.clipsToBounds = true
+                background.layer.cornerRadius = 22.0
+                background.frame = CGRect(x: 0.0, y: 0.0, width: 44.0, height: 44.0)
+                background.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                button.insertSubview(background, at: 0)
+                button.tintColor = .white
+                button.alpha = 0.0
+                button.addTarget(self, action: #selector(self.ayuSoundPressed), for: .touchUpInside)
+                self.view.addSubview(button)
+                self.ayuSoundButton = button
+            }
+            button.setImage(UIImage(systemName: self.ayuSoundMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17.0, weight: .semibold)), for: .normal)
+            if let imageView = button.imageView {
+                button.bringSubviewToFront(imageView)
+            }
+            button.accessibilityLabel = self.ayuSoundMuted ? "Unmute" : "Mute"
+            let soundFrame = CGRect(x: width - sideInsets.navigationRight - 16.0 - 44.0, y: navigationHeight + 6.0, width: 44.0, height: 44.0)
+            transition.updateFrame(view: button, frame: soundFrame)
+            button.isUserInteractionEnabled = ayuSoundAlpha > 0.5
+            ContainedViewLayoutTransition.animated(duration: 0.2, curve: .easeInOut).updateAlpha(layer: button.layer, alpha: ayuSoundAlpha)
+            if !ayuSoundVisible {
+                if !self.ayuSoundMuted {
+                    self.ayuSoundMuted = true
+                    self.ayuMediaView?.isMuted = true
+                }
+            }
+        }
+
         var ayuBubbleItems: [AyuGramProfileBubblesView.Item] = []
         var ayuPinnedFakeGifts: [ProfileGiftsContext.State.StarGift] = []
         if let peer, ayuGramProfileExtrasSupported(peer.id), !isMediaOnly {
@@ -3393,7 +3443,17 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         return result
     }
     
+    @objc private func ayuSoundPressed() {
+        self.ayuSoundMuted = !self.ayuSoundMuted
+        self.ayuMediaView?.isMuted = self.ayuSoundMuted
+        UISelectionFeedbackGenerator().selectionChanged()
+        self.requestUpdateLayout?(false)
+    }
+
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let button = self.ayuSoundButton, button.isUserInteractionEnabled, button.alpha > 0.5, !button.isHidden, button.frame.insetBy(dx: -6.0, dy: -6.0).contains(point) {
+            return button
+        }
         guard let result = super.hitTest(point, with: event) else {
             return nil
         }
