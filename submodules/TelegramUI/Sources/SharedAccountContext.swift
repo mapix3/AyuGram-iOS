@@ -1379,7 +1379,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             } else {
                 self.hasGroupCallOnScreenPromise.set(thisCallIsOnScreenPromise.get())
                 
-                if !call.isIntegratedWithCallKit {
+                if !call.isIntegratedWithCallKit || UIApplication.shared.applicationState == .active {
                     self.callPeerDisposable = (call.context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: call.peerId))
                     |> deliverOnMainQueue).startStrict(next: { [weak self, weak call] peer in
                         guard let self, let call, let peer else {
