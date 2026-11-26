@@ -387,7 +387,8 @@ async function handleAssistant(request, env) {
       continue;
     }
     let text = '';
-    let image = null;
+    const images = [];
+    let imageBytes = 0;
     if (typeof item.content === 'string') {
       text = item.content;
     } else if (Array.isArray(item.content)) {
@@ -396,23 +397,24 @@ async function handleAssistant(request, env) {
           text += part.text;
         } else if (part && part.type === 'image_url' && part.image_url && typeof part.image_url.url === 'string') {
           const address = part.image_url.url;
-          if (role === 'user' && index === source.length - 1 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(address) && address.length <= 3000000) {
-            image = address;
+          if (role === 'user' && index === source.length - 1 && images.length < 4 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(address) && imageBytes + address.length <= 3400000) {
+            images.push(address);
+            imageBytes += address.length;
           }
         }
       }
     }
-    text = text.slice(0, 8000);
-    if (!text && !image) {
+    text = text.slice(0, role === 'system' ? 24000 : 12000);
+    if (!text && !images.length) {
       continue;
     }
     total += text.length;
-    if (total > 32000) {
+    if (total > 60000) {
       break;
     }
-    if (image) {
+    if (images.length) {
       vision = true;
-      messages.push({ role, content: [{ type: 'text', text: text || 'Describe this image.' }, { type: 'image_url', image_url: { url: image } }] });
+      messages.push({ role, content: [{ type: 'text', text: text || 'Describe this image.' }].concat(images.map((url) => ({ type: 'image_url', image_url: { url } }))) });
     } else {
       messages.push({ role, content: text });
     }
@@ -426,14 +428,17 @@ async function handleAssistant(request, env) {
   const basePrompt = 'Current date and time: ' + new Date().toUTCString() + ' (UTC). Answer in the language of the user.';
   const copilot = input && input.ayugram_mode === 'copilot';
   const copilotTokens = Math.max(64, Math.min(500, Number(input && input.max_tokens) || 320));
-  if (copilot && !vision) {
+  if (copilot) {
     const gemini = await geminiChat(env, messages, copilotTokens);
     if (gemini.content) {
       return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: gemini.content } }] });
     }
+    if (!env.GROQ_API_KEY) {
+      return aiAnswer(502, { error: { message: 'The assistant is unavailable' + (gemini.reason ? ': ' + gemini.reason : '') } });
+    }
     let answer = await groqChat(key, groqPicked.get(kind) || preferred, messages, copilotTokens);
     if (!answer.content && answer.status !== 429 && answer.status !== 401) {
-      for (const candidate of (await groqCandidates(key, false)).filter((id) => id !== answer.model).slice(0, 4)) {
+      for (const candidate of (await groqCandidates(key, vision)).filter((id) => id !== answer.model).slice(0, 4)) {
         const retry = await groqChat(key, candidate, messages, copilotTokens);
         if (retry.content) {
           groqPicked.set(kind, candidate);
@@ -642,7 +647,7 @@ function groqReason(status, output) {
 let geminiWorking = '';
 
 async function geminiSearchAnswer(env, key, messages, basePrompt) {
-  const toolPrompt = basePrompt + ' You can search the internet with the web_search tool. Use it for news, weather, prices, recent events and any fact you are not sure about.';
+  const toolPrompt = basePrompt + SEARCH_TOOL_NOTE;
   const first = await geminiChat(env, [{ role: 'system', content: toolPrompt }].concat(messages), 4096, { tools: [groqSearchTool], tool_choice: 'auto' });
   const queries = searchQueries(first && first.message, '');
   if (!queries.length) {
@@ -662,7 +667,7 @@ async function geminiSearchAnswer(env, key, messages, basePrompt) {
   }
   const last = messages[messages.length - 1];
   const question = typeof last.content === 'string' ? last.content : '';
-  const thread = [{ role: 'system', content: basePrompt + ' You have just searched the internet. Answer using the search results given in the last message, mention the sources briefly, and never write tool calls.' }].concat(messages.slice(0, -1), [{ role: 'user', content: question + '\n\n[Internet search results]\n' + found.join('\n\n') }]);
+  const thread = [{ role: 'system', content: basePrompt + SEARCH_RESULTS_NOTE }].concat(messages.slice(0, -1), [{ role: 'user', content: question + '\n\n[Internet search results]\n' + found.join('\n\n') }]);
   const second = await geminiChat(env, thread, 4096);
   return second && !looksLikeToolCall(second.content) ? second.content : '';
 }
@@ -671,7 +676,8 @@ const geminiCooldown = new Map();
 
 async function geminiChat(env, messages, maxTokens, extra) {
   const preferred = env && env.GEMINI_MODEL ? env.GEMINI_MODEL : 'gemini-flash-latest';
-  const all = [...new Set([geminiWorking, preferred, 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'].filter(Boolean))];
+  const discovered = await geminiTextModels(env);
+  const all = [...new Set([geminiWorking, preferred, 'gemini-flash-latest'].concat(discovered, ['gemini-flash-lite-latest']).filter(Boolean))];
   const now = Date.now();
   const ready = all.filter((model) => !(geminiCooldown.get(model) > now));
   const models = ready.length ? ready : all;
@@ -697,6 +703,115 @@ async function geminiChat(env, messages, maxTokens, extra) {
     console.log('gemini ' + model + ' failed: ' + last.status + ' ' + last.reason);
   }
   return last;
+}
+
+let geminiCatalog = { at: 0, models: [] };
+
+async function geminiModelList(env) {
+  if (geminiCatalog.models.length && Date.now() - geminiCatalog.at < 6 * 3600000) {
+    return geminiCatalog.models;
+  }
+  const key = String(env && env.GEMINI_API_KEY || '').replace(/[^\x21-\x7e]|["']/g, '');
+  if (!key) {
+    return [];
+  }
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', { headers: { 'x-goog-api-key': key }, signal: AbortSignal.timeout(8000) });
+    const output = await response.json();
+    const models = Array.isArray(output && output.models) ? output.models.filter((item) => item && typeof item.name === 'string').map((item) => ({ id: item.name.replace(/^models\//, ''), methods: Array.isArray(item.supportedGenerationMethods) ? item.supportedGenerationMethods : [] })) : [];
+    if (models.length) {
+      geminiCatalog = { at: Date.now(), models };
+    }
+  } catch (error) {
+    console.log('gemini model list failed: ' + error);
+  }
+  return geminiCatalog.models;
+}
+
+function geminiVersion(id) {
+  const match = /gemini-(\d+(?:\.\d+)?)/.exec(id);
+  return match ? Number(match[1]) : 0;
+}
+
+async function geminiTextModels(env) {
+  const models = await geminiModelList(env);
+  return models
+    .filter((item) => item.methods.includes('generateContent') && /^gemini-[\d.]+-flash(-lite)?(-latest|-\d{3})?$/.test(item.id))
+    .map((item) => item.id)
+    .sort((a, b) => (geminiVersion(b) - geminiVersion(a)) || (a.includes('lite') ? 1 : 0) - (b.includes('lite') ? 1 : 0))
+    .slice(0, 4);
+}
+
+async function geminiImageModels(env) {
+  const models = await geminiModelList(env);
+  const found = models
+    .filter((item) => item.methods.includes('generateContent') && /^gemini-.*image/.test(item.id) && !/tts|audio|live|embed/.test(item.id))
+    .map((item) => item.id)
+    .sort((a, b) => (geminiVersion(b) - geminiVersion(a)) || (a.includes('preview') ? 1 : 0) - (b.includes('preview') ? 1 : 0) || (a.includes('pro') ? 1 : 0) - (b.includes('pro') ? 1 : 0));
+  return [...new Set(found.concat(['gemini-2.5-flash-image']))];
+}
+
+async function handleImage(request, env) {
+  if (!env || !env.GEMINI_API_KEY) {
+    return aiAnswer(503, { error: { message: 'Image generation is not configured' } });
+  }
+  if (!aiAllowed('img:' + (request.headers.get('cf-connecting-ip') || 'unknown'))) {
+    return aiAnswer(429, { error: { message: 'Too many requests, wait a minute' } });
+  }
+  const refused = await aiQuotaRefusal(env, request, 'img', Number(env.IMG_DAILY_PER_IP) || 30, Number(env.IMG_DAILY_TOTAL) || 3000);
+  if (refused) {
+    return refused;
+  }
+  let input;
+  try {
+    const raw = await request.text();
+    if (raw.length > 3500000) {
+      return aiAnswer(413, { error: { message: 'The request is too large' } });
+    }
+    input = JSON.parse(raw);
+  } catch (error) {
+    return aiAnswer(400, { error: { message: 'Bad request' } });
+  }
+  const prompt = typeof input.prompt === 'string' ? input.prompt.trim().slice(0, 4000) : '';
+  if (!prompt) {
+    return aiAnswer(400, { error: { message: 'Empty request' } });
+  }
+  const parts = [{ text: prompt }];
+  if (typeof input.image === 'string') {
+    const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(input.image);
+    if (match && input.image.length <= 3000000) {
+      parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+    }
+  }
+  const key = String(env.GEMINI_API_KEY).replace(/[^\x21-\x7e]|["']/g, '');
+  let reason = '';
+  for (const model of (await geminiImageModels(env)).slice(0, 4)) {
+    try {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }),
+        signal: AbortSignal.timeout(90000),
+      });
+      const output = await response.json();
+      const candidate = output && Array.isArray(output.candidates) ? output.candidates[0] : null;
+      const answerParts = candidate && candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : [];
+      const picture = answerParts.find((part) => part && (part.inlineData || part.inline_data));
+      const text = answerParts.filter((part) => part && typeof part.text === 'string').map((part) => part.text).join('').trim();
+      if (picture) {
+        const data = picture.inlineData || picture.inline_data;
+        return aiAnswer(200, { image: 'data:' + (data.mimeType || data.mime_type || 'image/png') + ';base64,' + data.data, text });
+      }
+      reason = output && output.error ? String(output.error.message || '').replace(/AIza[0-9A-Za-z_-]+/g, '').slice(0, 160) : (text ? text.slice(0, 300) : 'no image returned');
+      if (response.status === 200 && text) {
+        return aiAnswer(422, { error: { message: text.slice(0, 500) } });
+      }
+      console.log('gemini image ' + model + ' failed: ' + response.status + ' ' + reason);
+    } catch (error) {
+      reason = String(error && error.message ? error.message : error).slice(0, 160);
+    }
+  }
+  return aiAnswer(502, { error: { message: 'Image generation is unavailable' + (reason ? ': ' + reason : '') } });
 }
 
 const geminiPlain = new Set();
@@ -734,7 +849,7 @@ async function geminiRequest(env, model, messages, maxTokens, extra) {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key, 'x-goog-api-key': key },
       body: JSON.stringify(Object.assign({ model, messages: geminiNamed(model, messages), max_tokens: maxTokens || 1500 }, extra || {})),
-      signal: AbortSignal.timeout(14000),
+      signal: AbortSignal.timeout(30000),
     });
     status = response.status;
     output = await response.json();
@@ -767,6 +882,9 @@ async function groqChat(key, model, messages, maxTokens) {
   const content = output && output.choices && output.choices[0] && output.choices[0].message && output.choices[0].message.content;
   return { model, status, content: typeof content === 'string' && content ? content : '', reason: groqReason(status, output) };
 }
+
+const SEARCH_TOOL_NOTE = ' You can search the internet with the web_search tool. Search only when the latest user message needs current or external facts: news, weather, prices, schedules, recent releases, or a specific fact you do not know. Never search for small talk, opinions, writing help, coding, math, translation, or questions about this conversation. Base the search query only on the latest user message and its real context; never search for things nobody mentioned.';
+const SEARCH_RESULTS_NOTE = ' You have just searched the internet. The results are in the last message. Use only the results that actually answer the question, ignore unrelated ones, never mention banks, companies or topics that the user did not ask about, mention sources briefly, and never write tool calls.';
 
 const groqSearchTool = {
   type: 'function',
@@ -999,7 +1117,7 @@ function searchQueries(message, failed) {
 }
 
 async function groqSearchAnswer(key, model, messages, basePrompt) {
-  const toolPrompt = basePrompt + ' You can search the internet with the web_search tool. Use it for news, weather, prices, recent events and any fact you are not sure about.';
+  const toolPrompt = basePrompt + SEARCH_TOOL_NOTE;
   const first = await groqRaw(key, { model, messages: [{ role: 'system', content: toolPrompt }].concat(messages), max_tokens: 1500, tools: [groqSearchTool], tool_choice: 'auto' });
   const queries = searchQueries(first.message, first.failed);
   if (!queries.length) {
@@ -1018,7 +1136,7 @@ async function groqSearchAnswer(key, model, messages, basePrompt) {
   }
   const last = messages[messages.length - 1];
   const question = typeof last.content === 'string' ? last.content : '';
-  const thread = [{ role: 'system', content: basePrompt + ' You have just searched the internet. Answer using the search results given in the last message, mention the sources briefly, and never write tool calls.' }].concat(messages.slice(0, -1), [{ role: 'user', content: question + '\n\n[Internet search results]\n' + found.join('\n\n') }]);
+  const thread = [{ role: 'system', content: basePrompt + SEARCH_RESULTS_NOTE }].concat(messages.slice(0, -1), [{ role: 'user', content: question + '\n\n[Internet search results]\n' + found.join('\n\n') }]);
   const second = await groqRaw(key, { model, messages: thread, max_tokens: 1500 });
   const answer = second.message && typeof second.message.content === 'string' ? second.message.content : '';
   return looksLikeToolCall(answer) ? '' : answer;
@@ -1108,6 +1226,13 @@ export default {
         return await handleAssistant(request, env);
       } catch (error) {
         return aiAnswer(502, { error: { message: 'The assistant failed: ' + String(error && error.message ? error.message : error).replace(/gsk_[A-Za-z0-9]+/g, '').slice(0, 200) } });
+      }
+    }
+    if (request.method === 'POST' && url.pathname === '/ai/image') {
+      try {
+        return await handleImage(request, env);
+      } catch (error) {
+        return aiAnswer(502, { error: { message: 'Image generation failed' } });
       }
     }
     if (request.method === 'GET' && url.pathname === '/ai/search') {
