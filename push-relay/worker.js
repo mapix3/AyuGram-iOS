@@ -848,13 +848,25 @@ async function handleImage(request, env) {
     }
   }
   if (!parts.some((part) => part.inline_data)) {
-    const fallback = await pollinationsImage(prompt);
+    const fallback = await pollinationsImage(await englishImagePrompt(env, prompt));
     if (fallback) {
       return aiAnswer(200, { image: fallback, text: '', model: 'pollinations', usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } });
     }
   }
   const quota = /quota|billing|exceeded/i.test(reason);
   return aiAnswer(quota ? 429 : 503, { error: { message: quota ? 'Image generation is out of quota for today: the Gemini key needs billing enabled for pictures, or try again tomorrow' : 'Image generation is unavailable' + (reason ? ': ' + reason : '') } });
+}
+
+async function englishImagePrompt(env, prompt) {
+  if (!env || !env.GROQ_API_KEY) {
+    return prompt;
+  }
+  const answer = await groqChat(groqKey(env), env.GROQ_MODEL || 'llama-3.3-70b-versatile', [
+    { role: 'system', content: 'Turn the request into one prompt for an image generator, in English: describe only what must be in the picture (subject, its look, style, setting, lighting) in 15 to 40 words. Drop words like draw, create, generate, picture, image. Keep the subject exactly as asked, for example a pug stays a pug dog. Answer with the prompt only, no quotes.' },
+    { role: 'user', content: prompt.slice(0, 1500) },
+  ], 120).catch(() => null);
+  const text = answer && typeof answer.content === 'string' ? answer.content.replace(/^["'\s]+|["'\s]+$/g, '').trim() : '';
+  return text ? text.slice(0, 600) : prompt;
 }
 
 async function pollinationsImage(prompt) {
