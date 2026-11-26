@@ -848,7 +848,8 @@ async function handleImage(request, env) {
     }
   }
   if (!parts.some((part) => part.inline_data)) {
-    const fallback = await pollinationsImage(await englishImagePrompt(env, prompt));
+    const english = await englishImagePrompt(env, prompt);
+    const fallback = english ? await pollinationsImage(english) : null;
     if (fallback) {
       return aiAnswer(200, { image: fallback, text: '', model: 'pollinations', usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } });
     }
@@ -857,16 +858,43 @@ async function handleImage(request, env) {
   return aiAnswer(quota ? 429 : 503, { error: { message: quota ? 'Image generation is out of quota for today: the Gemini key needs billing enabled for pictures, or try again tomorrow' : 'Image generation is unavailable' + (reason ? ': ' + reason : '') } });
 }
 
+const IMAGE_PROMPT_SYSTEM = 'Turn the request into one prompt for an image generator, in English: describe only what must be in the picture (subject, its look, style, setting, lighting) in 15 to 40 words. Drop words like draw, create, generate, picture, image. Keep the subject exactly as asked, for example a pug stays a pug dog. Answer with the prompt only, no quotes.';
+
+function cleanImagePrompt(text) {
+  const value = typeof text === 'string' ? text.replace(/^["'\s]+|["'\s]+$/g, '').trim() : '';
+  return /^[\x20-\x7e]{6,}$/.test(value) ? value.slice(0, 600) : '';
+}
+
 async function englishImagePrompt(env, prompt) {
-  if (!env || !env.GROQ_API_KEY) {
+  if (/^[\x20-\x7e]+$/.test(prompt)) {
     return prompt;
   }
-  const answer = await groqChat(groqKey(env), env.GROQ_MODEL || 'llama-3.3-70b-versatile', [
-    { role: 'system', content: 'Turn the request into one prompt for an image generator, in English: describe only what must be in the picture (subject, its look, style, setting, lighting) in 15 to 40 words. Drop words like draw, create, generate, picture, image. Keep the subject exactly as asked, for example a pug stays a pug dog. Answer with the prompt only, no quotes.' },
-    { role: 'user', content: prompt.slice(0, 1500) },
-  ], 120).catch(() => null);
-  const text = answer && typeof answer.content === 'string' ? answer.content.replace(/^["'\s]+|["'\s]+$/g, '').trim() : '';
-  return text ? text.slice(0, 600) : prompt;
+  const messages = [{ role: 'system', content: IMAGE_PROMPT_SYSTEM }, { role: 'user', content: prompt.slice(0, 1500) }];
+  if (env && env.GROQ_API_KEY) {
+    const answer = await groqChat(groqKey(env), env.GROQ_MODEL || 'llama-3.3-70b-versatile', messages, 120).catch(() => null);
+    const text = cleanImagePrompt(answer && answer.content);
+    if (text) {
+      return text;
+    }
+    console.log('image prompt groq failed: ' + (answer ? answer.reason : 'error'));
+  }
+  if (env && env.GEMINI_API_KEY) {
+    const answer = await geminiChat(env, messages, 120).catch(() => null);
+    const text = cleanImagePrompt(answer && answer.content);
+    if (text) {
+      return text;
+    }
+  }
+  try {
+    const response = await fetch('https://text.pollinations.ai/' + encodeURIComponent(IMAGE_PROMPT_SYSTEM + ' Request: ' + prompt.slice(0, 600)), { signal: AbortSignal.timeout(20000) });
+    const text = cleanImagePrompt(response.ok ? await response.text() : '');
+    if (text) {
+      return text;
+    }
+  } catch {
+    return '';
+  }
+  return '';
 }
 
 async function pollinationsImage(prompt) {
