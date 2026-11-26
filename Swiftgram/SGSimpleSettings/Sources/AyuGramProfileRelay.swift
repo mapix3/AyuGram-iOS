@@ -392,7 +392,7 @@ public struct AyuGramProfileLimits: Equatable {
     public var numbers: Int
     public var holders: Int
 
-    public static let standard = AyuGramProfileLimits(nfts: 30, pinned: 6, usernames: 10, photo: 1572864, video: 8388608, seconds: 15.0, numbers: 1, holders: 100)
+    public static let standard = AyuGramProfileLimits(nfts: 30, pinned: 6, usernames: 10, photo: 1572864, video: 20971520, seconds: .infinity, numbers: 1, holders: 100)
 
     static func from(json: Any?) -> AyuGramProfileLimits {
         guard let json = json as? [String: Any] else {
@@ -405,7 +405,7 @@ public struct AyuGramProfileLimits: Equatable {
             }
             return defaultValue
         }
-        let seconds = (json["seconds"] as? NSNumber)?.doubleValue ?? fallback.seconds
+        let seconds = (json["seconds"] as? NSNumber)?.doubleValue ?? 0.0
         return AyuGramProfileLimits(nfts: value("nfts", fallback.nfts), pinned: value("pinned", fallback.pinned), usernames: value("usernames", fallback.usernames), photo: value("photo", fallback.photo), video: value("video", fallback.video), seconds: seconds > 0.0 ? seconds : fallback.seconds, numbers: value("numbers", fallback.numbers), holders: value("holders", fallback.holders))
     }
 }
@@ -1001,7 +1001,7 @@ public final class AyuGramProfileRelay {
             let width = abs(oriented.width)
             let height = abs(oriented.height)
             let rate = track.nominalFrameRate
-            guard width > 0, height > 0, max(width, height) > 1280.5 || rate > 31.0 else {
+            guard width > 0, height > 0, max(width, height) > 1280.5 else {
                 completion(false)
                 return
             }
@@ -1014,9 +1014,9 @@ public final class AyuGramProfileRelay {
             instruction.layerInstructions = [layer]
             let video = AVMutableVideoComposition()
             video.renderSize = render
-            video.frameDuration = CMTime(value: 1, timescale: 30)
+            video.frameDuration = CMTime(value: 1, timescale: Int32(max(24.0, min(120.0, rate > 0 ? Double(rate).rounded() : 30.0))))
             video.instructions = [instruction]
-            guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1280x720) else {
+            guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality) else {
                 completion(false)
                 return
             }

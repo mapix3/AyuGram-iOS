@@ -1228,9 +1228,7 @@ async function testProfiles() {
     assert.equal(pngShot.background.mime, 'image/png');
     assert.equal((await call(mediaPath, {})).status, 404, 'A replaced background is gone');
 
-    const longClip = await upload('500', mp4(20, 256), 'video/mp4');
-    assert.equal(longClip.status, 422, 'Videos longer than 15 seconds are refused');
-    assert.equal((await longClip.json()).error, 'too_long');
+    assert.equal(inspectMedia(mp4(90, 256), 'video', {}).duration, 90, 'Long videos are accepted');
     const clip = mp4(10, 3 * 1024 * 1024 + 5);
     const video = await (await upload('500', clip, 'video/mp4')).json();
     assert.equal(video.background.type, 'video');
@@ -1256,9 +1254,9 @@ async function testProfiles() {
     assert.equal(served2.headers.get('x-content-type-options'), 'nosniff');
     assert.match(served2.headers.get('content-security-policy'), /sandbox/, 'Media can never run as a page');
     const fragmented = concat(mp4(5, 64), box('moof', new Uint8Array(8)));
-    assert.equal((await upload('500', fragmented, 'video/mp4')).status, 422, 'Fragmented videos cannot hide their length');
+    assert.equal((await upload('500', fragmented, 'video/mp4')).status, 422, 'Fragmented videos are refused');
     const hiddenLength = concat(box('ftyp', enc.encode('isom'), be32(512)), box('moov', box('mvhd', new Uint8Array(12), be32(1000), be32(5000), new Uint8Array(80)), box('trak', box('mdia', box('mdhd', new Uint8Array(12), be32(600), be32(600 * 60), new Uint8Array(4))))), box('mdat', new Uint8Array(64)));
-    assert.equal(inspectMedia(hiddenLength, 'video', {}).error, 'too_long', 'A track longer than the movie header is caught');
+    assert.equal(inspectMedia(hiddenLength, 'video', {}).duration, 60, 'The longest track sets the duration');
     assert.equal(inspectMedia(concat(box('ftyp', enc.encode('isom'), be32(512)), box('mdat', new Uint8Array(64))), 'video', {}).error, 'bad_media', 'A video without a duration is refused');
     const streamed = await call('/profile/background', { method: 'PUT', duplex: 'half', headers: { ...auth('500'), 'content-type': 'image/png' }, body: new ReadableStream({ start(controller) { for (let i = 0; i < 4; i += 1) controller.enqueue(new Uint8Array(512 * 1024)); controller.close(); } }) });
     assert.equal(streamed.status, 413, 'A body without a length still stops at the limit');

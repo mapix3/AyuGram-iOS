@@ -453,7 +453,12 @@ private final class AyuProfileVideoExporter {
         let rate = track.nominalFrameRate
         self.frameRate = Int32(max(24.0, min(120.0, rate > 0 ? Double(rate).rounded() : 30.0)))
         self.duration = range.duration
-        let presets = [AVAssetExportPresetHEVCHighestQuality, AVAssetExportPresetHEVCHighestQuality, AVAssetExportPresetHEVC1920x1080, AVAssetExportPreset1280x720, AVAssetExportPreset960x540]
+        let sourceSize = ((try? FileManager.default.attributesOfItem(atPath: self.source.path))?[.size] as? NSNumber)?.intValue ?? Int.max
+        var presets = [AVAssetExportPresetHEVCHighestQuality, AVAssetExportPresetHEVCHighestQuality, AVAssetExportPresetHEVC1920x1080, AVAssetExportPreset1280x720, AVAssetExportPreset960x540]
+        if sourceSize <= self.maxBytes && max(self.naturalSize.width, self.naturalSize.height) <= 2560.5 {
+            presets.insert(AVAssetExportPresetPassthrough, at: 0)
+        }
+        self.passthrough = presets.first == AVAssetExportPresetPassthrough
         self.export(composition: composition, presets: presets, index: 0)
     }
 
@@ -461,11 +466,16 @@ private final class AyuProfileVideoExporter {
     private var transform = CGAffineTransform.identity
     private var frameRate: Int32 = 30
     private var duration = CMTime.zero
+    private var passthrough = false
 
-    private func videoComposition(composition: AVMutableComposition, index: Int) -> AVMutableVideoComposition? {
+    private func videoComposition(composition: AVMutableComposition, index rawIndex: Int) -> AVMutableVideoComposition? {
+        if self.passthrough && rawIndex == 0 {
+            return nil
+        }
+        let index = self.passthrough ? rawIndex - 1 : rawIndex
         let sides: [CGFloat] = [2560.0, 1920.0, 1920.0, 1280.0, 960.0]
         let rates: [Int32] = [self.frameRate, min(self.frameRate, 60), min(self.frameRate, 60), min(self.frameRate, 30), min(self.frameRate, 30)]
-        guard index < sides.count, let track = composition.tracks(withMediaType: .video).first, self.naturalSize.width > 0, self.naturalSize.height > 0 else {
+        guard index >= 0, index < sides.count, let track = composition.tracks(withMediaType: .video).first, self.naturalSize.width > 0, self.naturalSize.height > 0 else {
             return nil
         }
         let scale = min(1.0, sides[index] / max(self.naturalSize.width, self.naturalSize.height))
@@ -514,7 +524,7 @@ private final class AyuProfileVideoExporter {
                     self.finish(AyuPreparedProfileMedia(url: target, mime: "video/mp4", width: 0, height: 0, isVideo: true))
                 } else {
                     try? FileManager.default.removeItem(at: target)
-                    if session.status == .completed {
+                    if session.status == .completed || (self.passthrough && index == 0) {
                         self.export(composition: composition, presets: presets, index: index + 1)
                     } else {
                         self.finish(nil)

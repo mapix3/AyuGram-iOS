@@ -623,7 +623,7 @@
 "Ayu.ProfileExtras.ChooseVideo" = "Choose Video";
 "Ayu.ProfileExtras.RemoveBackground" = "Remove Background";
 "Ayu.ProfileExtras.RemoveBackgroundConfirm" = "Remove your profile background for everyone?";
-"Ayu.ProfileExtras.BackgroundInfo" = "A photo or a video behind your profile header. Videos play muted and loop, only the first 15 seconds are used. Large files are compressed automatically; up to 8 uploads a day. Backgrounds are checked by the AyuGram team.";
+"Ayu.ProfileExtras.BackgroundInfo" = "A photo or a video behind your profile header. Videos play muted and loop, with no length limit, in up to 1440p and 120 fps. Files up to 20 MB are uploaded without recompression, larger ones are compressed automatically; up to 8 uploads a day. Backgrounds are checked by the AyuGram team.";
 "Ayu.ProfileExtras.Preparing" = "Preparing…";
 "Ayu.ProfileExtras.Uploading" = "Uploading… %@";
 "Ayu.ProfileExtras.NftsSection" = "Fake NFTs";
