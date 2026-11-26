@@ -18,6 +18,7 @@ import TelegramVoip
 import MetalEngine
 import DeviceAccess
 import LibYuvBinding
+import PresentationDataUtils
 
 final class CallControllerNodeV2: ViewControllerTracingNode, CallControllerNodeProtocol {
     private struct PanGestureState {
@@ -171,6 +172,10 @@ final class CallControllerNodeV2: ViewControllerTracingNode, CallControllerNodeP
             }
             self.endCall?()
         }
+        self.callScreen.recordAction = { [weak self] in
+            self?.ayuToggleRecording()
+        }
+        self.callScreen.isRecording = AyuCallRecording.isRecording
         self.callScreen.backAction = { [weak self] in
             guard let self else {
                 return
@@ -449,8 +454,66 @@ final class CallControllerNodeV2: ViewControllerTracingNode, CallControllerNodeP
         return resolvedKey
     }
     
+    private func ayuToggleRecording() {
+        if AyuCallRecording.isRecording {
+            self.ayuFinishRecording()
+            return
+        }
+        let code = self.presentationData.strings.baseLanguageCode
+        let russian = code == "ru" || code == "be"
+        let ukrainian = code == "uk"
+        let title = ukrainian ? "Запис дзвінка" : (russian ? "Запись звонка" : "Record call")
+        let text = ukrainian ? "Запис розмови без згоди співрозмовника в багатьох країнах незаконний. Попередьте співрозмовника. Сигнал на початку запису почує й він. Запис збережеться в Обраному." : (russian ? "Запись разговора без согласия собеседника во многих странах незаконна. Предупредите собеседника. Сигнал в начале записи услышит и он. Запись сохранится в Избранном." : "Recording a conversation without the other person's consent is illegal in many countries. Let them know. The beep at the start is heard by them too. The recording is saved to Saved Messages.")
+        let withBeep = ukrainian ? "Записувати із сигналом" : (russian ? "Записывать с сигналом" : "Record with a beep")
+        let withoutBeep = ukrainian ? "Записувати без сигналу" : (russian ? "Записывать без сигнала" : "Record without a beep")
+        let controller = textAlertController(sharedContext: self.sharedContext, title: title, text: text, actions: [
+            TextAlertAction(type: .defaultAction, title: withBeep, action: { [weak self] in
+                self?.ayuStartRecording(beep: true)
+            }),
+            TextAlertAction(type: .genericAction, title: withoutBeep, action: { [weak self] in
+                self?.ayuStartRecording(beep: false)
+            }),
+            TextAlertAction(type: .genericAction, title: self.presentationData.strings.Common_Cancel, action: {})
+        ])
+        self.present?(controller)
+    }
+
+    private func ayuStartRecording(beep: Bool) {
+        AyuCallRecording.start(beep: beep)
+        self.callScreen.isRecording = AyuCallRecording.isRecording
+    }
+
+    private func ayuFinishRecording() {
+        self.callScreen.isRecording = false
+        let context = self.call.context
+        let peerTitle = self.call.peer?.debugDisplayTitle ?? ""
+        let code = self.presentationData.strings.baseLanguageCode
+        AyuCallRecording.stop(completion: { url, duration in
+            guard let url else {
+                return
+            }
+            let formatter = DateFormatter()
+            formatter.dateFormat = "dd.MM.yyyy HH:mm"
+            let stamp = formatter.string(from: Date())
+            let label = code == "uk" ? "Запис дзвінка" : ((code == "ru" || code == "be") ? "Запись звонка" : "Call recording")
+            let size = ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.int64Value
+            let id = Int64.random(in: Int64.min ... Int64.max)
+            let file = TelegramMediaFile(fileId: EngineMedia.Id(namespace: Namespaces.Media.LocalFile, id: id), partialReference: nil, resource: LocalFileReferenceMediaResource(localFilePath: url.path, randomId: id), previewRepresentations: [], videoThumbnails: [], immediateThumbnailData: nil, mimeType: "audio/mp4", size: size, attributes: [.FileName(fileName: url.lastPathComponent), .Audio(isVoice: false, duration: Int(duration.rounded()), title: peerTitle.isEmpty ? label : label + " · " + peerTitle, performer: stamp, waveform: nil)], alternativeRepresentations: [])
+            let caption = label + (peerTitle.isEmpty ? "" : " · " + peerTitle) + " · " + stamp
+            let _ = enqueueMessages(account: context.account, peerId: context.account.peerId, messages: [.message(text: caption, attributes: [], inlineStickers: [:], mediaReference: .standalone(media: file), threadId: nil, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: [])]).startStandalone()
+        })
+    }
+
     func updateCallState(_ callState: PresentationCallState) {
         self.callState = callState
+        switch callState.state {
+        case .terminating, .terminated:
+            if AyuCallRecording.isRecording {
+                self.ayuFinishRecording()
+            }
+        default:
+            break
+        }
         
         let mappedLifecycleState: PrivateCallScreen.State.LifecycleState
         switch callState.state {

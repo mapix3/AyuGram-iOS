@@ -514,4 +514,12 @@ useReferenceImpl:(bool)useReferenceImpl;
 
 @end
 
+@interface AyuCallRecorder : NSObject
+
++ (bool)isRecording;
++ (void)startWithBeep:(bool)beep;
++ (void)stopWithCompletion:(void (^ _Nonnull)(NSURL * _Nullable url, double duration))completion;
+
+@end
+
 #endif
