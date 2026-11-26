@@ -71,9 +71,12 @@ jobs:
           }
           # The block list for scam copies is edited by hand and survives publishing.
           if os.path.exists('update.json'):
-              block = json.load(open('update.json')).get('block')
+              previous = json.load(open('update.json'))
+              block = previous.get('block')
               if block:
                   manifest['block'] = block
+              if isinstance(previous.get('customPost'), str):
+                  manifest['customPost'] = previous['customPost']
           open('update.json', 'w').write(json.dumps(manifest, indent=2) + '\n')
           PY
           cat update.json
@@ -170,5 +173,13 @@ jobs:
           fi
           MEDIA="$(jq -cn --arg caption "$CAPTION" '[{type: "document", media: "attach://standard"}, {type: "document", media: "attach://custom", caption: $caption}]')"
           # --form-string: the notes may contain ';' or start with '@', which -F would interpret.
-          check "$(curl -sS "$API/sendMediaGroup" --form-string "chat_id=$CHANNEL" --form-string "media=$MEDIA" \
+          POSTED="$(curl -sS "$API/sendMediaGroup" --form-string "chat_id=$CHANNEL" --form-string "media=$MEDIA" \
             -F "standard=@ipa/AyuGram-standard-$BUILD.ipa" -F "custom=@ipa/AyuGram-custom-$BUILD.ipa")"
+          check "$POSTED"
+          CUSTOM_ID="$(jq -r '.result[1].message_id // empty' <<<"$POSTED")"
+          if [[ "$CUSTOM_ID" =~ ^[0-9]+$ ]]; then
+            FILE="$(gh api "repos/$GITHUB_REPOSITORY/contents/update.json?ref=standard")"
+            SHA="$(jq -r .sha <<<"$FILE")"
+            UPDATED="$(jq -r .content <<<"$FILE" | base64 -d | jq --arg post "https://t.me/ayugramiosupdates/$CUSTOM_ID" '.customPost = $post')"
+            gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/update.json" -f message="Initial commit" -f branch=standard -f sha="$SHA" -f content="$(printf '%s\n' "$UPDATED" | base64 -w0)" >/dev/null
+          fi
