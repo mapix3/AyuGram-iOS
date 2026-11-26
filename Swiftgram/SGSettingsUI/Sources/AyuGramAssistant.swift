@@ -214,7 +214,46 @@ func ayuGramAssistantClean(_ value: String) -> String {
     return String(value.unicodeScalars.filter({ !CharacterSet.whitespacesAndNewlines.contains($0) && $0 != "\"" && $0 != "'" && $0.value >= 0x21 && $0.value < 0x7f }))
 }
 
+var ayuGramLastServedModel = ""
+private let ayuGramServedModelKey = "ayugram.assistant.servedModel"
+private var ayuGramPendingModelChange: String?
+
+func ayuGramNoteServedModel(_ model: String) {
+    let value = model.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !value.isEmpty else {
+        return
+    }
+    let previous = UserDefaults.standard.string(forKey: ayuGramServedModelKey) ?? ""
+    UserDefaults.standard.set(value, forKey: ayuGramServedModelKey)
+    if !previous.isEmpty && previous != value {
+        ayuGramPendingModelChange = value
+    }
+}
+
+func ayuGramTakeModelChange() -> String? {
+    let value = ayuGramPendingModelChange
+    ayuGramPendingModelChange = nil
+    return value
+}
+
+private func ayuGramAssistantOverloaded(status: Int, message: String) -> Bool {
+    if [429, 502, 503, 504, 529].contains(status) {
+        return true
+    }
+    let lower = message.lowercased()
+    return ["quota", "overloaded", "high demand", "rate limit", "busy", "unavailable", "exhausted"].contains(where: { lower.contains($0) })
+}
+
 private func ayuGramAssistantFailure(data: Data?, response: URLResponse?, error: Error?, locale: String) -> String {
+    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+    let detail = ayuGramAssistantFailureDetail(data: data, response: response, error: error, locale: locale)
+    if error == nil && status != 0 && ayuGramAssistantOverloaded(status: status, message: detail) {
+        return i18n("Ayu.AIOverloaded", locale)
+    }
+    return detail
+}
+
+private func ayuGramAssistantFailureDetail(data: Data?, response: URLResponse?, error: Error?, locale: String) -> String {
     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
     if let data, let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]], let first = list.first, let details = first["error"] as? [String: Any], let message = details["message"] as? String {
         return status != 0 ? "\(message) (HTTP \(status))" : message
@@ -345,6 +384,10 @@ private func ayuGramAssistantPostCounted(config: AyuGramAssistantConfig, url: UR
         }
         if text != nil && config.provider.id == "gemini" {
             UserDefaults.standard.set(model, forKey: ayuGramGeminiWorkingKey)
+        }
+        if text != nil {
+            let served = (data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["model"] as? String) ?? model
+            ayuGramLastServedModel = served.isEmpty ? model : served
         }
         let failure = text == nil ? ayuGramAssistantFailure(data: data, response: response, error: error, locale: locale) : nil
         DispatchQueue.main.async {
@@ -481,9 +524,15 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
     ayuGramAssistantPostCounted(config: config, url: url, body: body, timeout: 90.0, locale: locale, models: ayuGramAssistantModels(config), completion: { text, failure, tokens in
         if text == nil, let fallback, let fallbackUrl = URL(string: fallback.provider.endpoint) {
             ayuGramAssistantPostCounted(config: fallback, url: fallbackUrl, body: body, timeout: 90.0, locale: locale, models: ayuGramAssistantModels(fallback), completion: { text, failure, tokens in
+                if text != nil {
+                    ayuGramNoteServedModel(ayuGramLastServedModel)
+                }
                 completion(text.map(ayuGramRemoveEmoji), failure, tokens)
             })
             return
+        }
+        if text != nil {
+            ayuGramNoteServedModel(ayuGramLastServedModel)
         }
         completion(text.map(ayuGramRemoveEmoji), failure, tokens)
     })
@@ -508,7 +557,71 @@ func ayuGramWantsImage(_ text: String) -> Bool {
     return words.contains(where: { lower.contains($0) })
 }
 
+private let ayuGramOwnImageModels = ["gemini-2.5-flash-image", "gemini-3-pro-image-preview", "gemini-2.0-flash-preview-image-generation"]
+
+private func ayuGramOwnKeyImage(key: String, prompt: String, imagePayload: String?, models: [String], completion: @escaping (UIImage?, String?, Int?, String?) -> Void) {
+    guard let model = models.first, let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent") else {
+        completion(nil, nil, nil, nil)
+        return
+    }
+    var parts: [[String: Any]] = [["text": prompt]]
+    if let imagePayload, let comma = imagePayload.firstIndex(of: ","), imagePayload.hasPrefix("data:") {
+        let mime = String(imagePayload[imagePayload.index(imagePayload.startIndex, offsetBy: 5) ..< (imagePayload.firstIndex(of: ";") ?? comma)])
+        parts.append(["inline_data": ["mime_type": mime, "data": String(imagePayload[imagePayload.index(after: comma)...])]])
+    }
+    let body: [String: Any] = ["contents": [["role": "user", "parts": parts]], "generationConfig": ["responseModalities": ["TEXT", "IMAGE"]]]
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.timeoutInterval = 120.0
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    URLSession.shared.dataTask(with: request, completionHandler: { data, _, _ in
+        var image: UIImage?
+        var text: String?
+        var tokens: Int?
+        if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let usage = object["usageMetadata"] as? [String: Any], let total = (usage["totalTokenCount"] as? NSNumber)?.intValue, total > 0 {
+                tokens = total
+            }
+            let answerParts = (((object["candidates"] as? [[String: Any]])?.first?["content"] as? [String: Any])?["parts"] as? [[String: Any]]) ?? []
+            for part in answerParts {
+                if let inline = (part["inlineData"] ?? part["inline_data"]) as? [String: Any], let raw = inline["data"] as? String, let decoded = Data(base64Encoded: raw) {
+                    image = UIImage(data: decoded)
+                } else if let value = part["text"] as? String, !value.isEmpty {
+                    text = (text ?? "") + value
+                }
+            }
+        }
+        if image == nil && models.count > 1 {
+            ayuGramOwnKeyImage(key: key, prompt: prompt, imagePayload: imagePayload, models: Array(models.dropFirst()), completion: completion)
+            return
+        }
+        completion(image, text, tokens, image == nil ? nil : model)
+    }).resume()
+}
+
 func ayuGramAssistantGenerateImage(prompt: String, imagePayload: String?, locale: String, completion: @escaping (UIImage?, String?, String?, Int?) -> Void) {
+    let config = AyuGramAssistantConfig.current
+    if config.provider.id == "gemini" && !config.key.isEmpty {
+        ayuGramOwnKeyImage(key: config.key, prompt: prompt, imagePayload: imagePayload, models: ayuGramOwnImageModels, completion: { image, text, tokens, model in
+            if let image {
+                if let model {
+                    ayuGramNoteServedModel(model)
+                }
+                DispatchQueue.main.async {
+                    completion(image, text.map(ayuGramRemoveEmoji), nil, tokens)
+                }
+                return
+            }
+            ayuGramAssistantGenerateImageRelay(prompt: prompt, imagePayload: imagePayload, locale: locale, completion: completion)
+        })
+        return
+    }
+    ayuGramAssistantGenerateImageRelay(prompt: prompt, imagePayload: imagePayload, locale: locale, completion: completion)
+}
+
+private func ayuGramAssistantGenerateImageRelay(prompt: String, imagePayload: String?, locale: String, completion: @escaping (UIImage?, String?, String?, Int?) -> Void) {
     guard let url = URL(string: AyuGramPushRelay.baseURL + "/ai/image") else {
         completion(nil, nil, i18n("Ayu.AIError", locale), nil)
         return
@@ -532,6 +645,9 @@ func ayuGramAssistantGenerateImage(prompt: String, imagePayload: String?, locale
             }
             if let address = object["image"] as? String, let comma = address.firstIndex(of: ","), let decoded = Data(base64Encoded: String(address[address.index(after: comma)...])) {
                 image = UIImage(data: decoded)
+            }
+            if image != nil, let model = object["model"] as? String {
+                ayuGramNoteServedModel(model)
             }
             if let value = object["text"] as? String, !value.isEmpty {
                 text = value
@@ -1072,6 +1188,11 @@ private final class AyuGramAssistantCell: UITableViewCell {
             if !message.failed && !message.text.isEmpty {
                 self.label.attributedText = ayuGramAssistantFormatted(message.text, color: theme.list.itemPrimaryTextColor)
             }
+            if message.failed && !message.text.isEmpty {
+                let failedText = NSMutableAttributedString(string: message.text, attributes: [.font: UIFont.systemFont(ofSize: 16.0), .foregroundColor: theme.list.itemDestructiveColor])
+                ayuGramAssistantMarkLinks(failedText)
+                self.label.attributedText = failedText
+            }
         }
     }
 }
@@ -1298,6 +1419,9 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     private let indicator = UIActivityIndicatorView(style: .medium)
     private let preview = UIImageView()
     private let removeButton = UIButton(type: .system)
+    private let modelPill = UIView()
+    private let modelPillLabel = UILabel()
+    private var modelPillTimer: Foundation.Timer?
     private let emptyView = UIView()
     private let emptyIcon = UIImageView()
     private let emptyGhost = AyuGramGhostView()
@@ -1406,6 +1530,16 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.inputBar.addSubview(self.sendButton)
         self.inputBar.addSubview(self.indicator)
         self.view.addSubview(self.inputBar)
+        self.modelPillLabel.font = UIFont.systemFont(ofSize: 13.0, weight: .medium)
+        self.modelPillLabel.numberOfLines = 2
+        self.modelPillLabel.textAlignment = .center
+        self.modelPill.addSubview(self.modelPillLabel)
+        self.modelPill.layer.cornerRadius = 16.0
+        self.modelPill.layer.cornerCurve = .continuous
+        self.modelPill.alpha = 0.0
+        self.modelPill.isHidden = true
+        self.modelPill.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.modelPillPressed)))
+        self.view.addSubview(self.modelPill)
         self.view.addSubview(self.drawer)
 
         self.drawer.selected = { [weak self] chat in
@@ -1579,6 +1713,11 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         self.barFade.frame = CGRect(x: 0.0, y: -24.0, width: size.width, height: 24.0 + row)
         self.glow.frame = CGRect(x: -size.width * 0.25, y: navigationHeight - 160.0, width: size.width * 1.5, height: 380.0)
         CATransaction.commit()
+        let pillWidth = min(size.width - side * 2.0 - 32.0, 360.0)
+        let labelSize = self.modelPillLabel.sizeThatFits(CGSize(width: pillWidth - 28.0, height: 40.0))
+        let pillSize = CGSize(width: min(pillWidth, ceil(labelSize.width) + 28.0), height: min(52.0, ceil(labelSize.height) + 16.0))
+        self.modelPill.frame = CGRect(x: floor((size.width - pillSize.width) / 2.0), y: barFrame.minY - pillSize.height - 8.0, width: pillSize.width, height: pillSize.height)
+        self.modelPillLabel.frame = self.modelPill.bounds.insetBy(dx: 14.0, dy: 8.0)
         let tableFrame = CGRect(x: 0.0, y: navigationHeight, width: size.width, height: max(0.0, barFrame.minY - navigationHeight))
         transition.updateFrame(view: self.tableView, frame: tableFrame)
         self.emptyView.frame = tableFrame
@@ -1776,6 +1915,9 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
             }
             self.setLoading(false)
             self.typingChat = nil
+            if reply != nil, let changed = ayuGramTakeModelChange() {
+                self.showModelPill(changed)
+            }
             if let reply {
                 self.append(AyuGramAssistantMessage(outgoing: false, text: reply, failed: false, meta: ayuGramAssistantMeta(started: started, tokens: tokens, locale: self.locale)), to: chat)
             } else {
@@ -1801,6 +1943,9 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
             self.typingChat = nil
             if let image {
                 self.append(AyuGramAssistantMessage(outgoing: false, text: caption ?? "", failed: false, image: image, meta: ayuGramAssistantMeta(started: started, tokens: tokens, locale: self.locale)), to: chat)
+                if let changed = ayuGramTakeModelChange() {
+                    self.showModelPill(changed)
+                }
             } else {
                 self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
             }
@@ -1830,6 +1975,45 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
             self.scrollToBottom(animated: true)
         })
         self.scrollToBottom(animated: true)
+    }
+
+    private func showModelPill(_ model: String) {
+        let theme = self.presentationData.theme
+        self.modelPill.backgroundColor = theme.list.itemBlocksBackgroundColor.withAlphaComponent(0.96)
+        self.modelPill.layer.borderWidth = 1.0
+        self.modelPill.layer.borderColor = theme.list.itemAccentColor.withAlphaComponent(0.35).cgColor
+        self.modelPillLabel.textColor = theme.list.itemPrimaryTextColor
+        self.modelPillLabel.text = i18n("Ayu.AIModelChanged", self.locale, model)
+        self.modelPill.isHidden = false
+        self.relayout()
+        self.modelPill.transform = CGAffineTransform(translationX: 0.0, y: 12.0)
+        UIView.animate(withDuration: 0.35, delay: 0.0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.0, options: [.allowUserInteraction], animations: {
+            self.modelPill.alpha = 1.0
+            self.modelPill.transform = .identity
+        })
+        self.modelPillTimer?.invalidate()
+        self.modelPillTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 8.0, repeats: false, block: { [weak self] _ in
+            self?.hideModelPill()
+        })
+    }
+
+    private func hideModelPill() {
+        self.modelPillTimer?.invalidate()
+        self.modelPillTimer = nil
+        UIView.animate(withDuration: 0.25, animations: {
+            self.modelPill.alpha = 0.0
+        }, completion: { _ in
+            if self.modelPill.alpha == 0.0 {
+                self.modelPill.isHidden = true
+            }
+        })
+    }
+
+    @objc private func modelPillPressed() {
+        self.hideModelPill()
+        if let url = URL(string: "ayugram://geminikey") {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
     }
 
     @objc private func ghostPetted() {
