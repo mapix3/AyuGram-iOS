@@ -447,6 +447,14 @@ private final class AyuProfileVideoExporter {
             return
         }
         compositionTrack.preferredTransform = track.preferredTransform
+        if let audioTrack = asset.tracks(withMediaType: .audio).first, let audioTarget = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+            let audioRange = CMTimeRange(start: audioTrack.timeRange.start, duration: CMTimeMinimum(audioTrack.timeRange.duration, range.duration))
+            do {
+                try audioTarget.insertTimeRange(audioRange, of: audioTrack, at: .zero)
+            } catch {
+                composition.removeTrack(audioTarget)
+            }
+        }
         let oriented = track.naturalSize.applying(track.preferredTransform)
         self.naturalSize = CGSize(width: abs(oriented.width), height: abs(oriented.height))
         self.transform = track.preferredTransform

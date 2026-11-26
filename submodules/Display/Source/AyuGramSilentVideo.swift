@@ -26,6 +26,7 @@ enum AyuGramSilentVideo {
 final class AyuGramSilentVideoRenderer {
     let layer = AVSampleBufferDisplayLayer()
     var firstFrameDisplayed: (() -> Void)?
+    var loopStarted: (() -> Void)?
 
     private let asset: AVURLAsset
     private let queue = DispatchQueue(label: "org.ayugram.silent-video", qos: .utility)
@@ -98,6 +99,9 @@ final class AyuGramSilentVideoRenderer {
         self.reader = reader
         self.output = output
         self.loopStartTime = CACurrentMediaTime()
+        if let loopStarted = self.loopStarted {
+            DispatchQueue.main.async(execute: loopStarted)
+        }
         return true
     }
 

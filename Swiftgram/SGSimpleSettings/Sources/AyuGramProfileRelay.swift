@@ -1093,6 +1093,18 @@ public final class AyuGramProfileRelay {
         }
     }
 
+    public func authorize(_ request: inout URLRequest, accountId: Int64) -> Bool {
+        guard accountId > 0 else {
+            return false
+        }
+        if let active = self.activeAccount, active != accountId {
+            return false
+        }
+        request.setValue(String(accountId), forHTTPHeaderField: "X-AyuGram-Id")
+        request.setValue(AyuGramBadgeSync.shared.secret, forHTTPHeaderField: "X-AyuGram-Secret")
+        return true
+    }
+
     private func authorizedRequest(path: String, method: String, accountId: Int64) -> URLRequest? {
         guard accountId > 0, let url = URL(string: AyuGramSecurity.relayURL + path) else {
             return nil

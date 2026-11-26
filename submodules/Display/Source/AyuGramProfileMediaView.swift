@@ -16,6 +16,34 @@ public final class AyuGramProfileMediaView: UIView {
     private var isVideo = false
     private var generation = 0
     private var observers: [NSObjectProtocol] = []
+    private var audioPlayer: AVPlayer?
+    private var audioPlaying = false
+
+    public private(set) var hasAudio = false {
+        didSet {
+            if self.hasAudio != oldValue {
+                self.audioAvailabilityChanged?(self.hasAudio)
+            }
+        }
+    }
+
+    public var audioAvailabilityChanged: ((Bool) -> Void)?
+
+    public var isMuted: Bool = true {
+        didSet {
+            if self.isMuted != oldValue {
+                if !self.isMuted {
+                    try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                    self.audioPlayer?.seek(to: self.currentLoopTime(), toleranceBefore: .zero, toleranceAfter: .zero)
+                }
+                self.updateAudio()
+            }
+        }
+    }
+
+    private var loopStart: CFTimeInterval = 0.0
+    private var playingVideo = false
 
     public var isActive: Bool = true {
         didSet {
@@ -89,6 +117,29 @@ public final class AyuGramProfileMediaView: UIView {
         }
         self.imageGenerator?.cancelAllCGImageGeneration()
         self.renderer?.stop()
+        self.audioPlayer?.pause()
+    }
+
+    private func currentLoopTime() -> CMTime {
+        guard self.loopStart > 0.0 else {
+            return .zero
+        }
+        return CMTime(seconds: max(0.0, CACurrentMediaTime() - self.loopStart), preferredTimescale: 600)
+    }
+
+    private func updateAudio() {
+        let shouldPlay = !self.isMuted && self.hasAudio && self.playingVideo && self.videoReady
+        guard let player = self.audioPlayer else {
+            return
+        }
+        if shouldPlay && !self.audioPlaying {
+            self.audioPlaying = true
+            player.seek(to: self.currentLoopTime(), toleranceBefore: .zero, toleranceAfter: .zero)
+            player.play()
+        } else if !shouldPlay && self.audioPlaying {
+            self.audioPlaying = false
+            player.pause()
+        }
     }
 
     public func setMedia(url: URL?, isVideo: Bool) {
@@ -103,6 +154,11 @@ public final class AyuGramProfileMediaView: UIView {
         self.renderer?.stop()
         self.renderer?.layer.removeFromSuperlayer()
         self.renderer = nil
+        self.audioPlayer?.pause()
+        self.audioPlayer = nil
+        self.audioPlaying = false
+        self.loopStart = 0.0
+        self.hasAudio = false
         self.videoReady = false
         self.videoTransform = .identity
         self.imageView.image = nil
@@ -132,6 +188,7 @@ public final class AyuGramProfileMediaView: UIView {
                 guard let track = asset.tracks(withMediaType: .video).first else {
                     return
                 }
+                let audible = !asset.tracks(withMediaType: .audio).isEmpty
                 let transform = track.preferredTransform
                 DispatchQueue.main.async {
                     guard let self, self.generation == generation else {
@@ -146,6 +203,27 @@ public final class AyuGramProfileMediaView: UIView {
                         self.videoReady = true
                         self.updatePlayback()
                     }
+                    renderer.loopStarted = { [weak self, weak renderer] in
+                        guard let self, let renderer, self.renderer === renderer else {
+                            return
+                        }
+                        self.loopStart = CACurrentMediaTime()
+                        if self.audioPlaying {
+                            self.audioPlayer?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+                            self.audioPlayer?.play()
+                        }
+                    }
+                    if audible, let audioTrack = asset.tracks(withMediaType: .audio).first {
+                        let audioOnly = AVMutableComposition()
+                        if let target = audioOnly.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+                            try? target.insertTimeRange(audioTrack.timeRange, of: audioTrack, at: .zero)
+                        }
+                        let player = AVPlayer(playerItem: AVPlayerItem(asset: audioOnly))
+                        player.actionAtItemEnd = .pause
+                        player.preventsDisplaySleepDuringVideoPlayback = false
+                        self.audioPlayer = player
+                    }
+                    self.hasAudio = audible
                     self.videoTransform = transform
                     self.layer.insertSublayer(renderer.layer, at: 0)
                     self.renderer = renderer
@@ -206,6 +284,8 @@ public final class AyuGramProfileMediaView: UIView {
             CATransaction.commit()
         }
         self.imageView.isHidden = playing && self.videoReady
+        self.playingVideo = playing
+        self.updateAudio()
     }
 
     public override func didMoveToWindow() {
