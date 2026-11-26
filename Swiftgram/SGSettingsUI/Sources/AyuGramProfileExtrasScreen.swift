@@ -392,6 +392,15 @@ private final class AyuProfileVideoExporter {
     private var timer: Foundation.Timer?
     private var finished = false
     private var keepAlive: AyuProfileVideoExporter?
+    private var reader: AVAssetReader?
+    private var writer: AVAssetWriter?
+    private let queue = DispatchQueue(label: "org.ayugram.profile-video-export", qos: .userInitiated)
+    private var naturalSize = CGSize()
+    private var transform = CGAffineTransform.identity
+    private var frameRate: Int32 = 30
+    private var duration = CMTime.zero
+    private var hasAudio = false
+    private var passthroughShare: Double = 0.0
 
     init(source: URL, maxSeconds: Double, maxBytes: Int, progress: @escaping (Double) -> Void, completion: @escaping (AyuPreparedProfileMedia?) -> Void) {
         self.source = source
@@ -419,8 +428,14 @@ private final class AyuProfileVideoExporter {
         self.timer?.invalidate()
         self.timer = nil
         self.session = nil
+        self.reader = nil
+        self.writer = nil
         self.completion(result)
         self.keepAlive = nil
+    }
+
+    private func fileSize(_ url: URL) -> Int {
+        return ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.intValue ?? 0
     }
 
     private func build(asset: AVURLAsset) {
@@ -451,6 +466,7 @@ private final class AyuProfileVideoExporter {
             let audioRange = CMTimeRange(start: audioTrack.timeRange.start, duration: CMTimeMinimum(audioTrack.timeRange.duration, range.duration))
             do {
                 try audioTarget.insertTimeRange(audioRange, of: audioTrack, at: .zero)
+                self.hasAudio = true
             } catch {
                 composition.removeTrack(audioTarget)
             }
@@ -461,84 +477,230 @@ private final class AyuProfileVideoExporter {
         let rate = track.nominalFrameRate
         self.frameRate = Int32(max(24.0, min(120.0, rate > 0 ? Double(rate).rounded() : 30.0)))
         self.duration = range.duration
-        let sourceSize = ((try? FileManager.default.attributesOfItem(atPath: self.source.path))?[.size] as? NSNumber)?.intValue ?? Int.max
-        var presets = [AVAssetExportPresetHEVCHighestQuality, AVAssetExportPresetHEVCHighestQuality, AVAssetExportPresetHEVC1920x1080, AVAssetExportPreset1280x720, AVAssetExportPreset960x540]
-        if sourceSize <= self.maxBytes && max(self.naturalSize.width, self.naturalSize.height) <= 2560.5 {
-            presets.insert(AVAssetExportPresetPassthrough, at: 0)
+        let sourceSize = self.fileSize(self.source)
+        if sourceSize > 0 && sourceSize <= self.maxBytes && max(self.naturalSize.width, self.naturalSize.height) <= 2560.5 {
+            self.passthrough(composition: composition)
+        } else {
+            self.encode(composition: composition, factor: 1.0)
         }
-        self.passthrough = presets.first == AVAssetExportPresetPassthrough
-        self.export(composition: composition, presets: presets, index: 0)
     }
 
-    private var naturalSize = CGSize()
-    private var transform = CGAffineTransform.identity
-    private var frameRate: Int32 = 30
-    private var duration = CMTime.zero
-    private var passthrough = false
-
-    private func videoComposition(composition: AVMutableComposition, index rawIndex: Int) -> AVMutableVideoComposition? {
-        if self.passthrough && rawIndex == 0 {
-            return nil
-        }
-        let index = self.passthrough ? rawIndex - 1 : rawIndex
-        let sides: [CGFloat] = [2560.0, 1920.0, 1920.0, 1280.0, 960.0]
-        let rates: [Int32] = [self.frameRate, min(self.frameRate, 60), min(self.frameRate, 60), min(self.frameRate, 30), min(self.frameRate, 30)]
-        guard index >= 0, index < sides.count, let track = composition.tracks(withMediaType: .video).first, self.naturalSize.width > 0, self.naturalSize.height > 0 else {
-            return nil
-        }
-        let scale = min(1.0, sides[index] / max(self.naturalSize.width, self.naturalSize.height))
-        let render = CGSize(width: max(2.0, floor(self.naturalSize.width * scale / 2.0) * 2.0), height: max(2.0, floor(self.naturalSize.height * scale / 2.0) * 2.0))
-        let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = CMTimeRange(start: .zero, duration: self.duration)
-        let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
-        layer.setTransform(self.transform.concatenating(CGAffineTransform(scaleX: scale, y: scale)), at: .zero)
-        instruction.layerInstructions = [layer]
-        let video = AVMutableVideoComposition()
-        video.renderSize = render
-        video.frameDuration = CMTime(value: 1, timescale: rates[index])
-        video.instructions = [instruction]
-        return video
-    }
-
-    private func export(composition: AVMutableComposition, presets: [String], index: Int) {
-        guard index < presets.count, let session = AVAssetExportSession(asset: composition, presetName: presets[index]) else {
-            self.finish(nil)
+    private func passthrough(composition: AVMutableComposition) {
+        guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
+            self.encode(composition: composition, factor: 1.0)
             return
-        }
-        if let video = self.videoComposition(composition: composition, index: index) {
-            session.videoComposition = video
         }
         let target = AyuGramProfileRelay.makePreviewURL(fileExtension: "mp4")
         session.outputURL = target
         session.outputFileType = .mp4
         session.shouldOptimizeForNetworkUse = true
         self.session = session
+        self.passthroughShare = 0.15
         self.timer?.invalidate()
-        let base = Double(index) / Double(presets.count)
-        let span = 1.0 / Double(presets.count)
         self.timer = Foundation.Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true, block: { [weak self, weak session] _ in
             guard let self, let session else {
                 return
             }
-            self.progress(base + span * Double(session.progress))
+            self.progress(0.15 * Double(session.progress))
         })
         session.exportAsynchronously(completionHandler: { [weak self] in
             DispatchQueue.main.async {
                 guard let self else {
                     return
                 }
-                let size = ((try? FileManager.default.attributesOfItem(atPath: target.path))?[.size] as? NSNumber)?.intValue ?? 0
+                self.timer?.invalidate()
+                self.timer = nil
+                self.session = nil
+                let size = self.fileSize(target)
                 if session.status == .completed && size > 0 && size <= self.maxBytes {
+                    self.progress(1.0)
                     self.finish(AyuPreparedProfileMedia(url: target, mime: "video/mp4", width: 0, height: 0, isVideo: true))
                 } else {
                     try? FileManager.default.removeItem(at: target)
-                    if session.status == .completed || (self.passthrough && index == 0) {
-                        self.export(composition: composition, presets: presets, index: index + 1)
-                    } else {
-                        self.finish(nil)
-                    }
+                    self.encode(composition: composition, factor: 1.0)
                 }
             }
+        })
+    }
+
+    private func plan(factor: Double) -> (scale: CGFloat, fps: Int32, bitrate: Int) {
+        let seconds = max(1.0, CMTimeGetSeconds(self.duration))
+        let audioBitrate = self.hasAudio ? 96000 : 0
+        let budget = Double(self.maxBytes) * 8.0 * 0.9 * factor / seconds
+        let bitrate = min(40000000, max(120000, Int(budget) - audioBitrate))
+        let longest = max(1.0, max(self.naturalSize.width, self.naturalSize.height))
+        var rates: [Int32] = []
+        for value in [self.frameRate, min(self.frameRate, 60), min(self.frameRate, 30)] where !rates.contains(value) {
+            rates.append(value)
+        }
+        for side in [2560.0, 1920.0, 1280.0, 960.0, 720.0] as [CGFloat] {
+            let scale = min(1.0, side / longest)
+            let pixels = Double(self.naturalSize.width * scale) * Double(self.naturalSize.height * scale)
+            for fps in rates {
+                if Double(bitrate) / (pixels * Double(fps)) >= 0.045 {
+                    return (scale, fps, bitrate)
+                }
+            }
+        }
+        return (min(1.0, 540.0 / longest), min(self.frameRate, 30), bitrate)
+    }
+
+    private func encode(composition: AVMutableComposition, factor: Double) {
+        guard let videoTrack = composition.tracks(withMediaType: .video).first else {
+            self.finish(nil)
+            return
+        }
+        let plan = self.plan(factor: factor)
+        let render = CGSize(width: max(2.0, floor(self.naturalSize.width * plan.scale / 2.0) * 2.0), height: max(2.0, floor(self.naturalSize.height * plan.scale / 2.0) * 2.0))
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: self.duration)
+        let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
+        layer.setTransform(self.transform.concatenating(CGAffineTransform(scaleX: plan.scale, y: plan.scale)), at: .zero)
+        instruction.layerInstructions = [layer]
+        let videoComposition = AVMutableVideoComposition()
+        videoComposition.renderSize = render
+        videoComposition.frameDuration = CMTime(value: 1, timescale: plan.fps)
+        videoComposition.instructions = [instruction]
+        let target = AyuGramProfileRelay.makePreviewURL(fileExtension: "mp4")
+        guard let reader = try? AVAssetReader(asset: composition), let writer = try? AVAssetWriter(outputURL: target, fileType: .mp4) else {
+            self.finish(nil)
+            return
+        }
+        writer.shouldOptimizeForNetworkUse = true
+        let videoOutput = AVAssetReaderVideoCompositionOutput(videoTracks: [videoTrack], videoSettings: [kCVPixelBufferPixelFormatTypeKey as String: NSNumber(value: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)])
+        videoOutput.videoComposition = videoComposition
+        videoOutput.alwaysCopiesSampleData = false
+        guard reader.canAdd(videoOutput) else {
+            self.finish(nil)
+            return
+        }
+        reader.add(videoOutput)
+        let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.hevc,
+            AVVideoWidthKey: Int(render.width),
+            AVVideoHeightKey: Int(render.height),
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: plan.bitrate,
+                AVVideoExpectedSourceFrameRateKey: Int(plan.fps),
+                AVVideoMaxKeyFrameIntervalKey: Int(plan.fps) * 2
+            ]
+        ])
+        videoInput.expectsMediaDataInRealTime = false
+        guard writer.canAdd(videoInput) else {
+            self.finish(nil)
+            return
+        }
+        writer.add(videoInput)
+        var audioPair: (AVAssetReaderOutput, AVAssetWriterInput)?
+        let audioTracks = composition.tracks(withMediaType: .audio)
+        if !audioTracks.isEmpty {
+            let audioOutput = AVAssetReaderAudioMixOutput(audioTracks: audioTracks, audioSettings: [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: 44100,
+                AVNumberOfChannelsKey: 2,
+                AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false,
+                AVLinearPCMIsNonInterleaved: false
+            ])
+            let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 44100,
+                AVNumberOfChannelsKey: 2,
+                AVEncoderBitRateKey: 96000
+            ])
+            audioInput.expectsMediaDataInRealTime = false
+            if reader.canAdd(audioOutput) && writer.canAdd(audioInput) {
+                reader.add(audioOutput)
+                writer.add(audioInput)
+                audioPair = (audioOutput, audioInput)
+            }
+        }
+        guard reader.startReading(), writer.startWriting() else {
+            self.finish(nil)
+            return
+        }
+        writer.startSession(atSourceTime: .zero)
+        self.reader = reader
+        self.writer = writer
+        let total = max(0.1, CMTimeGetSeconds(self.duration))
+        let base = self.passthroughShare
+        let group = DispatchGroup()
+        var lastReport = 0.0
+        group.enter()
+        videoInput.requestMediaDataWhenReady(on: self.queue, using: {
+            while videoInput.isReadyForMoreMediaData {
+                guard let buffer = videoOutput.copyNextSampleBuffer() else {
+                    videoInput.markAsFinished()
+                    group.leave()
+                    return
+                }
+                let seconds = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(buffer))
+                if seconds.isFinite && seconds - lastReport > 0.25 {
+                    lastReport = seconds
+                    let value = base + (1.0 - base) * min(0.99, seconds / total)
+                    DispatchQueue.main.async { [weak self] in
+                        self?.progress(value)
+                    }
+                }
+                if !videoInput.append(buffer) {
+                    reader.cancelReading()
+                    videoInput.markAsFinished()
+                    group.leave()
+                    return
+                }
+            }
+        })
+        if let pair = audioPair {
+            let audioOutput = pair.0
+            let audioInput = pair.1
+            group.enter()
+            audioInput.requestMediaDataWhenReady(on: self.queue, using: {
+                while audioInput.isReadyForMoreMediaData {
+                    guard let buffer = audioOutput.copyNextSampleBuffer() else {
+                        audioInput.markAsFinished()
+                        group.leave()
+                        return
+                    }
+                    if !audioInput.append(buffer) {
+                        audioInput.markAsFinished()
+                        group.leave()
+                        return
+                    }
+                }
+            })
+        }
+        group.notify(queue: self.queue, execute: {
+            let readerFailed = reader.status == .failed || reader.status == .cancelled
+            if readerFailed || writer.status == .failed {
+                writer.cancelWriting()
+                DispatchQueue.main.async { [weak self] in
+                    try? FileManager.default.removeItem(at: target)
+                    self?.finish(nil)
+                }
+                return
+            }
+            writer.finishWriting(completionHandler: {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else {
+                        return
+                    }
+                    self.reader = nil
+                    self.writer = nil
+                    let size = self.fileSize(target)
+                    if writer.status == .completed && size > 0 && size <= self.maxBytes {
+                        self.progress(1.0)
+                        self.finish(AyuPreparedProfileMedia(url: target, mime: "video/mp4", width: Int(render.width), height: Int(render.height), isVideo: true))
+                    } else {
+                        try? FileManager.default.removeItem(at: target)
+                        if writer.status == .completed && factor > 0.45 {
+                            self.encode(composition: composition, factor: factor * 0.72)
+                        } else {
+                            self.finish(nil)
+                        }
+                    }
+                }
+            })
         })
     }
 }
