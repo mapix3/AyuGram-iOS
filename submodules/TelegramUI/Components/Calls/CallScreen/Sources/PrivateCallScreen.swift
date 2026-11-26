@@ -259,6 +259,14 @@ public final class PrivateCallScreen: OverlayMaskContainerView, AVPictureInPictu
     public var videoAction: (() -> Void)?
     public var microhoneMuteAction: (() -> Void)?
     public var endCallAction: (() -> Void)?
+    public var recordAction: (() -> Void)?
+    public var isRecording: Bool = false {
+        didSet {
+            if self.isRecording != oldValue {
+                self.update(transition: .easeInOut(duration: 0.2))
+            }
+        }
+    }
     public var backAction: (() -> Void)?
     public var closeAction: (() -> Void)?
     public var restoreUIForPictureInPicture: ((@escaping (Bool) -> Void) -> Void)?
@@ -855,6 +863,12 @@ public final class PrivateCallScreen: OverlayMaskContainerView, AVPictureInPictu
                     return
                 }
                 self.microhoneMuteAction?()
+            }),
+            ButtonGroupView.Button(content: .record(isActive: self.isRecording), isEnabled: !isTerminated || self.isRecording, action: { [weak self] in
+                guard let self else {
+                    return
+                }
+                self.recordAction?()
             }),
             ButtonGroupView.Button(content: .end, isEnabled: !isTerminated, action: { [weak self] in
                 guard let self else {

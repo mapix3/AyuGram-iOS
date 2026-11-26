@@ -1913,3 +1913,19 @@ private final class CallSignalingConnectionManager {
         }
     }
 }
+
+public enum AyuCallRecording {
+    public static var isRecording: Bool {
+        return AyuCallRecorder.isRecording()
+    }
+
+    public static func start(beep: Bool) {
+        AyuCallRecorder.start(withBeep: beep)
+    }
+
+    public static func stop(completion: @escaping (URL?, Double) -> Void) {
+        AyuCallRecorder.stop(completion: { url, duration in
+            completion(url, duration)
+        })
+    }
+}

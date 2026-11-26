@@ -144,6 +144,92 @@ public:
 
 }
 
+#import <AVFoundation/AVFoundation.h>
+#include <mutex>
+#include <cmath>
+
+namespace {
+
+struct AyuCallRecorderState {
+    std::mutex mutex;
+    bool active = false;
+    FILE *micFile = nullptr;
+    FILE *remoteFile = nullptr;
+    std::string micPath;
+    std::string remotePath;
+    uint32_t micRate = 48000;
+    uint32_t remoteRate = 48000;
+    int beepRemaining = 0;
+    double beepPhase = 0.0;
+    std::vector<int16_t> scratch;
+    std::vector<int16_t> beepBuffer;
+};
+
+AyuCallRecorderState &ayuCallRecorder() {
+    static AyuCallRecorderState state;
+    return state;
+}
+
+void ayuCallRecorderWrite(FILE *file, const void *samples, size_t frames, size_t bytesPerSample, size_t channels, std::vector<int16_t> &scratch) {
+    if (!file || !samples || frames == 0 || channels == 0) {
+        return;
+    }
+    const int16_t *input = (const int16_t *)samples;
+    size_t stride = bytesPerSample / sizeof(int16_t);
+    if (stride < channels) {
+        stride = channels;
+    }
+    scratch.resize(frames);
+    for (size_t i = 0; i < frames; i++) {
+        int32_t sum = 0;
+        for (size_t c = 0; c < channels; c++) {
+            sum += input[i * stride + c];
+        }
+        scratch[i] = (int16_t)(sum / (int32_t)channels);
+    }
+    fwrite(scratch.data(), sizeof(int16_t), frames, file);
+}
+
+const void *ayuCallRecorderCapture(const void *samples, size_t frames, size_t bytesPerSample, size_t channels, uint32_t rate) {
+    AyuCallRecorderState &state = ayuCallRecorder();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    if (!state.active) {
+        return samples;
+    }
+    const void *result = samples;
+    if (state.beepRemaining > 0 && samples && frames > 0 && channels > 0) {
+        size_t total = frames * (bytesPerSample / sizeof(int16_t));
+        state.beepBuffer.assign((const int16_t *)samples, (const int16_t *)samples + total);
+        size_t stride = bytesPerSample / sizeof(int16_t);
+        double step = 2.0 * M_PI * 1000.0 / (double)(rate == 0 ? 48000 : rate);
+        for (size_t i = 0; i < frames && state.beepRemaining > 0; i++) {
+            int16_t tone = (int16_t)(std::sin(state.beepPhase) * 9000.0);
+            state.beepPhase += step;
+            for (size_t c = 0; c < channels; c++) {
+                int32_t mixed = (int32_t)state.beepBuffer[i * stride + c] + tone;
+                state.beepBuffer[i * stride + c] = (int16_t)std::clamp(mixed, (int32_t)INT16_MIN, (int32_t)INT16_MAX);
+            }
+            state.beepRemaining -= 1;
+        }
+        result = state.beepBuffer.data();
+    }
+    state.micRate = rate;
+    ayuCallRecorderWrite(state.micFile, result, frames, bytesPerSample, channels, state.scratch);
+    return result;
+}
+
+void ayuCallRecorderPlayout(const void *samples, size_t frames, size_t bytesPerSample, size_t channels, uint32_t rate) {
+    AyuCallRecorderState &state = ayuCallRecorder();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    if (!state.active) {
+        return;
+    }
+    state.remoteRate = rate;
+    ayuCallRecorderWrite(state.remoteFile, samples, frames, bytesPerSample, channels, state.scratch);
+}
+
+}
+
 class WrappedAudioDeviceModuleIOS : public tgcalls::DefaultWrappedAudioDeviceModule, public webrtc::AudioTransport {
 public:
     WrappedAudioDeviceModuleIOS(webrtc::scoped_refptr<webrtc::AudioDeviceModule> impl) :
@@ -494,6 +580,7 @@ public:
         bool keyPressed,
         uint32_t& newMicLevel
     ) override {
+        audioSamples = ayuCallRecorderCapture(audioSamples, nSamples, nBytesPerSample, nChannels, samplesPerSec);
         _mutex.Lock();
         if (!_audioTransports.empty()) {
             for (size_t i = 0; i < _audioTransports.size(); i++) {
@@ -528,6 +615,7 @@ public:
         uint32_t& newMicLevel,
         absl::optional<int64_t> estimatedCaptureTimeNS
     ) override {
+        audioSamples = ayuCallRecorderCapture(audioSamples, nSamples, nBytesPerSample, nChannels, samplesPerSec);
         _mutex.Lock();
         if (!_audioTransports.empty()) {
             for (size_t i = 0; i < _audioTransports.size(); i++) {
@@ -626,6 +714,8 @@ public:
         }
         
         _mutex.Unlock();
+        
+        ayuCallRecorderPlayout(audioSamples, nSamplesOut, nBytesPerSample, nChannels, samplesPerSec);
         
         return result;
     }
@@ -914,6 +1004,134 @@ private:
 };
 
 static std::atomic<bool> sharedCallAudioDeviceLegacyBehavior{false};
+
+@implementation AyuCallRecorder
+
++ (bool)isRecording {
+    AyuCallRecorderState &state = ayuCallRecorder();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    return state.active;
+}
+
++ (void)startWithBeep:(bool)beep {
+    AyuCallRecorderState &state = ayuCallRecorder();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    if (state.active) {
+        return;
+    }
+    NSString *directory = NSTemporaryDirectory();
+    NSString *token = [[NSUUID UUID] UUIDString];
+    state.micPath = [[directory stringByAppendingPathComponent:[NSString stringWithFormat:@"ayu-call-mic-%@.pcm", token]] UTF8String];
+    state.remotePath = [[directory stringByAppendingPathComponent:[NSString stringWithFormat:@"ayu-call-remote-%@.pcm", token]] UTF8String];
+    state.micFile = fopen(state.micPath.c_str(), "wb");
+    state.remoteFile = fopen(state.remotePath.c_str(), "wb");
+    if (!state.micFile || !state.remoteFile) {
+        if (state.micFile) {
+            fclose(state.micFile);
+            state.micFile = nullptr;
+        }
+        if (state.remoteFile) {
+            fclose(state.remoteFile);
+            state.remoteFile = nullptr;
+        }
+        return;
+    }
+    state.beepRemaining = beep ? 48000 * 4 / 10 : 0;
+    state.beepPhase = 0.0;
+    state.active = true;
+}
+
++ (void)stopWithCompletion:(void (^ _Nonnull)(NSURL * _Nullable url, double duration))completion {
+    std::string micPath;
+    std::string remotePath;
+    uint32_t micRate = 48000;
+    uint32_t remoteRate = 48000;
+    {
+        AyuCallRecorderState &state = ayuCallRecorder();
+        std::lock_guard<std::mutex> lock(state.mutex);
+        if (!state.active) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(nil, 0.0);
+            });
+            return;
+        }
+        state.active = false;
+        if (state.micFile) {
+            fclose(state.micFile);
+            state.micFile = nullptr;
+        }
+        if (state.remoteFile) {
+            fclose(state.remoteFile);
+            state.remoteFile = nullptr;
+        }
+        micPath = state.micPath;
+        remotePath = state.remotePath;
+        micRate = state.micRate == 0 ? 48000 : state.micRate;
+        remoteRate = state.remoteRate == 0 ? 48000 : state.remoteRate;
+    }
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSData *mic = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:micPath.c_str()]];
+        NSData *remote = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:remotePath.c_str()]];
+        [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithUTF8String:micPath.c_str()] error:nil];
+        [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithUTF8String:remotePath.c_str()] error:nil];
+        const int16_t *micSamples = (const int16_t *)mic.bytes;
+        const int16_t *remoteSamples = (const int16_t *)remote.bytes;
+        size_t micCount = mic.length / sizeof(int16_t);
+        size_t remoteCount = remote.length / sizeof(int16_t);
+        double micSeconds = (double)micCount / (double)micRate;
+        double remoteSeconds = (double)remoteCount / (double)remoteRate;
+        double seconds = MAX(micSeconds, remoteSeconds);
+        uint32_t outRate = 48000;
+        size_t outCount = (size_t)(seconds * outRate);
+        if (outCount == 0) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(nil, 0.0);
+            });
+            return;
+        }
+        AVAudioFormat *format = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatFloat32 sampleRate:outRate channels:1 interleaved:NO];
+        NSString *name = [NSString stringWithFormat:@"AyuGram call %@.m4a", [[[NSUUID UUID] UUIDString] substringToIndex:8]];
+        NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:name]];
+        NSDictionary *settings = @{AVFormatIDKey: @(kAudioFormatMPEG4AAC), AVSampleRateKey: @(outRate), AVNumberOfChannelsKey: @1, AVEncoderBitRateKey: @64000};
+        NSError *error = nil;
+        AVAudioFile *file = [[AVAudioFile alloc] initForWriting:url settings:settings commonFormat:AVAudioPCMFormatFloat32 interleaved:NO error:&error];
+        if (!file) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(nil, 0.0);
+            });
+            return;
+        }
+        const AVAudioFrameCount chunk = 48000;
+        AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:chunk];
+        size_t position = 0;
+        bool failed = false;
+        while (position < outCount) {
+            AVAudioFrameCount frames = (AVAudioFrameCount)MIN((size_t)chunk, outCount - position);
+            float *out = buffer.floatChannelData[0];
+            for (AVAudioFrameCount i = 0; i < frames; i++) {
+                double t = (double)(position + i) / (double)outRate;
+                size_t mi = (size_t)(t * micRate);
+                size_t ri = (size_t)(t * remoteRate);
+                float a = mi < micCount ? (float)micSamples[mi] / 32768.0f : 0.0f;
+                float b = ri < remoteCount ? (float)remoteSamples[ri] / 32768.0f : 0.0f;
+                float mixed = a * 0.85f + b;
+                out[i] = mixed > 1.0f ? 1.0f : (mixed < -1.0f ? -1.0f : mixed);
+            }
+            buffer.frameLength = frames;
+            if (![file writeFromBuffer:buffer error:&error]) {
+                failed = true;
+                break;
+            }
+            position += frames;
+        }
+        file = nil;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(failed ? nil : url, seconds);
+        });
+    });
+}
+
+@end
 
 @implementation SharedCallAudioDevice {
     std::shared_ptr<tgcalls::ThreadLocalObject<tgcalls::SharedAudioDeviceModule>> _audioDeviceModule;
