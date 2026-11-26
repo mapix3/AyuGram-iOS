@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import AsyncDisplayKit
 import Display
 import SwiftSignalKit
 import Postbox
@@ -8,197 +9,229 @@ import AccountContext
 import TelegramPresentationData
 import SGStrings
 
-private final class AyuGramFloatingWindow: UIWindow {
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let result = super.hitTest(point, with: event)
-        if result === self || result === self.rootViewController?.view {
-            return nil
+private func ayuFloatingContainsFirstResponder(_ view: UIView) -> Bool {
+    if view.isFirstResponder {
+        return true
+    }
+    for subview in view.subviews {
+        if ayuFloatingContainsFirstResponder(subview) {
+            return true
         }
-        return result
+    }
+    return false
+}
+
+private final class AyuGramFloatingHostNode: ASDisplayNode {
+    var panels: [AyuGramFloatingPanel] = []
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        for panel in self.panels.reversed() where !panel.isHidden && panel.alpha > 0.01 {
+            if let result = panel.hitTest(self.view.convert(point, to: panel), with: event) {
+                return result
+            }
+        }
+        return nil
     }
 }
 
-private final class AyuGramFloatingRoot: UIViewController {
-    override func loadView() {
-        let view = UIView()
-        view.backgroundColor = .clear
-        self.view = view
+private final class AyuGramFloatingHostController: ViewController {
+    private var hostNode: AyuGramFloatingHostNode {
+        return self.displayNode as! AyuGramFloatingHostNode
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .default
-    }
-}
+    private(set) var validLayout: ContainerViewLayout?
+    private var pendingPanels: [AyuGramFloatingPanel] = []
 
-private struct AyuGramFloatingMessage {
-    let id: EngineMessage.Id
-    let outgoing: Bool
-    let author: String
-    let text: String
-}
-
-private final class AyuGramFloatingCell: UITableViewCell {
-    private let bubble = UIView()
-    private let name = UILabel()
-    private let label = UILabel()
-    private var outgoing = false
-
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-
-        self.backgroundColor = .clear
-        self.selectionStyle = .none
-        self.bubble.layer.cornerRadius = 14.0
-        self.bubble.layer.cornerCurve = .continuous
-        self.name.font = UIFont.systemFont(ofSize: 11.0, weight: .semibold)
-        self.label.font = UIFont.systemFont(ofSize: 14.0)
-        self.label.numberOfLines = 0
-        self.contentView.addSubview(self.bubble)
-        self.bubble.addSubview(self.name)
-        self.bubble.addSubview(self.label)
+    var panels: [AyuGramFloatingPanel] {
+        return self.isNodeLoaded ? self.hostNode.panels : self.pendingPanels
     }
 
-    required init?(coder: NSCoder) {
+    init() {
+        super.init(navigationBarPresentationData: nil)
+        self.statusBar.statusBarStyle = .Ignore
+    }
+
+    required init(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    static func height(message: AyuGramFloatingMessage, width: CGFloat, showName: Bool) -> CGFloat {
-        let maxWidth = floor(width * 0.8) - 20.0
-        let text = (message.text as NSString).boundingRect(with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin], attributes: [.font: UIFont.systemFont(ofSize: 14.0)], context: nil)
-        return ceil(text.height) + 14.0 + (showName ? 15.0 : 0.0) + 4.0
+    override func loadDisplayNode() {
+        let node = AyuGramFloatingHostNode()
+        self.displayNode = node
+        self.displayNodeDidLoad()
+        for panel in self.pendingPanels {
+            self.attach(panel)
+        }
+        self.pendingPanels = []
     }
 
-    func update(message: AyuGramFloatingMessage, showName: Bool, theme: PresentationTheme) {
-        self.outgoing = message.outgoing
-        self.label.text = message.text
-        self.name.text = showName ? message.author : nil
-        self.name.isHidden = !showName
-        if message.outgoing {
-            self.bubble.backgroundColor = theme.list.itemCheckColors.fillColor
-            self.label.textColor = theme.list.itemCheckColors.foregroundColor
+    private func attach(_ panel: AyuGramFloatingPanel) {
+        self.hostNode.panels.append(panel)
+        self.hostNode.view.addSubview(panel)
+        self.addChild(panel.navigation)
+        panel.navigation.didMove(toParent: self)
+        if let layout = self.validLayout {
+            panel.hostLayoutUpdated(layout, transition: .immediate)
+        }
+    }
+
+    func add(_ panel: AyuGramFloatingPanel) {
+        if self.isNodeLoaded {
+            self.attach(panel)
         } else {
-            self.bubble.backgroundColor = theme.list.itemPrimaryTextColor.withAlphaComponent(theme.overallDarkAppearance ? 0.12 : 0.07)
-            self.label.textColor = theme.list.itemPrimaryTextColor
+            self.pendingPanels.append(panel)
         }
-        self.name.textColor = theme.list.itemAccentColor
-        self.setNeedsLayout()
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-
-        let width = self.contentView.bounds.width
-        let maxWidth = floor(width * 0.8) - 20.0
-        let textSize = self.label.sizeThatFits(CGSize(width: maxWidth, height: .greatestFiniteMagnitude))
-        var nameHeight: CGFloat = 0.0
-        var bubbleWidth = ceil(textSize.width) + 20.0
-        if !self.name.isHidden {
-            nameHeight = 15.0
-            bubbleWidth = max(bubbleWidth, min(maxWidth + 20.0, ceil(self.name.sizeThatFits(CGSize(width: maxWidth, height: 15.0)).width) + 20.0))
+    func remove(_ panel: AyuGramFloatingPanel) {
+        panel.navigation.willMove(toParent: nil)
+        panel.removeFromSuperview()
+        panel.navigation.removeFromParent()
+        if self.isNodeLoaded {
+            self.hostNode.panels.removeAll(where: { $0 === panel })
         }
-        let bubbleHeight = ceil(textSize.height) + 14.0 + nameHeight
-        let x = self.outgoing ? width - 8.0 - bubbleWidth : 8.0
-        self.bubble.frame = CGRect(x: x, y: 2.0, width: bubbleWidth, height: bubbleHeight)
-        self.name.frame = CGRect(x: 10.0, y: 6.0, width: bubbleWidth - 20.0, height: 14.0)
-        self.label.frame = CGRect(x: 10.0, y: 7.0 + nameHeight, width: bubbleWidth - 20.0, height: ceil(textSize.height))
+        self.pendingPanels.removeAll(where: { $0 === panel })
+    }
+
+    func bringToFront(_ panel: AyuGramFloatingPanel) {
+        guard self.isNodeLoaded, let index = self.hostNode.panels.firstIndex(where: { $0 === panel }) else {
+            return
+        }
+        self.hostNode.panels.remove(at: index)
+        self.hostNode.panels.append(panel)
+        self.hostNode.view.bringSubviewToFront(panel)
+    }
+
+    override func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
+        super.containerLayoutUpdated(layout, transition: transition)
+        self.validLayout = layout
+        for panel in self.panels {
+            panel.hostLayoutUpdated(layout, transition: transition)
+        }
     }
 }
 
-private final class AyuGramFloatingPanel: UIView, UITableViewDataSource, UITableViewDelegate, UITextFieldDelegate {
-    private let context: AccountContext
-    let peerId: EnginePeer.Id
-    private let isGroup: Bool
-    private var theme: PresentationTheme
-    private let locale: String
-    private let close: () -> Void
-    private let open: () -> Void
+private final class AyuGramFloatingButton: UIButton {
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        return self.bounds.insetBy(dx: -8.0, dy: -8.0).contains(point)
+    }
+}
 
+final class AyuGramFloatingPanel: UIView, UIGestureRecognizerDelegate {
+    let key: String
+    let navigation: NavigationController
+    private let context: AccountContext
+    private let openFull: (() -> Void)?
+    private let close: (AyuGramFloatingPanel) -> Void
+    private let focus: (AyuGramFloatingPanel) -> Void
+
+    private let shadowView = UIView()
     private let card = UIView()
-    private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
-    private let header = UIView()
+    private let bar = UIVisualEffectView(effect: nil)
+    private let grabber = UIView()
     private let titleLabel = UILabel()
-    private let statusDot = UIView()
-    private let minimizeButton = UIButton(type: .system)
-    private let closeButton = UIButton(type: .system)
-    private let tableView = UITableView(frame: CGRect(), style: .plain)
-    private let field = UITextField()
-    private let fieldBackground = UIView()
-    private let sendButton = UIButton(type: .system)
+    private let closeButton = AyuGramFloatingButton(type: .system)
+    private let minimizeButton = AyuGramFloatingButton(type: .system)
+    private let expandButton = AyuGramFloatingButton(type: .system)
+    private let contentClip = UIView()
+    private let contentHost = UIView()
+    private let resizeHandle = UIView()
+    private let resizeGlyph = UIImageView()
     private let bubble = UIControl()
-    private let bubbleBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+    private let bubbleBlur = UIVisualEffectView(effect: nil)
     private let bubbleLabel = UILabel()
     private let badge = UIView()
 
-    private var messages: [AyuGramFloatingMessage] = []
-    private let disposable = MetaDisposable()
-    private var minimized = false
-    private var lastSeenId: EngineMessage.Id?
-    private var keyboardHeight: CGFloat = 0.0
-    private(set) var cardSize = CGSize(width: 290.0, height: 380.0)
-    let bubbleSize: CGFloat = 58.0
+    private var hostLayout: ContainerViewLayout?
+    private var cardFrame = CGRect()
+    private var bubbleCenter: CGPoint?
+    private var keyboardLift: CGFloat = 0.0
+    private(set) var minimized = false
+    private var placed = false
+    private let barHeight: CGFloat = 30.0
+    private let bubbleSize: CGFloat = 58.0
+    private var resizeStart: CGRect?
+    private var messagesDisposable: Disposable?
+    private var lastSeenMessage: EngineMessage.Id?
+    private var latestMessage: EngineMessage.Id?
 
-    init(context: AccountContext, peerId: EnginePeer.Id, title: String, isGroup: Bool, theme: PresentationTheme, locale: String, close: @escaping () -> Void, open: @escaping () -> Void) {
+    init(context: AccountContext, key: String, title: String, root: ViewController, watchPeerId: EnginePeer.Id?, theme: PresentationTheme, openFull: (() -> Void)?, close: @escaping (AyuGramFloatingPanel) -> Void, focus: @escaping (AyuGramFloatingPanel) -> Void) {
         self.context = context
-        self.peerId = peerId
-        self.isGroup = isGroup
-        self.theme = theme
-        self.locale = locale
+        self.key = key
+        self.openFull = openFull
         self.close = close
-        self.open = open
+        self.focus = focus
+        self.navigation = NavigationController(mode: .single, theme: NavigationControllerTheme(presentationTheme: theme))
+        self.navigation.setViewControllers([root], animated: false)
         super.init(frame: CGRect())
 
-        self.card.layer.shadowColor = UIColor.black.cgColor
-        self.card.layer.shadowOpacity = 0.3
-        self.card.layer.shadowRadius = 20.0
-        self.card.layer.shadowOffset = CGSize(width: 0.0, height: 8.0)
-        self.blur.clipsToBounds = true
-        self.blur.layer.cornerRadius = 22.0
-        self.blur.layer.cornerCurve = .continuous
-        self.card.addSubview(self.blur)
+        self.shadowView.layer.shadowColor = UIColor.black.cgColor
+        self.shadowView.layer.shadowOpacity = 0.35
+        self.shadowView.layer.shadowRadius = 24.0
+        self.shadowView.layer.shadowOffset = CGSize(width: 0.0, height: 10.0)
+        self.shadowView.isUserInteractionEnabled = false
+        self.addSubview(self.shadowView)
+
+        self.card.clipsToBounds = true
+        self.card.layer.cornerRadius = 22.0
+        self.card.layer.cornerCurve = .continuous
+        self.card.layer.borderWidth = 1.0 / UIScreen.main.scale
         self.addSubview(self.card)
 
+        self.contentClip.clipsToBounds = true
+        self.card.addSubview(self.contentClip)
+        self.contentHost.layer.anchorPoint = CGPoint()
+        self.contentClip.addSubview(self.contentHost)
+        self.contentHost.addSubview(self.navigation.view)
+
+        self.card.addSubview(self.bar)
+        self.grabber.layer.cornerRadius = 2.0
+        self.bar.contentView.addSubview(self.grabber)
+        self.titleLabel.font = UIFont.systemFont(ofSize: 12.0, weight: .semibold)
         self.titleLabel.text = title
-        self.titleLabel.font = UIFont.systemFont(ofSize: 15.0, weight: .semibold)
-        self.statusDot.layer.cornerRadius = 4.0
-        self.minimizeButton.setImage(UIImage(systemName: "minus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14.0, weight: .bold)), for: .normal)
-        self.minimizeButton.addTarget(self, action: #selector(self.minimizePressed), for: .touchUpInside)
-        self.closeButton.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13.0, weight: .bold)), for: .normal)
+        self.titleLabel.textAlignment = .center
+        self.bar.contentView.addSubview(self.titleLabel)
+        let symbol = UIImage.SymbolConfiguration(pointSize: 11.0, weight: .bold)
+        self.closeButton.setImage(UIImage(systemName: "xmark", withConfiguration: symbol), for: .normal)
         self.closeButton.addTarget(self, action: #selector(self.closePressed), for: .touchUpInside)
-        self.header.addSubview(self.statusDot)
-        self.header.addSubview(self.titleLabel)
-        self.header.addSubview(self.minimizeButton)
-        self.header.addSubview(self.closeButton)
-        let openTap = UITapGestureRecognizer(target: self, action: #selector(self.openPressed))
-        openTap.numberOfTapsRequired = 2
-        self.header.addGestureRecognizer(openTap)
-        self.blur.contentView.addSubview(self.header)
+        self.minimizeButton.setImage(UIImage(systemName: "minus", withConfiguration: symbol), for: .normal)
+        self.minimizeButton.addTarget(self, action: #selector(self.minimizePressed), for: .touchUpInside)
+        self.expandButton.setImage(UIImage(systemName: "arrow.up.left.and.arrow.down.right", withConfiguration: symbol), for: .normal)
+        self.expandButton.addTarget(self, action: #selector(self.expandPressed), for: .touchUpInside)
+        self.expandButton.isHidden = openFull == nil
+        for button in [self.closeButton, self.minimizeButton, self.expandButton] {
+            self.bar.contentView.addSubview(button)
+        }
+        let drag = UIPanGestureRecognizer(target: self, action: #selector(self.dragged(_:)))
+        self.bar.addGestureRecognizer(drag)
+        let sizeToggle = UITapGestureRecognizer(target: self, action: #selector(self.barDoubleTapped))
+        sizeToggle.numberOfTapsRequired = 2
+        self.bar.addGestureRecognizer(sizeToggle)
 
-        self.tableView.dataSource = self
-        self.tableView.delegate = self
-        self.tableView.separatorStyle = .none
-        self.tableView.backgroundColor = .clear
-        self.tableView.keyboardDismissMode = .interactive
-        self.tableView.contentInset = UIEdgeInsets(top: 4.0, left: 0.0, bottom: 4.0, right: 0.0)
-        self.tableView.register(AyuGramFloatingCell.self, forCellReuseIdentifier: "m")
-        self.blur.contentView.addSubview(self.tableView)
+        self.resizeGlyph.image = UIImage(systemName: "arrow.up.left.and.arrow.down.right", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10.0, weight: .bold))
+        self.resizeGlyph.contentMode = .center
+        self.resizeHandle.addSubview(self.resizeGlyph)
+        self.resizeHandle.layer.cornerRadius = 13.0
+        self.resizeHandle.clipsToBounds = true
+        let resize = UIPanGestureRecognizer(target: self, action: #selector(self.resized(_:)))
+        self.resizeHandle.addGestureRecognizer(resize)
+        self.addSubview(self.resizeHandle)
 
-        self.fieldBackground.layer.cornerRadius = 17.0
-        self.fieldBackground.layer.cornerCurve = .continuous
-        self.blur.contentView.addSubview(self.fieldBackground)
-        self.field.font = UIFont.systemFont(ofSize: 15.0)
-        self.field.returnKeyType = .send
-        self.field.delegate = self
-        self.blur.contentView.addSubview(self.field)
-        self.sendButton.setImage(UIImage(systemName: "arrow.up.circle.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 26.0)), for: .normal)
-        self.sendButton.addTarget(self, action: #selector(self.sendPressed), for: .touchUpInside)
-        self.blur.contentView.addSubview(self.sendButton)
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(self.pinched(_:)))
+        pinch.delegate = self
+        self.bar.addGestureRecognizer(pinch)
+
+        let touch = UITapGestureRecognizer(target: self, action: #selector(self.touched))
+        touch.cancelsTouchesInView = false
+        touch.delegate = self
+        self.card.addGestureRecognizer(touch)
 
         self.bubble.isHidden = true
         self.bubbleBlur.isUserInteractionEnabled = false
         self.bubbleBlur.clipsToBounds = true
         self.bubbleBlur.layer.cornerRadius = self.bubbleSize / 2.0
         self.bubble.addSubview(self.bubbleBlur)
-        self.bubbleLabel.font = UIFont.systemFont(ofSize: 20.0, weight: .bold)
+        self.bubbleLabel.font = UIFont.systemFont(ofSize: 22.0, weight: .bold)
         self.bubbleLabel.textAlignment = .center
         self.bubbleLabel.text = String(title.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
         self.bubble.addSubview(self.bubbleLabel)
@@ -210,17 +243,27 @@ private final class AyuGramFloatingPanel: UIView, UITableViewDataSource, UITable
         self.bubble.layer.shadowRadius = 10.0
         self.bubble.layer.shadowOffset = CGSize(width: 0.0, height: 4.0)
         self.bubble.addTarget(self, action: #selector(self.restorePressed), for: .touchUpInside)
+        self.bubble.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(self.dragged(_:))))
         self.addSubview(self.bubble)
 
-        for view in [self.header, self.bubble] {
-            view.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(self.dragged(_:))))
+        self.apply(theme: theme)
+
+        if let watchPeerId {
+            self.messagesDisposable = (context.account.viewTracker.aroundMessageHistoryViewForLocation(.peer(peerId: watchPeerId, threadId: nil), index: .upperBound, anchorIndex: .upperBound, count: 3, fixedCombinedReadStates: nil)
+            |> map { view, _, _ -> EngineMessage.Id? in
+                return view.entries.last(where: { $0.message.flags.contains(.Incoming) })?.message.id
+            }
+            |> distinctUntilChanged
+            |> deliverOnMainQueue).startStrict(next: { [weak self] id in
+                guard let self else {
+                    return
+                }
+                self.latestMessage = id
+                if self.minimized, let id, id != self.lastSeenMessage {
+                    self.showBadge()
+                }
+            })
         }
-
-        self.applyTheme()
-        self.layoutCard()
-        self.subscribe()
-
-        NotificationCenter.default.addObserver(self, selector: #selector(self.keyboardChanged(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
     }
 
     required init?(coder: NSCoder) {
@@ -228,127 +271,154 @@ private final class AyuGramFloatingPanel: UIView, UITableViewDataSource, UITable
     }
 
     deinit {
-        self.disposable.dispose()
-        NotificationCenter.default.removeObserver(self)
+        self.messagesDisposable?.dispose()
     }
 
-    private func applyTheme() {
-        let theme = self.theme
+    private func apply(theme: PresentationTheme) {
         let dark = theme.overallDarkAppearance
-        self.blur.effect = UIBlurEffect(style: dark ? .systemThickMaterialDark : .systemThickMaterialLight)
-        self.bubbleBlur.effect = UIBlurEffect(style: dark ? .systemThickMaterialDark : .systemThickMaterialLight)
+        self.card.backgroundColor = theme.list.plainBackgroundColor
+        self.card.layer.borderColor = UIColor(white: dark ? 1.0 : 0.0, alpha: 0.12).cgColor
+        self.bar.effect = UIBlurEffect(style: dark ? .systemThickMaterialDark : .systemThickMaterialLight)
+        self.grabber.backgroundColor = theme.list.itemSecondaryTextColor.withAlphaComponent(0.5)
         self.titleLabel.textColor = theme.list.itemPrimaryTextColor
-        self.statusDot.backgroundColor = theme.list.itemAccentColor
-        self.minimizeButton.tintColor = theme.list.itemSecondaryTextColor
-        self.closeButton.tintColor = theme.list.itemSecondaryTextColor
-        self.fieldBackground.backgroundColor = theme.list.itemPrimaryTextColor.withAlphaComponent(dark ? 0.1 : 0.06)
-        self.field.textColor = theme.list.itemPrimaryTextColor
-        self.field.tintColor = theme.list.itemAccentColor
-        self.field.keyboardAppearance = dark ? .dark : .light
-        self.field.attributedPlaceholder = NSAttributedString(string: i18n("Ayu.FloatPlaceholder", self.locale), attributes: [.foregroundColor: theme.list.itemPlaceholderTextColor])
-        self.sendButton.tintColor = theme.list.itemAccentColor
+        for button in [self.closeButton, self.minimizeButton, self.expandButton] {
+            button.tintColor = theme.list.itemSecondaryTextColor
+        }
+        self.resizeHandle.backgroundColor = theme.list.itemBlocksBackgroundColor.withAlphaComponent(0.92)
+        self.resizeGlyph.tintColor = theme.list.itemSecondaryTextColor
+        self.bubbleBlur.effect = UIBlurEffect(style: dark ? .systemThickMaterialDark : .systemThickMaterialLight)
         self.bubbleLabel.textColor = theme.list.itemAccentColor
         self.badge.backgroundColor = theme.list.itemDestructiveColor
     }
 
-    private func layoutCard() {
-        let size = self.cardSize
-        self.card.bounds = CGRect(origin: CGPoint(), size: size)
-        self.blur.frame = self.card.bounds
-        self.card.layer.shadowPath = UIBezierPath(roundedRect: self.card.bounds, cornerRadius: 22.0).cgPath
-        self.header.frame = CGRect(x: 0.0, y: 0.0, width: size.width, height: 44.0)
-        self.statusDot.frame = CGRect(x: 16.0, y: 18.0, width: 8.0, height: 8.0)
-        self.closeButton.frame = CGRect(x: size.width - 40.0, y: 7.0, width: 30.0, height: 30.0)
-        self.minimizeButton.frame = CGRect(x: size.width - 72.0, y: 7.0, width: 30.0, height: 30.0)
-        self.titleLabel.frame = CGRect(x: 32.0, y: 12.0, width: size.width - 32.0 - 78.0, height: 20.0)
-        let inputY = size.height - 10.0 - 34.0
-        self.tableView.frame = CGRect(x: 0.0, y: 44.0, width: size.width, height: inputY - 6.0 - 44.0)
-        self.fieldBackground.frame = CGRect(x: 10.0, y: inputY, width: size.width - 20.0, height: 34.0)
-        self.field.frame = CGRect(x: 22.0, y: inputY, width: size.width - 22.0 - 46.0, height: 34.0)
-        self.sendButton.frame = CGRect(x: size.width - 44.0, y: inputY, width: 34.0, height: 34.0)
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
+    }
+
+    @objc private func touched() {
+        self.focus(self)
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if self.minimized {
+            guard !self.bubble.isHidden, self.bubble.frame.insetBy(dx: -6.0, dy: -6.0).contains(point) else {
+                return nil
+            }
+            return self.bubble
+        }
+        if !self.resizeHandle.isHidden, self.resizeHandle.frame.insetBy(dx: -10.0, dy: -10.0).contains(point) {
+            return self.resizeHandle
+        }
+        guard self.card.frame.contains(point) else {
+            return nil
+        }
+        return super.hitTest(point, with: event) ?? self.card
+    }
+
+    private func limits(_ layout: ContainerViewLayout) -> (min: CGSize, max: CGSize) {
+        let maxSize = CGSize(width: max(220.0, layout.size.width - layout.safeInsets.left - layout.safeInsets.right - 16.0), height: max(300.0, layout.size.height - (layout.statusBarHeight ?? 20.0) - layout.intrinsicInsets.bottom - 24.0))
+        return (CGSize(width: min(200.0, maxSize.width), height: min(260.0, maxSize.height)), maxSize)
+    }
+
+    private func clamp(_ frame: CGRect, layout: ContainerViewLayout) -> CGRect {
+        let (minSize, maxSize) = self.limits(layout)
+        var result = frame
+        result.size.width = min(max(result.width, minSize.width), maxSize.width)
+        result.size.height = min(max(result.height, minSize.height), maxSize.height)
+        let top = (layout.statusBarHeight ?? 20.0) + 6.0
+        let bottom = layout.size.height - max(layout.intrinsicInsets.bottom, layout.safeInsets.bottom) - 6.0
+        let left = layout.safeInsets.left + 6.0
+        let right = layout.size.width - layout.safeInsets.right - 6.0
+        result.origin.x = min(max(result.minX, left), max(left, right - result.width))
+        result.origin.y = min(max(result.minY, top), max(top, bottom - result.height))
+        return result
+    }
+
+    func hostLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
+        self.hostLayout = layout
+        self.frame = CGRect(origin: CGPoint(), size: layout.size)
+        if !self.placed {
+            self.placed = true
+            let width = min(330.0, floor(layout.size.width * 0.78))
+            let height = min(floor(width * 1.62), floor(layout.size.height * 0.62))
+            let offset = CGFloat((self.superview?.subviews.count ?? 1) - 1) * 22.0
+            self.cardFrame = CGRect(x: layout.size.width - layout.safeInsets.right - width - 12.0 - offset, y: (layout.statusBarHeight ?? 20.0) + 56.0 + offset, width: width, height: height)
+        }
+        self.cardFrame = self.clamp(self.cardFrame, layout: layout)
+        var lift: CGFloat = 0.0
+        if let inputHeight = layout.inputHeight, inputHeight > 0.0, !self.minimized, ayuFloatingContainsFirstResponder(self.contentHost) {
+            let keyboardTop = layout.size.height - inputHeight - 8.0
+            if self.cardFrame.maxY > keyboardTop {
+                lift = self.cardFrame.maxY - keyboardTop
+                lift = min(lift, max(0.0, self.cardFrame.minY - (layout.statusBarHeight ?? 20.0) - 6.0))
+            }
+        }
+        self.keyboardLift = lift
+        self.layoutCard(transition: transition)
+    }
+
+    private func layoutCard(transition: ContainedViewLayoutTransition) {
+        guard let layout = self.hostLayout else {
+            return
+        }
+        var frame = self.cardFrame
+        frame.origin.y -= self.keyboardLift
+        transition.updateFrame(view: self.card, frame: frame)
+        transition.updateFrame(view: self.shadowView, frame: frame)
+        self.shadowView.layer.shadowPath = UIBezierPath(roundedRect: CGRect(origin: CGPoint(), size: frame.size), cornerRadius: 22.0).cgPath
+        let size = frame.size
+        self.bar.frame = CGRect(x: 0.0, y: 0.0, width: size.width, height: self.barHeight)
+        self.grabber.frame = CGRect(x: (size.width - 36.0) / 2.0, y: 4.0, width: 36.0, height: 4.0)
+        self.closeButton.frame = CGRect(x: 8.0, y: 6.0, width: 22.0, height: 22.0)
+        self.minimizeButton.frame = CGRect(x: 34.0, y: 6.0, width: 22.0, height: 22.0)
+        self.expandButton.frame = CGRect(x: size.width - 30.0, y: 6.0, width: 22.0, height: 22.0)
+        self.titleLabel.frame = CGRect(x: 62.0, y: 11.0, width: max(0.0, size.width - 124.0), height: 16.0)
+        let contentFrame = CGRect(x: 0.0, y: self.barHeight, width: size.width, height: max(1.0, size.height - self.barHeight))
+        self.contentClip.frame = contentFrame
+        let reference = max(320.0, min(layout.size.width, 430.0))
+        let scale = min(1.0, contentFrame.width / reference)
+        let virtual = CGSize(width: floor(contentFrame.width / scale), height: floor(contentFrame.height / scale))
+        self.contentHost.transform = .identity
+        self.contentHost.frame = CGRect(origin: CGPoint(), size: virtual)
+        self.contentHost.transform = CGAffineTransform(scaleX: scale, y: scale)
+        self.contentHost.layer.position = CGPoint()
+        self.navigation.view.frame = CGRect(origin: CGPoint(), size: virtual)
+        var inner = layout
+        inner.size = virtual
+        inner.metrics = LayoutMetrics(widthClass: .compact, heightClass: .regular, orientation: layout.metrics.orientation)
+        inner.intrinsicInsets = UIEdgeInsets(top: 0.0, left: 0.0, bottom: 6.0, right: 0.0)
+        inner.safeInsets = .zero
+        inner.additionalInsets = .zero
+        inner.reservedCorners = .none
+        inner.division = nil
+        inner.statusBarHeight = 0.0
+        inner.inputHeight = nil
+        inner.inputHeightIsInteractivellyChanging = false
+        inner.presentedInFormSheet = false
+        self.navigation.containerLayoutUpdated(inner, transition: transition)
+        let handleFrame = CGRect(x: frame.maxX - 30.0, y: frame.maxY - 30.0, width: 26.0, height: 26.0)
+        transition.updateFrame(view: self.resizeHandle, frame: handleFrame)
+        self.resizeGlyph.frame = self.resizeHandle.bounds
+        self.resizeGlyph.transform = CGAffineTransform(rotationAngle: .pi / 2.0)
         self.bubble.bounds = CGRect(x: 0.0, y: 0.0, width: self.bubbleSize, height: self.bubbleSize)
         self.bubbleBlur.frame = self.bubble.bounds
         self.bubbleLabel.frame = self.bubble.bounds
         self.badge.frame = CGRect(x: self.bubbleSize - 14.0, y: 0.0, width: 14.0, height: 14.0)
         self.bubble.layer.shadowPath = UIBezierPath(ovalIn: self.bubble.bounds).cgPath
-    }
-
-    func place(center: CGPoint) {
-        self.card.center = center
-        self.bubble.center = CGPoint(x: center.x + self.cardSize.width / 2.0 - self.bubbleSize / 2.0, y: center.y - self.cardSize.height / 2.0 + self.bubbleSize / 2.0)
+        if self.bubbleCenter == nil {
+            self.bubble.center = CGPoint(x: frame.maxX - self.bubbleSize / 2.0, y: frame.minY + self.bubbleSize / 2.0)
+        }
     }
 
     func appear() {
         self.card.alpha = 0.0
+        self.shadowView.alpha = 0.0
         self.card.transform = CGAffineTransform(scaleX: 0.6, y: 0.6)
-        UIView.animate(withDuration: 0.45, delay: 0.0, usingSpringWithDamping: 0.75, initialSpringVelocity: 0.0, options: [.allowUserInteraction], animations: {
+        UIView.animate(withDuration: 0.45, delay: 0.0, usingSpringWithDamping: 0.78, initialSpringVelocity: 0.0, options: [.allowUserInteraction], animations: {
             self.card.alpha = 1.0
+            self.shadowView.alpha = 1.0
             self.card.transform = .identity
         })
-    }
-
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let target = self.minimized ? self.bubble : self.card
-        guard !target.isHidden, target.frame.contains(point) else {
-            return nil
-        }
-        return super.hitTest(point, with: event)
-    }
-
-    private func subscribe() {
-        let accountPeerId = self.context.account.peerId
-        let isGroup = self.isGroup
-        self.disposable.set((self.context.account.viewTracker.aroundMessageHistoryViewForLocation(.peer(peerId: self.peerId, threadId: nil), index: .upperBound, anchorIndex: .upperBound, count: 40, fixedCombinedReadStates: nil)
-        |> map { view, _, _ -> [AyuGramFloatingMessage] in
-            var result: [AyuGramFloatingMessage] = []
-            for entry in view.entries {
-                let message = EngineMessage(entry.message)
-                guard let tag = ayuGramCopilotMediaTag(message) else {
-                    continue
-                }
-                let text = [tag, message.text].filter({ !$0.isEmpty }).joined(separator: " ")
-                if text.isEmpty {
-                    continue
-                }
-                let outgoing = !message.flags.contains(.Incoming) || message.author?.id == accountPeerId
-                var author = ""
-                if isGroup, !outgoing, let peer = message.author {
-                    if case let .user(user) = peer {
-                        author = user.firstName ?? user.lastName ?? ""
-                    } else {
-                        author = peer.debugDisplayTitle
-                    }
-                }
-                result.append(AyuGramFloatingMessage(id: message.id, outgoing: outgoing, author: author, text: text))
-            }
-            return result
-        }
-        |> deliverOnMainQueue).startStrict(next: { [weak self] messages in
-            guard let self else {
-                return
-            }
-            let previousLast = self.messages.last?.id
-            let atBottom = self.tableView.contentOffset.y + self.tableView.bounds.height >= self.tableView.contentSize.height - 40.0
-            self.messages = messages
-            self.tableView.reloadData()
-            if let last = messages.last, last.id != previousLast {
-                if previousLast == nil || atBottom || last.outgoing {
-                    self.scrollToBottom(animated: previousLast != nil)
-                }
-                if self.minimized && !last.outgoing && last.id != self.lastSeenId {
-                    self.showBadge()
-                }
-            }
-        }))
-    }
-
-    private func scrollToBottom(animated: Bool) {
-        let count = self.messages.count
-        guard count > 0 else {
-            return
-        }
-        self.tableView.layoutIfNeeded()
-        self.tableView.scrollToRow(at: IndexPath(row: count - 1, section: 0), at: .bottom, animated: animated)
     }
 
     private func showBadge() {
@@ -366,74 +436,42 @@ private final class AyuGramFloatingPanel: UIView, UITableViewDataSource, UITable
         self.bubble.layer.add(jump, forKey: "jump")
     }
 
-    func numberOfSections(in tableView: UITableView) -> Int {
-        return 1
-    }
-
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return self.messages.count
-    }
-
-    private func showsName(_ index: Int) -> Bool {
-        let message = self.messages[index]
-        guard self.isGroup, !message.outgoing, !message.author.isEmpty else {
-            return false
-        }
-        return index == 0 || self.messages[index - 1].author != message.author || self.messages[index - 1].outgoing
-    }
-
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return AyuGramFloatingCell.height(message: self.messages[indexPath.row], width: tableView.bounds.width, showName: self.showsName(indexPath.row))
-    }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "m", for: indexPath)
-        if let cell = cell as? AyuGramFloatingCell {
-            cell.update(message: self.messages[indexPath.row], showName: self.showsName(indexPath.row), theme: self.theme)
-        }
-        return cell
-    }
-
-    func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
-        let text = self.messages[indexPath.row].text
-        let title = i18n("Ayu.AICopy", self.locale)
-        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil, actionProvider: { _ in
-            return UIMenu(title: "", children: [UIAction(title: title, image: UIImage(systemName: "doc.on.doc"), handler: { _ in
-                UIPasteboard.general.string = text
-            })])
+    @objc private func closePressed() {
+        self.endEditing(true)
+        UIView.animate(withDuration: 0.22, animations: {
+            self.alpha = 0.0
+            self.card.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        }, completion: { _ in
+            self.close(self)
         })
     }
 
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        self.sendPressed()
-        return false
-    }
-
-    @objc private func sendPressed() {
-        let text = (self.field.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else {
-            return
-        }
-        self.field.text = ""
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        let _ = enqueueMessages(account: self.context.account, peerId: self.peerId, messages: [.message(text: text, attributes: [], inlineStickers: [:], mediaReference: nil, threadId: nil, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: [])]).startStandalone()
-    }
-
     @objc private func minimizePressed() {
-        self.field.resignFirstResponder()
+        self.endEditing(true)
         self.minimized = true
-        self.lastSeenId = self.messages.last?.id
+        self.lastSeenMessage = self.latestMessage
+        self.badge.isHidden = true
         self.bubble.isHidden = false
         self.bubble.alpha = 0.0
         self.bubble.transform = CGAffineTransform(scaleX: 0.4, y: 0.4)
-        UIView.animate(withDuration: 0.35, delay: 0.0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.0, options: [], animations: {
+        if self.bubbleCenter == nil, let layout = self.hostLayout {
+            let margin = self.bubbleSize / 2.0 + 8.0
+            let center = CGPoint(x: layout.size.width - layout.safeInsets.right - margin, y: min(max(self.cardFrame.minY + margin, (layout.statusBarHeight ?? 20.0) + margin), layout.size.height - layout.intrinsicInsets.bottom - margin))
+            self.bubbleCenter = center
+            self.bubble.center = center
+        }
+        UIView.animate(withDuration: 0.35, delay: 0.0, usingSpringWithDamping: 0.82, initialSpringVelocity: 0.0, options: [], animations: {
             self.card.alpha = 0.0
+            self.shadowView.alpha = 0.0
+            self.resizeHandle.alpha = 0.0
             self.card.transform = CGAffineTransform(scaleX: 0.3, y: 0.3)
             self.bubble.alpha = 1.0
             self.bubble.transform = .identity
         }, completion: { _ in
             if self.minimized {
                 self.card.isHidden = true
+                self.shadowView.isHidden = true
+                self.resizeHandle.isHidden = true
             }
         })
     }
@@ -442,9 +480,13 @@ private final class AyuGramFloatingPanel: UIView, UITableViewDataSource, UITable
         self.minimized = false
         self.badge.isHidden = true
         self.card.isHidden = false
-        self.clampCard()
-        UIView.animate(withDuration: 0.45, delay: 0.0, usingSpringWithDamping: 0.78, initialSpringVelocity: 0.0, options: [], animations: {
+        self.shadowView.isHidden = false
+        self.resizeHandle.isHidden = false
+        self.focus(self)
+        UIView.animate(withDuration: 0.45, delay: 0.0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.0, options: [], animations: {
             self.card.alpha = 1.0
+            self.shadowView.alpha = 1.0
+            self.resizeHandle.alpha = 1.0
             self.card.transform = .identity
             self.bubble.alpha = 0.0
             self.bubble.transform = CGAffineTransform(scaleX: 0.4, y: 0.4)
@@ -453,119 +495,163 @@ private final class AyuGramFloatingPanel: UIView, UITableViewDataSource, UITable
                 self.bubble.isHidden = true
             }
         })
-        self.scrollToBottom(animated: false)
     }
 
-    @objc private func closePressed() {
-        self.field.resignFirstResponder()
-        UIView.animate(withDuration: 0.25, animations: {
-            self.alpha = 0.0
-            self.card.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
-        }, completion: { _ in
-            self.close()
-        })
+    @objc private func expandPressed() {
+        guard let openFull = self.openFull else {
+            return
+        }
+        self.endEditing(true)
+        openFull()
+        self.close(self)
     }
 
-    @objc private func openPressed() {
-        self.minimizePressed()
-        self.open()
+    @objc private func barDoubleTapped() {
+        guard let layout = self.hostLayout else {
+            return
+        }
+        let (minSize, maxSize) = self.limits(layout)
+        let large = self.cardFrame.width < maxSize.width * 0.8
+        var frame = self.cardFrame
+        if large {
+            frame.size = CGSize(width: maxSize.width, height: min(maxSize.height, floor(maxSize.width * 1.6)))
+        } else {
+            let width = max(minSize.width, min(330.0, floor(layout.size.width * 0.78)))
+            frame.size = CGSize(width: width, height: min(floor(width * 1.62), floor(layout.size.height * 0.62)))
+        }
+        self.cardFrame = self.clamp(frame, layout: layout)
+        self.layoutCard(transition: .animated(duration: 0.35, curve: .spring))
     }
 
     @objc private func dragged(_ recognizer: UIPanGestureRecognizer) {
-        let moving: UIView = self.minimized ? self.bubble : self.card
+        guard let layout = self.hostLayout else {
+            return
+        }
         let translation = recognizer.translation(in: self)
         recognizer.setTranslation(CGPoint(), in: self)
-        moving.center = CGPoint(x: moving.center.x + translation.x, y: moving.center.y + translation.y)
-        if recognizer.state == .ended || recognizer.state == .cancelled {
-            if self.minimized {
+        if recognizer.state == .began {
+            self.focus(self)
+        }
+        if self.minimized {
+            self.bubble.center = CGPoint(x: self.bubble.center.x + translation.x, y: self.bubble.center.y + translation.y)
+            if recognizer.state == .ended || recognizer.state == .cancelled {
                 let margin = self.bubbleSize / 2.0 + 8.0
-                let left = moving.center.x < self.bounds.width / 2.0
-                let insets = self.safeAreaInsets
-                let x = left ? insets.left + margin : self.bounds.width - insets.right - margin
-                let y = min(max(moving.center.y, insets.top + margin), self.bounds.height - insets.bottom - margin)
+                let left = self.bubble.center.x < layout.size.width / 2.0
+                let x = left ? layout.safeInsets.left + margin : layout.size.width - layout.safeInsets.right - margin
+                let y = min(max(self.bubble.center.y, (layout.statusBarHeight ?? 20.0) + margin), layout.size.height - layout.intrinsicInsets.bottom - margin)
+                self.bubbleCenter = CGPoint(x: x, y: y)
                 UIView.animate(withDuration: 0.4, delay: 0.0, usingSpringWithDamping: 0.75, initialSpringVelocity: 0.0, options: [], animations: {
-                    moving.center = CGPoint(x: x, y: y)
-                })
-            } else {
-                UIView.animate(withDuration: 0.35, delay: 0.0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.0, options: [], animations: {
-                    self.clampCard()
+                    self.bubble.center = CGPoint(x: x, y: y)
                 })
             }
+            return
+        }
+        self.cardFrame.origin.x += translation.x
+        self.cardFrame.origin.y += translation.y
+        if recognizer.state == .ended || recognizer.state == .cancelled {
+            self.cardFrame = self.clamp(self.cardFrame, layout: layout)
+            self.layoutCard(transition: .animated(duration: 0.35, curve: .spring))
+        } else {
+            self.layoutCard(transition: .immediate)
         }
     }
 
-    private func clampCard() {
-        let insets = self.safeAreaInsets
-        let half = CGSize(width: self.cardSize.width / 2.0, height: self.cardSize.height / 2.0)
-        let bottom = self.bounds.height - max(insets.bottom, self.keyboardHeight) - 8.0
-        var center = self.card.center
-        center.x = min(max(center.x, insets.left + half.width + 8.0), self.bounds.width - insets.right - half.width - 8.0)
-        center.y = min(max(center.y, insets.top + half.height + 8.0), max(insets.top + half.height + 8.0, bottom - half.height))
-        self.card.center = center
+    @objc private func resized(_ recognizer: UIPanGestureRecognizer) {
+        guard let layout = self.hostLayout else {
+            return
+        }
+        switch recognizer.state {
+        case .began:
+            self.focus(self)
+            self.resizeStart = self.cardFrame
+        case .changed:
+            guard let start = self.resizeStart else {
+                return
+            }
+            let translation = recognizer.translation(in: self)
+            let (minSize, maxSize) = self.limits(layout)
+            var frame = start
+            frame.size.width = min(max(start.width + translation.x, minSize.width), maxSize.width)
+            frame.size.height = min(max(start.height + translation.y, minSize.height), maxSize.height)
+            self.cardFrame = frame
+            self.layoutCard(transition: .immediate)
+        default:
+            self.resizeStart = nil
+            self.cardFrame = self.clamp(self.cardFrame, layout: layout)
+            self.layoutCard(transition: .animated(duration: 0.3, curve: .spring))
+        }
     }
 
-    @objc private func keyboardChanged(_ notification: Notification) {
-        guard let frame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else {
+    @objc private func pinched(_ recognizer: UIPinchGestureRecognizer) {
+        guard let layout = self.hostLayout else {
             return
         }
-        let height = max(0.0, self.bounds.height - frame.minY)
-        self.keyboardHeight = height
-        guard self.field.isFirstResponder || height == 0.0 else {
-            return
+        switch recognizer.state {
+        case .began:
+            self.resizeStart = self.cardFrame
+        case .changed:
+            guard let start = self.resizeStart else {
+                return
+            }
+            let (minSize, maxSize) = self.limits(layout)
+            let width = min(max(start.width * recognizer.scale, minSize.width), maxSize.width)
+            let height = min(max(start.height * recognizer.scale, minSize.height), maxSize.height)
+            self.cardFrame = CGRect(x: start.midX - width / 2.0, y: start.midY - height / 2.0, width: width, height: height)
+            self.layoutCard(transition: .immediate)
+        default:
+            self.resizeStart = nil
+            self.cardFrame = self.clamp(self.cardFrame, layout: layout)
+            self.layoutCard(transition: .animated(duration: 0.3, curve: .spring))
         }
-        let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
-        UIView.animate(withDuration: duration, animations: {
-            self.clampCard()
-        })
     }
 }
 
-private var ayuGramFloatingWindow: AyuGramFloatingWindow?
-private var ayuGramFloatingPanels: [AyuGramFloatingPanel] = []
+private var ayuGramFloatingHost: AyuGramFloatingHostController?
 
-public func ayuGramOpenFloatingChat(context: AccountContext, peerId: EnginePeer.Id, title: String, isGroup: Bool, openChat: @escaping () -> Void) {
-    if let existing = ayuGramFloatingPanels.first(where: { $0.peerId == peerId }) {
-        existing.superview?.bringSubviewToFront(existing)
+private func ayuGramFloatingPresent(context: AccountContext, key: String, title: String, watchPeerId: EnginePeer.Id?, makeRoot: () -> ViewController?, openFull: (() -> Void)?) {
+    guard let rootNavigation = context.sharedContext.mainWindow?.viewController as? NavigationController else {
         return
     }
-    let window: AyuGramFloatingWindow
-    if let current = ayuGramFloatingWindow {
-        window = current
+    if let host = ayuGramFloatingHost, let existing = host.panels.first(where: { $0.key == key }) {
+        host.bringToFront(existing)
+        return
+    }
+    guard let root = makeRoot() else {
+        return
+    }
+    let host: AyuGramFloatingHostController
+    if let current = ayuGramFloatingHost {
+        host = current
     } else {
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first(where: { $0.activationState == .foregroundActive }) ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
-            return
-        }
-        window = AyuGramFloatingWindow(windowScene: scene)
-        window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.normal.rawValue + 5.0)
-        window.backgroundColor = .clear
-        window.rootViewController = AyuGramFloatingRoot()
-        window.isHidden = false
-        ayuGramFloatingWindow = window
-    }
-    guard let root = window.rootViewController?.view else {
-        return
+        host = AyuGramFloatingHostController()
+        ayuGramFloatingHost = host
+        rootNavigation.presentOverlay(controller: host, inGlobal: false, blockInteraction: false)
     }
     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-    var panelRef: AyuGramFloatingPanel?
-    let panel = AyuGramFloatingPanel(context: context, peerId: peerId, title: title, isGroup: isGroup, theme: presentationData.theme, locale: presentationData.strings.baseLanguageCode, close: {
-        guard let panel = panelRef else {
+    let panel = AyuGramFloatingPanel(context: context, key: key, title: title, root: root, watchPeerId: watchPeerId, theme: presentationData.theme, openFull: openFull, close: { panel in
+        guard let host = ayuGramFloatingHost else {
             return
         }
-        panel.removeFromSuperview()
-        ayuGramFloatingPanels.removeAll(where: { $0 === panel })
-        panelRef = nil
-        if ayuGramFloatingPanels.isEmpty {
-            ayuGramFloatingWindow?.isHidden = true
-            ayuGramFloatingWindow = nil
+        host.remove(panel)
+        if host.panels.isEmpty {
+            ayuGramFloatingHost = nil
+            host.dismiss()
         }
-    }, open: openChat)
-    panelRef = panel
-    panel.frame = root.bounds
-    panel.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    root.addSubview(panel)
-    ayuGramFloatingPanels.append(panel)
-    let offset = CGFloat(ayuGramFloatingPanels.count - 1) * 24.0
-    let insets = window.safeAreaInsets
-    panel.place(center: CGPoint(x: root.bounds.width - insets.right - panel.cardSize.width / 2.0 - 12.0 - offset, y: insets.top + 70.0 + panel.cardSize.height / 2.0 + offset))
+    }, focus: { panel in
+        ayuGramFloatingHost?.bringToFront(panel)
+    })
+    host.add(panel)
     panel.appear()
+}
+
+public func ayuGramOpenFloatingChat(context: AccountContext, peerId: EnginePeer.Id, title: String, isGroup: Bool, openChat: @escaping () -> Void) {
+    ayuGramFloatingPresent(context: context, key: "chat:\(peerId.toInt64())", title: title, watchPeerId: peerId, makeRoot: {
+        return context.sharedContext.makeChatController(context: context, chatLocation: .peer(id: peerId), subject: nil, botStart: nil, mode: .standard(.default), params: nil)
+    }, openFull: openChat)
+}
+
+public func ayuGramOpenFloatingProfile(context: AccountContext, peer: EnginePeer, openFull: @escaping () -> Void) {
+    ayuGramFloatingPresent(context: context, key: "profile:\(peer.id.toInt64())", title: peer.compactDisplayTitle, watchPeerId: nil, makeRoot: {
+        return context.sharedContext.makePeerInfoController(context: context, updatedPresentationData: nil, peer: peer, mode: .generic, avatarInitiallyExpanded: false, fromChat: false, requestsContext: nil)
+    }, openFull: openFull)
 }

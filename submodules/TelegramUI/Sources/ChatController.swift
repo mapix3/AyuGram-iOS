@@ -1547,6 +1547,9 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             if case .customChatContents = self.chatLocation {
                 standalone = true
             }
+            if message.flags.contains(.AyuLocallyDeleted) || message.ayuHistory?.deletedAt != nil {
+                standalone = true
+            }
             
             if let adAttribute = message.attributes.first(where: { $0 is AdMessageAttribute }) as? AdMessageAttribute {
                 if let file = message.media.first(where: { $0 is TelegramMediaFile}) as? TelegramMediaFile, file.isVideo && !file.isAnimated {
