@@ -8,3 +8,7 @@ let ayuGramHasAppearanceEntry = false
 func ayuGramAppearanceEntryController(context: AccountContext) -> ViewController? {
     return nil
 }
+
+func ayuGramEffectsEntryController(context: AccountContext) -> ViewController? {
+    return nil
+}
