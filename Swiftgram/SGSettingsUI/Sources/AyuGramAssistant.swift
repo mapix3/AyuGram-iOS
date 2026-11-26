@@ -74,13 +74,15 @@ private struct AyuGramAssistantMessage {
     let failed: Bool
     let image: UIImage?
     let imagePayload: String?
+    let meta: String?
 
-    init(outgoing: Bool, text: String, failed: Bool, image: UIImage? = nil, imagePayload: String? = nil) {
+    init(outgoing: Bool, text: String, failed: Bool, image: UIImage? = nil, imagePayload: String? = nil, meta: String? = nil) {
         self.outgoing = outgoing
         self.text = text
         self.failed = failed
         self.image = image
         self.imagePayload = imagePayload
+        self.meta = meta
     }
 }
 
@@ -126,7 +128,7 @@ private final class AyuGramAssistantStore {
                 guard let text = raw["t"] as? String else {
                     continue
                 }
-                messages.append(AyuGramAssistantMessage(outgoing: (raw["o"] as? Bool) ?? false, text: text, failed: (raw["f"] as? Bool) ?? false))
+                messages.append(AyuGramAssistantMessage(outgoing: (raw["o"] as? Bool) ?? false, text: text, failed: (raw["f"] as? Bool) ?? false, meta: raw["m"] as? String))
             }
             if messages.isEmpty {
                 continue
@@ -142,7 +144,11 @@ private final class AyuGramAssistantStore {
             var messages: [[String: Any]] = []
             for message in chat.messages.suffix(200) {
                 let text = message.text.isEmpty && message.image != nil ? "🖼" : message.text
-                messages.append(["o": message.outgoing, "t": text, "f": message.failed])
+                var item: [String: Any] = ["o": message.outgoing, "t": text, "f": message.failed]
+                if let meta = message.meta {
+                    item["m"] = meta
+                }
+                messages.append(item)
             }
             list.append(["id": chat.id, "title": chat.title, "updated": chat.updated, "messages": messages])
         }
@@ -286,9 +292,15 @@ private func ayuGramAssistantModels(_ config: AyuGramAssistantConfig) -> [String
 }
 
 private func ayuGramAssistantPost(config: AyuGramAssistantConfig, url: URL, body: [String: Any], timeout: Double, locale: String, models: [String], completion: @escaping (String?, String?) -> Void) {
+    ayuGramAssistantPostCounted(config: config, url: url, body: body, timeout: timeout, locale: locale, models: models, completion: { text, failure, _ in
+        completion(text, failure)
+    })
+}
+
+private func ayuGramAssistantPostCounted(config: AyuGramAssistantConfig, url: URL, body: [String: Any], timeout: Double, locale: String, models: [String], completion: @escaping (String?, String?, Int?) -> Void) {
     guard let model = models.first else {
         DispatchQueue.main.async {
-            completion(nil, i18n("Ayu.AIError", locale))
+            completion(nil, i18n("Ayu.AIError", locale), nil)
         }
         return
     }
@@ -307,7 +319,16 @@ private func ayuGramAssistantPost(config: AyuGramAssistantConfig, url: URL, body
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
     URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
         var text: String?
+        var tokens: Int?
         if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let usage = object["usage"] as? [String: Any] {
+                if let total = (usage["total_tokens"] as? NSNumber)?.intValue, total > 0 {
+                    tokens = total
+                } else {
+                    let sum = ((usage["prompt_tokens"] as? NSNumber)?.intValue ?? 0) + ((usage["completion_tokens"] as? NSNumber)?.intValue ?? 0)
+                    tokens = sum > 0 ? sum : nil
+                }
+            }
             if let choices = object["choices"] as? [[String: Any]], let message = choices.first?["message"] as? [String: Any], let content = message["content"] as? String {
                 text = content.trimmingCharacters(in: .whitespacesAndNewlines)
             }
@@ -319,7 +340,7 @@ private func ayuGramAssistantPost(config: AyuGramAssistantConfig, url: URL, body
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if text == nil && models.count > 1 && (error != nil || [404, 408, 429, 500, 502, 503, 504].contains(status)) {
-            ayuGramAssistantPost(config: config, url: url, body: body, timeout: timeout, locale: locale, models: Array(models.dropFirst()), completion: completion)
+            ayuGramAssistantPostCounted(config: config, url: url, body: body, timeout: timeout, locale: locale, models: Array(models.dropFirst()), completion: completion)
             return
         }
         if text != nil && config.provider.id == "gemini" {
@@ -327,9 +348,21 @@ private func ayuGramAssistantPost(config: AyuGramAssistantConfig, url: URL, body
         }
         let failure = text == nil ? ayuGramAssistantFailure(data: data, response: response, error: error, locale: locale) : nil
         DispatchQueue.main.async {
-            completion(text, failure)
+            completion(text, failure, text == nil ? nil : tokens)
         }
     }).resume()
+}
+
+func ayuGramAssistantMeta(started: Date, tokens: Int?, locale: String) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "HH:mm"
+    var parts = [formatter.string(from: Date())]
+    if let tokens, tokens > 0 {
+        parts.append(i18n("Ayu.AITokens", locale, "\(tokens)"))
+    }
+    let seconds = max(0.1, Date().timeIntervalSince(started))
+    parts.append(i18n("Ayu.AISeconds", locale, String(format: "%.1f", seconds)))
+    return parts.joined(separator: " · ")
 }
 
 func ayuGramAssistantComplete(system: String, prompt: String, maxTokens: Int, locale: String, images: [String] = [], completion: @escaping (String?, String?) -> Void) {
@@ -410,7 +443,7 @@ private func ayuGramNeedsWeb(_ question: String) -> Bool {
     return words.contains(where: { lower.contains($0) })
 }
 
-private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale: String, completion: @escaping (String?, String?) -> Void) {
+private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale: String, completion: @escaping (String?, String?, Int?) -> Void) {
     var config = AyuGramAssistantConfig.current
     var fallback: AyuGramAssistantConfig?
     if config.provider.id == "gemini", !config.key.isEmpty, let question = messages.last(where: { $0.outgoing && !$0.failed }), question.imagePayload == nil, ayuGramNeedsWeb(question.text) {
@@ -419,11 +452,11 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
         config = AyuGramAssistantConfig(provider: relay, key: "", model: relay.model)
     }
     if config.provider.needsKey && config.key.isEmpty {
-        completion(nil, i18n("Ayu.AINeedKey", locale))
+        completion(nil, i18n("Ayu.AINeedKey", locale), nil)
         return
     }
     guard let url = URL(string: config.provider.endpoint) else {
-        completion(nil, i18n("Ayu.AIError", locale))
+        completion(nil, i18n("Ayu.AIError", locale), nil)
         return
     }
     let history = Array(messages.filter({ !$0.failed }).suffix(20))
@@ -445,14 +478,14 @@ private func ayuGramAssistantRequest(messages: [AyuGramAssistantMessage], locale
         }
     }
     let body: [String: Any] = ["messages": payload]
-    ayuGramAssistantPost(config: config, url: url, body: body, timeout: 90.0, locale: locale, models: ayuGramAssistantModels(config), completion: { text, failure in
+    ayuGramAssistantPostCounted(config: config, url: url, body: body, timeout: 90.0, locale: locale, models: ayuGramAssistantModels(config), completion: { text, failure, tokens in
         if text == nil, let fallback, let fallbackUrl = URL(string: fallback.provider.endpoint) {
-            ayuGramAssistantPost(config: fallback, url: fallbackUrl, body: body, timeout: 90.0, locale: locale, models: ayuGramAssistantModels(fallback), completion: { text, failure in
-                completion(text.map(ayuGramRemoveEmoji), failure)
+            ayuGramAssistantPostCounted(config: fallback, url: fallbackUrl, body: body, timeout: 90.0, locale: locale, models: ayuGramAssistantModels(fallback), completion: { text, failure, tokens in
+                completion(text.map(ayuGramRemoveEmoji), failure, tokens)
             })
             return
         }
-        completion(text.map(ayuGramRemoveEmoji), failure)
+        completion(text.map(ayuGramRemoveEmoji), failure, tokens)
     })
 }
 
@@ -465,9 +498,9 @@ func ayuGramWantsImage(_ text: String) -> Bool {
     return words.contains(where: { lower.contains($0) })
 }
 
-func ayuGramAssistantGenerateImage(prompt: String, imagePayload: String?, locale: String, completion: @escaping (UIImage?, String?, String?) -> Void) {
+func ayuGramAssistantGenerateImage(prompt: String, imagePayload: String?, locale: String, completion: @escaping (UIImage?, String?, String?, Int?) -> Void) {
     guard let url = URL(string: AyuGramPushRelay.baseURL + "/ai/image") else {
-        completion(nil, nil, i18n("Ayu.AIError", locale))
+        completion(nil, nil, i18n("Ayu.AIError", locale), nil)
         return
     }
     var body: [String: Any] = ["prompt": prompt]
@@ -482,7 +515,11 @@ func ayuGramAssistantGenerateImage(prompt: String, imagePayload: String?, locale
     URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
         var image: UIImage?
         var text: String?
+        var tokens: Int?
         if let data, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let usage = object["usage"] as? [String: Any], let total = (usage["total_tokens"] as? NSNumber)?.intValue, total > 0 {
+                tokens = total
+            }
             if let address = object["image"] as? String, let comma = address.firstIndex(of: ","), let decoded = Data(base64Encoded: String(address[address.index(after: comma)...])) {
                 image = UIImage(data: decoded)
             }
@@ -492,7 +529,7 @@ func ayuGramAssistantGenerateImage(prompt: String, imagePayload: String?, locale
         }
         let failure = image == nil ? ayuGramAssistantFailure(data: data, response: response, error: error, locale: locale) : nil
         DispatchQueue.main.async {
-            completion(image, text.map(ayuGramRemoveEmoji), failure)
+            completion(image, text.map(ayuGramRemoveEmoji), failure, tokens)
         }
     }).resume()
 }
@@ -717,6 +754,13 @@ private final class AyuGramAssistantCell: UITableViewCell {
     private let stack = UIStackView()
     private let picture = UIImageView()
     private let label = UILabel()
+    private let metaLabel = UILabel()
+    private let canvas = UIView()
+    private let canvasShimmer = CAGradientLayer()
+    private var canvasWidth: NSLayoutConstraint?
+    private var canvasHeight: NSLayoutConstraint?
+    private var pictureWidthConstraint: NSLayoutConstraint?
+    private var pictureHeightConstraint: NSLayoutConstraint?
     private let dots = UIView()
     private let thinkingGhost = AyuGramGhostView()
     private let avatar = AyuGramGhostView()
@@ -754,9 +798,28 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.label.font = UIFont.systemFont(ofSize: 16.0)
         self.contentView.addSubview(self.bubble)
         self.bubble.addSubview(self.stack)
+        self.canvas.layer.cornerRadius = 14.0
+        self.canvas.layer.cornerCurve = .continuous
+        self.canvas.clipsToBounds = true
+        self.canvas.isHidden = true
+        self.canvasShimmer.startPoint = CGPoint(x: 0.0, y: 0.3)
+        self.canvasShimmer.endPoint = CGPoint(x: 1.0, y: 0.7)
+        self.canvasShimmer.locations = [0.0, 0.5, 1.0]
+        self.canvas.layer.addSublayer(self.canvasShimmer)
+        self.metaLabel.font = UIFont.systemFont(ofSize: 11.0)
+        self.metaLabel.isHidden = true
         self.stack.addArrangedSubview(self.picture)
+        self.stack.addArrangedSubview(self.canvas)
         self.stack.addArrangedSubview(self.label)
+        self.stack.addArrangedSubview(self.metaLabel)
         self.stack.addArrangedSubview(self.dots)
+        let canvasWidth = self.canvas.widthAnchor.constraint(equalToConstant: 64.0)
+        canvasWidth.priority = UILayoutPriority(999.0)
+        let canvasHeight = self.canvas.heightAnchor.constraint(equalToConstant: 22.0)
+        canvasHeight.priority = UILayoutPriority(999.0)
+        NSLayoutConstraint.activate([canvasWidth, canvasHeight])
+        self.canvasWidth = canvasWidth
+        self.canvasHeight = canvasHeight
         let dotsWidth = self.dots.widthAnchor.constraint(equalToConstant: 64.0)
         dotsWidth.priority = UILayoutPriority(999.0)
         let dotsHeight = self.dots.heightAnchor.constraint(equalToConstant: 22.0)
@@ -782,6 +845,8 @@ private final class AyuGramAssistantCell: UITableViewCell {
         pictureWidth.priority = UILayoutPriority(999.0)
         let pictureHeight = self.picture.heightAnchor.constraint(equalToConstant: 180.0)
         pictureHeight.priority = UILayoutPriority(999.0)
+        self.pictureWidthConstraint = pictureWidth
+        self.pictureHeightConstraint = pictureHeight
         NSLayoutConstraint.activate([
             self.bubble.topAnchor.constraint(equalTo: self.contentView.topAnchor, constant: 4.0),
             self.bubble.bottomAnchor.constraint(equalTo: self.contentView.bottomAnchor, constant: -4.0),
@@ -799,9 +864,53 @@ private final class AyuGramAssistantCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    static let canvasSide: CGFloat = 250.0
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if !self.canvas.isHidden {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self.canvasShimmer.frame = CGRect(x: -self.canvas.bounds.width, y: 0.0, width: self.canvas.bounds.width * 3.0, height: self.canvas.bounds.height)
+            CATransaction.commit()
+        }
+    }
+
+    func showGenerating(theme: PresentationTheme, expanded: Bool) {
+        self.showTyping(theme: theme)
+        self.dots.isHidden = true
+        self.metaLabel.isHidden = true
+        self.canvas.isHidden = false
+        let dark = theme.overallDarkAppearance
+        let base = UIColor(white: dark ? 0.26 : 0.78, alpha: 1.0)
+        let light = UIColor(white: dark ? 0.42 : 0.9, alpha: 1.0)
+        self.canvas.backgroundColor = base
+        self.canvasShimmer.colors = [base.cgColor, light.cgColor, base.cgColor]
+        if self.canvasShimmer.animation(forKey: "shimmer") == nil {
+            let move = CABasicAnimation(keyPath: "transform.translation.x")
+            move.fromValue = -Self.canvasSide
+            move.toValue = Self.canvasSide
+            move.duration = 1.4
+            move.repeatCount = .infinity
+            move.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            self.canvasShimmer.add(move, forKey: "shimmer")
+        }
+        self.canvasWidth?.constant = expanded ? Self.canvasSide : 64.0
+        self.canvasHeight?.constant = expanded ? Self.canvasSide : 22.0
+        self.canvas.layer.cornerRadius = expanded ? 14.0 : 11.0
+    }
+
+    func expandCanvas() {
+        self.canvasWidth?.constant = Self.canvasSide
+        self.canvasHeight?.constant = Self.canvasSide
+        self.canvas.layer.cornerRadius = 14.0
+        self.contentView.layoutIfNeeded()
+    }
+
     func showTyping(theme: PresentationTheme) {
         self.label.isHidden = true
         self.picture.isHidden = true
+        self.metaLabel.isHidden = true
         self.dots.isHidden = false
         let accent = theme.list.itemAccentColor
         self.thinkingGhost.colors = (theme.overallDarkAppearance ? .white : accent.ayuMix(.white, alpha: 0.55), accent)
@@ -861,6 +970,20 @@ private final class AyuGramAssistantCell: UITableViewCell {
         self.label.isHidden = message.text.isEmpty
         self.picture.image = message.image
         self.picture.isHidden = message.image == nil
+        self.canvas.isHidden = true
+        self.canvasShimmer.removeAllAnimations()
+        if let image = message.image, !message.outgoing, image.size.width > 0 {
+            self.pictureWidthConstraint?.constant = Self.canvasSide
+            self.pictureHeightConstraint?.constant = min(Self.canvasSide * 1.5, floor(Self.canvasSide * image.size.height / image.size.width))
+            self.picture.layer.cornerRadius = 14.0
+        } else {
+            self.pictureWidthConstraint?.constant = 180.0
+            self.pictureHeightConstraint?.constant = 180.0
+            self.picture.layer.cornerRadius = 12.0
+        }
+        self.metaLabel.text = message.meta
+        self.metaLabel.isHidden = message.meta == nil || message.outgoing
+        self.metaLabel.textColor = theme.list.itemSecondaryTextColor.withAlphaComponent(0.8)
         let showsAvatar = !message.outgoing && !message.failed
         self.avatar.isHidden = !showsAvatar
         if showsAvatar {
@@ -1129,6 +1252,8 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
     private var writingShown = 0
     private var writingTimer: Foundation.Timer?
     private var appearingRow: Int?
+    private var generatingImage = false
+    private var canvasExpanded = false
     private var attachment: (UIImage, String)?
     private var recorder: AVAudioRecorder?
     private var recordingFile: URL?
@@ -1573,34 +1698,68 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
         }, completion: nil)
         self.append(AyuGramAssistantMessage(outgoing: true, text: text, failed: false, image: attachment?.0, imagePayload: attachment?.1), to: chat)
         self.setLoading(true)
-        self.setTyping(chat)
+        let started = Date()
         if ayuGramWantsImage(text) {
-            ayuGramAssistantGenerateImage(prompt: text, imagePayload: attachment?.1, locale: self.locale, completion: { [weak self] image, caption, failure in
+            self.generatingImage = false
+            self.canvasExpanded = false
+            self.setTyping(chat)
+            Queue.mainQueue().after(0.35, { [weak self] in
+                self?.beginCanvas(chat: chat)
+            })
+            ayuGramAssistantGenerateImage(prompt: text, imagePayload: attachment?.1, locale: self.locale, completion: { [weak self] image, caption, failure, tokens in
                 guard let self else {
                     return
                 }
+                self.generatingImage = false
+                self.canvasExpanded = false
                 self.setLoading(false)
                 self.typingChat = nil
                 if let image {
-                    self.append(AyuGramAssistantMessage(outgoing: false, text: caption ?? "", failed: false, image: image), to: chat)
+                    self.append(AyuGramAssistantMessage(outgoing: false, text: caption ?? "", failed: false, image: image, meta: ayuGramAssistantMeta(started: started, tokens: tokens, locale: self.locale)), to: chat)
                 } else {
                     self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
                 }
             })
             return
         }
-        ayuGramAssistantRequest(messages: chat.messages, locale: self.locale, completion: { [weak self] reply, failure in
+        self.setTyping(chat)
+        ayuGramAssistantRequest(messages: chat.messages, locale: self.locale, completion: { [weak self] reply, failure, tokens in
             guard let self else {
                 return
             }
             self.setLoading(false)
             self.typingChat = nil
             if let reply {
-                self.append(AyuGramAssistantMessage(outgoing: false, text: reply, failed: false), to: chat)
+                self.append(AyuGramAssistantMessage(outgoing: false, text: reply, failed: false, meta: ayuGramAssistantMeta(started: started, tokens: tokens, locale: self.locale)), to: chat)
             } else {
                 self.append(AyuGramAssistantMessage(outgoing: false, text: failure ?? "", failed: true), to: chat)
             }
         })
+    }
+
+    private func beginCanvas(chat: AyuGramAssistantChat) {
+        guard self.loading, self.typingChat === chat, chat === AyuGramAssistantStore.shared.current, !self.generatingImage else {
+            return
+        }
+        self.generatingImage = true
+        let indexPath = IndexPath(row: self.rowCount - 1, section: 0)
+        guard let cell = self.tableView.cellForRow(at: indexPath) as? AyuGramAssistantCell else {
+            self.canvasExpanded = true
+            self.tableView.reloadData()
+            self.scrollToBottom(animated: true)
+            return
+        }
+        cell.showGenerating(theme: self.presentationData.theme, expanded: false)
+        cell.contentView.layoutIfNeeded()
+        self.canvasExpanded = true
+        UIView.animate(withDuration: 0.6, delay: 0.0, usingSpringWithDamping: 0.78, initialSpringVelocity: 0.0, options: [.allowUserInteraction], animations: {
+            cell.expandCanvas()
+            self.tableView.beginUpdates()
+            self.tableView.endUpdates()
+        }, completion: { _ in
+            self.scrollToBottom(animated: true)
+        })
+        self.scrollToBottom(animated: true)
     }
 
     @objc private func ghostPetted() {
@@ -1735,7 +1894,11 @@ private final class AyuGramAssistantNode: ASDisplayNode, UITableViewDataSource, 
                 }
             } else {
                 cell.update(message: AyuGramAssistantMessage(outgoing: false, text: "", failed: false), theme: self.presentationData.theme)
-                cell.showTyping(theme: self.presentationData.theme)
+                if self.generatingImage {
+                    cell.showGenerating(theme: self.presentationData.theme, expanded: self.canvasExpanded)
+                } else {
+                    cell.showTyping(theme: self.presentationData.theme)
+                }
             }
         }
         return cell

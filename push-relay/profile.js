@@ -2,7 +2,7 @@ import { sharedCache } from './memcache.js';
 import { accountId, lockOf } from './badges.js';
 import { ipTag, sameToken, statsStub } from './stats.js';
 
-export const PROFILE_LIMITS = { nfts: 30, pinned: 6, usernames: 10, numbers: 1, holders: 100, body: 16384, photo: 1572864, video: 8388608, seconds: 15, ids: 50 };
+export const PROFILE_LIMITS = { nfts: 30, pinned: 6, usernames: 10, numbers: 1, holders: 100, body: 16384, photo: 1572864, video: 20971520, seconds: 15, ids: 50 };
 
 const CHUNK = 1048576;
 const SECONDS_SLACK = 0.25;
@@ -49,7 +49,7 @@ const UPLOAD_TYPES = {
 };
 const MEDIA_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/heic': 'heic', 'video/mp4': 'mp4', 'video/quicktime': 'mov' };
 const HEIC_BRANDS = new Set(['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'mif1', 'msf1']);
-const MP4_BRANDS = new Set(['isom', 'iso2', 'iso3', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'M4V ', 'M4VH', 'M4VP', 'dash', 'mmp4', 'MSNV', '3gp4', '3gp5', '3gp6', 'f4v ']);
+const MP4_BRANDS = new Set(['isom', 'iso2', 'iso3', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'hvc1', 'hev1', 'M4V ', 'M4VH', 'M4VP', 'dash', 'mmp4', 'MSNV', '3gp4', '3gp5', '3gp6', 'f4v ']);
 const MOV_FIRST = new Set(['moov', 'mdat', 'wide', 'free', 'skip', 'pnot']);
 const RESERVED_USERNAMES = new Set(['botfather', 'spambot', 'premium', 'stars', 'gift', 'gifts', 'wallet', 'notoscam', 'verify', 'username', 'usernames', 'jobs', 'news', 'team', 'durov', 'pavel', 'nikolai']);
 const RESERVED_PARTS = ['telegram', 'ayugram', 'official', 'support', 'admin', 'fragment', 'security', 'moderator'];

@@ -447,14 +447,48 @@ private final class AyuProfileVideoExporter {
             return
         }
         compositionTrack.preferredTransform = track.preferredTransform
-        let presets = [AVAssetExportPreset1280x720, AVAssetExportPreset960x540, AVAssetExportPreset640x480]
+        let oriented = track.naturalSize.applying(track.preferredTransform)
+        self.naturalSize = CGSize(width: abs(oriented.width), height: abs(oriented.height))
+        self.transform = track.preferredTransform
+        let rate = track.nominalFrameRate
+        self.frameRate = Int32(max(24.0, min(120.0, rate > 0 ? Double(rate).rounded() : 30.0)))
+        self.duration = range.duration
+        let presets = [AVAssetExportPresetHEVCHighestQuality, AVAssetExportPresetHEVCHighestQuality, AVAssetExportPresetHEVC1920x1080, AVAssetExportPreset1280x720, AVAssetExportPreset960x540]
         self.export(composition: composition, presets: presets, index: 0)
+    }
+
+    private var naturalSize = CGSize()
+    private var transform = CGAffineTransform.identity
+    private var frameRate: Int32 = 30
+    private var duration = CMTime.zero
+
+    private func videoComposition(composition: AVMutableComposition, index: Int) -> AVMutableVideoComposition? {
+        let sides: [CGFloat] = [2560.0, 1920.0, 1920.0, 1280.0, 960.0]
+        let rates: [Int32] = [self.frameRate, min(self.frameRate, 60), min(self.frameRate, 60), min(self.frameRate, 30), min(self.frameRate, 30)]
+        guard index < sides.count, let track = composition.tracks(withMediaType: .video).first, self.naturalSize.width > 0, self.naturalSize.height > 0 else {
+            return nil
+        }
+        let scale = min(1.0, sides[index] / max(self.naturalSize.width, self.naturalSize.height))
+        let render = CGSize(width: max(2.0, floor(self.naturalSize.width * scale / 2.0) * 2.0), height: max(2.0, floor(self.naturalSize.height * scale / 2.0) * 2.0))
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: self.duration)
+        let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
+        layer.setTransform(self.transform.concatenating(CGAffineTransform(scaleX: scale, y: scale)), at: .zero)
+        instruction.layerInstructions = [layer]
+        let video = AVMutableVideoComposition()
+        video.renderSize = render
+        video.frameDuration = CMTime(value: 1, timescale: rates[index])
+        video.instructions = [instruction]
+        return video
     }
 
     private func export(composition: AVMutableComposition, presets: [String], index: Int) {
         guard index < presets.count, let session = AVAssetExportSession(asset: composition, presetName: presets[index]) else {
             self.finish(nil)
             return
+        }
+        if let video = self.videoComposition(composition: composition, index: index) {
+            session.videoComposition = video
         }
         let target = AyuGramProfileRelay.makePreviewURL(fileExtension: "mp4")
         session.outputURL = target

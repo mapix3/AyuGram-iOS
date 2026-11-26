@@ -847,3 +847,5 @@
 "Ayu.AIStyleHint" = "Short lowercase messages, no periods…";
 "Ayu.AISaveImage" = "Save to Photos";
 "Ayu.AICopyImage" = "Copy image";
+"Ayu.AITokens" = "%@ tokens";
+"Ayu.AISeconds" = "%@ s";
