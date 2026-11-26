@@ -12,9 +12,11 @@ import { handleBadges, handleCryptoPayHook, handleRocketHook, checkBadgePayments
 import { handleStats, ipTag } from './stats.js';
 import { handleBot } from './bot.js';
 import { handleProfile } from './profile.js';
+import { handleMarket, isMarketRequest, marketSweep } from './market.js';
 
 export { Stats } from './stats.js';
 export { Profiles } from './profile.js';
+export { Market } from './market.js';
 
 const BARK_BASE = 'https://api.day.app';
 const BARK_PUSH = BARK_BASE + '/push';
@@ -1249,7 +1251,11 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/__cron' && request.method === 'POST' && env.STATS_TOKEN && request.headers.get('x-cron') === env.STATS_TOKEN && !request.headers.get('cf-connecting-ip')) {
       await checkBadgePayments(env).catch((error) => console.log('badge payments not checked: ' + error));
+      await marketSweep(env).catch((error) => console.log('market not swept: ' + error));
       return new Response('ok');
+    }
+    if (isMarketRequest(url)) {
+      return handleMarket(request, env, url, ctx);
     }
     if (!allowRequest(request, url.pathname)) {
       return new Response(JSON.stringify({ error: 'rate_limited', message: 'Too many requests; wait a moment and retry' }), {
