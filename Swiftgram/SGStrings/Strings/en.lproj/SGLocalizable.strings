@@ -737,3 +737,8 @@
 "Ayu.AICopyImage" = "Copy image";
 "Ayu.AITokens" = "%@ tokens";
 "Ayu.AISeconds" = "%@ s";
+"Ayu.LarpStars" = "Fake Stars balance";
+"Ayu.LarpTon" = "Fake TON balance";
+"Ayu.LarpOff" = "Off";
+"Ayu.LarpStarsInfo" = "Stars balance shown only on this phone. Purchases still use your real balance. Leave empty to turn off.";
+"Ayu.LarpTonInfo" = "TON balance shown only on this phone, like 12.5. Payments still use your real balance. Leave empty to turn off.";

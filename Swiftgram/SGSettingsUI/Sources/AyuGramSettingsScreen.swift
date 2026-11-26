@@ -26,7 +26,7 @@ private enum AyuScreenToggle: Equatable {
 }
 
 private enum AyuScreenLink: Equatable {
-    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, aiStyle, supporter, video, profileExtras
+    case history, appearance, update, checkUpdates, channel, developer, importChat, silentSending, sessionLog, buildInfo, reportScam, searchEngine, assistant, aiProvider, aiKey, aiModel, donate, aiLanguage, aiPersona, aiStyle, larpStars, larpTon, supporter, video, profileExtras
 }
 
 private enum AyuScreenTint: Equatable {
@@ -196,6 +196,8 @@ private func ayuScreenEntries(data: PresentationData, privacy: AyuGramPrivacySet
     entries.append(.header(id: 600, section: .client, text: s("Ayu.ClientSection")))
     entries.append(.link(id: 605, section: .client, link: .supporter, symbol: "heart.circle.fill", tint: .red, title: s("Ayu.SupporterBadge"), label: ""))
     entries.append(.toggle(id: 610, section: .client, key: .premium, symbol: "star.fill", tint: .purple, title: s("Ayu.LocalPremium"), subtitle: s("Ayu.LocalPremiumInfo"), value: client.localPremium, enabled: true))
+    entries.append(.link(id: 612, section: .client, link: .larpStars, symbol: "star.circle.fill", tint: .orange, title: s("Ayu.LarpStars"), label: AyuGramLarpBalance.stars.map { "\($0)" } ?? s("Ayu.LarpOff")))
+    entries.append(.link(id: 614, section: .client, link: .larpTon, symbol: "diamond.fill", tint: .blue, title: s("Ayu.LarpTon"), label: AyuGramLarpBalance.tonNano.map { AyuGramLarpBalance.formatTon($0) } ?? s("Ayu.LarpOff")))
     entries.append(.link(id: 617, section: .client, link: .profileExtras, symbol: "person.crop.circle.badge.plus", tint: .blue, title: s("Ayu.ProfileExtras.Title"), label: ""))
     if hasAppearance {
         entries.append(.link(id: 620, section: .client, link: .appearance, symbol: "paintbrush.fill", tint: .pink, title: data.strings.Appearance_Title, label: ""))
@@ -297,6 +299,22 @@ public func ayuGramSettingsScreen(context: AccountContext) -> ViewController {
             }
         case .profileExtras:
             pushController?(ayuGramProfileExtrasController(context: context))
+        case .larpStars:
+            let data = context.sharedContext.currentPresentationData.with { $0 }
+            presentController?(promptController(context: context, text: i18n("Ayu.LarpStarsInfo", data.strings.baseLanguageCode), value: AyuGramLarpBalance.stars.map { "\($0)" } ?? "", placeholder: "1000000", characterLimit: 15, apply: { value in
+                if let value {
+                    AyuGramLarpBalance.stars = AyuGramLarpBalance.parseStars(value)
+                    NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
+                }
+            }))
+        case .larpTon:
+            let data = context.sharedContext.currentPresentationData.with { $0 }
+            presentController?(promptController(context: context, text: i18n("Ayu.LarpTonInfo", data.strings.baseLanguageCode), value: AyuGramLarpBalance.tonNano.map { AyuGramLarpBalance.formatTon($0) } ?? "", placeholder: "12.5", characterLimit: 20, apply: { value in
+                if let value {
+                    AyuGramLarpBalance.tonNano = AyuGramLarpBalance.parseTon(value)
+                    NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
+                }
+            }))
         case .update:
             if let info = AyuGramUpdates.shared.availableUpdate {
                 presentController?(ayuGramUpdateAlert(context: context, info: info))
