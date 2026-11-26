@@ -158,6 +158,7 @@ public func ayuGramPresentUpdateIfNeeded(context: AccountContext) {
     }
     AyuGramUpdates.shared.check { _ in }
     AyuGramPushRelay.renew(context: context)
+    AyuGramPluginManager.shared.start(context: context)
     ayuGramBarkSetupHook = { context, present in
         ayuGramSetUpBark(context: context, present: present)
     }
