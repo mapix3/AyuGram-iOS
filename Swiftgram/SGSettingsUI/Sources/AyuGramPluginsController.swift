@@ -14,12 +14,14 @@ import UndoUI
 import SGStrings
 
 private final class AyuGramPluginsArguments {
+    let market: () -> Void
     let toggle: (String, Bool) -> Void
     let open: (AyuGramPluginInfo) -> Void
     let installFile: () -> Void
     let installURL: () -> Void
 
-    init(toggle: @escaping (String, Bool) -> Void, open: @escaping (AyuGramPluginInfo) -> Void, installFile: @escaping () -> Void, installURL: @escaping () -> Void) {
+    init(market: @escaping () -> Void, toggle: @escaping (String, Bool) -> Void, open: @escaping (AyuGramPluginInfo) -> Void, installFile: @escaping () -> Void, installURL: @escaping () -> Void) {
+        self.market = market
         self.toggle = toggle
         self.open = open
         self.installFile = installFile
@@ -28,6 +30,8 @@ private final class AyuGramPluginsArguments {
 }
 
 private enum AyuGramPluginsEntry: ItemListNodeEntry {
+    case market(Int, String, String)
+    case marketInfo(Int, String)
     case header(Int, String)
     case plugin(Int, AyuGramPluginInfo)
     case empty(Int, String)
@@ -37,16 +41,18 @@ private enum AyuGramPluginsEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
-        case .header, .plugin, .empty:
+        case .market, .marketInfo:
             return 0
-        case .installFile, .installURL, .footer:
+        case .header, .plugin, .empty:
             return 1
+        case .installFile, .installURL, .footer:
+            return 2
         }
     }
 
     var stableId: Int {
         switch self {
-        case let .header(id, _), let .plugin(id, _), let .empty(id, _), let .installFile(id, _), let .installURL(id, _), let .footer(id, _):
+        case let .market(id, _, _), let .marketInfo(id, _), let .header(id, _), let .plugin(id, _), let .empty(id, _), let .installFile(id, _), let .installURL(id, _), let .footer(id, _):
             return id
         }
     }
@@ -57,6 +63,10 @@ private enum AyuGramPluginsEntry: ItemListNodeEntry {
 
     static func == (lhs: AyuGramPluginsEntry, rhs: AyuGramPluginsEntry) -> Bool {
         switch (lhs, rhs) {
+        case let (.market(lId, lText, lLabel), .market(rId, rText, rLabel)):
+            return lId == rId && lText == rText && lLabel == rLabel
+        case let (.marketInfo(lId, lText), .marketInfo(rId, rText)):
+            return lId == rId && lText == rText
         case let (.header(lId, lText), .header(rId, rText)):
             return lId == rId && lText == rText
         case let (.plugin(lId, lInfo), .plugin(rId, rInfo)):
@@ -77,6 +87,12 @@ private enum AyuGramPluginsEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let args = arguments as! AyuGramPluginsArguments
         switch self {
+        case let .market(_, text, label):
+            return ItemListDisclosureItem(presentationData: presentationData, icon: UIImage(systemName: "bag.fill")?.withTintColor(presentationData.theme.list.itemAccentColor, renderingMode: .alwaysOriginal), title: text, label: label, sectionId: self.section, style: .blocks, action: {
+                args.market()
+            })
+        case let .marketInfo(_, text):
+            return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
         case let .header(_, text):
             return ItemListSectionHeaderItem(presentationData: presentationData, text: text, sectionId: self.section)
         case let .plugin(_, info):
@@ -102,7 +118,7 @@ private enum AyuGramPluginsEntry: ItemListNodeEntry {
     }
 }
 
-private final class AyuGramPluginPickerDelegate: NSObject, UIDocumentPickerDelegate {
+final class AyuGramPluginPickerDelegate: NSObject, UIDocumentPickerDelegate {
     let picked: (URL) -> Void
     var keepAlive: AyuGramPluginPickerDelegate?
 
@@ -126,7 +142,7 @@ private func ayuGramPluginPermissionTitle(_ permission: String, locale: String) 
     return i18n("Ayu.Plugins.Perm." + permission, locale)
 }
 
-public func ayuGramPresentPluginInstall(context: AccountContext, package: AyuGramPluginPackage, present: @escaping (ViewController) -> Void, completion: (() -> Void)? = nil) {
+public func ayuGramPresentPluginInstall(context: AccountContext, package: AyuGramPluginPackage, notice: String? = nil, present: @escaping (ViewController) -> Void, completion: (() -> Void)? = nil) {
     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
     let locale = presentationData.strings.baseLanguageCode
     var lines: [String] = []
@@ -145,6 +161,9 @@ public func ayuGramPresentPluginInstall(context: AccountContext, package: AyuGra
     if !package.info.domains.isEmpty {
         lines.append("\n" + i18n("Ayu.Plugins.Domains", locale) + " " + package.info.domains.joined(separator: ", "))
     }
+    if let notice, !notice.isEmpty {
+        lines.append("\n" + notice)
+    }
     lines.append("\n" + i18n("Ayu.Plugins.Warning", locale))
     let exists = AyuGramPluginManager.shared.plugins.contains(where: { $0.id == package.info.id })
     present(textAlertController(context: context, title: i18n(exists ? "Ayu.Plugins.UpdateTitle" : "Ayu.Plugins.InstallTitle", locale), text: lines.joined(separator: "\n"), actions: [
@@ -161,7 +180,13 @@ public func ayuGramInstallPlugin(context: AccountContext, fileURL: URL, present:
     let locale = presentationData.strings.baseLanguageCode
     do {
         let package = try ayuGramReadPluginPackage(at: fileURL)
-        ayuGramPresentPluginInstall(context: context, package: package, present: present)
+        guard let data = try? Data(contentsOf: fileURL), data.count <= 2 * 1024 * 1024 else {
+            ayuGramPresentPluginInstall(context: context, package: package, present: present)
+            return
+        }
+        AyuGramMarketClient.shared.scan(data: data, name: fileURL.lastPathComponent, completion: { scan in
+            ayuGramPresentPluginInstall(context: context, package: package, notice: scan.map { ayuGramMarketScanText($0, locale: locale) }, present: present)
+        })
     } catch {
         present(textAlertController(context: context, title: nil, text: i18n("Ayu.Plugins.BadFile", locale), actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
     }
@@ -196,7 +221,10 @@ public func ayuGramPluginsController(context: AccountContext) -> ViewController 
     var openImpl: ((AyuGramPluginInfo) -> Void)?
     var installFileImpl: (() -> Void)?
     var installURLImpl: (() -> Void)?
-    let arguments = AyuGramPluginsArguments(toggle: { id, value in
+    var marketImpl: (() -> Void)?
+    let arguments = AyuGramPluginsArguments(market: {
+        marketImpl?()
+    }, toggle: { id, value in
         AyuGramPluginManager.shared.setEnabled(id, value)
     }, open: { info in
         openImpl?(info)
@@ -218,6 +246,8 @@ public func ayuGramPluginsController(context: AccountContext) -> ViewController 
     |> map { presentationData, _ -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let locale = presentationData.strings.baseLanguageCode
         var entries: [AyuGramPluginsEntry] = []
+        entries.append(.market(-2, i18n("Ayu.Market.Title", locale), ""))
+        entries.append(.marketInfo(-1, i18n("Ayu.Market.EntryInfo", locale)))
         entries.append(.header(0, i18n("Ayu.Plugins.Installed", locale)))
         let plugins = AyuGramPluginManager.shared.plugins.sorted(by: { $0.installedAt < $1.installedAt })
         if plugins.isEmpty {
@@ -235,6 +265,9 @@ public func ayuGramPluginsController(context: AccountContext) -> ViewController 
     let controller = ItemListController(context: context, state: signal)
     presentImpl = { [weak controller] next in
         controller?.present(next, in: .window(.root))
+    }
+    marketImpl = { [weak controller] in
+        (controller?.navigationController as? NavigationController)?.pushViewController(ayuGramMarketController(context: context))
     }
     installFileImpl = { [weak controller] in
         guard let controller else {
