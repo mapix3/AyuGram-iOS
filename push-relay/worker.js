@@ -427,11 +427,13 @@ async function handleAssistant(request, env) {
   const kind = vision ? 'vision' : 'text';
   const basePrompt = 'Current date and time: ' + new Date().toUTCString() + ' (UTC). Answer in the language of the user.';
   const copilot = input && input.ayugram_mode === 'copilot';
+  const tally = { prompt: 0, completion: 0, model: '' };
   const copilotTokens = Math.max(64, Math.min(500, Number(input && input.max_tokens) || 320));
   if (copilot) {
     const gemini = await geminiChat(env, messages, copilotTokens);
+    addUsage(tally, gemini.usage);
     if (gemini.content) {
-      return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: gemini.content } }] });
+      return answerWith(gemini.content, tally, gemini.model);
     }
     if (!env.GROQ_API_KEY) {
       return aiAnswer(502, { error: { message: 'The assistant is unavailable' + (gemini.reason ? ': ' + gemini.reason : '') } });
@@ -452,7 +454,8 @@ async function handleAssistant(request, env) {
       }
     }
     if (answer.content) {
-      return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: answer.content } }] });
+      addUsage(tally, answer.usage);
+      return answerWith(answer.content, tally, answer.model);
     }
     return aiAnswer(answer.status === 429 ? 429 : 502, { error: { message: answer.status === 429 ? 'The assistant is busy, try again later' : 'The assistant is unavailable' + (answer.reason ? ': ' + answer.reason : '') } });
   }
@@ -461,13 +464,20 @@ async function handleAssistant(request, env) {
     geminiTried = true;
     let primary = '';
     try {
-      primary = vision ? (await geminiChat(env, [{ role: 'system', content: basePrompt }].concat(messages), 4096)).content : await geminiSearchAnswer(env, key, messages, basePrompt);
+      if (vision) {
+        const seen = await geminiChat(env, [{ role: 'system', content: basePrompt }].concat(messages), 4096);
+        addUsage(tally, seen.usage);
+        tally.model = seen.model || '';
+        primary = seen.content;
+      } else {
+        primary = await geminiSearchAnswer(env, key, messages, basePrompt, tally);
+      }
     } catch (error) {
       console.log('assistant gemini failed: ' + error);
       primary = '';
     }
     if (primary) {
-      return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: primary } }] });
+      return answerWith(primary, tally);
     }
   }
   if (!env.GROQ_API_KEY) {
@@ -476,13 +486,13 @@ async function handleAssistant(request, env) {
   if (!vision) {
     let searched = '';
     try {
-      searched = await groqSearchAnswer(key, groqPicked.get(kind) || preferred, messages, basePrompt);
+      searched = await groqSearchAnswer(key, groqPicked.get(kind) || preferred, messages, basePrompt, tally);
     } catch (error) {
       console.log('assistant search failed: ' + error);
       searched = '';
     }
     if (searched) {
-      return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: searched } }] });
+      return answerWith(searched, tally, groqPicked.get(kind) || preferred);
     }
   }
   messages.unshift({ role: 'system', content: basePrompt });
@@ -498,7 +508,7 @@ async function handleAssistant(request, env) {
         result = retry;
         if (!vision) {
           try {
-            const searched = await groqSearchAnswer(key, candidate, messages.slice(1), basePrompt);
+            const searched = await groqSearchAnswer(key, candidate, messages.slice(1), basePrompt, tally);
             if (searched) {
               result = { model: candidate, status: 200, content: searched, reason: '' };
             }
@@ -521,7 +531,8 @@ async function handleAssistant(request, env) {
     }
   }
   if (result.content) {
-    return aiAnswer(200, { choices: [{ message: { role: 'assistant', content: result.content } }] });
+    addUsage(tally, result.usage);
+    return answerWith(result.content, tally, result.model);
   }
   if (result.status === 429) {
     return aiAnswer(429, { error: { message: 'The assistant is busy, try again later' } });
@@ -635,6 +646,22 @@ async function handlePro(request, env) {
 
 const groqPicked = new Map();
 
+function addUsage(tally, usage) {
+  if (!tally || !usage) {
+    return;
+  }
+  tally.prompt += Number(usage.prompt_tokens) || 0;
+  tally.completion += Number(usage.completion_tokens) || 0;
+}
+
+function usageOf(tally) {
+  return { prompt_tokens: tally.prompt, completion_tokens: tally.completion, total_tokens: tally.prompt + tally.completion };
+}
+
+function answerWith(content, tally, model) {
+  return aiAnswer(200, { model: model || tally.model || '', usage: usageOf(tally), choices: [{ message: { role: 'assistant', content } }] });
+}
+
 function groqKey(env) {
   return String(env.GROQ_API_KEY).replace(/[\s"']/g, '');
 }
@@ -646,9 +673,13 @@ function groqReason(status, output) {
 
 let geminiWorking = '';
 
-async function geminiSearchAnswer(env, key, messages, basePrompt) {
+async function geminiSearchAnswer(env, key, messages, basePrompt, tally) {
   const toolPrompt = basePrompt + SEARCH_TOOL_NOTE;
   const first = await geminiChat(env, [{ role: 'system', content: toolPrompt }].concat(messages), 4096, { tools: [groqSearchTool], tool_choice: 'auto' });
+  addUsage(tally, first && first.usage);
+  if (tally && first && first.model) {
+    tally.model = first.model;
+  }
   const queries = searchQueries(first && first.message, '');
   if (!queries.length) {
     const direct = first && first.content ? first.content : '';
@@ -663,12 +694,14 @@ async function geminiSearchAnswer(env, key, messages, basePrompt) {
   }
   if (!found.length) {
     const plain = await geminiChat(env, [{ role: 'system', content: basePrompt }].concat(messages), 4096);
+    addUsage(tally, plain && plain.usage);
     return plain && !looksLikeToolCall(plain.content) ? plain.content : '';
   }
   const last = messages[messages.length - 1];
   const question = typeof last.content === 'string' ? last.content : '';
   const thread = [{ role: 'system', content: basePrompt + SEARCH_RESULTS_NOTE }].concat(messages.slice(0, -1), [{ role: 'user', content: question + '\n\n[Internet search results]\n' + found.join('\n\n') }]);
   const second = await geminiChat(env, thread, 4096);
+  addUsage(tally, second && second.usage);
   return second && !looksLikeToolCall(second.content) ? second.content : '';
 }
 
@@ -800,7 +833,8 @@ async function handleImage(request, env) {
       const text = answerParts.filter((part) => part && typeof part.text === 'string').map((part) => part.text).join('').trim();
       if (picture) {
         const data = picture.inlineData || picture.inline_data;
-        return aiAnswer(200, { image: 'data:' + (data.mimeType || data.mime_type || 'image/png') + ';base64,' + data.data, text });
+        const meta = output.usageMetadata || {};
+        return aiAnswer(200, { image: 'data:' + (data.mimeType || data.mime_type || 'image/png') + ';base64,' + data.data, text, model, usage: { prompt_tokens: Number(meta.promptTokenCount) || 0, completion_tokens: Number(meta.candidatesTokenCount) || 0, total_tokens: Number(meta.totalTokenCount) || 0 } });
       }
       reason = output && output.error ? String(output.error.message || '').replace(/AIza[0-9A-Za-z_-]+/g, '').slice(0, 160) : (text ? text.slice(0, 300) : 'no image returned');
       if (response.status === 200 && text) {
@@ -862,7 +896,7 @@ async function geminiRequest(env, model, messages, maxTokens, extra) {
   const message = output && output.choices && output.choices[0] && output.choices[0].message ? output.choices[0].message : null;
   const content = message && message.content;
   const reason = output && output.error ? String(output.error.message || output.error.status || '').replace(/AIza[0-9A-Za-z_-]+/g, '').slice(0, 160) : '';
-  return { model, status, message, calls: Boolean(message && Array.isArray(message.tool_calls) && message.tool_calls.length), content: typeof content === 'string' && content ? content.trim() : '', reason: reason || (status ? 'HTTP ' + status : 'network error') };
+  return { model, status, message, usage: output && output.usage ? output.usage : null, calls: Boolean(message && Array.isArray(message.tool_calls) && message.tool_calls.length), content: typeof content === 'string' && content ? content.trim() : '', reason: reason || (status ? 'HTTP ' + status : 'network error') };
 }
 
 async function groqChat(key, model, messages, maxTokens) {
@@ -880,7 +914,7 @@ async function groqChat(key, model, messages, maxTokens) {
     output = null;
   }
   const content = output && output.choices && output.choices[0] && output.choices[0].message && output.choices[0].message.content;
-  return { model, status, content: typeof content === 'string' && content ? content : '', reason: groqReason(status, output) };
+  return { model, status, usage: output && output.usage ? output.usage : null, content: typeof content === 'string' && content ? content : '', reason: groqReason(status, output) };
 }
 
 const SEARCH_TOOL_NOTE = ' You can search the internet with the web_search tool. Search only when the latest user message needs current or external facts: news, weather, prices, schedules, recent releases, or a specific fact you do not know. Never search for small talk, opinions, writing help, coding, math, translation, or questions about this conversation. Base the search query only on the latest user message and its real context; never search for things nobody mentioned.';
@@ -1077,9 +1111,9 @@ async function groqRaw(key, body) {
     const output = await response.json();
     const message = output && output.choices && output.choices[0] && output.choices[0].message ? output.choices[0].message : null;
     const failed = output && output.error && typeof output.error.failed_generation === 'string' ? output.error.failed_generation : '';
-    return { message, failed };
+    return { message, failed, usage: output && output.usage ? output.usage : null };
   } catch (error) {
-    return { message: null, failed: '' };
+    return { message: null, failed: '', usage: null };
   }
 }
 
@@ -1116,9 +1150,10 @@ function searchQueries(message, failed) {
   return queries.map((query) => query.replace(/\s+/g, ' ').trim().slice(0, 300)).filter(Boolean).slice(0, 2);
 }
 
-async function groqSearchAnswer(key, model, messages, basePrompt) {
+async function groqSearchAnswer(key, model, messages, basePrompt, tally) {
   const toolPrompt = basePrompt + SEARCH_TOOL_NOTE;
   const first = await groqRaw(key, { model, messages: [{ role: 'system', content: toolPrompt }].concat(messages), max_tokens: 1500, tools: [groqSearchTool], tool_choice: 'auto' });
+  addUsage(tally, first.usage);
   const queries = searchQueries(first.message, first.failed);
   if (!queries.length) {
     const direct = first.message && typeof first.message.content === 'string' ? first.message.content : '';
@@ -1138,6 +1173,7 @@ async function groqSearchAnswer(key, model, messages, basePrompt) {
   const question = typeof last.content === 'string' ? last.content : '';
   const thread = [{ role: 'system', content: basePrompt + SEARCH_RESULTS_NOTE }].concat(messages.slice(0, -1), [{ role: 'user', content: question + '\n\n[Internet search results]\n' + found.join('\n\n') }]);
   const second = await groqRaw(key, { model, messages: thread, max_tokens: 1500 });
+  addUsage(tally, second.usage);
   const answer = second.message && typeof second.message.content === 'string' ? second.message.content : '';
   return looksLikeToolCall(answer) ? '' : answer;
 }

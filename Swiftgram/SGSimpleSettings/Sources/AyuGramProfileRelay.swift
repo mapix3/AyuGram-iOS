@@ -1,4 +1,6 @@
 import Foundation
+import AVFoundation
+import CoreGraphics
 
 public struct AyuGramProfileNftColors: Codable, Equatable {
     public var center: String
@@ -958,7 +960,7 @@ public final class AyuGramProfileRelay {
             var success = false
             if let location, (response as? HTTPURLResponse)?.statusCode == 200 {
                 let size = ((try? FileManager.default.attributesOfItem(atPath: location.path))?[.size] as? NSNumber)?.intValue ?? 0
-                if size > 0 && size <= 10 * 1024 * 1024 {
+                if size > 0 && size <= 24 * 1024 * 1024 {
                     try? FileManager.default.createDirectory(at: AyuGramProfileRelay.mediaDirectory, withIntermediateDirectories: true)
                     try? FileManager.default.removeItem(at: target)
                     success = (try? FileManager.default.moveItem(at: location, to: target)) != nil
@@ -977,8 +979,66 @@ public final class AyuGramProfileRelay {
                     self?.trimMediaCache()
                 }
                 self.notify([rawId])
+                if background.isVideo {
+                    AyuGramProfileRelay.compactVideo(at: target, completion: { [weak self] changed in
+                        if changed {
+                            self?.notify([rawId])
+                        }
+                    })
+                }
             }
         }).resume()
+    }
+
+    static func compactVideo(at url: URL, completion: @escaping (Bool) -> Void) {
+        let asset = AVURLAsset(url: url)
+        asset.loadValuesAsynchronously(forKeys: ["tracks", "duration"], completionHandler: {
+            guard let track = asset.tracks(withMediaType: .video).first else {
+                completion(false)
+                return
+            }
+            let oriented = track.naturalSize.applying(track.preferredTransform)
+            let width = abs(oriented.width)
+            let height = abs(oriented.height)
+            let rate = track.nominalFrameRate
+            guard width > 0, height > 0, max(width, height) > 1280.5 || rate > 31.0 else {
+                completion(false)
+                return
+            }
+            let scale = min(1.0, 1280.0 / max(width, height))
+            let render = CGSize(width: max(2.0, floor(width * scale / 2.0) * 2.0), height: max(2.0, floor(height * scale / 2.0) * 2.0))
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+            let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
+            layer.setTransform(track.preferredTransform.concatenating(CGAffineTransform(scaleX: scale, y: scale)), at: .zero)
+            instruction.layerInstructions = [layer]
+            let video = AVMutableVideoComposition()
+            video.renderSize = render
+            video.frameDuration = CMTime(value: 1, timescale: 30)
+            video.instructions = [instruction]
+            guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1280x720) else {
+                completion(false)
+                return
+            }
+            let isMov = url.pathExtension.lowercased() == "mov"
+            let temporary = url.deletingLastPathComponent().appendingPathComponent("compact_" + UUID().uuidString + (isMov ? ".mov" : ".mp4"))
+            session.outputURL = temporary
+            session.outputFileType = isMov ? .mov : .mp4
+            session.videoComposition = video
+            session.shouldOptimizeForNetworkUse = true
+            session.exportAsynchronously(completionHandler: {
+                guard session.status == .completed, FileManager.default.fileExists(atPath: temporary.path) else {
+                    try? FileManager.default.removeItem(at: temporary)
+                    completion(false)
+                    return
+                }
+                let replaced = (try? FileManager.default.replaceItemAt(url, withItemAt: temporary)) != nil
+                if !replaced {
+                    try? FileManager.default.removeItem(at: temporary)
+                }
+                completion(replaced)
+            })
+        })
     }
 
     private func store(file: URL, for background: AyuGramProfileBackground) {
@@ -992,6 +1052,9 @@ public final class AyuGramProfileRelay {
             self.lock.lock()
             self.existingMedia.insert(name)
             self.lock.unlock()
+            if background.isVideo {
+                AyuGramProfileRelay.compactVideo(at: target, completion: { _ in })
+            }
         }
     }
 

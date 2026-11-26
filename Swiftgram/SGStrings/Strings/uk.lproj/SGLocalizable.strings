@@ -697,3 +697,5 @@
 "Ayu.AIStyleHint" = "Короткі повідомлення з малої літери, без крапок…";
 "Ayu.AISaveImage" = "Зберегти у Фото";
 "Ayu.AICopyImage" = "Скопіювати зображення";
+"Ayu.AITokens" = "%@ токенів";
+"Ayu.AISeconds" = "%@ с";
