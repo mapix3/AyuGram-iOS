@@ -766,6 +766,7 @@ public func enqueueMessages(account: Account, peerId: PeerId, messages: [Enqueue
         signal = .single(messages.map { (false, $0) })
     }
     return signal
+    |> map { messages in ayuApplyPluginSendHooks(peerId: peerId, messages: messages) }
     |> mapToSignal { messages in ayuPrepareDeletedReplies(account: account, messages: messages) }
     |> mapToSignal { messages in ayuPrepareProtectedForwards(account: account, peerId: peerId, messages: messages) }
     |> mapToSignal { messages in ayuPrepareEmojiLinks(account: account, peerId: peerId, messages: messages) }

@@ -1089,6 +1089,26 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 }
             }
         }
+        if messages.count == 1, let file = message.media.first(where: { $0 is TelegramMediaFile }) as? TelegramMediaFile, ayuGramIsPluginFileName(file.fileName ?? "") {
+            actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.Plugins.InstallFromMessage", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
+                generateTintedImage(image: UIImage(systemName: "puzzlepiece.extension"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, complete in
+                complete(.default)
+                ayuGramInstallPluginFromMessage(context: context, message: message, present: { controller in
+                    controllerInteraction.presentControllerInCurrent(controller, nil)
+                })
+            })))
+        }
+        if messages.count == 1 {
+            for item in AyuGramPluginManager.shared.menuItems(location: "message") {
+                actions.append(.action(ContextMenuActionItem(text: item.title, icon: { theme in
+                    generateTintedImage(image: UIImage(systemName: "puzzlepiece.extension"), color: theme.actionSheet.primaryTextColor)
+                }, action: { _, complete in
+                    complete(.default)
+                    AyuGramPluginManager.shared.menuTapped(item, payload: ["peerId": String(message.id.peerId.toInt64()), "messageId": Int(message.id.id), "text": message.text, "isOutgoing": !message.flags.contains(.Incoming)])
+                })))
+            }
+        }
         if messages.count == 1, message.ayuHistory != nil {
             actions.append(.action(ContextMenuActionItem(text: i18n("Ayu.History", chatPresentationInterfaceState.strings.baseLanguageCode), icon: { theme in
                 generateTintedImage(image: UIImage(systemName: "clock.arrow.circlepath"), color: theme.actionSheet.primaryTextColor)
