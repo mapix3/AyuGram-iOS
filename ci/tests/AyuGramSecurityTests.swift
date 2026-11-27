@@ -14,7 +14,11 @@ struct SecurityTests {
         expect(rules.matches(teamId: "", build: 207401, status: .official), "A blocked build is blocked")
         expect(rules.matches(teamId: "OWN1234567", build: 1, status: .modified), "Modified builds are blocked when asked")
         expect(!rules.matches(teamId: "OWN1234567", build: 1, status: .unknown), "An unverified build is not blocked")
-        expect(AyuGramBlockRules.parse(data(#"{"build": 1}"#)) == AyuGramBlockRules(), "No block list blocks nothing")
+        let bare = AyuGramBlockRules.parse(data(#"{"build": 1}"#))
+        expect(bare.teams.isEmpty && bare.builds.isEmpty && !bare.modified && bare.message == nil && bare.testers.isEmpty, "No block list blocks nothing")
+        expect(bare.publishedBuild == 1 && !bare.matches(teamId: "", build: 2, status: .official), "The published build is read without blocking anything")
+        let testers = AyuGramBlockRules.parse(data(#"{"build": "216601", "block": {"testers": [8914323197, "123", "x"]}}"#))
+        expect(testers.publishedBuild == 216601 && testers.testers == [8914323197, 123], "Published build and tester ids accept numbers and strings")
         expect(!AyuGramBlockRules().matches(teamId: "", build: 0, status: .modified), "Modified builds are not blocked by default")
 
         let remote = ["Telegram": "aa", "Frameworks/TelegramUIFramework.framework/TelegramUIFramework": "bb", "Frameworks/libswiftCore.dylib": "cc"]
