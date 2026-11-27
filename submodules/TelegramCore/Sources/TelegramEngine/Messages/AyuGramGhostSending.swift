@@ -104,7 +104,7 @@ func ayuCreateGhostMirrors(transaction: Transaction, accountPeerId: PeerId, ids:
         let attributes = message.attributes.filter { !($0 is OutgoingScheduleInfoMessageAttribute) && !($0 is AyuGhostScheduleMessageAttribute) && !($0 is OutgoingMessageInfoAttribute) }
         let uniqueId = Int64.random(in: Int64.min ... Int64.max)
         let tags = tagsForStoreMessage(incoming: false, attributes: attributes, media: message.media, textEntities: nil, isPinned: false).0
-        stored.append(StoreMessage(peerId: id.peerId, namespace: Namespaces.Message.Local, customStableId: nil, globallyUniqueId: uniqueId, groupingKey: message.groupingKey, threadId: message.threadId, timestamp: now, flags: [], tags: tags, globalTags: [], localTags: [], forwardInfo: message.forwardInfo.map(StoreMessageForwardInfo.init), authorId: accountPeerId, text: message.text, attributes: attributes, media: message.media))
+        stored.append(StoreMessage(peerId: id.peerId, namespace: Namespaces.Message.Local, customStableId: nil, globallyUniqueId: uniqueId, groupingKey: message.groupingKey, threadId: message.threadId, timestamp: now, flags: [.Sending], tags: tags, globalTags: [], localTags: [], forwardInfo: message.forwardInfo.map(StoreMessageForwardInfo.init), authorId: accountPeerId, text: message.text, attributes: attributes, media: message.media))
         pending[uniqueId] = (id, scheduleTime, message.text)
     }
     if stored.isEmpty {
