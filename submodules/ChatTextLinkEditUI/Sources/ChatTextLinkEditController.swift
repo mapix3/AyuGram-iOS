@@ -102,7 +102,7 @@ public func chatTextLinkEditController(
         var currentDisplayedPreview: (link: String, webpage: TelegramMediaWebpage?)?
         previewDisposable.set((inputState.valueSignal
         |> map { value -> String in
-            return explicitUrl(value.string)
+            return ayuGramBridgedDeepLink(explicitUrl(value.string))
         }
         |> distinctUntilChanged
         |> mapToSignal { link -> Signal<(String, TelegramMediaWebpage?), NoError> in
@@ -139,7 +139,7 @@ public func chatTextLinkEditController(
     }
 
     applyImpl = {
-        let updatedLink = explicitUrl(inputState.value.string)
+        let updatedLink = ayuGramBridgedDeepLink(explicitUrl(inputState.value.string))
         if !updatedLink.isEmpty && isValidUrl(updatedLink, validSchemes: ["http": true, "https": true, "tg": false, "ton": false, "tonsite": true]) {
             dismissImpl?()
             apply(updatedLink, currentPreview?.link == updatedLink ? currentPreview?.webpage : nil)
