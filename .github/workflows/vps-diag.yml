@@ -9,36 +9,46 @@ permissions:
 jobs:
   diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Relay logs
+      - name: Collect diagnostics and send them to the owner
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          OWNER_ID: '1272887902'
         run: |
           set -eu
+          [ -n "$BOT_TOKEN" ] || { echo "::error::TELEGRAM_BOT_TOKEN is not set"; exit 1; }
           install -d -m 700 ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
           printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519
-          ssh "ubuntu@$VPS_HOST" 'set +e
-            mask() { sed -E "s#/(p|test|active|deleted|shown|seen)/[^ ?\"]+#/\1/X#g; s#a=[A-Za-z0-9_-]+#a=X#g"; }
-            systemctl --no-pager --lines=0 status nginx ayugram-relay 2>&1 | head -20
-            echo ==== p status counts last 2000
-            sudo tail -n 20000 /var/log/nginx/access.log | grep " /p/" | tail -n 2000 | awk "{print \$9}" | sort | uniq -c
-            echo ==== p last 40
-            sudo tail -n 20000 /var/log/nginx/access.log | grep " /p/" | tail -n 40 | mask
-            echo ==== nginx errors
-            sudo tail -n 40 /var/log/nginx/error.log | mask
-            echo ==== relay journal
-            sudo journalctl -u "ayugram-relay*" --since "-6h" --no-pager | tail -n 80 | mask'
-
-      - name: Cloudflare firewall events
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          set -eu
-          zone=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/zones?name=mapixdev.com" | jq -r '.result[0].id')
-          since=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)
-          q=$(jq -n --arg z "$zone" --arg s "$since" '{query:"query($z:String!,$s:Time!){viewer{zones(filter:{zoneTag:$z}){firewallEventsAdaptiveGroups(limit:50,filter:{datetime_gt:$s,clientRequestPath_like:\"/p/%\"},orderBy:[count_DESC]){count dimensions{action source ruleId clientCountryName clientAsn}}}}}",variables:{z:$z,s:$s}}')
-          curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" https://api.cloudflare.com/client/v4/graphql -d "$q" | jq '.data.viewer.zones[0].firewallEventsAdaptiveGroups, .errors'
+          report="$RUNNER_TEMP/vps-diag.txt"
+          {
+            ssh "ubuntu@$VPS_HOST" 'set +e
+              mask() { sed -E "s#/(p|test|active|deleted|shown|seen)/[^ ?\"]+#/\1/X#g; s#a=[A-Za-z0-9_-]+#a=X#g"; }
+              systemctl --no-pager --lines=0 status nginx ayugram-relay 2>&1 | head -20
+              echo ==== p status counts last 2000
+              sudo tail -n 20000 /var/log/nginx/access.log | grep " /p/" | tail -n 2000 | awk "{print \$9}" | sort | uniq -c
+              echo ==== p last 40
+              sudo tail -n 20000 /var/log/nginx/access.log | grep " /p/" | tail -n 40 | mask
+              echo ==== nginx errors
+              sudo tail -n 40 /var/log/nginx/error.log | mask
+              echo ==== relay journal
+              sudo journalctl -u "ayugram-relay*" --since "-6h" --no-pager | tail -n 80 | mask' 2>&1 || echo "ssh failed with $?"
+            echo ==== cloudflare firewall events
+            if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+              zone=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/zones?name=mapixdev.com" | jq -r '.result[0].id')
+              since=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)
+              q=$(jq -n --arg z "$zone" --arg s "$since" '{query:"query($z:String!,$s:Time!){viewer{zones(filter:{zoneTag:$z}){firewallEventsAdaptiveGroups(limit:50,filter:{datetime_gt:$s,clientRequestPath_like:\"/p/%\"},orderBy:[count_DESC]){count dimensions{action source ruleId clientCountryName clientAsn}}}}}",variables:{z:$z,s:$s}}')
+              curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" https://api.cloudflare.com/client/v4/graphql -d "$q" | jq '.data.viewer.zones[0].firewallEventsAdaptiveGroups, .errors'
+            fi
+          } > "$report" 2>&1
+          sed -i -E 's/\b([0-9]{1,3}\.){3}[0-9]{1,3}\b/x.x.x.x/g; s/\b([0-9a-fA-F]{1,4}:){4,7}[0-9a-fA-F]{1,4}\b/x::x/g; s/\b[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4})*::([0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4})*)?/x::x/g' "$report"
+          result="$(curl -sS "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" -F "chat_id=$OWNER_ID" -F "caption=AyuGram: VPS relay diagnostics" -F "document=@$report;filename=vps-diag.txt")"
+          rm -f "$report" ~/.ssh/id_ed25519
+          python3 -c 'import json,sys; d=json.loads(sys.argv[1]); sys.exit(0 if d.get("ok") else "Telegram refused the diagnostics: " + str(d.get("description")))' "$result"
+          echo "Diagnostics were sent to the owner in Telegram."
