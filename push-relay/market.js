@@ -3,7 +3,7 @@ import { ipTag } from './stats.js';
 import { PLUGIN_PERMISSIONS, aiReview, compareVersions, scanPlugin, scanSummary, unpackPlugin } from './scan.js';
 
 export const MARKET_HOST = 'marketplace.mapixdev.com';
-export const MARKET_SITE = 'https://relay.mapixdev.com/market';
+export const MARKET_SITE = 'https://' + MARKET_HOST;
 export const MARKET_LIMITS = { file: 2097152, photo: 5242880, video: 20971520, media: 4, body: 27262976, name: 60, description: 300, about: 4000, changelog: 1000 };
 
 const INTERNAL = 'https://market.ayugram.invalid';
@@ -984,7 +984,7 @@ export async function handleMarket(request, env, url, ctx) {
   }
   const onHost = url.hostname === MARKET_HOST;
   const path = (onHost ? url.pathname : url.pathname.slice('/market'.length)).replace(/\/+$/, '') || '/';
-  const origin = onHost ? 'https://' + MARKET_HOST : MARKET_SITE;
+  const origin = onHost ? 'https://' + MARKET_HOST : url.origin + '/market';
   const method = request.method;
   const read = method === 'GET' || method === 'HEAD';
   let match;
