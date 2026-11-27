@@ -180,6 +180,58 @@ export function cleanBrightness(value) {
   return Math.round(value * 100) / 100 || 0;
 }
 
+const STYLE_LIST = new Set(['none', 'extend', 'media']);
+const STYLE_DEFAULT = { accent: null, plate: null, opacity: 0.55, list: 'none', avatar: 1, title: 1, blur: 0 };
+
+function styleNumber(value, min, max, fallback) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.round(Math.min(max, Math.max(min, value)) * 100) / 100;
+}
+
+function styleColor(value) {
+  return typeof value === 'string' && HEX.test(value) ? value.toLowerCase() : null;
+}
+
+export function cleanStyle(value) {
+  if (value === null) {
+    return { value: null };
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { error: 'bad_style' };
+  }
+  for (const key of Object.keys(value)) {
+    if (!Object.hasOwn(STYLE_DEFAULT, key)) {
+      return { error: 'bad_style' };
+    }
+  }
+  if ((value.accent !== undefined && value.accent !== null && !styleColor(value.accent)) || (value.plate !== undefined && value.plate !== null && !styleColor(value.plate))) {
+    return { error: 'bad_style' };
+  }
+  if (value.list !== undefined && !STYLE_LIST.has(value.list)) {
+    return { error: 'bad_style' };
+  }
+  return { value: styleOf(value) };
+}
+
+function styleOf(source) {
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+  const style = {
+    accent: styleColor(source.accent),
+    plate: styleColor(source.plate),
+    opacity: styleNumber(source.opacity, 0, 1, STYLE_DEFAULT.opacity),
+    list: STYLE_LIST.has(source.list) ? source.list : 'none',
+    avatar: styleNumber(source.avatar, 0.4, 1.6, 1),
+    title: styleNumber(source.title, 0.5, 1.5, 1),
+    blur: styleNumber(source.blur, 0, 1, 0),
+  };
+  const plain = !style.accent && !style.plate && style.opacity === STYLE_DEFAULT.opacity && style.list === 'none' && style.avatar === 1 && style.title === 1 && style.blur === 0;
+  return plain ? null : style;
+}
+
 function numberKey(number) {
   return 'an:' + number.slice(1);
 }
@@ -242,6 +294,19 @@ export function cleanPatch(input) {
       }
       patch.number = number;
     }
+  }
+  if (Object.hasOwn(input, 'style')) {
+    const style = cleanStyle(input.style);
+    if (style.error) {
+      return style;
+    }
+    patch.style = style.value;
+  }
+  if (Object.hasOwn(input, 'listBackground')) {
+    if (input.listBackground !== null) {
+      return { error: 'bad_background' };
+    }
+    patch.listBackground = null;
   }
   if (Object.hasOwn(input, 'background')) {
     const background = input.background;
@@ -470,7 +535,7 @@ function unverified() {
 }
 
 function emptyRecord(lock, now) {
-  return { lock, nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, hiddenGifts: [], status: null, number: null, brightness: 0, updatedAt: now, claimedAt: now };
+  return { lock, nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, hiddenGifts: [], status: null, number: null, brightness: 0, style: null, listBackground: null, updatedAt: now, claimedAt: now };
 }
 
 function dataOf(record) {
@@ -485,6 +550,8 @@ function dataOf(record) {
     status: typeof source.status === 'string' && SLUG.test(source.status) ? source.status : null,
     number: typeof source.number === 'string' && cleanNumber(source.number) === source.number ? source.number : null,
     brightness: cleanBrightness(source.brightness) || 0,
+    style: styleOf(source.style),
+    listBackground: source.listBackground || null,
     updatedAt: source.updatedAt || 0,
   };
 }
@@ -494,7 +561,7 @@ function publicData(record) {
     return null;
   }
   const data = dataOf(record);
-  return data.nfts.length || data.usernames.length || data.bubbles || data.background || data.hideReal || data.hiddenGifts.length || data.number ? data : null;
+  return data.nfts.length || data.usernames.length || data.bubbles || data.background || data.hideReal || data.hiddenGifts.length || data.number || data.style || data.listBackground ? data : null;
 }
 
 function slugPins(record) {
@@ -540,6 +607,8 @@ function presentEntry(id, data, origin) {
     hiddenGifts: data.hiddenGifts || [],
     status: data.status ? { slug: data.status } : null,
     number: data.number || null,
+    style: data.style || null,
+    listBackground: presentBackground(id, data.listBackground, origin, 0),
     updatedAt: data.updatedAt,
   };
 }
@@ -768,25 +837,26 @@ export class Profiles {
   }
 
   async evict(key, stored) {
-    const background = stored && stored.background;
+    const media = [stored && stored.background, stored && stored.listBackground].filter(Boolean);
     await this.state.storage.delete(key);
     await this.reindex(key.slice(2), stored, null);
-    if (background) {
-      await this.addBytes(-(background.size || 0));
-    }
-    return background ? background.version : '';
+    await this.addBytes(-media.reduce((sum, item) => sum + (item.size || 0), 0));
+    return media.map((item) => item.version).join(',');
   }
 
-  async dropBackground(key, record, now) {
-    const background = record.background;
-    if (!background) {
+  async dropBackground(key, record, now, field) {
+    const fields = field ? [field] : ['background', 'listBackground'];
+    const dropped = fields.map((name) => record[name]).filter(Boolean);
+    if (!dropped.length) {
       return '';
     }
-    record.background = null;
+    for (const name of fields) {
+      record[name] = null;
+    }
     record.updatedAt = now;
     await this.state.storage.put(key, record);
-    await this.addBytes(-(background.size || 0));
-    return background.version;
+    await this.addBytes(-dropped.reduce((sum, item) => sum + (item.size || 0), 0));
+    return dropped.map((item) => item.version).join(',');
   }
 
   async verifiedLock(id) {
@@ -950,9 +1020,9 @@ export class Profiles {
     }
     if (url.pathname === '/write' || url.pathname === '/clear') {
       const clearing = url.pathname === '/clear';
-      const patch = clearing ? { nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, hiddenGifts: [], status: null, number: null, brightness: 0 } : input.patch && typeof input.patch === 'object' ? input.patch : {};
+      const patch = clearing ? { nfts: [], usernames: [], bubbles: false, background: null, hideReal: false, hiddenGifts: [], status: null, number: null, brightness: 0, style: null, listBackground: null } : input.patch && typeof input.patch === 'object' ? input.patch : {};
       const keys = Object.keys(patch);
-      const removing = keys.length === 1 && keys[0] === 'background';
+      const removing = keys.length === 1 && (keys[0] === 'background' || keys[0] === 'listBackground');
       const auth = await this.authorize(input, now, !clearing && !removing);
       if (auth.error) {
         return auth.error;
@@ -966,7 +1036,7 @@ export class Profiles {
       }
       const before = auth.created ? null : auth.record;
       const record = { ...auth.record };
-      for (const field of ['nfts', 'usernames', 'bubbles', 'hideReal', 'hiddenGifts', 'brightness']) {
+      for (const field of ['nfts', 'usernames', 'bubbles', 'hideReal', 'hiddenGifts', 'brightness', 'style']) {
         if (field in patch) {
           record[field] = patch[field];
         }
@@ -1001,11 +1071,17 @@ export class Profiles {
         record.number = number;
       }
       const evicted = auth.taken ? await this.evict(key, auth.taken) : '';
-      const dropped = 'background' in patch ? await this.dropBackground(key, record, now) : '';
+      const drops = [];
+      if ('background' in patch) {
+        drops.push(await this.dropBackground(key, record, now, 'background'));
+      }
+      if ('listBackground' in patch) {
+        drops.push(await this.dropBackground(key, record, now, 'listBackground'));
+      }
       record.updatedAt = now;
       await storage.put(key, record);
       await this.reindex(input.id, before, record);
-      return this.reply({ record, previous: dropped || evicted });
+      return this.reply({ record, previous: [...drops, evicted].filter(Boolean).join(',') });
     }
     if (url.pathname === '/upload-check') {
       const auth = await this.authorize(input, now, false);
@@ -1020,8 +1096,9 @@ export class Profiles {
       if (auth.error) {
         return auth.error;
       }
-      const current = auth.record.background ? auth.record.background.size || 0 : 0;
-      const squatted = auth.taken && auth.taken.background ? auth.taken.background.size || 0 : 0;
+      const slotField = input.slot === 'list' ? 'listBackground' : 'background';
+      const current = auth.record[slotField] ? auth.record[slotField].size || 0 : 0;
+      const squatted = auth.taken ? [auth.taken.background, auth.taken.listBackground].filter(Boolean).reduce((sum, item) => sum + (item.size || 0), 0) : 0;
       if (((await storage.get('bytes')) || 0) - current - squatted + size > MEDIA_BUDGET) {
         return fail('storage_full', 507);
       }
@@ -1047,8 +1124,9 @@ export class Profiles {
       if (!auth.record) {
         return this.refuse('conflict', 409);
       }
-      const old = auth.record.background;
-      auth.record.background = background;
+      const slotField = input.slot === 'list' ? 'listBackground' : 'background';
+      const old = auth.record[slotField];
+      auth.record[slotField] = background;
       auth.record.updatedAt = now;
       await storage.put(key, auth.record);
       await this.addBytes(background.size - (old ? old.size || 0 : 0));
@@ -1191,7 +1269,9 @@ async function purgeTouched(touched) {
 async function purgeMedia(id, version) {
   const cache = edgeCache();
   if (cache && typeof cache.delete === 'function' && version) {
-    await cache.delete(new Request(MEDIA_CACHE + id + '/' + version)).catch(() => false);
+    for (const item of String(version).split(',').filter(Boolean)) {
+      await cache.delete(new Request(MEDIA_CACHE + id + '/' + item)).catch(() => false);
+    }
   }
 }
 
@@ -1315,15 +1395,21 @@ async function passError(response) {
 async function dropMedia(env, id, version) {
   const stub = mediaStub(env, id);
   if (stub && version !== '') {
-    await call(stub, '/media-delete', version ? { version } : {});
+    if (!version) {
+      await call(stub, '/media-delete', {});
+      return;
+    }
+    for (const item of String(version).split(',').filter(Boolean)) {
+      await call(stub, '/media-delete', { version: item });
+    }
   }
 }
 
-async function notifyBackground(env, id, bytes, media) {
+async function notifyBackground(env, id, bytes, media, slot) {
   if (!env || !env.REPORT_BOT_TOKEN || !env.REPORT_CHAT_ID) {
     return false;
   }
-  const caption = (media.type === 'video' ? '🎬 Новое видео' : '🖼 Новое фото') + ' на фоне профиля\nID ' + id + ' · ' + Math.round(bytes.length / 1024) + ' КБ' + (media.duration ? ' · ' + media.duration + ' с' : '');
+  const caption = (media.type === 'video' ? '🎬 Новое видео' : '🖼 Новое фото') + (slot === 'list' ? ' под плашками профиля' : ' на фоне профиля') + '\nID ' + id + ' · ' + Math.round(bytes.length / 1024) + ' КБ' + (media.duration ? ' · ' + media.duration + ' с' : '');
   const markup = JSON.stringify({ inline_keyboard: [[{ text: '🗑 Удалить фон', callback_data: 'P:' + id }], [{ text: '⛔ Стереть всё и запретить', callback_data: 'J:' + id }]] });
   const send = async (method, field) => {
     const form = new FormData();
@@ -1568,7 +1654,7 @@ async function serveMedia(request, env, ctx, id, version, ext) {
   return new Response(head ? null : bytes, { headers: { ...base, 'content-type': mime, 'content-length': String(size) } });
 }
 
-async function upload(request, env, url, ctx, stub, who) {
+async function upload(request, env, url, ctx, stub, who, slot) {
   const declared = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   const kind = UPLOAD_TYPES[declared];
   if (!kind) {
@@ -1594,7 +1680,7 @@ async function upload(request, env, url, ctx, stub, who) {
   if (media.error) {
     return fail(media.error, media.status, media.extra);
   }
-  const begun = await invoke(stub, '/upload-begin', { ...who.base, size: bytes.length });
+  const begun = await invoke(stub, '/upload-begin', { ...who.base, size: bytes.length, slot });
   if (!begun.ok) {
     return passError(begun);
   }
@@ -1610,7 +1696,7 @@ async function upload(request, env, url, ctx, stub, who) {
   }
   const now = Date.now();
   const background = { type: media.type, version, ext: media.ext, mime: media.mime, width: media.width, height: media.height, size: bytes.length, duration: media.duration, updatedAt: now };
-  const set = await invoke(stub, '/background-set', { ...who.base, background });
+  const set = await invoke(stub, '/background-set', { ...who.base, background, slot });
   if (!set.ok) {
     await dropMedia(env, who.id, set.status === 409 ? null : version);
     return passError(set);
@@ -1621,7 +1707,7 @@ async function upload(request, env, url, ctx, stub, who) {
   }
   await purge(who.id);
   await purgeMedia(who.id, previous);
-  await later(ctx, notifyBackground(env, who.id, bytes, media));
+  await later(ctx, notifyBackground(env, who.id, bytes, media, slot));
   return ok(presentOwn(who.id, record, url.origin));
 }
 
@@ -1696,14 +1782,15 @@ export async function handleProfile(request, env, url, ctx) {
     const started = await response.json();
     return ok({ nonce: started.nonce, code: started.code, url: 'https://t.me/' + name + '?start=pv_' + started.nonce, expiresAt: started.expiresAt, expiresIn: Math.round(VERIFY_TTL / 1000) });
   }
+  const slot = url.searchParams.get('slot') === 'list' ? 'list' : 'main';
   if (path === '/profile/background' && method !== 'DELETE') {
-    return upload(request, env, url, ctx, stub, who);
+    return upload(request, env, url, ctx, stub, who, slot);
   }
   let response;
   if (path === '/profile' && method === 'DELETE') {
     response = await invoke(stub, '/clear', who.base);
   } else if (path === '/profile/background') {
-    response = await invoke(stub, '/write', { ...who.base, patch: { background: null } });
+    response = await invoke(stub, '/write', { ...who.base, patch: slot === 'list' ? { listBackground: null } : { background: null } });
   } else {
     const input = await readJson(request, PROFILE_LIMITS.body);
     if (input.error) {

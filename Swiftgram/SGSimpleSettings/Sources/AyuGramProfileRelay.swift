@@ -215,6 +215,85 @@ public struct AyuGramProfileBackground: Codable, Equatable {
     }
 }
 
+public enum AyuGramProfileListMode: String, Codable, Equatable {
+    case none
+    case extend
+    case media
+}
+
+public struct AyuGramProfileStyle: Codable, Equatable {
+    public var accent: UInt32?
+    public var plate: UInt32?
+    public var opacity: Double
+    public var list: AyuGramProfileListMode
+    public var avatar: Double
+    public var title: Double
+    public var blur: Double
+
+    public static let standard = AyuGramProfileStyle(accent: nil, plate: nil, opacity: 0.55, list: .none, avatar: 1.0, title: 1.0, blur: 0.0)
+
+    public init(accent: UInt32?, plate: UInt32?, opacity: Double, list: AyuGramProfileListMode, avatar: Double, title: Double, blur: Double) {
+        self.accent = accent.map { $0 & 0xffffff }
+        self.plate = plate.map { $0 & 0xffffff }
+        self.opacity = AyuGramProfileStyle.clamp(opacity, 0.0, 1.0, 0.55)
+        self.list = list
+        self.avatar = AyuGramProfileStyle.clamp(avatar, 0.4, 1.6, 1.0)
+        self.title = AyuGramProfileStyle.clamp(title, 0.5, 1.5, 1.0)
+        self.blur = AyuGramProfileStyle.clamp(blur, 0.0, 1.0, 0.0)
+    }
+
+    public var isStandard: Bool {
+        return self == AyuGramProfileStyle.standard
+    }
+
+    static func clamp(_ value: Double, _ minValue: Double, _ maxValue: Double, _ fallback: Double) -> Double {
+        guard value.isFinite else {
+            return fallback
+        }
+        return (max(minValue, min(maxValue, value)) * 100.0).rounded() / 100.0
+    }
+
+    static func color(_ value: Any?) -> UInt32? {
+        guard let string = value as? String, string.count == 6, let number = UInt32(string, radix: 16) else {
+            return nil
+        }
+        return number
+    }
+
+    static func hex(_ value: UInt32) -> String {
+        return String(format: "%06x", value & 0xffffff)
+    }
+
+    static func from(json: Any?) -> AyuGramProfileStyle? {
+        guard let json = json as? [String: Any] else {
+            return nil
+        }
+        let list = (json["list"] as? String).flatMap(AyuGramProfileListMode.init(rawValue:)) ?? .none
+        let style = AyuGramProfileStyle(
+            accent: AyuGramProfileStyle.color(json["accent"]),
+            plate: AyuGramProfileStyle.color(json["plate"]),
+            opacity: (json["opacity"] as? NSNumber)?.doubleValue ?? 0.55,
+            list: list,
+            avatar: (json["avatar"] as? NSNumber)?.doubleValue ?? 1.0,
+            title: (json["title"] as? NSNumber)?.doubleValue ?? 1.0,
+            blur: (json["blur"] as? NSNumber)?.doubleValue ?? 0.0
+        )
+        return style.isStandard ? nil : style
+    }
+
+    var jsonObject: [String: Any] {
+        return [
+            "accent": self.accent.map { AyuGramProfileStyle.hex($0) as Any } ?? NSNull(),
+            "plate": self.plate.map { AyuGramProfileStyle.hex($0) as Any } ?? NSNull(),
+            "opacity": self.opacity,
+            "list": self.list.rawValue,
+            "avatar": self.avatar,
+            "title": self.title,
+            "blur": self.blur
+        ]
+    }
+}
+
 public struct AyuGramProfileHolder: Equatable {
     public var id: Int64
     public var pinned: Bool
@@ -236,9 +315,11 @@ public struct AyuGramProfileEntry: Codable, Equatable {
     public var statusSlug: String?
     public var number: String?
     public var brightness: Double
+    public var style: AyuGramProfileStyle?
+    public var listBackground: AyuGramProfileBackground?
     public var updatedAt: Double
 
-    public init(id: Int64, nfts: [AyuGramProfileNft], usernames: [String], background: AyuGramProfileBackground?, bubbles: Bool, hideReal: Bool = false, hiddenGifts: [String] = [], statusSlug: String? = nil, number: String? = nil, brightness: Double = 0.0, updatedAt: Double) {
+    public init(id: Int64, nfts: [AyuGramProfileNft], usernames: [String], background: AyuGramProfileBackground?, bubbles: Bool, hideReal: Bool = false, hiddenGifts: [String] = [], statusSlug: String? = nil, number: String? = nil, brightness: Double = 0.0, style: AyuGramProfileStyle? = nil, listBackground: AyuGramProfileBackground? = nil, updatedAt: Double) {
         self.id = id
         self.nfts = nfts
         self.usernames = usernames
@@ -249,11 +330,13 @@ public struct AyuGramProfileEntry: Codable, Equatable {
         self.statusSlug = statusSlug
         self.number = number
         self.brightness = AyuGramProfileEntry.clampBrightness(brightness)
+        self.style = style
+        self.listBackground = listBackground
         self.updatedAt = updatedAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, nfts, usernames, background, bubbles, hideReal, hiddenGifts, statusSlug, number, brightness, updatedAt
+        case id, nfts, usernames, background, bubbles, hideReal, hiddenGifts, statusSlug, number, brightness, style, listBackground, updatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -269,11 +352,17 @@ public struct AyuGramProfileEntry: Codable, Equatable {
         self.number = try container.decodeIfPresent(String.self, forKey: .number).flatMap(AyuGramProfileEntry.normalizeNumber)
         let brightness = try container.decodeIfPresent(Double.self, forKey: .brightness) ?? 0.0
         self.brightness = AyuGramProfileEntry.clampBrightness(brightness)
+        self.style = try? container.decodeIfPresent(AyuGramProfileStyle.self, forKey: .style)
+        self.listBackground = try? container.decodeIfPresent(AyuGramProfileBackground.self, forKey: .listBackground)
         self.updatedAt = try container.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0.0
     }
 
     public var isEmpty: Bool {
-        return self.nfts.isEmpty && self.usernames.isEmpty && self.background == nil && !self.bubbles && !self.hideReal && self.hiddenGifts.isEmpty && self.number == nil
+        return self.nfts.isEmpty && self.usernames.isEmpty && self.background == nil && !self.bubbles && !self.hideReal && self.hiddenGifts.isEmpty && self.number == nil && self.style == nil && self.listBackground == nil
+    }
+
+    public var effectiveStyle: AyuGramProfileStyle {
+        return self.style ?? AyuGramProfileStyle.standard
     }
 
     public var statusNft: AyuGramProfileNft? {
@@ -378,7 +467,7 @@ public struct AyuGramProfileEntry: Codable, Equatable {
             brightness = value.doubleValue
         }
         let updatedAt = (json["updatedAt"] as? NSNumber)?.doubleValue ?? 0.0
-        return AyuGramProfileEntry(id: id, nfts: nfts, usernames: usernames, background: AyuGramProfileBackground.from(json: json["background"]), bubbles: bubbles, hideReal: hideReal, hiddenGifts: hiddenGifts, statusSlug: statusSlug, number: number, brightness: brightness, updatedAt: updatedAt)
+        return AyuGramProfileEntry(id: id, nfts: nfts, usernames: usernames, background: AyuGramProfileBackground.from(json: json["background"]), bubbles: bubbles, hideReal: hideReal, hiddenGifts: hiddenGifts, statusSlug: statusSlug, number: number, brightness: brightness, style: AyuGramProfileStyle.from(json: json["style"]), listBackground: AyuGramProfileBackground.from(json: json["listBackground"]), updatedAt: updatedAt)
     }
 }
 
@@ -454,6 +543,16 @@ public enum AyuGramProfileNumberChange: Equatable {
     case clear
 }
 
+public enum AyuGramProfileStyleChange: Equatable {
+    case set(AyuGramProfileStyle)
+    case clear
+}
+
+public enum AyuGramProfileMediaSlot: String {
+    case main
+    case list
+}
+
 public struct AyuGramProfilePatch: Equatable {
     public var nfts: [AyuGramProfileNft]?
     public var usernames: [String]?
@@ -463,8 +562,9 @@ public struct AyuGramProfilePatch: Equatable {
     public var status: AyuGramProfileStatusChange?
     public var number: AyuGramProfileNumberChange?
     public var brightness: Double?
+    public var style: AyuGramProfileStyleChange?
 
-    public init(nfts: [AyuGramProfileNft]? = nil, usernames: [String]? = nil, bubbles: Bool? = nil, hideReal: Bool? = nil, hiddenGifts: [String]? = nil, status: AyuGramProfileStatusChange? = nil, number: AyuGramProfileNumberChange? = nil, brightness: Double? = nil) {
+    public init(nfts: [AyuGramProfileNft]? = nil, usernames: [String]? = nil, bubbles: Bool? = nil, hideReal: Bool? = nil, hiddenGifts: [String]? = nil, status: AyuGramProfileStatusChange? = nil, number: AyuGramProfileNumberChange? = nil, brightness: Double? = nil, style: AyuGramProfileStyleChange? = nil) {
         self.nfts = nfts
         self.usernames = usernames
         self.bubbles = bubbles
@@ -473,10 +573,11 @@ public struct AyuGramProfilePatch: Equatable {
         self.status = status
         self.number = number
         self.brightness = brightness
+        self.style = style
     }
 
     public var isEmpty: Bool {
-        return self.nfts == nil && self.usernames == nil && self.bubbles == nil && self.hideReal == nil && self.hiddenGifts == nil && self.status == nil && self.number == nil && self.brightness == nil
+        return self.nfts == nil && self.usernames == nil && self.bubbles == nil && self.hideReal == nil && self.hiddenGifts == nil && self.status == nil && self.number == nil && self.brightness == nil && self.style == nil
     }
 
     var jsonObject: [String: Any] {
@@ -515,6 +616,14 @@ public struct AyuGramProfilePatch: Equatable {
         if let brightness = self.brightness {
             body["background"] = ["brightness": AyuGramProfileEntry.clampBrightness(brightness)]
         }
+        if let style = self.style {
+            switch style {
+            case let .set(value):
+                body["style"] = value.isStandard ? NSNull() : value.jsonObject
+            case .clear:
+                body["style"] = NSNull()
+            }
+        }
         return body
     }
 }
@@ -538,6 +647,7 @@ public final class AyuGramProfileRelay {
     private var unavailableUntil: Double = 0.0
     private var recent: [Int64] = []
     private var previews: [Int64: AyuGramProfileLocalMedia] = [:]
+    private var listPreviews: [Int64: AyuGramProfileLocalMedia] = [:]
     private var downloading = Set<String>()
     private var mediaFailures: [String: Double] = [:]
     private var existingMedia = Set<String>()
@@ -882,6 +992,38 @@ public final class AyuGramProfileRelay {
         try? data.write(to: AyuGramProfileRelay.storeURL, options: .atomic)
     }
 
+    public func localListMedia(rawId: Int64) -> AyuGramProfileLocalMedia? {
+        self.lock.lock()
+        let preview = self.listPreviews[rawId]
+        let background = self.entries[rawId]?.listBackground
+        self.lock.unlock()
+        if let preview {
+            return preview
+        }
+        return self.cachedMedia(background: background, rawId: rawId)
+    }
+
+    public func setListPreview(rawId: Int64, url: URL, isVideo: Bool) {
+        self.lock.lock()
+        let previous = self.listPreviews[rawId]
+        self.listPreviews[rawId] = AyuGramProfileLocalMedia(url: url, isVideo: isVideo)
+        self.lock.unlock()
+        if let previous, previous.url != url {
+            try? FileManager.default.removeItem(at: previous.url)
+        }
+        self.notify([rawId])
+    }
+
+    public func clearListPreview(rawId: Int64) {
+        self.lock.lock()
+        let previous = self.listPreviews.removeValue(forKey: rawId)
+        self.lock.unlock()
+        if let previous {
+            try? FileManager.default.removeItem(at: previous.url)
+            self.notify([rawId])
+        }
+    }
+
     public func localMedia(rawId: Int64) -> AyuGramProfileLocalMedia? {
         self.lock.lock()
         let preview = self.previews[rawId]
@@ -890,6 +1032,10 @@ public final class AyuGramProfileRelay {
         if let preview {
             return preview
         }
+        return self.cachedMedia(background: background, rawId: rawId)
+    }
+
+    private func cachedMedia(background: AyuGramProfileBackground?, rawId: Int64) -> AyuGramProfileLocalMedia? {
         guard let background, let name = background.localFileName else {
             return nil
         }
@@ -1064,7 +1210,7 @@ public final class AyuGramProfileRelay {
             return
         }
         self.lock.lock()
-        let protected = Set(self.previews.values.map { $0.url.lastPathComponent })
+        let protected = Set(self.previews.values.map { $0.url.lastPathComponent } + self.listPreviews.values.map { $0.url.lastPathComponent })
         self.lock.unlock()
         var items: [(url: URL, size: Int, date: Date)] = []
         var total = 0
@@ -1413,12 +1559,16 @@ public final class AyuGramProfileRelay {
         }).resume()
     }
 
-    public func removeBackground(accountId: Int64, completion: @escaping (Result<AyuGramOwnProfile, AyuGramProfileError>) -> Void) {
-        guard let request = self.authorizedRequest(path: "/profile/background", method: "DELETE", accountId: accountId) else {
+    public func removeBackground(accountId: Int64, slot: AyuGramProfileMediaSlot = .main, completion: @escaping (Result<AyuGramOwnProfile, AyuGramProfileError>) -> Void) {
+        guard let request = self.authorizedRequest(path: slot == .list ? "/profile/background?slot=list" : "/profile/background", method: "DELETE", accountId: accountId) else {
             completion(.failure(.invalid))
             return
         }
-        self.clearPreview(rawId: accountId)
+        if slot == .list {
+            self.clearListPreview(rawId: accountId)
+        } else {
+            self.clearPreview(rawId: accountId)
+        }
         self.perform(request, accountId: accountId, completion: completion)
     }
 
@@ -1428,15 +1578,16 @@ public final class AyuGramProfileRelay {
             return
         }
         self.clearPreview(rawId: accountId)
+        self.clearListPreview(rawId: accountId)
         self.perform(request, accountId: accountId, completion: { [weak self] result in
             self?.invalidateLookups()
             completion(result)
         })
     }
 
-    public func uploadBackground(accountId: Int64, file: URL, mime: String, width: Int, height: Int, progress: @escaping (Double) -> Void, completion: @escaping (Result<AyuGramOwnProfile, AyuGramProfileError>) -> Void) {
+    public func uploadBackground(accountId: Int64, slot: AyuGramProfileMediaSlot = .main, file: URL, mime: String, width: Int, height: Int, progress: @escaping (Double) -> Void, completion: @escaping (Result<AyuGramOwnProfile, AyuGramProfileError>) -> Void) {
         let size = ((try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? NSNumber)?.intValue ?? 0
-        guard size > 0, var request = self.authorizedRequest(path: "/profile/background", method: "PUT", accountId: accountId) else {
+        guard size > 0, var request = self.authorizedRequest(path: slot == .list ? "/profile/background?slot=list" : "/profile/background", method: "PUT", accountId: accountId) else {
             completion(.failure(.badMedia))
             return
         }
@@ -1461,7 +1612,7 @@ public final class AyuGramProfileRelay {
                 result = .failure(.server)
             } else if status == 200 {
                 let own = self.parseOwn(object, accountId: accountId)
-                if let background = own.entry.background {
+                if let background = slot == .list ? own.entry.listBackground : own.entry.background {
                     self.store(file: file, for: background)
                 }
                 self.apply(entry: own.entry)
