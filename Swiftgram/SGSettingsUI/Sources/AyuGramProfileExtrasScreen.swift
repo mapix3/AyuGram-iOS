@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Photos
 import PhotosUI
 import AVFoundation
 import ImageIO
@@ -315,7 +316,7 @@ private final class AyuProfileMediaPicker: NSObject, PHPickerViewControllerDeleg
         var configuration = PHPickerConfiguration(photoLibrary: .shared())
         configuration.filter = video ? .videos : .images
         configuration.selectionLimit = 1
-        configuration.preferredAssetRepresentationMode = .compatible
+        configuration.preferredAssetRepresentationMode = video ? .current : .compatible
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
         self.controller?.present(picker, animated: true)
@@ -327,6 +328,74 @@ private final class AyuProfileMediaPicker: NSObject, PHPickerViewControllerDeleg
             return
         }
         let video = self.pickingVideo
+        if video, let identifier = results.first?.assetIdentifier {
+            self.loadOriginalHighFrameRate(identifier: identifier, completion: { [weak self] original in
+                if let original {
+                    DispatchQueue.main.async {
+                        self?.completion?(original, true)
+                    }
+                } else {
+                    self?.loadRepresentation(provider: provider, video: true)
+                }
+            })
+            return
+        }
+        self.loadRepresentation(provider: provider, video: video)
+    }
+
+    private func loadOriginalHighFrameRate(identifier: String, completion: @escaping (URL?) -> Void) {
+        let proceed: () -> Void = {
+            guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject, asset.mediaSubtypes.contains(.videoHighFrameRate) else {
+                completion(nil)
+                return
+            }
+            let options = PHVideoRequestOptions()
+            options.isNetworkAccessAllowed = true
+            options.deliveryMode = .highQualityFormat
+            options.version = .original
+            PHImageManager.default().requestAVAsset(forVideo: asset, options: options, resultHandler: { avAsset, _, _ in
+                var source: URL?
+                if let urlAsset = avAsset as? AVURLAsset {
+                    source = urlAsset.url
+                } else if let composition = avAsset as? AVComposition {
+                    for track in composition.tracks(withMediaType: .video) {
+                        if let url = track.segments.compactMap({ $0.sourceURL }).first {
+                            source = url
+                            break
+                        }
+                    }
+                }
+                guard let source else {
+                    completion(nil)
+                    return
+                }
+                let fileExtension = source.pathExtension.isEmpty ? "mov" : source.pathExtension
+                let target = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "." + fileExtension)
+                if (try? FileManager.default.copyItem(at: source, to: target)) != nil {
+                    completion(target)
+                } else {
+                    completion(nil)
+                }
+            })
+        }
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        switch status {
+        case .authorized, .limited:
+            proceed()
+        case .notDetermined:
+            PHPhotoLibrary.requestAuthorization(for: .readWrite, handler: { newStatus in
+                if newStatus == .authorized || newStatus == .limited {
+                    proceed()
+                } else {
+                    completion(nil)
+                }
+            })
+        default:
+            completion(nil)
+        }
+    }
+
+    private func loadRepresentation(provider: NSItemProvider, video: Bool) {
         provider.loadFileRepresentation(forTypeIdentifier: video ? "public.movie" : "public.image", completionHandler: { [weak self] url, error in
             var copied: URL?
             if error == nil, let url {

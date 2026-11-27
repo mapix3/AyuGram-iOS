@@ -1001,11 +1001,11 @@ public final class AyuGramProfileRelay {
             let width = abs(oriented.width)
             let height = abs(oriented.height)
             let rate = track.nominalFrameRate
-            guard width > 0, height > 0, max(width, height) > 1280.5 else {
+            guard width > 0, height > 0, max(width, height) > 1920.5 else {
                 completion(false)
                 return
             }
-            let scale = min(1.0, 1280.0 / max(width, height))
+            let scale = min(1.0, 1920.0 / max(width, height))
             let render = CGSize(width: max(2.0, floor(width * scale / 2.0) * 2.0), height: max(2.0, floor(height * scale / 2.0) * 2.0))
             let instruction = AVMutableVideoCompositionInstruction()
             instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
