@@ -680,3 +680,9 @@ public func ayuGramOpenFloatingProfile(context: AccountContext, peer: EnginePeer
         return context.sharedContext.makePeerInfoController(context: context, updatedPresentationData: nil, peer: peer, mode: .generic, avatarInitiallyExpanded: false, fromChat: false, requestsContext: nil)
     }, openFull: openFull)
 }
+
+public func ayuGramOpenFloatingAccount(context: AccountContext, title: String, openFull: @escaping () -> Void) {
+    ayuGramFloatingPresent(context: context, key: "account:\(context.account.id.int64)", title: title, watchPeerId: nil, makeRoot: {
+        return context.sharedContext.makeChatListController(context: context, location: .chatList(groupId: EngineChatList.Group(.root)), controlsHistoryPreload: false, hideNetworkActivityStatus: true, previewing: false, enableDebugActions: false)
+    }, openFull: openFull)
+}

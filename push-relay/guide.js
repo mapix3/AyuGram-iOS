@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 30;
+export const GUIDE_VERSION = 31;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -15,7 +15,7 @@ Chats section: Disable ads, Disable link warning, Disable greeting sticker, Dim 
 In a chat:
 - AI analysis: the round ghost button at the top right under the avatar. Tap it: analysis of the chat plus one quick reply (tap inserts it, hold copies), and a field to ask about the chat. Switch: AyuGram > AI > AI hints in chats.
 - Export chat: open the chat profile > More (three dots) > Export chat. Works for private chats, groups, channels and secret chats; text only or with media; the archive can be imported back.
-- Open in floating window: profile of any chat, person, bot, group or channel > More > Open in floating window, or Open profile in window for the profile itself. The window is the real Telegram chat or profile, just smaller: stickers, photos, videos, voice and round messages, reactions and the full input panel work, tapping the header inside opens the profile and Back returns. Drag the window by its top strip, resize it with the corner handle or by pinching the strip, double tap the strip to switch between small and large; x closes, "-" minimizes it to a bubble that shows a red dot on new messages, the arrows button opens it full screen. Open windows stay on screen when you switch to another account, so you can keep a chat of one account open while using another. Several windows can be open at once; the window lifts above the keyboard while you type in it. Only inside AyuGram.
+- Open in floating window: profile of any chat, person, bot, group or channel > More > Open in floating window, or Open profile in window for the profile itself. A whole other account opens in a floating window too: Settings > hold the account in the account list > Open in floating window (its chat list, chats open inside the window; the arrows button switches to that account). The window is the real Telegram chat or profile, just smaller: stickers, photos, videos, voice and round messages, reactions and the full input panel work, tapping the header inside opens the profile and Back returns. Drag the window by its top strip, resize it with the corner handle or by pinching the strip, double tap the strip to switch between small and large; x closes, "-" minimizes it to a bubble that shows a red dot on new messages, the arrows button opens it full screen. Open windows stay on screen when you switch to another account, so you can keep a chat of one account open while using another. Several windows can be open at once; the window lifts above the keyboard while you type in it. Only inside AyuGram.
 - Peek online: user profile > More > Peek online.
 Import chat: AyuGram > Chat import (ZIP or TXT from WhatsApp, LINE, KakaoTalk or AyuGram export).
 
