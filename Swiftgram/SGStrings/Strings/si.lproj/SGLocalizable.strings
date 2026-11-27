@@ -25,6 +25,7 @@
 "Ayu.ScamTitle" = "Scam copy of AyuGram";
 "Ayu.ScamText" = "This copy of AyuGram is spread by scammers, for example through someone else's Apple ID. Sign out of that Apple ID in iPhone Settings, delete this app and download AyuGram only from @ayugramiosupdates.";
 "Ayu.ScamChannel" = "Official channel";
+"Ayu.Block.Developer" = "Message the developer";
 "Ayu.CheckUpdates" = "යාවත්කාලීන පරීක්ෂා කරන්න";
 "Ayu.UpToDate" = "ඔබ සතුව නවතම අනුවාදය ඇත.";
 "Ayu.UpdateAvailable" = "යාවත්කාලීනයක් ඇත";
