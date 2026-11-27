@@ -907,8 +907,12 @@ const T = {
   history: ['Earlier versions', 'Прошлые версии'],
 };
 
-function page(ru, title, body) {
-  return new Response('<!doctype html><html lang="' + (ru ? 'ru' : 'en') + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>' + esc(title) + '</title><style>' + CSS + '</style></head><body><header><a class="brand" href="/">' + esc(T.title[ru]) + '</a></header><main>' + body + '</main><footer>' + esc(T.submit[ru]) + '</footer></body></html>', {
+function basePath(origin) {
+  return new URL(origin).pathname.replace(/\/+$/, '');
+}
+
+function page(ru, title, body, base) {
+  return new Response('<!doctype html><html lang="' + (ru ? 'ru' : 'en') + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>' + esc(title) + '</title><style>' + CSS + '</style></head><body><header><a class="brand" href="' + base + '/">' + esc(T.title[ru]) + '</a></header><main>' + body + '</main><footer>' + esc(T.submit[ru]) + '</footer></body></html>', {
     headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=60', 'content-security-policy': "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' },
   });
 }
@@ -925,7 +929,7 @@ function verdictBadge(scan, ru) {
 function cardHtml(plugin, origin, ru) {
   const value = presentPlugin(plugin, origin, false);
   const cover = value.media.find((item) => item.kind === 'photo');
-  return '<a class="card" href="/p/' + esc(value.slug) + '">' + (cover ? '<img loading="lazy" src="' + esc(new URL(cover.url).pathname) + '" alt="">' : '<div class="ph"></div>') + '<div class="body"><h3>' + esc(value.name) + '</h3><p>' + esc(value.description) + '</p><div class="meta"><span>v' + esc(value.version) + '</span><span>' + esc(T.by[ru] + ' ' + ((value.author && value.author.name) || (value.author && value.author.username) || '—')) + '</span><span>' + esc(value.downloads + ' ' + T.downloads[ru]) + '</span>' + verdictBadge(value.scan, ru) + '</div></div></a>';
+  return '<a class="card" href="' + basePath(origin) + '/p/' + esc(value.slug) + '">' + (cover ? '<img loading="lazy" src="' + esc(new URL(cover.url).pathname) + '" alt="">' : '<div class="ph"></div>') + '<div class="body"><h3>' + esc(value.name) + '</h3><p>' + esc(value.description) + '</p><div class="meta"><span>v' + esc(value.version) + '</span><span>' + esc(T.by[ru] + ' ' + ((value.author && value.author.name) || (value.author && value.author.username) || '—')) + '</span><span>' + esc(value.downloads + ' ' + T.downloads[ru]) + '</span>' + verdictBadge(value.scan, ru) + '</div></div></a>';
 }
 
 async function siteIndex(request, stub, url, origin) {
@@ -934,9 +938,9 @@ async function siteIndex(request, stub, url, origin) {
   const q = line(url.searchParams.get('q'), 80);
   const listed = await callJson(stub, '/list', { q, sort });
   const items = listed.ok ? listed.data.items : [];
-  const tab = (key, label) => '<a class="' + (sort === key ? 'on' : '') + '" href="/?sort=' + key + (q ? '&q=' + encodeURIComponent(q) : '') + '">' + esc(label) + '</a>';
-  const body = '<h1>' + esc(T.title[ru]) + '</h1><p class="muted">' + esc(T.subtitle[ru]) + '</p><form class="search" method="get" action="/"><input type="search" name="q" value="' + esc(q) + '" placeholder="' + esc(T.search[ru]) + '"><input type="hidden" name="sort" value="' + esc(sort) + '"><button type="submit">' + esc(T.search[ru]) + '</button></form><nav class="tabs">' + tab('popular', T.popular[ru]) + tab('new', T.fresh[ru]) + tab('updated', T.updated[ru]) + '</nav>' + (items.length ? '<div class="grid">' + items.map((plugin) => cardHtml(plugin, origin, ru)).join('') + '</div>' : '<p class="muted">' + esc(T.empty[ru]) + '</p>');
-  return page(ru, T.title[ru], body);
+  const tab = (key, label) => '<a class="' + (sort === key ? 'on' : '') + '" href="' + basePath(origin) + '/?sort=' + key + (q ? '&q=' + encodeURIComponent(q) : '') + '">' + esc(label) + '</a>';
+  const body = '<h1>' + esc(T.title[ru]) + '</h1><p class="muted">' + esc(T.subtitle[ru]) + '</p><form class="search" method="get" action="' + basePath(origin) + '/"><input type="search" name="q" value="' + esc(q) + '" placeholder="' + esc(T.search[ru]) + '"><input type="hidden" name="sort" value="' + esc(sort) + '"><button type="submit">' + esc(T.search[ru]) + '</button></form><nav class="tabs">' + tab('popular', T.popular[ru]) + tab('new', T.fresh[ru]) + tab('updated', T.updated[ru]) + '</nav>' + (items.length ? '<div class="grid">' + items.map((plugin) => cardHtml(plugin, origin, ru)).join('') + '</div>' : '<p class="muted">' + esc(T.empty[ru]) + '</p>');
+  return page(ru, T.title[ru], body, basePath(origin));
 }
 
 async function sitePlugin(request, stub, slug, origin) {
@@ -944,7 +948,7 @@ async function sitePlugin(request, stub, slug, origin) {
   const found = await callJson(stub, '/plugin', { slug });
   const plugin = found.ok ? found.data.plugin : null;
   if (!plugin || plugin.status !== 'live' || !plugin.current) {
-    const response = page(ru, T.notFound[ru], '<h1>' + esc(T.notFound[ru]) + '</h1><p><a href="/">' + esc(T.title[ru]) + '</a></p>');
+    const response = page(ru, T.notFound[ru], '<h1>' + esc(T.notFound[ru]) + '</h1><p><a href="' + basePath(origin) + '/">' + esc(T.title[ru]) + '</a></p>', basePath(origin));
     return new Response(response.body, { status: 404, headers: response.headers });
   }
   const value = presentPlugin(plugin, origin, true);
@@ -953,20 +957,20 @@ async function sitePlugin(request, stub, slug, origin) {
   const permissions = value.permissions.length ? '<ul>' + value.permissions.map((item) => '<li>' + esc((PERMISSION_TEXT[item] || [item, item])[ru]) + '</li>').join('') + '</ul>' : '<p class="muted">' + esc(T.none[ru]) + '</p>';
   const scanList = value.scan && value.scan.findings.length ? '<ul>' + value.scan.findings.map((item) => '<li>' + esc(item.text) + '</li>').join('') + '</ul>' : '';
   const history = value.history.length ? '<div class="section"><h2>' + esc(T.history[ru]) + '</h2>' + value.history.map((item) => '<p><b>v' + esc(item.version) + '</b>' + (item.changelog ? '<br><span class="pre muted">' + esc(item.changelog) + '</span>' : '') + '</p>').join('') + '</div>' : '';
-  const body = '<h1>' + esc(value.name) + '</h1><p class="muted">' + esc(value.description) + '</p><div class="meta"><span>' + esc(T.version[ru] + ' ' + value.version) + '</span><span>' + esc(T.by[ru]) + ' <a href="/u/' + esc(author.id) + '">' + esc(author.name || author.username || author.id) + '</a>' + (author.username ? ' · <a href="https://t.me/' + esc(author.username) + '">@' + esc(author.username) + '</a>' : '') + '</span><span>' + esc(value.downloads + ' ' + T.downloads[ru]) + '</span>' + verdictBadge(value.scan, ru) + '</div><div class="actions"><a class="button" href="ayugram://market?slug=' + esc(encodeURIComponent(value.slug)) + '">' + esc(T.open[ru]) + '</a><a class="button alt" href="/api/plugins/' + esc(value.slug) + '/download">' + esc(T.download[ru]) + '</a></div>' + gallery + (value.about ? '<div class="section"><h2>' + esc(T.about[ru]) + '</h2><div class="pre">' + esc(value.about) + '</div></div>' : '') + (value.changelog ? '<div class="section"><h2>' + esc(T.changes[ru] + ' · v' + value.version) + '</h2><div class="pre">' + esc(value.changelog) + '</div></div>' : '') + '<div class="section"><h2>' + esc(T.permissions[ru]) + '</h2>' + permissions + '<h2 style="margin-top:12px">' + esc(T.domains[ru]) + '</h2><p class="muted">' + esc(value.domains.length ? value.domains.join(', ') : T.none[ru]) + '</p></div><div class="section"><h2>' + esc(T.check[ru]) + '</h2>' + verdictBadge(value.scan, ru) + scanList + '<p class="muted" style="font-size:13px">sha256 ' + esc(value.file.sha256) + '</p></div>' + history;
-  return page(ru, value.name + ' — ' + T.title[ru], body);
+  const body = '<h1>' + esc(value.name) + '</h1><p class="muted">' + esc(value.description) + '</p><div class="meta"><span>' + esc(T.version[ru] + ' ' + value.version) + '</span><span>' + esc(T.by[ru]) + ' <a href="' + basePath(origin) + '/u/' + esc(author.id) + '">' + esc(author.name || author.username || author.id) + '</a>' + (author.username ? ' · <a href="https://t.me/' + esc(author.username) + '">@' + esc(author.username) + '</a>' : '') + '</span><span>' + esc(value.downloads + ' ' + T.downloads[ru]) + '</span>' + verdictBadge(value.scan, ru) + '</div><div class="actions"><a class="button" href="ayugram://market?slug=' + esc(encodeURIComponent(value.slug)) + '">' + esc(T.open[ru]) + '</a><a class="button alt" href="' + basePath(origin) + '/api/plugins/' + esc(value.slug) + '/download">' + esc(T.download[ru]) + '</a></div>' + gallery + (value.about ? '<div class="section"><h2>' + esc(T.about[ru]) + '</h2><div class="pre">' + esc(value.about) + '</div></div>' : '') + (value.changelog ? '<div class="section"><h2>' + esc(T.changes[ru] + ' · v' + value.version) + '</h2><div class="pre">' + esc(value.changelog) + '</div></div>' : '') + '<div class="section"><h2>' + esc(T.permissions[ru]) + '</h2>' + permissions + '<h2 style="margin-top:12px">' + esc(T.domains[ru]) + '</h2><p class="muted">' + esc(value.domains.length ? value.domains.join(', ') : T.none[ru]) + '</p></div><div class="section"><h2>' + esc(T.check[ru]) + '</h2>' + verdictBadge(value.scan, ru) + scanList + '<p class="muted" style="font-size:13px">sha256 ' + esc(value.file.sha256) + '</p></div>' + history;
+  return page(ru, value.name + ' — ' + T.title[ru], body, basePath(origin));
 }
 
 async function siteAuthor(request, stub, id, origin) {
   const ru = lang(request);
   const found = await callJson(stub, '/author', { id });
   if (!found.ok) {
-    const response = page(ru, T.notFound[ru], '<h1>' + esc(T.notFound[ru]) + '</h1>');
+    const response = page(ru, T.notFound[ru], '<h1>' + esc(T.notFound[ru]) + '</h1>', basePath(origin));
     return new Response(response.body, { status: 404, headers: response.headers });
   }
   const author = found.data.author;
   const body = '<h1>' + esc(author.name || author.username || author.id) + '</h1><p class="muted">' + (author.username ? '<a href="https://t.me/' + esc(author.username) + '">@' + esc(author.username) + '</a> · ' : '') + 'ID ' + esc(author.id) + '</p><h2>' + esc(T.plugins[ru]) + '</h2>' + (found.data.plugins.length ? '<div class="grid">' + found.data.plugins.map((plugin) => cardHtml(plugin, origin, ru)).join('') + '</div>' : '<p class="muted">' + esc(T.empty[ru]) + '</p>');
-  return page(ru, (author.name || author.username || author.id) + ' — ' + T.title[ru], body);
+  return page(ru, (author.name || author.username || author.id) + ' — ' + T.title[ru], body, basePath(origin));
 }
 
 export function isMarketRequest(url) {
