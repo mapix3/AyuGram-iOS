@@ -1,4 +1,4 @@
-export const GUIDE_VERSION = 32;
+export const GUIDE_VERSION = 33;
 
 export const GUIDE = `AyuGram for iOS: where things are. Answer questions about the app only from this list; if something is not here, say you are not sure instead of inventing menus.
 
@@ -55,6 +55,7 @@ Profile extras: AyuGram > Client > Profile extras (also Profile > Gifts tab of y
 - Profile background (custom build): your own photo (JPEG, PNG or HEIC up to 1.5 MB) or video (MP4 or MOV up to 20 MB, any length) behind the profile header, with a dark layer under the bubbles and a Brightness slider that AyuGram viewers see too; up to 8 uploads a day. Remove it or all extras with Delete.
 Before the first change you confirm that the Telegram account is yours: tap Verify ownership in Profile extras, the AyuGram bot opens, tap Start and then Confirm (the code in the bot matches the one in the app), go back to AyuGram and editing unlocks by itself. The link works for 10 minutes, only from the same Telegram account and only once; never confirm a link someone else sent you. Your extras are then tied to this install, so nobody else can change them; verifying again from a new install of the same account moves them there, number included. Backgrounds are checked by the AyuGram team and can be removed.
 
+Pre-release builds: builds newer than the last one posted in t.me/ayugramiosupdates are developer betas. On them AyuGram shows a full black screen "This is a beta dev build of AyuGram, you don't have access to it" and nothing else works; the fix is to install the last released build from t.me/ayugramiosupdates. Only the developer's accounts can use betas.
 Background mode (debug menu: open the link tg://sg/sgdebug, section "Background mode", item "Keep alive"): how AyuGram stays connected while it is in the background. Silent audio (default), Location (lowest accuracy, about 3 km; asks for location access, "Always" works best, otherwise it starts when you leave the app and iOS shows the location indicator), Audio + location, or Off (normal iOS behavior, the app sleeps). In the background every account stays connected, animations, stickers and silent videos stop rendering, and only new messages, edits and deletions are processed; media prefetch, chat preloading and picture previews in notifications wait until you open the app (use "Download picture" on a notification to load it).
 
 Updates come from the @ayugramiosupdates channel; the IPA is installed with a signing app.`;
