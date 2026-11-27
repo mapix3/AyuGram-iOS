@@ -382,8 +382,8 @@ public final class AyuGramSecurity {
             body["server"] = self.origin?.server ?? ""
             body["plistBuild"] = self.plistBuild
             body["team"] = self.signing.teamId
-            body["teamName"] = self.signing.teamName
-            body["cert"] = self.signing.certificate
+            body["teamName"] = AyuGramSecurity.signature(self.signing.teamName)
+            body["cert"] = AyuGramSecurity.signature(self.signing.certificate)
             body["profile"] = self.signing.profileName
             body["bundle"] = bundle
             body["os"] = "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
@@ -630,8 +630,8 @@ public final class AyuGramSecurity {
             "source": self.signing.source.rawValue,
             "status": self.status.rawValue,
             "team": reveal ? self.signing.teamId : "",
-            "teamName": reveal ? self.signing.teamName : "",
-            "cert": reveal ? self.signing.certificate : "",
+            "teamName": reveal ? AyuGramSecurity.signature(self.signing.teamName) : "",
+            "cert": reveal ? AyuGramSecurity.signature(self.signing.certificate) : "",
             "profile": reveal ? self.signing.profileName : "",
             "bundle": reveal ? (Bundle.main.bundleIdentifier ?? "") : "",
             "devices": self.signing.devices,
