@@ -909,3 +909,6 @@
 "Ayu.ProfileStyle.Color.Wine" = "Wine";
 "Ayu.ProfileStyle.Color.Navy" = "Navy";
 "Ayu.ProfileStyle.Color.Forest" = "Forest";
+"Ayu.Prerelease.Title" = "This is a beta dev build of AyuGram, you don't have access to it";
+"Ayu.Prerelease.Text" = "Go to the last released build of AyuGram in t.me/ayugramiosupdates";
+"Ayu.Prerelease.Open" = "Open t.me/ayugramiosupdates";
