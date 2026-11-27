@@ -209,7 +209,7 @@ private final class AyuGramMarketUploadDelegate: NSObject, URLSessionDataDelegat
 final class AyuGramMarketClient {
     static let shared = AyuGramMarketClient()
     static let base = AyuGramSecurity.relayURL + "/market"
-    static let site = "https://relay.mapixdev.com/market"
+    static let site = "https://marketplace.mapixdev.com"
 
     private let session: URLSession
 
