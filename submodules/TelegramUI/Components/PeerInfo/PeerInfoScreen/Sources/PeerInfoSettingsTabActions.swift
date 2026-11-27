@@ -13,9 +13,11 @@ import ComponentFlow
 import ComponentDisplayAdapters
 import EmojiStatusComponent
 import SettingsUI
+import SGSettingsUI
+import SGStrings
 
 extension PeerInfoScreenNode {
-    func accountContextMenuItems(context: AccountContext, logout: @escaping () -> Void) -> Signal<[ContextMenuItem], NoError> {
+    func accountContextMenuItems(context: AccountContext, openFloating: (() -> Void)? = nil, logout: @escaping () -> Void) -> Signal<[ContextMenuItem], NoError> {
         let strings = context.sharedContext.currentPresentationData.with({ $0 }).strings
         return context.engine.messages.unreadChatListPeerIds(groupId: .root, filterPredicate: nil)
         |> map { unreadChatListPeerIds -> [ContextMenuItem] in
@@ -30,6 +32,13 @@ extension PeerInfoScreenNode {
                 })))
             }
             
+            if let openFloating {
+                items.append(.action(ContextMenuActionItem(text: i18n("Ayu.FloatChat", strings.baseLanguageCode), icon: { theme in generateTintedImage(image: UIImage(systemName: "rectangle.on.rectangle"), color: theme.contextMenu.primaryColor) }, action: { _, f in
+                    f(.dismissWithoutContent)
+                    openFloating()
+                })))
+            }
+            
             items.append(.action(ContextMenuActionItem(text: strings.Settings_Context_Logout, textColor: .destructive, icon: { theme in generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Logout"), color: theme.contextMenu.destructiveColor) }, action: { _, f in
                 logout()
                 f(.default)
@@ -41,12 +50,16 @@ extension PeerInfoScreenNode {
     
     func accountContextMenu(id: AccountRecordId, node: ASDisplayNode, gesture: ContextGesture?) {
         var selectedAccount: Account?
+        var selectedTitle = ""
+        var selectedContext: AccountContext?
         let _ = (self.accountsAndPeers.get()
         |> take(1)
         |> deliverOnMainQueue).startStandalone(next: { accountsAndPeers in
-            for (account, _, _) in accountsAndPeers {
+            for (account, peer, _) in accountsAndPeers {
                 if account.account.id == id {
                     selectedAccount = account.account
+                    selectedTitle = peer.compactDisplayTitle
+                    selectedContext = account
                     break
                 }
             }
@@ -55,7 +68,11 @@ extension PeerInfoScreenNode {
             let accountContext = self.context.sharedContext.makeTempAccountContext(account: selectedAccount)
             let chatListController = accountContext.sharedContext.makeChatListController(context: accountContext, location: .chatList(groupId: EngineChatList.Group(.root)), controlsHistoryPreload: false, hideNetworkActivityStatus: true, previewing: true, enableDebugActions: false)
                     
-            let contextController = makeContextController(presentationData: self.presentationData, source: .controller(ContextControllerContentSourceImpl(controller: chatListController, sourceNode: node)), items: accountContextMenuItems(context: accountContext, logout: { [weak self] in
+            let contextController = makeContextController(presentationData: self.presentationData, source: .controller(ContextControllerContentSourceImpl(controller: chatListController, sourceNode: node)), items: accountContextMenuItems(context: accountContext, openFloating: { [weak self] in
+                ayuGramOpenFloatingAccount(context: selectedContext ?? accountContext, title: selectedTitle, openFull: {
+                    self?.switchToAccount(id: id)
+                })
+            }, logout: { [weak self] in
                 self?.logoutAccount(id: id)
             }) |> map { ContextController.Items(content: .list($0)) }, gesture: gesture)
             self.controller?.presentInGlobalOverlay(contextController)
