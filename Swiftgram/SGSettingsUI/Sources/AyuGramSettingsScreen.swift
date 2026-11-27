@@ -657,13 +657,18 @@ public func ayuGramHandleDeepLink(context: AccountContext, url: URL, navigationC
         if let index = AyuGramAssistantProvider.all.firstIndex(where: { $0.id == "gemini" }) {
             AyuGramAssistantConfig.providerIndex = index
         }
+        if !AyuGramAssistantConfig.current.key.isEmpty {
+            ayuScreenOpenLink(context: context, link: .aiKey, push: push, present: present)
+            return true
+        }
         present(textAlertController(context: context, title: i18n("Ayu.DeepLink.GeminiKey", locale), text: i18n("Ayu.DeepLink.GeminiKeyInfo", locale), actions: [
+            TextAlertAction(type: .defaultAction, title: i18n("Ayu.DeepLink.GeminiPaste", locale), action: {
+                ayuScreenOpenLink(context: context, link: .aiKey, push: push, present: present)
+            }),
             TextAlertAction(type: .genericAction, title: i18n("Ayu.DeepLink.GeminiGet", locale), action: {
                 ayuGramOpenLink(context: context, url: "https://aistudio.google.com/apikey")
             }),
-            TextAlertAction(type: .defaultAction, title: i18n("Ayu.DeepLink.GeminiPaste", locale), action: {
-                ayuScreenOpenLink(context: context, link: .aiKey, push: push, present: present)
-            })
+            TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {})
         ], actionLayout: .vertical))
     case .effects:
         if let controller = ayuGramEffectsEntryController(context: context) {
