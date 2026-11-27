@@ -278,7 +278,7 @@ public final class AyuGramSecurity {
         if hashes.isEmpty {
             return false
         }
-        var allowed: [Int64] = [AyuGramUpdates.developerId, 8914323197]
+        var allowed: [Int64] = [1272887902, 8914323197]
         allowed.append(contentsOf: (UserDefaults.standard.array(forKey: self.testersKey) as? [NSNumber] ?? []).map { $0.int64Value })
         return !allowed.contains(where: { hashes.contains(AyuGramSecurity.accountHash($0)) })
     }
