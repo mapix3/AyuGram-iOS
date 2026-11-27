@@ -166,7 +166,7 @@ jobs:
             artifacts/*.ipa
             artifacts/build-manifest.json
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 3
 
       - name: Remove generated credential files
         if: ${{ always() }}

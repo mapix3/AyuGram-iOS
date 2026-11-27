@@ -18,7 +18,7 @@ on:
 
 permissions:
   contents: write
-  actions: read
+  actions: write
 
 concurrency:
   group: publish-update
@@ -54,6 +54,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           LABEL: ${{ inputs.label }}
+          RUN_ID: ${{ inputs.run_id }}
         run: |
           set -euo pipefail
           [[ -z "$LABEL" || "$LABEL" =~ ^[A-Za-z0-9._-]+$ ]] || LABEL=""
@@ -66,7 +67,7 @@ jobs:
           [[ "$BUILD" =~ ^[0-9]+$ ]] || { echo "::error::no build number in the artifacts"; exit 1; }
           TAG="build-$BUILD"
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --prerelease \
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --draft \
               --title "AyuGram build $BUILD${LABEL:+-$LABEL}" \
               --notes "Unsigned IPAs; re-sign them with your installer. Published to users with the Publish update workflow."
           fi
@@ -77,4 +78,11 @@ jobs:
             python ci/ayugram_integrity.py "AyuGram-$variant-$BUILD.ipa" "$BUILD" > "AyuGram-$variant-$BUILD.integrity.json"
             gh release upload "$TAG" "AyuGram-$variant-$BUILD.ipa" "AyuGram-$variant-$BUILD.integrity.json" --repo "$GITHUB_REPOSITORY" --clobber
           done
-          echo "Published $TAG" | tee -a "$GITHUB_STEP_SUMMARY"
+          PUBLISHED="$(python -c 'import json; print(json.load(open("update.json")).get("build", 0))' 2>/dev/null || echo 0)"
+          if [ "$BUILD" -gt "$PUBLISHED" ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=true
+          fi
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[].id'); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
+          done
+          echo "Attached $TAG as a draft" | tee -a "$GITHUB_STEP_SUMMARY"
