@@ -80,7 +80,7 @@ jobs:
           open('update.json', 'w').write(json.dumps(manifest, indent=2) + '\n')
           PY
           cat update.json
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest
 
       - name: Commit update.json
         env:
