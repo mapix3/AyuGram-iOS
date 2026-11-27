@@ -541,6 +541,8 @@ public func stringWithAppliedEntities(_ text: String, entities: [MessageTextEnti
         }
     })
     
+    ayuGramApplyDeepLinks(string, linkColor: linkColor, underline: underlineLinks)
+    
     if let paragraphAlignment = paragraphAlignment {
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.alignment = paragraphAlignment
@@ -548,6 +550,40 @@ public func stringWithAppliedEntities(_ text: String, entities: [MessageTextEnti
     }
     
     return string
+}
+
+private let ayuGramDeepLinkPattern = try? NSRegularExpression(pattern: "ayugram://[A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]*", options: [.caseInsensitive])
+
+private func ayuGramApplyDeepLinks(_ string: NSMutableAttributedString, linkColor: UIColor, underline: Bool) {
+    guard let pattern = ayuGramDeepLinkPattern, string.string.range(of: "ayugram://", options: .caseInsensitive) != nil else {
+        return
+    }
+    let text = string.string as NSString
+    let urlKey = NSAttributedString.Key(rawValue: TelegramTextAttributes.URL)
+    for match in pattern.matches(in: string.string, options: [], range: NSRange(location: 0, length: text.length)) {
+        var range = match.range
+        while range.length > 10, let last = text.substring(with: NSRange(location: range.location + range.length - 1, length: 1)).unicodeScalars.first, ".,!?;:)]'".unicodeScalars.contains(last) {
+            range.length -= 1
+        }
+        if range.length <= 10 {
+            continue
+        }
+        var linked = false
+        string.enumerateAttribute(urlKey, in: range, options: []) { value, _, stop in
+            if value != nil {
+                linked = true
+                stop.pointee = true
+            }
+        }
+        if linked {
+            continue
+        }
+        string.addAttribute(.foregroundColor, value: linkColor, range: range)
+        if underline {
+            string.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue as NSNumber, range: range)
+        }
+        string.addAttribute(urlKey, value: text.substring(with: range), range: range)
+    }
 }
 
 public final class MessageSyntaxHighlight: Codable, Equatable {

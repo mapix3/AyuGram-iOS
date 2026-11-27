@@ -1765,6 +1765,13 @@ async function testMarket() {
     assert.equal((await call(new URL(list[0].media[0].url).pathname)).status, 200, 'Demo media is served');
     const relayList = (await (await call('/market/api/plugins', {}, 'relay.mapixdev.com')).json()).items;
     assert.equal(relayList[0].downloadUrl, 'https://relay.mapixdev.com/market/api/plugins/echo-tools/download', 'The relay host serves the same marketplace under /market');
+    const deepResponse = await call('/go/set/ghost/on?x=1');
+    const deepPage = await deepResponse.text();
+    assert.equal(deepResponse.status === 200 && deepResponse.headers.get('refresh') === '0;url=ayugram://set/ghost/on?x=1' && deepPage.includes('href="ayugram://set/ghost/on?x=1"'), true, 'Bridge links lead to the matching ayugram:// link');
+    const relayDeep = await call('/market/go/plugins', {}, 'relay.mapixdev.com');
+    assert.equal(relayDeep.headers.get('refresh'), '0;url=ayugram://plugins', 'The relay host serves the same bridge under /market/go');
+    const badDeep = await call('/go/plugins?a=(1)');
+    assert.equal(badDeep.headers.get('refresh'), '0;url=ayugram://plugins', 'An unsafe query is dropped from bridge links');
     const relayPage = await (await call('/market/?sort=new', {}, 'relay.mapixdev.com')).text();
     assert.equal(relayPage.includes('href="/market/p/echo-tools"') && relayPage.includes('href="/market/?sort=popular"') && relayPage.includes('action="/market/"') && !/(href|action|src)="\/(?!market\/)/.test(relayPage), true, 'Site links on the relay host stay under /market');
     const relayPluginPage = await (await call('/market/p/echo-tools', {}, 'relay.mapixdev.com')).text();
