@@ -3,6 +3,7 @@ import { ipTag } from './stats.js';
 import { PLUGIN_PERMISSIONS, aiReview, compareVersions, scanPlugin, scanSummary, unpackPlugin } from './scan.js';
 
 export const MARKET_HOST = 'marketplace.mapixdev.com';
+export const MARKET_SITE = 'https://relay.mapixdev.com/market';
 export const MARKET_LIMITS = { file: 2097152, photo: 5242880, video: 20971520, media: 4, body: 27262976, name: 60, description: 300, about: 4000, changelog: 1000 };
 
 const INTERNAL = 'https://market.ayugram.invalid';
@@ -638,7 +639,7 @@ async function notifyAuthor(env, sub) {
   const title = sub.name + ' v' + sub.version;
   let text;
   if (sub.status === 'approved') {
-    text = '✅ ' + title + ' is published in the AyuGram plugin marketplace.\nhttps://' + MARKET_HOST + '/p/' + sub.slug + '\n\n✅ ' + title + ' опубликован в маркетплейсе плагинов AyuGram.';
+    text = '✅ ' + title + ' is published in the AyuGram plugin marketplace.\n' + MARKET_SITE + '/p/' + sub.slug + '\n\n✅ ' + title + ' опубликован в маркетплейсе плагинов AyuGram.';
   } else if (sub.status === 'rejected') {
     text = '❌ ' + title + ' was not accepted: ' + reasonText(sub.reason, 0) + '.\n\n❌ ' + title + ' не принят: ' + reasonText(sub.reason, 1) + '.';
   } else {
@@ -979,7 +980,7 @@ export async function handleMarket(request, env, url, ctx) {
   }
   const onHost = url.hostname === MARKET_HOST;
   const path = (onHost ? url.pathname : url.pathname.slice('/market'.length)).replace(/\/+$/, '') || '/';
-  const origin = onHost ? 'https://' + MARKET_HOST : url.origin + '/market';
+  const origin = onHost ? 'https://' + MARKET_HOST : MARKET_SITE;
   const method = request.method;
   const read = method === 'GET' || method === 'HEAD';
   let match;
@@ -1175,7 +1176,7 @@ export async function marketPendingText(env) {
   const found = await callJson(stub, '/pending', {});
   const subs = found.ok ? found.data.submissions : [];
   if (!subs.length) {
-    return { text: '🧩 Заявок на проверку нет.\nhttps://' + MARKET_HOST };
+    return { text: '🧩 Заявок на проверку нет.\n' + MARKET_SITE };
   }
   return { text: '🧩 Ждут проверки: ' + subs.length + '\n\n' + subs.map((sub) => (sub.kind === 'update' ? '🔄 ' : '🆕 ') + sub.name + ' v' + sub.version + ' · ' + ({ clean: '🟢', warn: '🟡', danger: '🔴' }[sub.scan.verdict] || '') + ' · ID ' + sub.authorId).join('\n'), markup: { inline_keyboard: subs.slice(0, 10).map((sub) => [{ text: '🔎 ' + sub.name + ' v' + sub.version, callback_data: 'MO:' + sub.sid }]) } };
 }
