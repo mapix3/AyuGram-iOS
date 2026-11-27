@@ -68,3 +68,48 @@ public func urlEncodedStringFromString(_ string: String) -> String {
     }
     return nsString.addingPercentEncoding(withAllowedCharacters: validUrlSet) ?? ""
 }
+
+public let ayuGramDeepLinkBridgeBase = "https://marketplace.mapixdev.com/go/"
+
+public func ayuGramBridgedDeepLink(_ url: String) -> String {
+    let scheme = "ayugram://"
+    guard url.lowercased().hasPrefix(scheme) else {
+        return url
+    }
+    let rest = String(url.dropFirst(scheme.count))
+    if rest.isEmpty {
+        return ayuGramDeepLinkBridgeBase + "settings"
+    }
+    return ayuGramDeepLinkBridgeBase + rest
+}
+
+public func ayuGramDeepLinkFromBridge(_ url: String) -> String? {
+    if url.lowercased().hasPrefix("ayugram://") {
+        return url
+    }
+    guard let components = URLComponents(string: url), let scheme = components.scheme?.lowercased(), scheme == "https" || scheme == "http", let host = components.host?.lowercased() else {
+        return nil
+    }
+    let prefix: String
+    switch host {
+    case "marketplace.mapixdev.com":
+        prefix = "/go/"
+    case "relay.mapixdev.com":
+        prefix = "/market/go/"
+    default:
+        return nil
+    }
+    let path = components.percentEncodedPath
+    guard path.lowercased().hasPrefix(prefix) else {
+        return nil
+    }
+    let rest = String(path.dropFirst(prefix.count))
+    if rest.isEmpty {
+        return nil
+    }
+    var result = "ayugram://" + rest
+    if let query = components.percentEncodedQuery, !query.isEmpty {
+        result += "?" + query
+    }
+    return result
+}

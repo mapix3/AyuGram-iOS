@@ -907,6 +907,25 @@ const T = {
   history: ['Earlier versions', 'Прошлые версии'],
 };
 
+const DEEP_TEXT = {
+  title: ['Open in AyuGram', 'Открыть в AyuGram'],
+  body: ['This link opens a screen or a setting inside AyuGram. If nothing happened, tap the button.', 'Эта ссылка открывает экран или настройку внутри AyuGram. Если ничего не произошло, нажмите кнопку.'],
+  open: ['Open in AyuGram', 'Открыть в AyuGram'],
+  missing: ['No AyuGram yet? Get it in the updates channel.', 'Ещё нет AyuGram? Он есть в канале обновлений.'],
+};
+
+function deepLinkPage(request, rest, search, origin) {
+  const ru = lang(request);
+  const query = /^\?[A-Za-z0-9._~%&=+,:@\/-]{0,300}$/.test(search) ? search : '';
+  const target = 'ayugram://' + rest + query;
+  const body = '<h1>' + esc(DEEP_TEXT.title[ru]) + '</h1><p class="muted">' + esc(DEEP_TEXT.body[ru]) + '</p><p><a class="button" href="' + esc(target) + '">' + esc(DEEP_TEXT.open[ru]) + '</a></p><p class="pre muted">' + esc(target) + '</p><p><a href="https://t.me/ayugramiosupdates">' + esc(DEEP_TEXT.missing[ru]) + '</a></p>';
+  const response = page(ru, DEEP_TEXT.title[ru], body, basePath(origin));
+  const headers = new Headers(response.headers);
+  headers.set('cache-control', 'no-store');
+  headers.set('refresh', '0;url=' + target);
+  return new Response(response.body, { status: 200, headers });
+}
+
 function basePath(origin) {
   return new URL(origin).pathname.replace(/\/+$/, '');
 }
@@ -988,6 +1007,9 @@ export async function handleMarket(request, env, url, ctx) {
   const method = request.method;
   const read = method === 'GET' || method === 'HEAD';
   let match;
+  if ((match = /^\/go\/([A-Za-z0-9._~\/-]{1,200})$/.exec(path))) {
+    return read ? deepLinkPage(request, match[1], url.search, origin) : fail('method_not_allowed', 405);
+  }
   if ((match = /^\/m\/([0-9a-f]{16})\.(jpg|png|heic|mp4|mov)$/.exec(path))) {
     return read ? serveBlob(request, stub, match[1], match[2]) : fail('method_not_allowed', 405);
   }

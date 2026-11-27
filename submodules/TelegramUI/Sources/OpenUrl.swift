@@ -368,6 +368,14 @@ private func makeTelegramUrl(_ path: String, queryItems: [URLQueryItem] = []) ->
 }
 
 func openExternalUrlImpl(context: AccountContext, urlContext: OpenURLContext, url: String, forceExternal: Bool, presentationData: PresentationData, navigationController: NavigationController?, dismissInput: @escaping () -> Void) {
+    if let deepLink = ayuGramDeepLinkFromBridge(url), let parsed = URL(string: deepLink) {
+        dismissInput()
+        if parsed.host?.lowercased() != "chat", let navigation = navigationController ?? (context.sharedContext.mainWindow?.viewController as? NavigationController), ayuGramHandleDeepLink(context: context, url: parsed, navigationController: navigation) {
+            return
+        }
+        context.sharedContext.applicationBindings.openUrl(deepLink)
+        return
+    }
     if let number = ayuGramAnonymousNumber(fromUrl: url) {
         ayuGramOpenAnonymousNumber(context: context, number: number, presentationData: presentationData, navigationController: navigationController, fallback: {
             ayuGramOpenExternalUrlDirect(context: context, urlContext: urlContext, url: url, forceExternal: forceExternal, presentationData: presentationData, navigationController: navigationController, dismissInput: dismissInput)
