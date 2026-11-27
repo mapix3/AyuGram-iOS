@@ -1771,7 +1771,7 @@ async function testMarket() {
     const siteScript = await call('/assets/site.js');
     assert.equal(siteScript.status === 200 && (siteScript.headers.get('content-type') || '').startsWith('text/javascript') && (await siteScript.text()).includes('getElementById("sky")'), true, 'The marketplace serves its animation script');
     const homeHtml = await (await call('/')).text();
-    assert.equal(homeHtml.includes('<script src="/assets/site.js" defer></script>') && homeHtml.includes('<canvas id="sky"'), true, 'Marketplace pages load the animation script');
+    assert.equal(homeHtml.includes('<script src="/assets/site.js?v=') && homeHtml.includes('<canvas id="sky"'), true, 'Marketplace pages load the animation script');
     const relayDeep = await call('/market/go/plugins', {}, 'relay.mapixdev.com');
     assert.equal(relayDeep.headers.get('refresh'), '0;url=ayugram://plugins', 'The relay host serves the same bridge under /market/go');
     const badDeep = await call('/go/plugins?a=(1)');

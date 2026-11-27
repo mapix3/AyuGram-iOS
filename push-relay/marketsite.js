@@ -249,48 +249,113 @@ export const SITE_JS = String.raw`(() => {
     });
   });
 
-  document.querySelectorAll(".card,.section").forEach(card => card.addEventListener("pointermove", e => {
-    const r = card.getBoundingClientRect();
-    card.style.setProperty("--x", (e.clientX - r.left) + "px");
-    card.style.setProperty("--y", (e.clientY - r.top) + "px");
-  }));
-
-  if (!reduce) {
-    const glyphs = "!<>-_\\/[]{}=+*^?#$%&01";
-    document.querySelectorAll(".card h3").forEach(el => {
-      const host = el.closest("a") || el;
-      const orig = el.textContent;
-      let raf;
-      host.addEventListener("pointerenter", () => {
-        cancelAnimationFrame(raf);
-        let f = 0;
-        const step = () => {
-          f++;
-          const done = Math.floor(f / 2);
-          el.textContent = orig.split("").map((ch, i) => i < done || ch === " " ? ch : glyphs[Math.random() * glyphs.length | 0]).join("");
-          if (done < orig.length) raf = requestAnimationFrame(step);
-          else el.textContent = orig;
-        };
-        step();
-      });
-    });
-  }
-
-  const reveal = [...document.querySelectorAll(".card,.section,.gallery")];
-  reveal.forEach((el, i) => el.style.setProperty("--k", Math.min(i, 10)));
-  if (reduce || !("IntersectionObserver" in window)) {
-    reveal.forEach(el => el.classList.add("in"));
-    return;
-  }
-  const io = new IntersectionObserver(entries => entries.forEach(e => {
+  const glyphs = "!<>-_\\/[]{}=+*^?#$%&01";
+  const io = !reduce && "IntersectionObserver" in window ? new IntersectionObserver(entries => entries.forEach(e => {
     if (e.isIntersecting) {
       e.target.classList.add("in");
       io.unobserve(e.target);
     }
-  }), { threshold: .08 });
-  reveal.forEach(el => {
-    el.classList.add("rv");
-    io.observe(el);
-  });
+  }), { threshold: .08 }) : null;
+  const bind = root => {
+    root.querySelectorAll(".card,.section").forEach(card => card.addEventListener("pointermove", e => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty("--x", (e.clientX - r.left) + "px");
+      card.style.setProperty("--y", (e.clientY - r.top) + "px");
+    }));
+    if (!reduce) {
+      root.querySelectorAll(".card h3").forEach(el => {
+        const host = el.closest("a") || el;
+        const orig = el.textContent;
+        let raf;
+        host.addEventListener("pointerenter", () => {
+          cancelAnimationFrame(raf);
+          let f = 0;
+          const step = () => {
+            f++;
+            const done = Math.floor(f / 2);
+            el.textContent = orig.split("").map((ch, i) => i < done || ch === " " ? ch : glyphs[Math.random() * glyphs.length | 0]).join("");
+            if (done < orig.length) raf = requestAnimationFrame(step);
+            else el.textContent = orig;
+          };
+          step();
+        });
+      });
+    }
+    const reveal = [...root.querySelectorAll(".card,.section,.gallery")];
+    reveal.forEach((el, i) => {
+      el.style.setProperty("--k", Math.min(i, 10));
+      if (io) {
+        el.classList.add("rv");
+        io.observe(el);
+      } else {
+        el.classList.add("in");
+      }
+    });
+  };
+  bind(document);
+
+  const results = document.getElementById("results");
+  const tabs = document.querySelector(".tabs");
+  const form = document.querySelector("form.search");
+  if (!results || !window.fetch || !window.DOMParser) return;
+  let token = 0;
+  const load = async (href, push) => {
+    const url = new URL(href, location.href);
+    if (url.origin !== location.origin) {
+      location.href = href;
+      return;
+    }
+    const mine = ++token;
+    results.classList.add("loading");
+    try {
+      const response = await fetch(url.href, { headers: { accept: "text/html" }, credentials: "same-origin" });
+      if (!response.ok) throw new Error("status " + response.status);
+      const doc = new DOMParser().parseFromString(await response.text(), "text/html");
+      if (mine !== token) return;
+      const nextResults = doc.getElementById("results");
+      if (!nextResults) throw new Error("no results");
+      results.innerHTML = nextResults.innerHTML;
+      const nextTabs = doc.querySelector(".tabs");
+      if (nextTabs && tabs) {
+        const fresh = nextTabs.querySelectorAll("a");
+        tabs.querySelectorAll("a").forEach((a, i) => {
+          if (fresh[i]) {
+            a.className = fresh[i].className;
+            a.setAttribute("href", fresh[i].getAttribute("href"));
+          }
+        });
+      }
+      const sort = url.searchParams.get("sort");
+      const hidden = form && form.querySelector("input[name=sort]");
+      if (hidden && sort) hidden.value = sort;
+      if (push) history.pushState(null, "", url.pathname + url.search);
+      bind(results);
+    } catch (error) {
+      location.href = url.href;
+    } finally {
+      if (mine === token) results.classList.remove("loading");
+    }
+  };
+  if (tabs) {
+    tabs.addEventListener("click", e => {
+      const a = e.target.closest("a");
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return;
+      e.preventDefault();
+      if (a.classList.contains("on")) return;
+      tabs.querySelectorAll("a").forEach(other => other.classList.toggle("on", other === a));
+      load(a.href, true);
+    });
+  }
+  if (form) {
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const url = new URL(form.getAttribute("action") || location.pathname, location.href);
+      new FormData(form).forEach((value, key) => {
+        if (String(value)) url.searchParams.set(key, String(value));
+      });
+      load(url.href, true);
+    });
+  }
+  addEventListener("popstate", () => load(location.href, false));
 })();
 `;
