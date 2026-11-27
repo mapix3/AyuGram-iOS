@@ -607,6 +607,30 @@ final class AyuGramFloatingPanel: UIView, UIGestureRecognizerDelegate {
 }
 
 private var ayuGramFloatingHost: AyuGramFloatingHostController?
+private weak var ayuGramFloatingNavigation: NavigationController?
+
+public func ayuGramFloatingMove(to navigationController: NavigationController) {
+    guard let current = ayuGramFloatingHost, ayuGramFloatingNavigation !== navigationController else {
+        ayuGramFloatingNavigation = navigationController
+        return
+    }
+    let panels = current.panels
+    let host = AyuGramFloatingHostController()
+    for panel in panels {
+        current.remove(panel)
+    }
+    ayuGramFloatingHost = host
+    ayuGramFloatingNavigation = navigationController
+    current.dismiss()
+    if panels.isEmpty {
+        ayuGramFloatingHost = nil
+        return
+    }
+    navigationController.presentOverlay(controller: host, inGlobal: false, blockInteraction: false)
+    for panel in panels {
+        host.add(panel)
+    }
+}
 
 private func ayuGramFloatingPresent(context: AccountContext, key: String, title: String, watchPeerId: EnginePeer.Id?, makeRoot: () -> ViewController?, openFull: (() -> Void)?) {
     guard let rootNavigation = context.sharedContext.mainWindow?.viewController as? NavigationController else {
@@ -625,6 +649,7 @@ private func ayuGramFloatingPresent(context: AccountContext, key: String, title:
     } else {
         host = AyuGramFloatingHostController()
         ayuGramFloatingHost = host
+        ayuGramFloatingNavigation = rootNavigation
         rootNavigation.presentOverlay(controller: host, inGlobal: false, blockInteraction: false)
     }
     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
