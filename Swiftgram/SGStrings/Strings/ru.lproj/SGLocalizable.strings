@@ -25,6 +25,7 @@
 "Ayu.ScamTitle" = "Мошенническая копия AyuGram";
 "Ayu.ScamText" = "Эту копию AyuGram распространяют мошенники, например через чужой Apple ID. Выйди из чужого Apple ID в настройках iPhone, удали это приложение и скачай AyuGram только из канала @ayugramiosupdates.";
 "Ayu.ScamChannel" = "Официальный канал";
+"Ayu.Block.Developer" = "Написать разработчику";
 "Ayu.CheckUpdates" = "Проверить обновления";
 "Ayu.UpToDate" = "У вас последняя версия.";
 "Ayu.UpdateAvailable" = "Доступно обновление";

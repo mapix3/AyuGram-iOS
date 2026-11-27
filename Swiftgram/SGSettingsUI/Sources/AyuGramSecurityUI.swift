@@ -17,7 +17,6 @@ var ayuGramVariant: String {
     return ayuGramHasAppearanceEntry ? "custom" : "standard"
 }
 
-private var ayuGramBlockPresented = false
 private var ayuGramSecurityObserver: NSObjectProtocol?
 private var ayuGramActiveObserver: NSObjectProtocol?
 private var ayuGramWarningPresented = false
@@ -65,6 +64,18 @@ func ayuGramStartSecurity(context: AccountContext) {
 private var ayuGramAccountsDisposable: Disposable?
 private var ayuGramPrereleaseWindow: UIWindow?
 
+private func ayuGramAppIcon() -> UIImage? {
+    guard let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any], let primary = icons["CFBundlePrimaryIcon"] as? [String: Any], let files = primary["CFBundleIconFiles"] as? [String] else {
+        return nil
+    }
+    for name in files.reversed() {
+        if let image = UIImage(named: name) {
+            return image
+        }
+    }
+    return nil
+}
+
 private final class AyuGramPrereleaseController: UIViewController {
     private let locale: String
 
@@ -81,23 +92,11 @@ private final class AyuGramPrereleaseController: UIViewController {
         return .lightContent
     }
 
-    private static func appIcon() -> UIImage? {
-        guard let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any], let primary = icons["CFBundlePrimaryIcon"] as? [String: Any], let files = primary["CFBundleIconFiles"] as? [String] else {
-            return nil
-        }
-        for name in files.reversed() {
-            if let image = UIImage(named: name) {
-                return image
-            }
-        }
-        return nil
-    }
-
     override func viewDidLoad() {
         super.viewDidLoad()
         self.view.backgroundColor = .black
 
-        let iconView = UIImageView(image: AyuGramPrereleaseController.appIcon())
+        let iconView = UIImageView(image: ayuGramAppIcon())
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.contentMode = .scaleAspectFill
         iconView.layer.cornerRadius = 26.0
@@ -353,50 +352,298 @@ private func ayuGramReasonText(_ reason: String, _ locale: String) -> String {
     return AyuGramSecurity.reasonCodes.contains(reason) ? i18n("Ayu.Reason." + reason, locale) : reason
 }
 
-func ayuGramPresentBlockIfNeeded(context: AccountContext) {
-    guard AyuGramSecurity.shared.isBlocked, !ayuGramBlockPresented else {
-        return
+private final class AyuGramBlockScreenController: UIViewController {
+    struct Action {
+        let title: String
+        let primary: Bool
+        let handler: () -> Void
     }
-    ayuGramBlockPresented = true
-    let data = context.sharedContext.currentPresentationData.with { $0 }
-    let locale = data.strings.baseLanguageCode
-    let reshow: () -> Void = { [weak context] in
-        guard let context else {
+
+    private let titleText: String
+    private let bodyText: String
+    private let actions: [Action]
+
+    init(title: String, text: String, actions: [Action]) {
+        self.titleText = title
+        self.bodyText = text
+        self.actions = actions
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        self.view.backgroundColor = .black
+
+        let iconView = UIImageView(image: ayuGramAppIcon())
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.contentMode = .scaleAspectFill
+        iconView.layer.cornerRadius = 26.0
+        iconView.layer.cornerCurve = .continuous
+        iconView.clipsToBounds = true
+
+        let titleLabel = UILabel()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.numberOfLines = 0
+        titleLabel.textAlignment = .center
+        titleLabel.textColor = .white
+        titleLabel.font = UIFont.systemFont(ofSize: 24.0, weight: .semibold)
+        titleLabel.text = self.titleText
+
+        let textLabel = UILabel()
+        textLabel.translatesAutoresizingMaskIntoConstraints = false
+        textLabel.numberOfLines = 0
+        textLabel.textAlignment = .center
+        textLabel.textColor = UIColor(white: 0.62, alpha: 1.0)
+        textLabel.font = UIFont.systemFont(ofSize: 17.0)
+        textLabel.adjustsFontSizeToFitWidth = true
+        textLabel.minimumScaleFactor = 0.7
+        textLabel.text = self.bodyText
+
+        let stack = UIStackView(arrangedSubviews: [iconView, titleLabel, textLabel])
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 18.0
+        stack.setCustomSpacing(28.0, after: iconView)
+
+        var buttons: [UIButton] = []
+        for (index, action) in self.actions.enumerated() {
+            let button = UIButton(type: .system)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.tag = index
+            button.backgroundColor = action.primary ? UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0) : UIColor(white: 0.15, alpha: 1.0)
+            button.layer.cornerRadius = 12.0
+            button.layer.cornerCurve = .continuous
+            button.setTitleColor(.white, for: .normal)
+            button.titleLabel?.font = UIFont.systemFont(ofSize: 17.0, weight: .semibold)
+            button.setTitle(action.title, for: .normal)
+            button.addTarget(self, action: #selector(self.buttonPressed(_:)), for: .touchUpInside)
+            button.heightAnchor.constraint(equalToConstant: 50.0).isActive = true
+            buttons.append(button)
+        }
+        let buttonStack = UIStackView(arrangedSubviews: buttons)
+        buttonStack.translatesAutoresizingMaskIntoConstraints = false
+        buttonStack.axis = .vertical
+        buttonStack.spacing = 10.0
+
+        self.view.addSubview(stack)
+        self.view.addSubview(buttonStack)
+        let guide = self.view.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            iconView.widthAnchor.constraint(equalToConstant: 120.0),
+            iconView.heightAnchor.constraint(equalToConstant: 120.0),
+            stack.centerYAnchor.constraint(equalTo: guide.centerYAnchor, constant: -60.0),
+            stack.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 32.0),
+            stack.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -32.0),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: guide.topAnchor, constant: 16.0),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: buttonStack.topAnchor, constant: -20.0),
+            titleLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            textLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            buttonStack.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 32.0),
+            buttonStack.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -32.0),
+            buttonStack.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -24.0)
+        ])
+    }
+
+    @objc private func buttonPressed(_ sender: UIButton) {
+        guard sender.tag >= 0, sender.tag < self.actions.count else {
             return
         }
-        Queue.mainQueue().after(0.8, {
-            ayuGramBlockPresented = false
-            ayuGramPresentBlockIfNeeded(context: context)
-        })
+        self.actions[sender.tag].handler()
     }
-    if AyuGramSecurity.shared.isBanned {
-        var bannedText = i18n("Ayu.BannedText", locale)
-        if let reason = AyuGramSecurity.shared.banReason {
-            bannedText = i18n("Ayu.BannedTextReason", locale) + "\n\n" + i18n("Ayu.Reason", locale, ayuGramReasonText(reason, locale))
-        }
-        let alert = textAlertController(context: context, title: i18n("Ayu.BannedTitle", locale), text: bannedText, actions: [
-            TextAlertAction(type: .defaultAction, title: i18n("Ayu.ScamChannel", locale), action: {
-                ayuGramOpenLink(context: context, url: AyuGramUpdates.channelURL)
-                reshow()
-            })
-        ], actionLayout: .vertical, dismissOnOutsideTap: false)
-        context.sharedContext.mainWindow?.present(alert, on: .root)
+}
+
+private var ayuGramBlockWindow: UIWindow?
+private var ayuGramBlockKind: Bool?
+private var ayuGramBlockAllowed = Set<EnginePeer.Id>()
+private var ayuGramBlockAway = false
+private var ayuGramBlockArrived = false
+private var ayuGramBlockDeadline: Double = 0.0
+private var ayuGramBlockTimer: SwiftSignalKit.Timer?
+private var ayuGramBlockResolve: Disposable?
+private let ayuGramBlockDeveloperUsername = "distressedx2x"
+private let ayuGramBlockChannelUsername = "ayugramiosupdates"
+
+private func ayuGramBlockFocusMainWindow(except window: UIWindow) {
+    guard let scene = window.windowScene else {
         return
     }
-    var text = AyuGramSecurity.shared.blockMessage ?? i18n("Ayu.ScamText", locale)
-    if let reason = AyuGramSecurity.shared.blockReason {
-        text += "\n\n" + i18n("Ayu.Reason", locale, ayuGramReasonText(reason, locale))
+    if let main = scene.windows.first(where: { $0 !== window && !$0.isHidden && $0.windowLevel == .normal }) {
+        main.makeKey()
     }
-    let alert = textAlertController(context: context, title: i18n("Ayu.ScamTitle", locale), text: text, actions: [
-        TextAlertAction(type: .defaultAction, title: i18n("Ayu.ScamChannel", locale), action: {
-            ayuGramOpenLink(context: context, url: AyuGramUpdates.channelURL)
-            reshow()
+}
+
+private func ayuGramBlockDismiss() {
+    ayuGramBlockTimer?.invalidate()
+    ayuGramBlockTimer = nil
+    ayuGramBlockResolve?.dispose()
+    ayuGramBlockResolve = nil
+    ayuGramBlockAway = false
+    ayuGramBlockArrived = false
+    if let window = ayuGramBlockWindow {
+        window.isHidden = true
+        ayuGramBlockFocusMainWindow(except: window)
+    }
+    ayuGramBlockWindow = nil
+    ayuGramBlockKind = nil
+}
+
+private func ayuGramBlockReturn() {
+    ayuGramBlockTimer?.invalidate()
+    ayuGramBlockTimer = nil
+    ayuGramBlockResolve?.dispose()
+    ayuGramBlockResolve = nil
+    ayuGramBlockAway = false
+    ayuGramBlockArrived = false
+    guard AyuGramSecurity.shared.isBlocked, let window = ayuGramBlockWindow else {
+        ayuGramBlockDismiss()
+        return
+    }
+    window.isHidden = false
+    window.makeKeyAndVisible()
+}
+
+private func ayuGramBlockTopChatPeer(context: AccountContext) -> EnginePeer.Id? {
+    guard let navigationController = context.sharedContext.mainWindow?.viewController as? NavigationController else {
+        return nil
+    }
+    guard let chat = navigationController.topViewController as? ChatController else {
+        return nil
+    }
+    return chat.chatLocation.peerId
+}
+
+private func ayuGramBlockWatch(context: AccountContext) {
+    ayuGramBlockTimer?.invalidate()
+    let timer = SwiftSignalKit.Timer(timeout: 0.4, repeat: true, completion: { [weak context] in
+        guard let context, ayuGramBlockAway else {
+            ayuGramBlockReturn()
+            return
+        }
+        if !AyuGramSecurity.shared.isBlocked {
+            ayuGramBlockDismiss()
+            return
+        }
+        if let peerId = ayuGramBlockTopChatPeer(context: context), ayuGramBlockAllowed.contains(peerId) {
+            ayuGramBlockArrived = true
+            return
+        }
+        if ayuGramBlockArrived || CFAbsoluteTimeGetCurrent() > ayuGramBlockDeadline {
+            ayuGramBlockReturn()
+        }
+    }, queue: Queue.mainQueue())
+    ayuGramBlockTimer = timer
+    timer.start()
+}
+
+private func ayuGramBlockOpenChat(context: AccountContext, username: String) {
+    guard let window = ayuGramBlockWindow, !ayuGramBlockAway else {
+        return
+    }
+    ayuGramBlockAway = true
+    ayuGramBlockArrived = false
+    ayuGramBlockDeadline = CFAbsoluteTimeGetCurrent() + 10.0
+    window.isHidden = true
+    ayuGramBlockFocusMainWindow(except: window)
+    ayuGramBlockWatch(context: context)
+    ayuGramBlockResolve?.dispose()
+    ayuGramBlockResolve = (context.engine.peers.resolvePeerByName(name: username, referrer: nil)
+    |> mapToSignal { result -> Signal<EnginePeer?, NoError> in
+        if case let .result(peer) = result {
+            return .single(peer)
+        }
+        return .complete()
+    }
+    |> take(1)
+    |> timeout(8.0, queue: .mainQueue(), alternate: .single(nil))
+    |> deliverOnMainQueue).startStrict(next: { [weak context] peer in
+        guard let context, ayuGramBlockAway else {
+            return
+        }
+        guard let peer, let navigationController = context.sharedContext.mainWindow?.viewController as? NavigationController else {
+            ayuGramBlockReturn()
+            return
+        }
+        ayuGramBlockAllowed.insert(peer.id)
+        ayuGramBlockDeadline = CFAbsoluteTimeGetCurrent() + 4.0
+        context.sharedContext.navigateToChatController(NavigateToChatControllerParams(navigationController: navigationController, context: context, chatLocation: .peer(peer), forceOpenChat: true))
+    })
+}
+
+func ayuGramPresentBlockIfNeeded(context: AccountContext) {
+    guard AyuGramSecurity.shared.isBlocked else {
+        ayuGramBlockDismiss()
+        return
+    }
+    let banned = AyuGramSecurity.shared.isBanned
+    if ayuGramBlockWindow != nil && ayuGramBlockKind == banned {
+        return
+    }
+    ayuGramBlockAllowed.insert(EnginePeer.Id(AyuGramUpdates.developerId))
+    let data = context.sharedContext.currentPresentationData.with { $0 }
+    let locale = data.strings.baseLanguageCode
+    let title: String
+    var text: String
+    if banned {
+        title = i18n("Ayu.BannedTitle", locale)
+        text = i18n("Ayu.BannedText", locale)
+        if let reason = AyuGramSecurity.shared.banReason {
+            text = i18n("Ayu.BannedTextReason", locale) + "\n\n" + i18n("Ayu.Reason", locale, ayuGramReasonText(reason, locale))
+        }
+    } else {
+        title = i18n("Ayu.ScamTitle", locale)
+        text = AyuGramSecurity.shared.blockMessage ?? i18n("Ayu.ScamText", locale)
+        if let reason = AyuGramSecurity.shared.blockReason {
+            text += "\n\n" + i18n("Ayu.Reason", locale, ayuGramReasonText(reason, locale))
+        }
+    }
+    var actions: [AyuGramBlockScreenController.Action] = [
+        AyuGramBlockScreenController.Action(title: i18n("Ayu.ScamChannel", locale), primary: true, handler: { [weak context] in
+            guard let context else {
+                return
+            }
+            ayuGramBlockOpenChat(context: context, username: ayuGramBlockChannelUsername)
         }),
-        TextAlertAction(type: .genericAction, title: i18n("Ayu.ReportScam", locale), action: {
-            context.sharedContext.mainWindow?.present(ayuGramScamReportPrompt(context: context, completion: reshow), on: .root)
+        AyuGramBlockScreenController.Action(title: i18n("Ayu.Block.Developer", locale), primary: false, handler: { [weak context] in
+            guard let context else {
+                return
+            }
+            ayuGramBlockOpenChat(context: context, username: ayuGramBlockDeveloperUsername)
         })
-    ], actionLayout: .vertical, dismissOnOutsideTap: false)
-    context.sharedContext.mainWindow?.present(alert, on: .root)
+    ]
+    if !banned {
+        actions.append(AyuGramBlockScreenController.Action(title: i18n("Ayu.ReportScam", locale), primary: false, handler: { [weak context] in
+            guard let context, let window = ayuGramBlockWindow, !ayuGramBlockAway else {
+                return
+            }
+            ayuGramBlockAway = true
+            window.isHidden = true
+            ayuGramBlockFocusMainWindow(except: window)
+            context.sharedContext.mainWindow?.present(ayuGramScamReportPrompt(context: context, completion: {
+                ayuGramBlockReturn()
+            }), on: .root)
+        }))
+    }
+    let window = ayuGramBlockWindow ?? UIWindow(frame: UIScreen.main.bounds)
+    if window.windowScene == nil, let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+        window.windowScene = scene
+    }
+    window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1.5)
+    window.backgroundColor = .black
+    window.rootViewController = AyuGramBlockScreenController(title: title, text: text, actions: actions)
+    ayuGramBlockWindow = window
+    ayuGramBlockKind = banned
+    if !ayuGramBlockAway {
+        window.makeKeyAndVisible()
+    }
 }
 
 func ayuGramPresentWarningIfNeeded(context: AccountContext) {
