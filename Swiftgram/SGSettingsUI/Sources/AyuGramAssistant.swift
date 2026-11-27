@@ -11,6 +11,46 @@ import SGSimpleSettings
 import SGStrings
 import ComponentFlow
 import GlassBackgroundComponent
+import Security
+
+private let ayuGramAssistantKeyService = "ayugram.assistant.key"
+
+private func ayuGramAssistantKeyQuery(_ provider: String) -> [String: Any] {
+    return [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: ayuGramAssistantKeyService,
+        kSecAttrAccount as String: provider
+    ]
+}
+
+private func ayuGramAssistantStoreKey(_ value: String, provider: String) {
+    let query = ayuGramAssistantKeyQuery(provider)
+    SecItemDelete(query as CFDictionary)
+    UserDefaults.standard.removeObject(forKey: ayuGramAssistantKeyService + "." + provider)
+    guard !value.isEmpty else {
+        return
+    }
+    var add = query
+    add[kSecValueData as String] = Data(value.utf8)
+    add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    SecItemAdd(add as CFDictionary, nil)
+}
+
+private func ayuGramAssistantStoredKey(_ provider: String) -> String {
+    let legacyKey = ayuGramAssistantKeyService + "." + provider
+    if let legacy = UserDefaults.standard.string(forKey: legacyKey) {
+        ayuGramAssistantStoreKey(legacy, provider: provider)
+        return legacy
+    }
+    var query = ayuGramAssistantKeyQuery(provider)
+    query[kSecReturnData as String] = true
+    query[kSecMatchLimit as String] = kSecMatchLimitOne
+    var result: CFTypeRef?
+    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else {
+        return ""
+    }
+    return String(decoding: data, as: UTF8.self)
+}
 
 struct AyuGramAssistantProvider {
     let id: String
@@ -49,14 +89,14 @@ struct AyuGramAssistantConfig {
 
     static var current: AyuGramAssistantConfig {
         let provider = AyuGramAssistantProvider.all[providerIndex]
-        let key = ayuGramAssistantClean(UserDefaults.standard.string(forKey: "ayugram.assistant.key." + provider.id) ?? "")
+        let key = ayuGramAssistantClean(ayuGramAssistantStoredKey(provider.id))
         let model = UserDefaults.standard.string(forKey: "ayugram.assistant.model." + provider.id) ?? ""
         return AyuGramAssistantConfig(provider: provider, key: key, model: model.isEmpty ? provider.model : model)
     }
 
     static func setKey(_ value: String) {
         let provider = AyuGramAssistantProvider.all[providerIndex]
-        UserDefaults.standard.set(ayuGramAssistantClean(value), forKey: "ayugram.assistant.key." + provider.id)
+        ayuGramAssistantStoreKey(ayuGramAssistantClean(value), provider: provider.id)
         NotificationCenter.default.post(name: AyuGramSettings.didChange, object: nil)
     }
 
