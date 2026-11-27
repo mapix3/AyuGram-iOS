@@ -49,8 +49,12 @@ export const SITE_JS = String.raw`(() => {
       rings.push({ x, y, life: 0, max: 26 });
       start();
     };
+    const pin = () => {
+      c.style.transform = "translate3d(0," + Math.max(0, Math.min(scrollY, (c.parentElement ? c.parentElement.clientHeight : document.documentElement.scrollHeight) - innerHeight)) + "px,0)";
+    };
     const frame = now => {
       const sy = scrollY;
+      pin();
       vel += ((sy - lastY) - vel) * .25;
       lastY = sy;
       const warp = Math.max(-70, Math.min(70, vel));
@@ -211,7 +215,11 @@ export const SITE_JS = String.raw`(() => {
     const poke = () => {
       lastInput = performance.now();
     };
-    addEventListener("scroll", poke, { passive: true });
+    addEventListener("scroll", () => {
+      poke();
+      pin();
+      start();
+    }, { passive: true });
     addEventListener("pointermove", e => {
       poke();
       px = e.clientX / W - .5;
