@@ -1765,6 +1765,10 @@ async function testMarket() {
     assert.equal((await call(new URL(list[0].media[0].url).pathname)).status, 200, 'Demo media is served');
     const relayList = (await (await call('/market/api/plugins', {}, 'relay.mapixdev.com')).json()).items;
     assert.equal(relayList[0].downloadUrl, 'https://relay.mapixdev.com/market/api/plugins/echo-tools/download', 'The relay host serves the same marketplace under /market');
+    const relayPage = await (await call('/market/?sort=new', {}, 'relay.mapixdev.com')).text();
+    assert.equal(relayPage.includes('href="/market/p/echo-tools"') && relayPage.includes('href="/market/?sort=popular"') && relayPage.includes('action="/market/"') && !/(href|action|src)="\/(?!market\/)/.test(relayPage), true, 'Site links on the relay host stay under /market');
+    const relayPluginPage = await (await call('/market/p/echo-tools', {}, 'relay.mapixdev.com')).text();
+    assert.equal(relayPluginPage.includes('href="/market/api/plugins/echo-tools/download"') && !/(href|action|src)="\/(?!market\/)/.test(relayPluginPage), true, 'Plugin page links on the relay host stay under /market');
     const download = await call('/api/plugins/echo-tools/download', { headers: { 'cf-connecting-ip': '192.0.2.5' } });
     assert.equal(await download.text(), benign);
     assert.equal(download.headers.get('x-plugin-sha256'), createHash('sha256').update(benign).digest('hex'));
