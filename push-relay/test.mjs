@@ -1768,6 +1768,10 @@ async function testMarket() {
     const deepResponse = await call('/go/set/ghost/on?x=1');
     const deepPage = await deepResponse.text();
     assert.equal(deepResponse.status === 200 && deepResponse.headers.get('refresh') === '0;url=ayugram://set/ghost/on?x=1' && deepPage.includes('href="ayugram://set/ghost/on?x=1"'), true, 'Bridge links lead to the matching ayugram:// link');
+    const siteScript = await call('/assets/site.js');
+    assert.equal(siteScript.status === 200 && (siteScript.headers.get('content-type') || '').startsWith('text/javascript') && (await siteScript.text()).includes('getElementById("sky")'), true, 'The marketplace serves its animation script');
+    const homeHtml = await (await call('/')).text();
+    assert.equal(homeHtml.includes('<script src="/assets/site.js" defer></script>') && homeHtml.includes('<canvas id="sky"'), true, 'Marketplace pages load the animation script');
     const relayDeep = await call('/market/go/plugins', {}, 'relay.mapixdev.com');
     assert.equal(relayDeep.headers.get('refresh'), '0;url=ayugram://plugins', 'The relay host serves the same bridge under /market/go');
     const badDeep = await call('/go/plugins?a=(1)');
