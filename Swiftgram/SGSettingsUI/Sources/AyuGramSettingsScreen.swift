@@ -538,7 +538,11 @@ private let ayuDeepAliases: [String: String] = [
     "ayugram": "settings", "main": "settings", "appearance": "appearancesettings", "messagehistory": "history",
     "market": "marketplace", "profile": "profileextras", "ai": "assistant", "updates": "checkupdates",
     "log": "sessionlog", "build": "buildinfo", "report": "reportscam", "import": "importchat", "badge": "supporter",
-    "stars": "larpstars", "ton": "larpton", "videosettings": "video", "sgsettings": "swiftgram"
+    "stars": "larpstars", "ton": "larpton", "videosettings": "video", "sgsettings": "swiftgram",
+    "apikey": "aikey", "key": "aikey", "aiapikey": "aikey", "token": "aikey", "groqkey": "aikey", "gemini": "geminikey", "geminiapikey": "geminikey",
+    "provider": "aiprovider", "model": "aimodel", "language": "ailanguage", "persona": "aipersona", "style": "aistyle", "search": "searchengine",
+    "plugin": "plugins", "marketplaces": "marketplace", "store": "marketplace", "submit": "submitplugin", "assistantsettings": "assistant",
+    "deleted": "deletedchats", "effect": "effects", "profileextra": "profileextras", "support": "developer"
 ]
 
 private let ayuDeepToggles: [(String, AyuScreenToggle, String, Bool)] = [
@@ -637,7 +641,8 @@ public func ayuGramHandleDeepLink(context: AccountContext, url: URL, navigationC
         return true
     }
     guard let target = ayuDeepTargets.first(where: { $0.0 == name }) else {
-        return false
+        push(ayuGramSettingsScreen(context: context))
+        return true
     }
     if target.3 && !ayuGramHasAppearanceEntry {
         ayuDeepOpenCustomPost(context: context)
