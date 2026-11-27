@@ -201,6 +201,7 @@ public final class PrivateCallScreen: OverlayMaskContainerView, AVPictureInPictu
     private let titleView: TextView
     private let backButtonView: BackButtonView
     private var conferenceButtonView: ConferenceButtonView?
+    private var ayuRecordButton: UIButton?
     
     /// Where the back button goes in a side strip (iPhone Duo), in this view's coordinates; nil keeps it in the
     /// top-left corner. Set by the controller from its layout before `update`.
@@ -271,6 +272,10 @@ public final class PrivateCallScreen: OverlayMaskContainerView, AVPictureInPictu
     public var closeAction: (() -> Void)?
     public var restoreUIForPictureInPicture: ((@escaping (Bool) -> Void) -> Void)?
     public var conferenceAddParticipant: (() -> Void)?
+    
+    @objc private func ayuRecordPressed() {
+        self.recordAction?()
+    }
     
     private let pipView: PrivateCallPictureInPictureView
     private var pipContentSource: AnyObject?
@@ -864,12 +869,6 @@ public final class PrivateCallScreen: OverlayMaskContainerView, AVPictureInPictu
                 }
                 self.microhoneMuteAction?()
             }),
-            ButtonGroupView.Button(content: .record(isActive: self.isRecording), isEnabled: !isTerminated || self.isRecording, action: { [weak self] in
-                guard let self else {
-                    return
-                }
-                self.recordAction?()
-            }),
             ButtonGroupView.Button(content: .end, isEnabled: !isTerminated, action: { [weak self] in
                 guard let self else {
                     return
@@ -1058,6 +1057,46 @@ public final class PrivateCallScreen: OverlayMaskContainerView, AVPictureInPictu
                 self.conferenceButtonView = nil
                 conferenceButtonView.removeFromSuperview()
             }
+        }
+        
+        var ayuRecordAvailable = self.isRecording
+        if case .active = params.state.lifecycleState {
+            ayuRecordAvailable = true
+        }
+        if ayuRecordAvailable && self.recordAction != nil {
+            let recordButton: UIButton
+            var recordTransition = transition
+            if let current = self.ayuRecordButton {
+                recordButton = current
+            } else {
+                recordTransition = recordTransition.withAnimation(.none)
+                recordButton = UIButton(type: .custom)
+                recordButton.alpha = 0.0
+                recordButton.layer.cornerRadius = 20.0
+                recordButton.clipsToBounds = true
+                recordButton.addTarget(self, action: #selector(self.ayuRecordPressed), for: .touchUpInside)
+                self.ayuRecordButton = recordButton
+                self.addSubview(recordButton)
+            }
+            let recordSize = CGSize(width: 40.0, height: 40.0)
+            let recordY: CGFloat
+            if currentAreControlsHidden {
+                recordY = -recordSize.height - 3.0
+            } else if self.conferenceButtonView != nil {
+                recordY = params.insets.top + 3.0 + 40.0 + 10.0
+            } else {
+                recordY = params.insets.top + 3.0
+            }
+            let recordFrame = CGRect(origin: CGPoint(x: params.size.width - params.insets.right - 10.0 - recordSize.width, y: recordY), size: recordSize)
+            recordButton.setImage(UIImage(systemName: self.isRecording ? "stop.fill" : "record.circle", withConfiguration: UIImage.SymbolConfiguration(pointSize: self.isRecording ? 15.0 : 19.0, weight: .semibold)), for: .normal)
+            recordButton.tintColor = .white
+            recordButton.backgroundColor = self.isRecording ? UIColor(rgb: 0xff3b30) : UIColor(white: 1.0, alpha: 0.25)
+            recordButton.accessibilityLabel = self.isRecording ? "Stop recording" : "Record"
+            recordTransition.setFrame(view: recordButton, frame: recordFrame)
+            genericAlphaTransition.setAlpha(view: recordButton, alpha: (currentAreControlsHidden || self.isAnimatedOutToGroupCall) ? 0.0 : 1.0)
+        } else if let recordButton = self.ayuRecordButton {
+            self.ayuRecordButton = nil
+            recordButton.removeFromSuperview()
         }
         
         let collapsedAvatarSize: CGFloat = 136.0
