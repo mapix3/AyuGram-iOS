@@ -21,7 +21,7 @@ import SGStrings
 import AyuGramProfileExtras
 
 private enum AyuProfileExtrasSection: Int32 {
-    case intro, verify, nfts, number, usernames, bubbles, background, brightness, danger
+    case intro, verify, nfts, number, usernames, bubbles, background, brightness, style, opacity, listBackground, blur, avatarSize, titleSize, danger
 }
 
 private enum AyuProfileExtrasEntry: ItemListNodeEntry {
@@ -36,6 +36,9 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
     case destructive(id: Int, section: AyuProfileExtrasSection, key: AyuProfileExtrasAction, title: String, enabled: Bool)
     case nft(id: Int, sortIndex: Int, index: Int, title: String, label: String, color: UInt32, isReordering: Bool, enabled: Bool)
     case username(id: Int, index: Int, title: String, enabled: Bool)
+    case slider(id: Int, section: AyuProfileExtrasSection, key: AyuProfileExtrasSlider, value: Int32, enabled: Bool)
+    case choice(id: Int, section: AyuProfileExtrasSection, key: AyuProfileExtrasAction, symbol: String, title: String, selected: Bool, enabled: Bool)
+    case color(id: Int, section: AyuProfileExtrasSection, key: AyuProfileExtrasAction, symbol: String, title: String, color: UInt32?, label: String, enabled: Bool)
 
     var section: ItemListSectionId {
         switch self {
@@ -57,6 +60,8 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
             return AyuProfileExtrasSection.nfts.rawValue
         case .username:
             return AyuProfileExtrasSection.usernames.rawValue
+        case let .slider(_, section, _, _, _), let .choice(_, section, _, _, _, _, _), let .color(_, section, _, _, _, _, _, _):
+            return section.rawValue
         }
     }
 
@@ -79,6 +84,8 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
         case let .nft(id, _, _, _, _, _, _, _):
             return id
         case let .username(id, _, _, _):
+            return id
+        case let .slider(id, _, _, _, _), let .choice(id, _, _, _, _, _, _), let .color(id, _, _, _, _, _, _, _):
             return id
         }
     }
@@ -141,6 +148,24 @@ private enum AyuProfileExtrasEntry: ItemListNodeEntry {
                     arguments.openUsername(index)
                 }
             })
+        case let .slider(_, _, key, value, enabled):
+            return SliderPercentageItem(theme: presentationData.theme, strings: presentationData.strings, value: value, sectionId: self.section, updated: { value in
+                if enabled {
+                    arguments.updateSlider(key, value)
+                }
+            })
+        case let .choice(_, _, key, symbol, title, selected, enabled):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: ayuGramRowIcon(symbol, color: selected ? AyuGramRowColor.blue : AyuGramRowColor.gray), title: title, enabled: enabled, label: selected ? "✓" : "", sectionId: self.section, style: .blocks, disclosureStyle: .none, action: {
+                if enabled {
+                    arguments.perform(key)
+                }
+            })
+        case let .color(_, _, key, symbol, title, color, label, enabled):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, icon: ayuGramRowIcon(symbol, color: color.map { UIColor(rgb: $0) } ?? AyuGramRowColor.gray), title: title, enabled: enabled, label: label, sectionId: self.section, style: .blocks, action: {
+                if enabled {
+                    arguments.perform(key)
+                }
+            })
         }
     }
 }
@@ -162,6 +187,22 @@ private enum AyuProfileExtrasAction: Equatable {
     case addUsername
     case number
     case deleteAll
+    case chooseAccent
+    case choosePlate
+    case listNone
+    case listExtend
+    case listMedia
+    case chooseListPhoto
+    case chooseListVideo
+    case removeListBackground
+    case resetStyle
+}
+
+private enum AyuProfileExtrasSlider: Equatable {
+    case opacity
+    case blur
+    case avatar
+    case title
 }
 
 private final class AyuProfileExtrasArguments {
@@ -170,9 +211,11 @@ private final class AyuProfileExtrasArguments {
     let perform: (AyuProfileExtrasAction) -> Void
     let openNft: (Int) -> Void
     let openUsername: (Int) -> Void
+    let updateSlider: (AyuProfileExtrasSlider, Int32) -> Void
 
-    init(toggle: @escaping (AyuProfileExtrasToggle, Bool) -> Void, updateBrightness: @escaping (Int32) -> Void, perform: @escaping (AyuProfileExtrasAction) -> Void, openNft: @escaping (Int) -> Void, openUsername: @escaping (Int) -> Void) {
+    init(toggle: @escaping (AyuProfileExtrasToggle, Bool) -> Void, updateBrightness: @escaping (Int32) -> Void, perform: @escaping (AyuProfileExtrasAction) -> Void, openNft: @escaping (Int) -> Void, openUsername: @escaping (Int) -> Void, updateSlider: @escaping (AyuProfileExtrasSlider, Int32) -> Void) {
         self.toggle = toggle
+        self.updateSlider = updateSlider
         self.updateBrightness = updateBrightness
         self.perform = perform
         self.openNft = openNft
@@ -192,6 +235,7 @@ private final class AyuProfileExtrasModel {
     var statusSlug: String?
     var number: String?
     var brightness: Double = 0.0
+    var style = AyuGramProfileStyle.standard
     var verified = true
     var awaitingVerification = false
     var verificationCode: String?
@@ -246,6 +290,9 @@ private final class AyuProfileExtrasModel {
         if AyuGramVariant.isCustom && AyuGramProfileEntry.clampBrightness(self.brightness) != saved.brightness {
             patch.brightness = self.brightness
         }
+        if AyuGramVariant.isCustom && self.style != saved.effectiveStyle {
+            patch.style = self.style.isStandard ? .clear : .set(self.style)
+        }
         return patch
     }
 
@@ -257,6 +304,7 @@ private final class AyuProfileExtrasModel {
         self.statusSlug = self.saved?.statusSlug
         self.number = self.saved?.number
         self.brightness = self.saved?.brightness ?? 0.0
+        self.style = self.saved?.effectiveStyle ?? AyuGramProfileStyle.standard
     }
 
     func dropStatusIfMissing() {
@@ -289,6 +337,7 @@ private final class AyuProfileExtrasModel {
 private final class AyuProfileExtrasHolder {
     let disposables: DisposableSet
     let picker = AyuProfileMediaPicker()
+    var pickingSlot: AyuGramProfileMediaSlot = .main
     let model: AyuProfileExtrasModel
     var foregroundObserver: NSObjectProtocol?
 
@@ -789,6 +838,37 @@ private func ayuProfileNftColor(_ gift: StarGift.UniqueGift?) -> UInt32 {
     return 0
 }
 
+private struct AyuProfileStylePreset {
+    let key: String
+    let emoji: String
+    let color: UInt32
+}
+
+private func ayuProfileStylePresets(accent: Bool) -> [AyuProfileStylePreset] {
+    if accent {
+        return [
+            AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.White", emoji: "⚪️", color: 0xffffff),
+            AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Pink", emoji: "🌸", color: 0xff6fb5),
+            AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Red", emoji: "🔴", color: 0xff3b30),
+            AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Orange", emoji: "🟠", color: 0xff9f0a),
+            AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Gold", emoji: "🟡", color: 0xffd60a),
+            AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Mint", emoji: "🟢", color: 0x63e6be),
+            AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Cyan", emoji: "🩵", color: 0x64d2ff),
+            AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Violet", emoji: "🟣", color: 0xbf5af2)
+        ]
+    }
+    return [
+        AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Black", emoji: "⚫️", color: 0x000000),
+        AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Graphite", emoji: "🌑", color: 0x1c1c1e),
+        AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.White", emoji: "⚪️", color: 0xffffff),
+        AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Wine", emoji: "🍷", color: 0x4a0d1f),
+        AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Navy", emoji: "🌊", color: 0x0a1f44),
+        AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Forest", emoji: "🌲", color: 0x0f3d2e),
+        AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Violet", emoji: "🟣", color: 0x2a1446),
+        AyuProfileStylePreset(key: "Ayu.ProfileStyle.Color.Pink", emoji: "🌸", color: 0x5c1a3c)
+    ]
+}
+
 private func ayuProfileExtrasEntries(data: PresentationData, model: AyuProfileExtrasModel) -> [AyuProfileExtrasEntry] {
     let locale = data.strings.baseLanguageCode
     func s(_ key: String) -> String {
@@ -890,6 +970,48 @@ private func ayuProfileExtrasEntries(data: PresentationData, model: AyuProfileEx
             entries.append(.brightness(id: 631, value: Int32(((model.brightness + 1.0) * 50.0).rounded()), enabled: editable))
             entries.append(.footer(id: 632, section: .brightness, text: s("Ayu.ProfileExtras.BrightnessInfo")))
         }
+        let style = model.style
+        func hexLabel(_ value: UInt32?) -> String {
+            guard let value else {
+                return s("Ayu.ProfileStyle.Auto")
+            }
+            return "#" + String(format: "%06X", value)
+        }
+        entries.append(.header(id: 640, section: .style, text: s("Ayu.ProfileStyle.Section")))
+        entries.append(.color(id: 641, section: .style, key: .chooseAccent, symbol: "paintbrush.fill", title: s("Ayu.ProfileStyle.Accent"), color: style.accent, label: hexLabel(style.accent), enabled: editable))
+        entries.append(.color(id: 642, section: .style, key: .choosePlate, symbol: "rectangle.fill", title: s("Ayu.ProfileStyle.Plate"), color: style.plate, label: hexLabel(style.plate), enabled: editable))
+        if !style.isStandard {
+            entries.append(.destructive(id: 643, section: .style, key: .resetStyle, title: s("Ayu.ProfileStyle.Reset"), enabled: editable))
+        }
+        entries.append(.footer(id: 644, section: .style, text: s("Ayu.ProfileStyle.Info")))
+        entries.append(.header(id: 645, section: .opacity, text: s("Ayu.ProfileStyle.Opacity") + " · \(Int((style.opacity * 100.0).rounded()))%"))
+        entries.append(.slider(id: 646, section: .opacity, key: .opacity, value: Int32((style.opacity * 100.0).rounded()), enabled: editable))
+
+        entries.append(.header(id: 650, section: .listBackground, text: s("Ayu.ProfileStyle.ListSection")))
+        entries.append(.choice(id: 651, section: .listBackground, key: .listNone, symbol: "rectangle.slash", title: s("Ayu.ProfileStyle.ListNone"), selected: style.list == .none, enabled: editable))
+        entries.append(.choice(id: 652, section: .listBackground, key: .listExtend, symbol: "arrow.up.and.down.square.fill", title: s("Ayu.ProfileStyle.ListExtend"), selected: style.list == .extend, enabled: editable && model.saved?.background != nil))
+        entries.append(.choice(id: 653, section: .listBackground, key: .listMedia, symbol: "photo.stack.fill", title: s("Ayu.ProfileStyle.ListMedia"), selected: style.list == .media, enabled: editable))
+        if style.list == .media {
+            if let listBackground = model.saved?.listBackground, model.mediaStatus == nil {
+                entries.append(.status(id: 654, section: .listBackground, symbol: listBackground.isVideo ? "video.fill" : "photo.fill", title: s("Ayu.ProfileStyle.ListCurrent"), label: s(listBackground.isVideo ? "Ayu.ProfileExtras.Video" : "Ayu.ProfileExtras.Photo")))
+            }
+            entries.append(.action(id: 655, section: .listBackground, key: .chooseListPhoto, symbol: "photo.on.rectangle", title: s("Ayu.ProfileExtras.ChoosePhoto"), enabled: editable))
+            entries.append(.action(id: 656, section: .listBackground, key: .chooseListVideo, symbol: "video.badge.plus", title: s("Ayu.ProfileExtras.ChooseVideo"), enabled: editable))
+        }
+        if model.saved?.listBackground != nil {
+            entries.append(.destructive(id: 657, section: .listBackground, key: .removeListBackground, title: s("Ayu.ProfileStyle.ListRemove"), enabled: editable))
+        }
+        entries.append(.footer(id: 658, section: .listBackground, text: s("Ayu.ProfileStyle.ListInfo")))
+        if style.list != .none {
+            entries.append(.header(id: 660, section: .blur, text: s("Ayu.ProfileStyle.Blur") + " · \(Int((style.blur * 100.0).rounded()))%"))
+            entries.append(.slider(id: 661, section: .blur, key: .blur, value: Int32((style.blur * 100.0).rounded()), enabled: editable))
+        }
+
+        entries.append(.header(id: 670, section: .avatarSize, text: s("Ayu.ProfileStyle.Avatar") + " · \(Int((style.avatar * 100.0).rounded()))%"))
+        entries.append(.slider(id: 671, section: .avatarSize, key: .avatar, value: Int32(((style.avatar - 0.4) / 1.2 * 100.0).rounded()), enabled: editable))
+        entries.append(.header(id: 680, section: .titleSize, text: s("Ayu.ProfileStyle.Title") + " · \(Int((style.title * 100.0).rounded()))%"))
+        entries.append(.slider(id: 681, section: .titleSize, key: .title, value: Int32(((style.title - 0.5) * 100.0).rounded()), enabled: editable))
+        entries.append(.footer(id: 682, section: .titleSize, text: s("Ayu.ProfileStyle.SizeInfo")))
     } else if let background = model.saved?.background {
         entries.append(.header(id: 620, section: .background, text: s("Ayu.ProfileExtras.BackgroundSection")))
         entries.append(.status(id: 621, section: .background, symbol: background.isVideo ? "video.fill" : "photo.fill", title: s("Ayu.ProfileExtras.CurrentBackground"), label: s(background.isVideo ? "Ayu.ProfileExtras.Video" : "Ayu.ProfileExtras.Photo")))
@@ -1082,16 +1204,24 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
         })
     }
 
-    func upload(_ prepared: AyuPreparedProfileMedia) {
-        AyuGramProfileRelay.shared.setPreview(rawId: accountId, url: prepared.url, isVideo: prepared.isVideo)
+    func upload(_ prepared: AyuPreparedProfileMedia, slot: AyuGramProfileMediaSlot) {
+        if slot == .list {
+            AyuGramProfileRelay.shared.setListPreview(rawId: accountId, url: prepared.url, isVideo: prepared.isVideo)
+        } else {
+            AyuGramProfileRelay.shared.setPreview(rawId: accountId, url: prepared.url, isVideo: prepared.isVideo)
+        }
         model.mediaStatus = i18n("Ayu.ProfileExtras.Uploading", locale(), "0%")
         changed()
-        AyuGramProfileRelay.shared.uploadBackground(accountId: accountId, file: prepared.url, mime: prepared.mime, width: prepared.width, height: prepared.height, progress: { value in
+        AyuGramProfileRelay.shared.uploadBackground(accountId: accountId, slot: slot, file: prepared.url, mime: prepared.mime, width: prepared.width, height: prepared.height, progress: { value in
             model.mediaStatus = i18n("Ayu.ProfileExtras.Uploading", locale(), "\(Int((value * 100.0).rounded()))%")
             changed()
         }, completion: { result in
             model.mediaStatus = nil
-            AyuGramProfileRelay.shared.clearPreview(rawId: accountId)
+            if slot == .list {
+                AyuGramProfileRelay.shared.clearListPreview(rawId: accountId)
+            } else {
+                AyuGramProfileRelay.shared.clearPreview(rawId: accountId)
+            }
             switch result {
             case let .success(own):
                 model.apply(own, keepDraft: true)
@@ -1103,6 +1233,8 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
     }
 
     func handlePicked(url: URL?, isVideo: Bool) {
+        let slot = holder.pickingSlot
+        holder.pickingSlot = .main
         guard let url else {
             showError(.badMedia)
             return
@@ -1117,7 +1249,7 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
             }, completion: { prepared in
                 try? FileManager.default.removeItem(at: url)
                 if let prepared {
-                    upload(prepared)
+                    upload(prepared, slot: slot)
                 } else {
                     model.mediaStatus = nil
                     changed()
@@ -1131,7 +1263,7 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
                 try? FileManager.default.removeItem(at: url)
                 DispatchQueue.main.async {
                     if let prepared {
-                        upload(prepared)
+                        upload(prepared, slot: slot)
                     } else {
                         model.mediaStatus = nil
                         changed()
@@ -1244,6 +1376,58 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
         return true
     }
 
+    func setColor(accent: Bool, _ value: UInt32?) {
+        if accent {
+            model.style.accent = value
+        } else {
+            model.style.plate = value
+        }
+        changed()
+    }
+
+    func chooseColor(accent: Bool) {
+        let data = context.sharedContext.currentPresentationData.with { $0 }
+        let locale = data.strings.baseLanguageCode
+        let sheet = ActionSheetController(presentationData: data)
+        var items: [ActionSheetItem] = []
+        items.append(ActionSheetTextItem(title: i18n(accent ? "Ayu.ProfileStyle.Accent" : "Ayu.ProfileStyle.Plate", locale), parseMarkdown: false))
+        for preset in ayuProfileStylePresets(accent: accent) {
+            items.append(ActionSheetButtonItem(title: preset.emoji + " " + i18n(preset.key, locale), color: .accent, action: { [weak sheet] in
+                sheet?.dismissAnimated()
+                setColor(accent: accent, preset.color)
+            }))
+        }
+        items.append(ActionSheetButtonItem(title: i18n("Ayu.ProfileStyle.Hex", locale), color: .accent, action: { [weak sheet] in
+            sheet?.dismissAnimated()
+            let current = (accent ? model.style.accent : model.style.plate).map { String(format: "%06X", $0) } ?? ""
+            presentControllerImpl?(promptController(context: context, text: i18n("Ayu.ProfileStyle.HexPrompt", locale), value: current, placeholder: "FF2D55", characterLimit: 7, apply: { value in
+                guard let value else {
+                    return
+                }
+                var hex = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                if hex.hasPrefix("#") {
+                    hex.removeFirst()
+                }
+                guard hex.count == 6, let number = UInt32(hex, radix: 16) else {
+                    showText(i18n("Ayu.ProfileStyle.HexBad", locale))
+                    return
+                }
+                setColor(accent: accent, number)
+            }))
+        }))
+        items.append(ActionSheetButtonItem(title: i18n("Ayu.ProfileStyle.Auto", locale), color: .destructive, action: { [weak sheet] in
+            sheet?.dismissAnimated()
+            setColor(accent: accent, nil)
+        }))
+        sheet.setItemGroups([
+            ActionSheetItemGroup(items: items),
+            ActionSheetItemGroup(items: [ActionSheetButtonItem(title: data.strings.Common_Cancel, color: .accent, action: { [weak sheet] in
+                sheet?.dismissAnimated()
+            })])
+        ])
+        presentControllerImpl?(sheet)
+    }
+
     let arguments = AyuProfileExtrasArguments(toggle: { key, value in
         switch key {
         case .bubbles:
@@ -1272,12 +1456,48 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
             startVerification()
         case .choosePhoto:
             if AyuGramVariant.isCustom {
+                holder.pickingSlot = .main
                 holder.picker.choose(video: false)
             }
         case .chooseVideo:
             if AyuGramVariant.isCustom {
+                holder.pickingSlot = .main
                 holder.picker.choose(video: true)
             }
+        case .chooseListPhoto, .chooseListVideo:
+            if AyuGramVariant.isCustom {
+                holder.pickingSlot = .list
+                holder.picker.choose(video: action == .chooseListVideo)
+            }
+        case .chooseAccent, .choosePlate:
+            chooseColor(accent: action == .chooseAccent)
+        case .listNone:
+            model.style.list = .none
+            changed()
+        case .listExtend:
+            model.style.list = .extend
+            changed()
+        case .listMedia:
+            model.style.list = .media
+            changed()
+        case .resetStyle:
+            model.style = AyuGramProfileStyle.standard
+            changed()
+        case .removeListBackground:
+            confirm(text: i18n("Ayu.ProfileStyle.ListRemoveConfirm", locale), action: i18n("Ayu.ProfileStyle.ListRemove", locale), perform: {
+                model.busy = true
+                changed()
+                AyuGramProfileRelay.shared.removeBackground(accountId: accountId, slot: .list, completion: { result in
+                    model.busy = false
+                    switch result {
+                    case let .success(own):
+                        model.apply(own, keepDraft: true)
+                    case let .failure(error):
+                        handleFailure(error)
+                    }
+                    changed()
+                })
+            })
         case .removeBackground:
             confirm(text: i18n("Ayu.ProfileExtras.RemoveBackgroundConfirm", locale), action: i18n("Ayu.ProfileExtras.RemoveBackground", locale), perform: {
                 model.busy = true
@@ -1475,6 +1695,22 @@ public func ayuGramProfileExtrasController(context: AccountContext) -> ViewContr
             })])
         ])
         presentControllerImpl?(sheet)
+    }, updateSlider: { key, value in
+        guard AyuGramVariant.isCustom else {
+            return
+        }
+        let fraction = Double(max(0, min(100, value))) / 100.0
+        switch key {
+        case .opacity:
+            model.style.opacity = AyuGramProfileStyle(accent: nil, plate: nil, opacity: fraction, list: .none, avatar: 1.0, title: 1.0, blur: 0.0).opacity
+        case .blur:
+            model.style.blur = AyuGramProfileStyle(accent: nil, plate: nil, opacity: 0.55, list: .none, avatar: 1.0, title: 1.0, blur: fraction).blur
+        case .avatar:
+            model.style.avatar = AyuGramProfileStyle(accent: nil, plate: nil, opacity: 0.55, list: .none, avatar: 0.4 + fraction * 1.2, title: 1.0, blur: 0.0).avatar
+        case .title:
+            model.style.title = AyuGramProfileStyle(accent: nil, plate: nil, opacity: 0.55, list: .none, avatar: 1.0, title: 0.5 + fraction, blur: 0.0).title
+        }
+        changed()
     })
 
     let signal = combineLatest(context.sharedContext.presentationData, updates.get())

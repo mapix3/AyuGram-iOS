@@ -145,6 +145,21 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     private var ayuBubblesView: AyuGramProfileBubblesView?
     private var ayuBubblesHaloView: AyuGramProfileBubblesHaloView?
     private var ayuMediaView: AyuGramProfileMediaView?
+    let ayuBackdropView: UIView = {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        view.clipsToBounds = true
+        view.isHidden = true
+        return view
+    }()
+    private var ayuBackdropMediaView: AyuGramProfileMediaView?
+    private var ayuBackdropBlurView: UIVisualEffectView?
+    private var ayuBackdropDimView: UIView?
+    private var ayuBackdropUsesMain = false
+    private(set) var ayuPlateColor: UIColor?
+    var ayuBackdropActive: Bool {
+        return !self.ayuBackdropView.isHidden
+    }
     private var ayuSoundButton: UIButton?
     private var ayuSoundMuted = true
     private var ayuSpinRecognizer: AyuGramOrbitPanGestureRecognizer?
@@ -864,7 +879,15 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         let previousPanelStatusData = self.currentPanelStatusData
         self.currentPanelStatusData = panelStatusData.0
         
-        let avatarSize: CGFloat = presentedInFormSheet ? 200.0 : 100.0
+        let ayuStyle: AyuGramProfileStyle? = (!self.isSettings && !isMediaOnly && !presentedInFormSheet) ? peer.flatMap { peer -> AyuGramProfileStyle? in
+            guard ayuGramProfileExtrasSupported(peer.id) else {
+                return nil
+            }
+            return ayuGramProfileEntry(peerId: peer.id, refresh: false)?.style
+        } : nil
+        let ayuAvatarScale: CGFloat = CGFloat(ayuStyle?.avatar ?? 1.0)
+        let ayuTitleScale: CGFloat = CGFloat(ayuStyle?.title ?? 1.0)
+        let avatarSize: CGFloat = presentedInFormSheet ? 200.0 : floor(100.0 * ayuAvatarScale)
         self.avatarSize = avatarSize
         
         var contentOffset = contentOffset
@@ -916,7 +939,13 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
             return AyuGramProfileRelay.shared.localMedia(rawId: ayuGramRawPeerId(peer.id))
         } : nil
-        let ayuHasCustomBackground = ayuBackgroundMedia != nil
+        let ayuListBackdropAvailable: Bool = ayuStyle?.list == .media && peer.flatMap { peer -> Bool in
+            guard ayuGramProfileExtrasSupported(peer.id) else {
+                return false
+            }
+            return AyuGramProfileRelay.shared.localListMedia(rawId: ayuGramRawPeerId(peer.id)) != nil
+        } == true
+        let ayuHasCustomBackground = ayuBackgroundMedia != nil || ayuListBackdropAvailable
         let ayuHidesRealGifts = peer.flatMap { ayuGramProfileHidesRealGifts(entry: ayuEntry, peerId: $0.id, accountPeerId: self.context.account.peerId) } ?? false
         if ayuHasCustomBackground {
             hasBackground = true
@@ -982,7 +1011,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         
         let avatarFrame = CGRect(origin: CGPoint(x: hasStrip ? bandCenteredOrigin(width: avatarSize, margin: 16.0) : floor((width - avatarSize) / 2.0), y: statusBarHeight + 22.0), size: CGSize(width: avatarSize, height: avatarSize))
         
-        let regularNavigationContentsAccentColor: UIColor = (peer?.effectiveProfileColor != nil || ayuHasCustomBackground) ? .white : presentationData.theme.list.itemAccentColor
+        var regularNavigationContentsAccentColor: UIColor = (peer?.effectiveProfileColor != nil || ayuHasCustomBackground) ? .white : presentationData.theme.list.itemAccentColor
         let collapsedHeaderNavigationContentsAccentColor = presentationData.theme.list.itemAccentColor
         let expandedAvatarNavigationContentsAccentColor: UIColor = .white
         
@@ -990,15 +1019,15 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         let collapsedHeaderNavigationContentsPrimaryColor = presentationData.theme.list.itemPrimaryTextColor
         let expandedAvatarNavigationContentsPrimaryColor: UIColor = .white
         
-        let regularContentButtonBackgroundColor: UIColor
+        var regularContentButtonBackgroundColor: UIColor
         let collapsedHeaderContentButtonBackgroundColor = presentationData.theme.list.itemBlocksBackgroundColor
         let expandedAvatarContentButtonBackgroundColor: UIColor = UIColor(white: 1.0, alpha: 0.1)
         
-        let regularHeaderButtonBackgroundColor: UIColor
+        var regularHeaderButtonBackgroundColor: UIColor
         let collapsedHeaderButtonBackgroundColor: UIColor = .clear
         let expandedAvatarHeaderButtonBackgroundColor: UIColor = UIColor(white: 0.0, alpha: 0.5)
         
-        let regularContentButtonForegroundColor: UIColor = (peer?.effectiveProfileColor != nil || ayuHasCustomBackground) ? UIColor.white : presentationData.theme.list.itemAccentColor
+        var regularContentButtonForegroundColor: UIColor = (peer?.effectiveProfileColor != nil || ayuHasCustomBackground) ? UIColor.white : presentationData.theme.list.itemAccentColor
         let collapsedHeaderContentButtonForegroundColor = presentationData.theme.list.itemAccentColor
         let expandedAvatarContentButtonForegroundColor: UIColor = .white
         
@@ -1044,6 +1073,20 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             regularNavigationContentsSecondaryColor = presentationData.theme.list.itemSecondaryTextColor
             regularContentButtonBackgroundColor = presentationData.theme.list.itemBlocksBackgroundColor
             regularHeaderButtonBackgroundColor = .clear
+        }
+        if let ayuStyle {
+            if let accent = ayuStyle.accent {
+                let accentColor = UIColor(rgb: accent)
+                regularNavigationContentsAccentColor = accentColor
+                regularContentButtonForegroundColor = accentColor
+            }
+            if let plate = ayuStyle.plate {
+                let plateColor = UIColor(rgb: plate).withAlphaComponent(CGFloat(max(0.08, ayuStyle.opacity)))
+                regularContentButtonBackgroundColor = plateColor
+                if hasCoverColor {
+                    regularHeaderButtonBackgroundColor = plateColor
+                }
+            }
         }
         self.contentButtonBackgroundColor = regularNavigationContentsSecondaryColor.mixedWith(regularContentButtonBackgroundColor, alpha: 0.5)
         
@@ -1570,8 +1613,8 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
 
             titleStringText = title
-            titleAttributes = MultiScaleTextState.Attributes(font: Font.medium(28.0), color: .white)
-            smallTitleAttributes = MultiScaleTextState.Attributes(font: Font.medium(28.0), color: .white, shadowColor: titleShadowColor)
+            titleAttributes = MultiScaleTextState.Attributes(font: Font.medium(floor(28.0 * ayuTitleScale)), color: .white)
+            smallTitleAttributes = MultiScaleTextState.Attributes(font: Font.medium(floor(28.0 * ayuTitleScale)), color: .white, shadowColor: titleShadowColor)
             
             if self.isSettings, case let .user(user) = peer {
                 // MARK: Swiftgram
@@ -2836,7 +2879,94 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         }
         
         let ayuBannerContentFrame = CGRect(origin: CGPoint(x: 0.0, y: bannerFrame.height - backgroundCoverSize.height), size: CGSize(width: bannerFrame.width, height: backgroundCoverSize.height))
-        if let ayuBackgroundMedia {
+        let ayuListMode = ayuStyle?.list ?? .none
+        let ayuExtends = ayuListMode == .extend && ayuBackgroundMedia != nil
+        var ayuBackdropMedia: AyuGramProfileLocalMedia?
+        if ayuExtends {
+            ayuBackdropMedia = ayuBackgroundMedia
+        } else if ayuListMode == .media, let peer, ayuGramProfileExtrasSupported(peer.id) {
+            ayuBackdropMedia = AyuGramProfileRelay.shared.localListMedia(rawId: ayuGramRawPeerId(peer.id))
+        }
+        let ayuMediaActive = !self.isAvatarExpanded && !state.isEditing
+        if let ayuBackdropMedia {
+            self.ayuBackdropView.isHidden = false
+            let bounds = self.ayuBackdropView.bounds
+            let backdropMedia: AyuGramProfileMediaView
+            if let current = self.ayuBackdropMediaView {
+                backdropMedia = current
+            } else {
+                backdropMedia = AyuGramProfileMediaView(frame: bounds)
+                backdropMedia.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                self.ayuBackdropView.insertSubview(backdropMedia, at: 0)
+                self.ayuBackdropMediaView = backdropMedia
+            }
+            let blurView: UIVisualEffectView
+            if let current = self.ayuBackdropBlurView {
+                blurView = current
+            } else {
+                blurView = UIVisualEffectView(effect: UIBlurEffect(style: .dark))
+                blurView.frame = bounds
+                blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                self.ayuBackdropView.addSubview(blurView)
+                self.ayuBackdropBlurView = blurView
+            }
+            let dimView: UIView
+            if let current = self.ayuBackdropDimView {
+                dimView = current
+            } else {
+                dimView = UIView(frame: bounds)
+                dimView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                dimView.backgroundColor = .black
+                self.ayuBackdropView.addSubview(dimView)
+                self.ayuBackdropDimView = dimView
+            }
+            self.ayuBackdropUsesMain = ayuExtends
+            if ayuExtends {
+                backdropMedia.audioAvailabilityChanged = { [weak self] _ in
+                    self?.requestUpdateLayout?(false)
+                }
+            } else {
+                backdropMedia.audioAvailabilityChanged = nil
+            }
+            backdropMedia.setMedia(url: ayuBackdropMedia.url, isVideo: ayuBackdropMedia.isVideo)
+            backdropMedia.isMuted = ayuExtends ? self.ayuSoundMuted : true
+            backdropMedia.brightness = ayuExtends ? CGFloat(ayuEntry?.brightness ?? 0.0) : 0.0
+            backdropMedia.isActive = ayuMediaActive
+            let blur = CGFloat(ayuStyle?.blur ?? 0.0)
+            blurView.alpha = blur
+            blurView.isHidden = blur <= 0.01
+            let dimBase: CGFloat = presentationData.theme.overallDarkAppearance ? 0.18 : 0.08
+            let dimScroll: CGFloat = max(0.0, min(1.0, (contentOffset - 40.0) / 260.0)) * 0.22
+            dimView.alpha = dimBase + dimScroll
+        } else {
+            self.ayuBackdropView.isHidden = true
+            if let backdropMedia = self.ayuBackdropMediaView {
+                self.ayuBackdropMediaView = nil
+                backdropMedia.isActive = false
+                backdropMedia.removeFromSuperview()
+            }
+            self.ayuBackdropBlurView?.removeFromSuperview()
+            self.ayuBackdropBlurView = nil
+            self.ayuBackdropDimView?.removeFromSuperview()
+            self.ayuBackdropDimView = nil
+            self.ayuBackdropUsesMain = false
+        }
+        if self.ayuBackdropActive {
+            let opacity = CGFloat(ayuStyle?.opacity ?? 0.55)
+            if let plate = ayuStyle?.plate {
+                self.ayuPlateColor = UIColor(rgb: plate).withAlphaComponent(opacity)
+            } else {
+                self.ayuPlateColor = presentationData.theme.list.itemBlocksBackgroundColor.withAlphaComponent(opacity)
+            }
+        } else if let plate = ayuStyle?.plate {
+            self.ayuPlateColor = presentationData.theme.list.itemBlocksBackgroundColor.mixedWith(UIColor(rgb: plate), alpha: max(0.15, CGFloat(ayuStyle?.opacity ?? 0.55)))
+        } else {
+            self.ayuPlateColor = nil
+        }
+        if let backgroundCoverView = self.backgroundCover.view {
+            backgroundCoverView.alpha = ayuExtends ? 0.0 : 1.0
+        }
+        if let ayuBackgroundMedia, !ayuExtends {
             let mediaView: AyuGramProfileMediaView
             if let current = self.ayuMediaView {
                 mediaView = current
@@ -2862,7 +2992,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 transition.updateFrame(view: mediaView, frame: ayuBannerContentFrame)
             }
             mediaView.brightness = CGFloat(ayuEntry?.brightness ?? 0.0)
-            mediaView.isActive = !self.isAvatarExpanded && !state.isEditing && backgroundBannerAlpha > 0.0
+            mediaView.isActive = ayuMediaActive
         } else if let mediaView = self.ayuMediaView {
             self.ayuMediaView = nil
             mediaView.isActive = false
@@ -2871,7 +3001,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             })
         }
         
-        let ayuSoundVisible = ayuBackgroundMedia?.isVideo == true && (self.ayuMediaView?.hasAudio ?? false) && !self.isAvatarExpanded && !state.isEditing && backgroundBannerAlpha > 0.0
+        let ayuAudioView = ayuExtends ? self.ayuBackdropMediaView : self.ayuMediaView
+        let ayuSoundAvailable = ayuBackgroundMedia?.isVideo == true && (ayuAudioView?.hasAudio ?? false) && !self.isAvatarExpanded && !state.isEditing
+        let ayuSoundVisible = ayuSoundAvailable && (backgroundBannerAlpha > 0.0 || ayuExtends)
         let ayuSoundAlpha: CGFloat = ayuSoundVisible ? max(0.0, min(1.0, 1.0 - max(0.0, contentOffset) / 60.0)) : 0.0
         if ayuSoundAlpha > 0.0 || self.ayuSoundButton != nil {
             let button: UIButton
@@ -2910,11 +3042,16 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 background.frame = CGRect(x: 0.0, y: 0.0, width: 40.0, height: 40.0)
             }
             button.isUserInteractionEnabled = ayuSoundAlpha > 0.5
+            button.tintColor = ayuStyle?.accent.map { UIColor(rgb: $0) } ?? .white
+            if let background = button.viewWithTag(0x415955) {
+                background.backgroundColor = ayuStyle?.plate.map { UIColor(rgb: $0).withAlphaComponent(CGFloat(ayuStyle?.opacity ?? 0.55) * 0.6) } ?? .clear
+            }
             ContainedViewLayoutTransition.animated(duration: 0.2, curve: .easeInOut).updateAlpha(layer: button.layer, alpha: ayuSoundAlpha)
-            if !ayuSoundVisible {
+            if !ayuSoundAvailable {
                 if !self.ayuSoundMuted {
                     self.ayuSoundMuted = true
                     self.ayuMediaView?.isMuted = true
+                    self.ayuBackdropMediaView?.isMuted = true
                 }
             }
         }
@@ -3450,6 +3587,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     @objc private func ayuSoundPressed() {
         self.ayuSoundMuted = !self.ayuSoundMuted
         self.ayuMediaView?.isMuted = self.ayuSoundMuted
+        if self.ayuBackdropUsesMain {
+            self.ayuBackdropMediaView?.isMuted = self.ayuSoundMuted
+        }
         UISelectionFeedbackGenerator().selectionChanged()
         self.requestUpdateLayout?(false)
     }

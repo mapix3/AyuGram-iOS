@@ -1392,6 +1392,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
         self.scrollNode.view.scrollsToTop = false
         self.scrollNode.view.delegate = self.wrappedScrollViewDelegate
         self.addSubnode(self.scrollNode)
+        self.view.insertSubview(self.headerNode.ayuBackdropView, belowSubview: self.scrollNode.view)
         self.scrollNode.addSubnode(self.paneContainerNode)
         self.scrollNode.view.addSubview(self.headerNode.headerEdgeEffectContainer)
         self.scrollNode.view.addSubview(self.paneContainerNode.headerContainer)
@@ -5748,6 +5749,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
         self.ignoreScrolling = true
         
         transition.updateFrame(node: self.scrollNode, frame: CGRect(origin: CGPoint(), size: layout.size))
+        self.headerNode.ayuBackdropView.frame = CGRect(origin: CGPoint(), size: layout.size)
         
         if self.isSettings {
             let edgeEffectHeight: CGFloat = layout.intrinsicInsets.bottom
@@ -5816,6 +5818,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                         contentHeight -= 16.0
                     }
                 }
+                sectionNode.ayuPlateColor = self.headerNode.ayuPlateColor
                 let sectionHeight = sectionNode.update(context: self.context, width: sectionWidth, safeInsets: UIEdgeInsets(), hasCorners: !insets.left.isZero, presentationData: self.presentationData, items: sectionItems, transition: transition)
                 let sectionFrame = CGRect(origin: CGPoint(x: insets.left, y: contentHeight), size: CGSize(width: sectionWidth, height: sectionHeight))
                 if additive {
@@ -5877,6 +5880,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 }
                 
                 let sectionWidth = layout.size.width - insets.left - insets.right
+                sectionNode.ayuPlateColor = self.headerNode.ayuPlateColor
                 let sectionHeight = sectionNode.update(context: self.context, width: sectionWidth, safeInsets: UIEdgeInsets(), hasCorners: !insets.left.isZero, presentationData: self.presentationData, items: sectionItems, transition: transition)
                 let sectionFrame = CGRect(origin: CGPoint(x: insets.left, y: contentHeight), size: CGSize(width: sectionWidth, height: sectionHeight))
                 
@@ -6216,6 +6220,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
             // iPhone Duo: the panes and tabs stay out of the side strip; the container stays full width.
             let paneSideInsets = peerInfoSideInsets(layout: layout)
             self.paneContainerNode.stripInsets = (paneSideInsets.stripLeft, paneSideInsets.stripRight)
+            self.paneContainerNode.ayuBackgroundOverride = self.headerNode.ayuBackdropActive ? self.headerNode.ayuPlateColor : nil
             self.paneContainerNode.update(size: self.paneContainerNode.bounds.size, sideInset: paneSideInsets.paneSideInset, topInset: paneContainerTopInset, bottomInset: bottomInset, deviceMetrics: layout.deviceMetrics, visibleHeight: visibleHeight, expansionFraction: self.initialExpandPanes ? 1.0 : effectiveAreaExpansionFraction, presentationData: self.presentationData, data: self.data, areTabsHidden: self.headerNode.customNavigationContentNode != nil, disableTabSwitching: disableTabSwitching, navigationHeight: navigationHeight, transition: transition)
           
             // iPhone Duo unfolded portrait: the search field ends left of the status island.
