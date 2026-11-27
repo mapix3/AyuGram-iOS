@@ -609,8 +609,15 @@ final class AyuGramFloatingPanel: UIView, UIGestureRecognizerDelegate {
 private var ayuGramFloatingHost: AyuGramFloatingHostController?
 private weak var ayuGramFloatingNavigation: NavigationController?
 
+private func ayuGramFloatingHostIsAlive(_ host: AyuGramFloatingHostController) -> Bool {
+    guard host.isViewLoaded else {
+        return true
+    }
+    return host.view.window != nil
+}
+
 public func ayuGramFloatingMove(to navigationController: NavigationController) {
-    guard let current = ayuGramFloatingHost, ayuGramFloatingNavigation !== navigationController else {
+    guard let current = ayuGramFloatingHost, ayuGramFloatingNavigation !== navigationController || !ayuGramFloatingHostIsAlive(current) else {
         ayuGramFloatingNavigation = navigationController
         return
     }
@@ -636,6 +643,7 @@ private func ayuGramFloatingPresent(context: AccountContext, key: String, title:
     guard let rootNavigation = context.sharedContext.mainWindow?.viewController as? NavigationController else {
         return
     }
+    ayuGramFloatingMove(to: rootNavigation)
     if let host = ayuGramFloatingHost, let existing = host.panels.first(where: { $0.key == key }) {
         host.bringToFront(existing)
         return
