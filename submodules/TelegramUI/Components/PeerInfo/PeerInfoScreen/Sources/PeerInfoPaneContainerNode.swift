@@ -604,6 +604,7 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, ASGestureRecognizerDelegat
     private let peerId: EnginePeer.Id
     private let chatLocation: ChatLocation
     private let chatLocationContextHolder: Atomic<ChatLocationContextHolder?>
+    var ayuBackgroundOverride: UIColor?
     private let isMediaOnly: Bool
     private let sharedMediaFromForumTopic: (EnginePeer.Id, Int64)?
     
@@ -1031,7 +1032,7 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, ASGestureRecognizerDelegat
             }
         }
         
-        self.backgroundColor = backgroundColor
+        self.backgroundColor = self.ayuBackgroundOverride ?? backgroundColor
 
         let isScrollingLockedAtTop = expansionFraction < 1.0 - CGFloat.ulpOfOne
 

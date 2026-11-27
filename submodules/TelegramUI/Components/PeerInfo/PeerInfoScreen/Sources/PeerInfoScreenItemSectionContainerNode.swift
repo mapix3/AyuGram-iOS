@@ -13,6 +13,7 @@ final class PeerInfoScreenItemSectionContainerNode: ASDisplayNode {
     
     private var currentItems: [PeerInfoScreenItem] = []
     var itemNodes: [AnyHashable: PeerInfoScreenItemNode] = [:]
+    var ayuPlateColor: UIColor?
     
     override init() {
         self.backgroundNode = ASDisplayNode()
@@ -36,7 +37,7 @@ final class PeerInfoScreenItemSectionContainerNode: ASDisplayNode {
     }
     
     func update(context: AccountContext, width: CGFloat, safeInsets: UIEdgeInsets, hasCorners: Bool, presentationData: PresentationData, items: [PeerInfoScreenItem], transition: ContainedViewLayoutTransition) -> CGFloat {
-        self.backgroundNode.backgroundColor = presentationData.theme.list.itemBlocksBackgroundColor
+        self.backgroundNode.backgroundColor = self.ayuPlateColor ?? presentationData.theme.list.itemBlocksBackgroundColor
         self.topSeparatorNode.backgroundColor = presentationData.theme.list.itemBlocksSeparatorColor
         self.bottomSeparatorNode.backgroundColor = presentationData.theme.list.itemBlocksSeparatorColor
         

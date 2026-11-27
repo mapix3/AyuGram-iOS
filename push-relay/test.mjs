@@ -1608,6 +1608,22 @@ async function testProfiles() {
     assert.equal((await (await read('1201')).json()).items[0].background.brightness, -0.25, 'Everyone sees the new brightness at once');
     const unlit = await (await call('/profile/background', { method: 'DELETE', headers: auth('1201') })).json();
     assert.deepEqual([unlit.background, unlit.brightness], [null, -0.25], 'and it survives removing the background');
+    const styled = await (await put('1201', { style: { accent: 'FF00AA', plate: '101010', opacity: 0.4, list: 'media', avatar: 3, title: 0.7, blur: 0.5 } })).json();
+    assert.deepEqual(styled.style, { accent: 'ff00aa', plate: '101010', opacity: 0.4, list: 'media', avatar: 1.6, title: 0.7, blur: 0.5 }, 'A profile style is normalized and clamped');
+    assert.equal((await put('1201', { style: { accent: 'red' } })).status, 400, 'Bad colors are refused');
+    assert.equal((await put('1201', { style: { evil: 1 } })).status, 400, 'Unknown style keys are refused');
+    const listSlot = await (await call('/profile/background?slot=list', { method: 'PUT', headers: { ...auth('1201'), 'content-type': 'image/png', 'content-length': String(png(40, 40).length) }, body: png(40, 40) })).json();
+    assert.ok(listSlot.listBackground && listSlot.listBackground.url.endsWith('.png'), 'A second background goes under the plates');
+    assert.equal(listSlot.background, null, 'and leaves the main slot alone');
+    const mainToo = await (await upload('1201', png(30, 30), 'image/png')).json();
+    assert.equal(mainToo.listBackground.url, listSlot.listBackground.url, 'Uploading the main background keeps the list one');
+    const publicStyled = (await (await read('1201')).json()).items[0];
+    assert.deepEqual([publicStyled.style.list, Boolean(publicStyled.listBackground)], ['media', true], 'Everyone sees the style and the list background');
+    const unlisted = await (await call('/profile/background?slot=list', { method: 'DELETE', headers: auth('1201') })).json();
+    assert.deepEqual([unlisted.listBackground, Boolean(unlisted.background)], [null, true], 'Removing the list background keeps the main one');
+    assert.equal((await (await put('1201', { style: null })).json()).style, null, 'and the style can be reset');
+    await upload('1201', png(30, 30), 'image/png');
+    await call('/profile/background?slot=list', { method: 'PUT', headers: { ...auth('1201'), 'content-type': 'image/png', 'content-length': String(png(40, 40).length) }, body: png(40, 40) });
     assert.equal((await (await call('/profile', { method: 'DELETE', headers: auth('1201') })).json()).brightness, 0, 'Deleting all extras resets it');
 
     assert.equal(cleanNumber('+888 1234 5678'), '+88812345678');
