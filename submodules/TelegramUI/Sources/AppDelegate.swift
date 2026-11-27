@@ -1523,6 +1523,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
 
                     self.mainWindow.debugAction = nil
                     self.mainWindow.viewController = context.rootController
+                    ayuGramFloatingMove(to: context.rootController)
                     
                     #if DEBUG
                     if firstTime {
