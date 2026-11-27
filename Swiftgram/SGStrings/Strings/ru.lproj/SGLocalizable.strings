@@ -1016,3 +1016,6 @@
 "Ayu.ProfileStyle.Color.Wine" = "Винный";
 "Ayu.ProfileStyle.Color.Navy" = "Тёмно-синий";
 "Ayu.ProfileStyle.Color.Forest" = "Хвойный";
+"Ayu.Prerelease.Title" = "Это бета-сборка AyuGram для разработки, у вас нет к ней доступа";
+"Ayu.Prerelease.Text" = "Перейдите на последнюю вышедшую сборку AyuGram в t.me/ayugramiosupdates";
+"Ayu.Prerelease.Open" = "Открыть t.me/ayugramiosupdates";

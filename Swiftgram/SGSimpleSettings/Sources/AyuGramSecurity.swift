@@ -39,13 +39,35 @@ public struct AyuGramBlockRules: Equatable {
     public var builds: Set<Int> = []
     public var modified = false
     public var message: String?
+    public var publishedBuild: Int?
+    public var testers: Set<Int64> = []
 
     public init() {}
 
     public static func parse(_ data: Data) -> AyuGramBlockRules {
         var rules = AyuGramBlockRules()
-        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let block = object["block"] as? [String: Any] else {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return rules
+        }
+        if let build = (object["build"] as? Int) ?? (object["build"] as? String).flatMap({ Int($0) }), build > 0 {
+            rules.publishedBuild = build
+        }
+        guard let block = object["block"] as? [String: Any] else {
+            return rules
+        }
+        if let testers = block["testers"] as? [Any] {
+            rules.testers = Set(testers.compactMap { item -> Int64? in
+                if let number = item as? Int64 {
+                    return number
+                }
+                if let number = item as? Int {
+                    return Int64(number)
+                }
+                if let text = item as? String {
+                    return Int64(text.trimmingCharacters(in: .whitespaces))
+                }
+                return nil
+            })
         }
         if let teams = block["teams"] as? [String] {
             rules.teams = Set(teams.map { $0.trimmingCharacters(in: .whitespaces).uppercased() }.filter { !$0.isEmpty })
@@ -242,6 +264,23 @@ public final class AyuGramSecurity {
         self.lock.lock()
         defer { self.lock.unlock() }
         return self.rules.matches(teamId: self.signing.teamId, build: self.build, status: self.currentStatus) || UserDefaults.standard.bool(forKey: self.banKey) || UserDefaults.standard.bool(forKey: self.flagsKey)
+    }
+
+    private let publishedBuildKey = "ayugram.release.published"
+    private let testersKey = "ayugram.release.testers"
+
+    public var isPrereleaseLocked: Bool {
+        let published = UserDefaults.standard.integer(forKey: self.publishedBuildKey)
+        guard published > 0, self.build > published else {
+            return false
+        }
+        let hashes = self.accountHashes
+        if hashes.isEmpty {
+            return false
+        }
+        var allowed: [Int64] = [AyuGramUpdates.developerId, 8914323197]
+        allowed.append(contentsOf: (UserDefaults.standard.array(forKey: self.testersKey) as? [NSNumber] ?? []).map { $0.int64Value })
+        return !allowed.contains(where: { hashes.contains(AyuGramSecurity.accountHash($0)) })
     }
 
     public var isBanned: Bool {
@@ -464,11 +503,17 @@ public final class AyuGramSecurity {
 
     public func applyManifest(_ data: Data) {
         let parsed = AyuGramBlockRules.parse(data)
+        let wasLocked = self.isPrereleaseLocked
+        if let published = parsed.publishedBuild {
+            UserDefaults.standard.set(published, forKey: self.publishedBuildKey)
+        }
+        UserDefaults.standard.set(parsed.testers.sorted().map { NSNumber(value: $0) }, forKey: self.testersKey)
+        let lockChanged = wasLocked != self.isPrereleaseLocked
         self.lock.lock()
         let changed = parsed != self.rules
         self.rules = parsed
         self.lock.unlock()
-        if changed {
+        if changed || lockChanged {
             self.notify()
         }
     }

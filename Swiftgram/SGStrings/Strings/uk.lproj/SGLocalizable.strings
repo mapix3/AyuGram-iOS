@@ -982,3 +982,6 @@
 "Ayu.ProfileStyle.Color.Wine" = "Винний";
 "Ayu.ProfileStyle.Color.Navy" = "Темно-синій";
 "Ayu.ProfileStyle.Color.Forest" = "Хвойний";
+"Ayu.Prerelease.Title" = "Це бета-збірка AyuGram для розробки, у вас немає до неї доступу";
+"Ayu.Prerelease.Text" = "Перейдіть на останню випущену збірку AyuGram у t.me/ayugramiosupdates";
+"Ayu.Prerelease.Open" = "Відкрити t.me/ayugramiosupdates";

@@ -33,6 +33,7 @@ func ayuGramStartSecurity(context: AccountContext) {
         guard let context else {
             return
         }
+        ayuGramPresentPrereleaseIfNeeded()
         ayuGramPresentBlockIfNeeded(context: context)
         ayuGramPresentWarningIfNeeded(context: context)
     })
@@ -43,12 +44,145 @@ func ayuGramStartSecurity(context: AccountContext) {
         AyuGramSecurity.shared.refreshModeration()
     })
     AyuGramSecurity.shared.noteAccount(context.account.peerId.id._internalGetInt64Value())
+    ayuGramAccountsDisposable?.dispose()
+    ayuGramAccountsDisposable = (context.sharedContext.activeAccountContexts
+    |> take(1)
+    |> deliverOnMainQueue).startStrict(next: { _, accounts, _ in
+        for (_, accountContext, _) in accounts {
+            AyuGramSecurity.shared.noteAccount(accountContext.account.peerId.id._internalGetInt64Value())
+        }
+        ayuGramPresentPrereleaseIfNeeded()
+    })
     AyuGramSecurity.shared.refreshModeration()
     AyuGramSecurity.shared.start(variant: ayuGramVariant, statsEnabled: {
         return AyuGramSettings.shared.extra.anonymousStats
     })
+    ayuGramPresentPrereleaseIfNeeded()
     ayuGramPresentBlockIfNeeded(context: context)
     ayuGramPresentWarningIfNeeded(context: context)
+}
+
+private var ayuGramAccountsDisposable: Disposable?
+private var ayuGramPrereleaseWindow: UIWindow?
+
+private final class AyuGramPrereleaseController: UIViewController {
+    private let locale: String
+
+    init(locale: String) {
+        self.locale = locale
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
+    }
+
+    private static func appIcon() -> UIImage? {
+        guard let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any], let primary = icons["CFBundlePrimaryIcon"] as? [String: Any], let files = primary["CFBundleIconFiles"] as? [String] else {
+            return nil
+        }
+        for name in files.reversed() {
+            if let image = UIImage(named: name) {
+                return image
+            }
+        }
+        return nil
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        self.view.backgroundColor = .black
+
+        let iconView = UIImageView(image: AyuGramPrereleaseController.appIcon())
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.contentMode = .scaleAspectFill
+        iconView.layer.cornerRadius = 26.0
+        iconView.layer.cornerCurve = .continuous
+        iconView.clipsToBounds = true
+
+        let titleLabel = UILabel()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.numberOfLines = 0
+        titleLabel.textAlignment = .center
+        titleLabel.textColor = .white
+        titleLabel.font = UIFont.systemFont(ofSize: 24.0, weight: .semibold)
+        titleLabel.text = i18n("Ayu.Prerelease.Title", self.locale)
+
+        let textLabel = UILabel()
+        textLabel.translatesAutoresizingMaskIntoConstraints = false
+        textLabel.numberOfLines = 0
+        textLabel.textAlignment = .center
+        textLabel.textColor = UIColor(white: 0.62, alpha: 1.0)
+        textLabel.font = UIFont.systemFont(ofSize: 17.0)
+        textLabel.text = i18n("Ayu.Prerelease.Text", self.locale)
+
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
+        button.layer.cornerRadius = 12.0
+        button.layer.cornerCurve = .continuous
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 17.0, weight: .semibold)
+        button.setTitle(i18n("Ayu.Prerelease.Open", self.locale), for: .normal)
+        button.addTarget(self, action: #selector(self.openPressed), for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [iconView, titleLabel, textLabel])
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 18.0
+        stack.setCustomSpacing(28.0, after: iconView)
+
+        self.view.addSubview(stack)
+        self.view.addSubview(button)
+        let guide = self.view.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            iconView.widthAnchor.constraint(equalToConstant: 120.0),
+            iconView.heightAnchor.constraint(equalToConstant: 120.0),
+            stack.centerYAnchor.constraint(equalTo: guide.centerYAnchor, constant: -40.0),
+            stack.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 32.0),
+            stack.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -32.0),
+            titleLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            textLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            button.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 32.0),
+            button.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -32.0),
+            button.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -24.0),
+            button.heightAnchor.constraint(equalToConstant: 50.0)
+        ])
+    }
+
+    @objc private func openPressed() {
+        if let url = URL(string: AyuGramUpdates.channelURL) {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+    }
+}
+
+func ayuGramPresentPrereleaseIfNeeded() {
+    guard AyuGramSecurity.shared.isPrereleaseLocked else {
+        if let window = ayuGramPrereleaseWindow {
+            window.isHidden = true
+            ayuGramPrereleaseWindow = nil
+        }
+        return
+    }
+    if ayuGramPrereleaseWindow != nil {
+        return
+    }
+    let locale = Locale.preferredLanguages.first.map { String($0.prefix(2)) } ?? "en"
+    let window = UIWindow(frame: UIScreen.main.bounds)
+    if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+        window.windowScene = scene
+    }
+    window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 2.0)
+    window.backgroundColor = .black
+    window.rootViewController = AyuGramPrereleaseController(locale: locale)
+    window.makeKeyAndVisible()
+    ayuGramPrereleaseWindow = window
 }
 
 private var ayuGramTamperWindow: UIWindow?
