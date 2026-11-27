@@ -163,15 +163,22 @@ jobs:
           TEXT="AyuGram $VERSION ($BUILD)"
           [ -n "$NOTES" ] && TEXT="$TEXT"$'\n\n'"$NOTES"
           TEXT="$TEXT"$'\n\nStandard — обычный AyuGram, Custom — с кастомным оформлением.'
+          HTML="$(python3 -c 'import html,sys; v,b,n=sys.argv[1:4]; q="<blockquote expandable>"+html.escape(n.strip())+"</blockquote>\n\n" if n.strip() else ""; print(html.escape("AyuGram %s (%s)" % (v,b))+"\n\n"+q+"Standard — обычный AyuGram, Custom — с кастомным оформлением.")' "$VERSION" "$BUILD" "$NOTES")"
           # The text sits under the files with the release link at the very bottom. A caption
           # holds 1024 characters; longer notes go in a message of their own above the files.
+          MODE=""
           if [ $(( ${#TEXT} + ${#RELEASE} + 2 )) -le 1024 ]; then
-            CAPTION="$TEXT"$'\n\n'"$RELEASE"
+            CAPTION="$HTML"$'\n\n'"$RELEASE"
+            MODE="HTML"
           else
-            check "$(curl -sS "$API/sendMessage" --data-urlencode "chat_id=$CHANNEL" --data-urlencode "text=$TEXT" --data-urlencode "link_preview_options={\"is_disabled\":true}")"
+            SENT="$(curl -sS "$API/sendMessage" --data-urlencode "chat_id=$CHANNEL" --data-urlencode "text=$HTML" --data-urlencode "parse_mode=HTML" --data-urlencode "link_preview_options={\"is_disabled\":true}")"
+            if ! jq -e '.ok' >/dev/null <<<"$SENT"; then
+              SENT="$(curl -sS "$API/sendMessage" --data-urlencode "chat_id=$CHANNEL" --data-urlencode "text=$TEXT" --data-urlencode "link_preview_options={\"is_disabled\":true}")"
+            fi
+            check "$SENT"
             CAPTION="$RELEASE"
           fi
-          MEDIA="$(jq -cn --arg caption "$CAPTION" '[{type: "document", media: "attach://standard"}, {type: "document", media: "attach://custom", caption: $caption}]')"
+          MEDIA="$(jq -cn --arg caption "$CAPTION" --arg mode "$MODE" '[{type: "document", media: "attach://standard"}, ({type: "document", media: "attach://custom", caption: $caption} + (if $mode == "" then {} else {parse_mode: $mode} end))]')"
           # --form-string: the notes may contain ';' or start with '@', which -F would interpret.
           POSTED="$(curl -sS "$API/sendMediaGroup" --form-string "chat_id=$CHANNEL" --form-string "media=$MEDIA" \
             -F "standard=@ipa/AyuGram-standard-$BUILD.ipa" -F "custom=@ipa/AyuGram-custom-$BUILD.ipa")"
